@@ -23,7 +23,7 @@ import xarray as xr
 from scipy import signal
 from scipy.interpolate import griddata
 from xclim.core.utils import sfcwind_2_uas_vas
-from xsd.xsd.qm import train, predict
+from xsd.qm import train, predict
 
 # Dataset.
 stn_names         = ["boromo"]
