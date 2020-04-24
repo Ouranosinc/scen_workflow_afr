@@ -8,9 +8,9 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import burkina_pcci_config as cfg
-import burkina_pcci_rcm as rcm
-import burkina_pcci_utils as utils
+import config as cfg
+import rcm
+import utils
 import datetime
 import glob
 import pandas as pd
