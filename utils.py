@@ -8,7 +8,7 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import burkina_pcci_config as cfg
+import config as cfg
 import glob
 import numpy as np
 import numpy.matlib
