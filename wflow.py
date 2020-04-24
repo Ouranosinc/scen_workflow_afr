@@ -8,9 +8,16 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+# Current package.
 import config as cfg
 import rcm
 import utils
+
+# Ouranos packages.
+from xclim.core.utils import sfcwind_2_uas_vas
+from xsd.qm import train, predict
+
+# Other packages.
 import datetime
 import glob
 import pandas as pd
@@ -22,64 +29,6 @@ import os
 import xarray as xr
 from scipy import signal
 from scipy.interpolate import griddata
-from xclim.core.utils import sfcwind_2_uas_vas
-from xsd.qm import train, predict
-
-# Dataset.
-stn_names         = ["boromo"]
-# DEBUG: variables = [cfg.var_tas, cfg.var_tasmin, cfg.var_tasmax, cfg.var_pr, cfg.var_uas, cfg.var_vas]
-variables         = [cfg.var_uas, cfg.var_vas]
-priority_timestep = ["day"] * len(variables)
-
-# Bias correction.
-# ...
-up_qmf = 3
-# Number of allowed days.
-nq = 50
-
-# Options.
-# If True, converts observations to NetCDF files.
-opt_read_obs_netcdf = True
-# If True, forces extraction and pre-processing.
-opt_extract_preprocess = False
-# If True, forces extraction.
-opt_extract = True
-# If True, performs temporal interpolation during extraction.
-opt_itp_time = True
-# If True, perform spatial interpolation during extraction.
-opt_itp_space = True
-# If True, relies on the regrid during spatial interpolation.
-# Otherwise, takes the data at the nearest point.
-opt_regrid = False
-# If True, forces pre-processing.
-opt_preprocess = True
-# If True, forces post-processing.
-opt_postprocess = True
-# If True, generates plots of future and observation.
-opt_plot_pp_fut_obs = True
-# If True, generates plots of reference vs future.
-opt_plot_ref_fut = True
-# If True, generates plots of temporal interpolation (for debug purpose only).
-opt_plot_365vs360 = True
-# If True, save plots.
-opt_save  = True
-# If True, close plots.
-opt_close = True
-
-# File system.
-# Rank of token corresponding to the institute.
-idx_institute = len(cfg.path_src.split("/"))
-# Rank of token corresponding to the GCM.
-idx_gcm   = idx_institute + 1
-
-# List of simulation and var-simulation combinations that must be avoided to avoid a crash.
-# TODO.YR: Determine why exception lists are required.
-sim_excepts     = ["RCA4_AFR-44_ICHEC-EC-EARTH_rcp85",
-                   "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
-                   "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45.nc",
-                   "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85.nc"]
-var_sim_excepts = [cfg.var_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc",
-                   cfg.var_tasmin + "_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc"]
 
 
 def read_s_anam(var):
@@ -106,7 +55,7 @@ def read_s_anam(var):
         stn_name = os.path.basename(fn_stn[i]).replace(".nc", "")
         # DEBUG: print(stn_name)
 
-        if not(stn_name in stn_names):
+        if not(stn_name in cfg.stn_names):
             continue
 
         obs  = pd.read_csv(fn_stn[i], sep=";")
@@ -266,7 +215,7 @@ def extract(var, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid, fn_obs):
 
     path_tmp = cfg.get_path_out("", cfg.cat_raw, var)
     ds = rcm.extract_variable(fn_rcp_hist, fn_rcp_proj, var, lat_bnds, lon_bnds,
-                              priority_timestep=priority_timestep[variables.index(var)], tmpdir=path_tmp)
+                              priority_timestep=cfg.priority_timestep[cfg.variables.index(var)], tmpdir=path_tmp)
 
     print("Data extraction completed!")
 
@@ -275,7 +224,7 @@ def extract(var, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid, fn_obs):
     # This checks if the data is daily. If it is sub-daily, resample to daily. This can take a
     # while, but should save us computation time later.
 
-    if opt_itp_time:
+    if cfg.opt_wflow_itp_time:
 
         print("Performing temporal interpolation...")
 
@@ -291,12 +240,12 @@ def extract(var, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid, fn_obs):
     # Spatial interpolation --------------------------------------------------------------------------------------------
 
     ds_regrid = None
-    if opt_itp_space:
+    if cfg.opt_wflow_itp_space:
 
         print("Performing spatial interpolation...")
 
         # Method 1: Convert data to a new grid.
-        if opt_regrid:
+        if cfg.opt_wflow_regrid:
 
             new_grid = np.meshgrid(ds_obs.lon.values.ravel(), ds_obs.lat.values.ravel())
             if np.min(new_grid[0]) > 0:
@@ -431,7 +380,7 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
         ds_fut_365.to_netcdf(fn_regrid_fut)
 
         # DEBUG: Plot 365 versus 360 calendar.
-        if opt_plot_365vs360:
+        if cfg.opt_plt_365vs360:
             plt.plot((np.arange(1, 361) / 360) * 365, ds_fut[var][:360].values)
             plt.plot(np.arange(1, 366), ds_fut_365[var].values[:365], alpha=0.5)
             plt.close()
@@ -489,8 +438,8 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
 
     # Figures.
     fn_fig   = fn_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
-    sup_title = fn_fig[:-4] + "_time_int_" + str(cfg.time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
-    path_fig = cfg.get_path_out(stn_name, "fig/postprocess", var)
+    sup_title = fn_fig[:-4] + "_time_int_" + str(cfg.time_int) + "_up_qmf_" + str(cfg.up_qmf) + "_nq_" + str(cfg.nq)
+    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/postprocess", var)
     if not (os.path.isdir(path_fig)):
         os.makedirs(path_fig)
     fn_fig = path_fig + fn_fig
@@ -511,7 +460,7 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
             raise ValueError
 
     # Plot 365 versus 360 data.
-    if opt_plot_365vs360:
+    if cfg.opt_plt_365vs360:
         plt.plot((np.arange(1, 361) / 360) * 365, ds_fut[:360].values)
         plt.plot(np.arange(1, 366), ds_fut_365[:365].values, alpha=0.5)
         plt.close()
@@ -531,10 +480,10 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
 
     # Calculate QMF.
     # TODO.MAB: The detrend_order seems to be not working.
-    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, cfg.time_int,
+    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), cfg.nq, cfg.group, kind, cfg.time_int,
                    detrend_order=cfg.detrend_order)
     if var == cfg.var_pr:
-        ds_qmf.values[ds_qmf > up_qmf] = up_qmf
+        ds_qmf.values[ds_qmf > cfg.up_qmf] = cfg.up_qmf
 
     # Apply transfer function.
     ds_qqmap = None
@@ -548,7 +497,7 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
         pass
 
     # Plot PP_FUT_OBS.
-    if opt_plot_pp_fut_obs:
+    if cfg.opt_plt_pp_fut_obs:
 
         # Conversion coefficient.
         coef = 1
@@ -576,10 +525,10 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
         plt.tick_params(axis='x', labelsize=fs_axes)
         plt.tick_params(axis='y', labelsize=fs_axes)
 
-        if opt_save:
+        if cfg.opt_plt_save:
             plt.savefig(fn_fig)
         # DEBUG: Need to add a breakpoint below to visualize plot.
-        if opt_close:
+        if cfg.opt_plt_close:
             plt.close()
 
     print("Post-processing completed!")
@@ -626,7 +575,7 @@ def gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig):
     f.add_subplot(211)
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.00)
     sup_title = os.path.basename(fn_fig).replace(".png", "") +\
-        "_time_int_" + str(cfg.time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
+        "_time_int_" + str(cfg.time_int) + "_up_qmf_" + str(cfg.up_qmf) + "_nq_" + str(cfg.nq)
     plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     # Upper plot: Reference period.
@@ -651,10 +600,10 @@ def gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig):
     plt.tick_params(axis='y', labelsize=fs_axes)
     plt.title("Période de simulation", fontsize=fs_title)
 
-    if opt_save:
+    if cfg.opt_plt_save:
         plt.savefig(fn_fig)
     # DEBUG: Need to add a breakpoint below to visualize plot.
-    if opt_close:
+    if cfg.opt_plt_close:
         plt.close()
 
 
@@ -671,7 +620,7 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print(cfg.f_prefix + ": Launched")
+    print("Module workflow launched.")
 
     # Create directory.
     path_out = cfg.get_path_out("", "", "")
@@ -679,15 +628,15 @@ def main():
         os.makedirs(path_out)
 
     # Convert observation to NetCDF.
-    if opt_read_obs_netcdf:
-        for var in variables:
+    if cfg.opt_wflow_read_obs_netcdf:
+        for var in cfg.variables:
             read_s_anam(var)
 
     # List CORDEX files.
     list_cordex = utils.list_cordex(cfg.path_src)
 
     # Loop through variables.
-    for var in variables:
+    for var in cfg.variables:
 
         # Select file name for observation.
         path_stn   = cfg.get_path_stn(var)
@@ -699,7 +648,7 @@ def main():
             # Station name.
             fn_stn_i = fn_stn[i]
             stn_name = os.path.basename(fn_stn_i).replace(".nc", "")
-            if not (stn_name in stn_names):
+            if not (stn_name in cfg.stn_names):
                 continue
 
             # Create directories.
@@ -724,19 +673,19 @@ def main():
 
                     c = list_cordex[rcp][sim].split("/")
                     print("Processing: variable = " + var + "; station = " + stn_name + ": " +
-                          c[idx_institute] + "_" + c[idx_gcm])
+                          c[cfg.idx_institute] + "_" + c[cfg.idx_gcm])
 
                     # Files within CORDEX or CORDEX-NA.
                     if "CORDEX" in list_cordex[rcp][sim]:
-                        fn_raw = path_raw + var + "_" + c[idx_institute] + "_" +\
-                                 c[idx_gcm].replace("*", "_") + ".nc"
+                        fn_raw = path_raw + var + "_" + c[cfg.idx_institute] + "_" +\
+                                 c[cfg.idx_gcm].replace("*", "_") + ".nc"
                     elif len(list_cordex[rcp][sim]) == 3:
                         fn_raw = path_raw + var + "_Ouranos_" + list_cordex[rcp][sim] + ".nc"
                     else:
                         fn_raw = None
 
                     # Skip simulations that are included in the exception list.
-                    for sim_except in sim_excepts:
+                    for sim_except in cfg.sim_excepts:
                         if sim_except in fn_raw:
                             continue
 
@@ -750,27 +699,24 @@ def main():
 
                     # Figures.
                     fn_fig   = fn_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
-                    path_fig = cfg.get_path_out(stn_name, "fig/workflow", var)
+                    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/workflow", var)
                     if not (os.path.isdir(path_fig)):
                         os.makedirs(path_fig)
                     fn_fig = path_fig + fn_fig
 
-                    # Data extraction and preparation.
-                    if opt_extract_preprocess or not (os.path.isfile(fn_raw)):
+                    # Data extraction.
+                    if cfg.opt_wflow_extract or not (os.path.isfile(fn_raw)):
+                        extract(var, list_cordex[rcp + "_historical"][sim], list_cordex[rcp][sim],
+                                fn_raw, fn_regrid, fn_obs)
 
-                        # Data extraction.
-                        if opt_extract:
-                            extract(var, list_cordex[rcp + "_historical"][sim], list_cordex[rcp][sim],
-                                    fn_raw, fn_regrid, fn_obs)
-
-                        # Pre-processing.
-                        if opt_preprocess:
-                            preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
+                    # Pre-processing.
+                    if cfg.opt_wflow_preprocess:
+                        preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
 
                     # Post-processing.
-                    if opt_postprocess or not (os.path.isfile(fn_qqmap)):
+                    if cfg.opt_wflow_postprocess or not (os.path.isfile(fn_qqmap)):
                         skip_postprocess = False
-                        for var_sim_except in var_sim_excepts:
+                        for var_sim_except in cfg.var_sim_excepts:
                             if var_sim_except in fn_raw:
                                 skip_postprocess = True
                                 break
@@ -778,10 +724,10 @@ def main():
                             postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap)
 
                     # Generates extra plot.
-                    if opt_plot_ref_fut:
+                    if cfg.opt_plt_ref_fut:
                         gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig)
 
-    print(cfg.f_prefix + ": Completed")
+    print("Module workflow completed successfully.")
 
 
 if __name__ == "__main__":
