@@ -1,12 +1,6 @@
 # -*- coding: utf-8 -*-
 # ----------------------------------------------------------------------------------------------------------------------
 # Script configuration.
-# Execution steps: set global/local parameters and execute each script (except the first one).
-# 1. *_*_config.py:   (mandatory)
-# 2. *_*_calib.py:    (mandatory)
-# 3. *_*_workflow.py: (mandatory)
-# 4. *_*_verif.py:    (optional, useful to verify generated NetCDF files).
-# 5. *_*_utils.py:    (optional, useful to test/debug individual functions).
 #
 # Contact information:
 # 1. bourgault.marcandre@ouranos.ca (original author)
