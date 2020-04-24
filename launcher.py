@@ -8,9 +8,9 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import burkina_pcci_calib as calib
-import burkina_pcci_verif as verif
-import burkina_pcci_workflow as wf
+import calib
+import verif
+import workflow
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
     calib.main()
 
     # Step #2: Workflow (mandatory).
-    wf.main()
+    workflow.main()
 
     # Step #3: Verification (optional, useful to verify generated NetCDF files).
     verif.main()
