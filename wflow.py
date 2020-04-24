@@ -347,7 +347,7 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
     if not (os.path.isfile(fn_regrid)) and (var in cfg.var_clt):
         print(fn_regrid + " does not exist. Skipping it. \n")
     else:
-        print("Creating NetCDF for: " + fn_regrid)
+        print("Creating NetCDF: " + fn_regrid)
 
         # Make sure that the data we post-process is
         # within the boundaries.
@@ -620,7 +620,7 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print("Module workflow launched.")
+    print("Module wflow launched.")
 
     # Create directory.
     path_out = cfg.get_path_out("", "", "")
@@ -727,7 +727,7 @@ def main():
                     if cfg.opt_plt_ref_fut:
                         gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig)
 
-    print("Module workflow completed successfully.")
+    print("Module wflow completed successfully.")
 
 
 if __name__ == "__main__":

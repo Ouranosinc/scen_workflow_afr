@@ -23,6 +23,8 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    print("Module launcher launched.")
+
     # Step #1: Set parameters ------------------------------------------------------------------------------------------
 
     # The parameter values below override 'config' values.
@@ -47,7 +49,6 @@ def main():
     cfg.priority_timestep = ["day"] * len(cfg.variables)
 
     # List of simulation and var-simulation combinations that must be avoided to avoid a crash.
-    # TODO.YR: Determine why exception lists are required.
     sim_excepts = ["RCA4_AFR-44_ICHEC-EC-EARTH_rcp85",
                    "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
                    "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45.nc",
@@ -69,7 +70,7 @@ def main():
 
     # This step is mandatory.
 
-    calib.main()
+    # calib.main()
 
     # Step #3: Workflow (mandatory) ------------------------------------------------------------------------------------
 
@@ -84,6 +85,8 @@ def main():
     # This step is optional. It is useful to verify generated NetCDF files.
 
     verif.main()
+
+    print("Module launcher completed successfully.")
 
 
 if __name__ == "__main__":
