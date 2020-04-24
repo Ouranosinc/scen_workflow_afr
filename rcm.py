@@ -8,12 +8,17 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+# Current package.
 import config as cfg
+
+# Ouranos packages.
+from xclim import subset
+
+# Other packages.
 import glob
 import numpy as np
 import os
 import xarray as xr
-from xclim import subset
 
 
 def build_list(variables, rcps, priority_timestep, priority_nam22=False, ouranos_multiple_canesm2=False):

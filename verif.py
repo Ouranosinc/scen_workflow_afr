@@ -8,26 +8,15 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+# Current package.
 import config as cfg
 import utils
+
+# Other packages.
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import xarray as xr
-
-# Dataset.
-# Weather variables.
-variables = [cfg.var_uas, cfg.var_vas]
-# Station names.
-stn_names = ["boromo"]
-# Simulation index (3 files per simulation).
-idx_sim = 0
-
-# Options.
-# If True, save plots.
-opt_save  = True
-# If True, close plots.
-opt_close = True
 
 
 def plot_ts_single(stn_name, var):
@@ -97,15 +86,15 @@ def plot_ts_single(stn_name, var):
         plt.tick_params(axis='x', labelsize=fs_axes)
         plt.tick_params(axis='y', labelsize=fs_axes)
 
-        if opt_save:
+        if cfg.opt_plt_save:
             fn_fig = sup_title + ".png"
-            path_fig = cfg.get_path_out("", "fig/verification/ts_single", var)
+            path_fig = cfg.get_path_out("", cfg.cat_fig + "/verification/ts_single", var)
             if not (os.path.isdir(path_fig)):
                 os.makedirs(path_fig)
             fn_fig = path_fig + fn_fig
             plt.savefig(fn_fig)
         # DEBUG: Need to add a breakpoint below to visualize plot.
-        if opt_close:
+        if cfg.opt_plt_close:
             plt.close()
 
 
@@ -185,15 +174,15 @@ def plot_ts_mosaic(stn_name, var):
             sup_title = title + "_verification_ts_mosaic"
             plt.suptitle(sup_title, fontsize=fs_sup_title)
 
-    if opt_save:
+    if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_out("", "fig/verification/ts_mosaic", var)
+        path_fig = cfg.get_path_out("", cfg.cat_fig + "/verification/ts_mosaic", var)
         if not (os.path.isdir(path_fig)):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
         plt.savefig(fn_fig)
     # DEBUG: Need to add a breakpoint below to visualize plot.
-    if opt_close:
+    if cfg.opt_plt_close:
         plt.close()
 
 
@@ -268,15 +257,15 @@ def plot_monthly(stn_name, var):
     # Format.
     plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
 
-    if opt_save:
+    if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_out("", "fig/verification/monthly", var)
+        path_fig = cfg.get_path_out("", cfg.cat_fig + "/verification/monthly", var)
         if not (os.path.isdir(path_fig)):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
         plt.savefig(fn_fig)
     # DEBUG: Need to add a breakpoint below to visualize plot.
-    if opt_close:
+    if cfg.opt_plt_close:
         plt.close()
 
 
@@ -288,13 +277,13 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print(cfg.f_prefix + ": Launched")
+    print("Module verif launched.")
 
     # Loop through station names.
-    for stn_name in stn_names:
+    for stn_name in cfg.stn_names:
 
         # Loop through variables.
-        for var in variables:
+        for var in cfg.variables:
 
             # Produce plots.
             try:
@@ -305,7 +294,7 @@ def main():
                 print("Unable to locate the required files!")
                 pass
 
-    print(cfg.f_prefix + ": Completed")
+    print("Module verif completed successfully.")
 
 
 if __name__ == "__main__":

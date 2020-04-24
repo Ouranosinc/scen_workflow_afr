@@ -9,46 +9,18 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+# Current package.
 import config as cfg
 import utils
+
+# Ouranos packages.
+from xsd.qm import train, predict
+
+# Other packages.
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import xarray as xr
-from xsd.qm import train, predict
-
-# Datasets.
-# Weather stations.
-# station_names = ["boromo", "diebougou", "farakoba", "gaoua", "kassoum", "leo", "po", "valleedukou"]
-stn_names = ["boromo"]
-# Weather variables.
-variables = [cfg.var_vas]
-# Index of simulation set.
-idx_sim = []
-
-# Options.
-# If True, examines bias correction.
-opt_bias_correction = True
-# If True, examines physical coherence.
-opt_physical_coherence = True
-# If true, calculate qqmap.
-opt_qqmap = True
-# If True, overlaps additional curves on time-series.
-opt_extra = True
-# If True, save plots.
-opt_save  = True
-# If True, close plots.
-opt_close = True
-
-# Bias correction.
-# ...
-nq           = 40
-# ...
-up_qmf_list  = [2.5]
-# DEBUG: up_qmf_list  = range(2,3,1)
-# ...
-time_int_list = [cfg.time_int]
-# DEBUG: time_int_list = range(1, 37, 5)
 
 
 def bias_correction_loop(stn_name, var):
@@ -77,87 +49,88 @@ def bias_correction_loop(stn_name, var):
     files = utils.list_files(path_regrid)
 
     # Loop through simulations sets (3 files per simulation set).
-    global idx_sim
-    if len(idx_sim) == 0:
-        idx_sim = range(0, int(len(files) / 3))
-    for i in idx_sim:
+    if len(cfg.idx_sim) == 0:
+        cfg.idx_sim = range(0, int(len(files) / 3))
+    for i in cfg.idx_sim:
 
-        for up_qmf in up_qmf_list:
+        for nq in cfg.nq_calib:
 
-            for time_int in time_int_list:
+            for up_qmf in cfg.up_qmf_calib:
 
-                print("Correcting i=" + str(i) + ", up_qmf=" + str(up_qmf) + ", time_int=" + str(time_int))
+                for time_int in cfg.time_int_calib:
 
-                # NetCDF file.
-                fn_obs   = cfg.get_path_obs(stn_name, var)
-                fn_ref   = [i for i in files if "ref" in i][i]
-                fn_fut   = fn_ref.replace("ref_", "")
-                fn_qqmap = cfg.get_path_out(stn_name, cfg.cat_qqmap, var)
+                    print("Correcting i=" + str(i) + ", up_qmf=" + str(up_qmf) + ", time_int=" + str(time_int))
 
-                # Figures.
-                fn_fig   = fn_fut.split("/")[-1].replace("4qqmap.nc", "calibration.png")
-                sup_title = os.path.basename(fn_fig) + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) +\
-                    "_nq_" + str(nq)
-                path_fig = cfg.get_path_out("", "fig/calibration", var)
-                if not(os.path.isdir(path_fig)):
-                    os.makedirs(path_fig)
-                fn_fig = path_fig + fn_fig
+                    # NetCDF file.
+                    fn_obs = cfg.get_path_obs(stn_name, var)
+                    fn_ref = [i for i in files if "ref" in i][i]
+                    fn_fut = fn_ref.replace("ref_", "")
+                    fn_qqmap = cfg.get_path_out(stn_name, cfg.cat_qqmap, var)
 
-                # Examine bias correction.
-                bias_correction(var, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_fig, sup_title)
+                    # Figures.
+                    fn_fig = fn_fut.split("/")[-1].replace("4qqmap.nc", "calibration.png")
+                    sup_title = os.path.basename(fn_fig) + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + \
+                        "_nq_" + str(nq)
+                    path_fig = cfg.get_path_out("", cfg.cat_fig + "/calibration", var)
+                    if not (os.path.isdir(path_fig)):
+                        os.makedirs(path_fig)
+                    fn_fig = path_fig + fn_fig
 
-                if not opt_extra:
-                    continue
+                    # Examine bias correction.
+                    bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_fig, sup_title)
 
-                # Extra ------------------------------------------------------------------------------------------------
+                    if not cfg.opt_calib_extra:
+                        continue
 
-                ds_obs = xr.open_dataset(fn_obs)
-                ds_fut = xr.open_dataset(fn_fut)
+                    # Extra --------------------------------------------------------------------------------------------
 
-                # TODO: The following block of code does not work. Compatibility with a xarray.DataArray that
-                #       contains a time attribute of type cfg.dtype_obj requires the package SciTools which is
-                #       not available in Python 3.
-                if (ds_fut.time.dtype != cfg.dtype_obj) and (ds_obs.time.dtype != cfg.dtype_obj):
+                    ds_obs = xr.open_dataset(fn_obs)
+                    ds_fut = xr.open_dataset(fn_fut)
 
-                    # Conversion coefficient.
-                    coef = 1
-                    if var == cfg.var_pr:
-                        coef = cfg.spd
+                    # TODO: The following block of code does not work. Compatibility with a xarray.DataArray that
+                    #       contains a time attribute of type cfg.dtype_obj requires the package SciTools which is
+                    #       not available in Python 3.
+                    if (ds_fut.time.dtype != cfg.dtype_obj) and (ds_obs.time.dtype != cfg.dtype_obj):
 
-                    fs_sup_title = 8
-                    fs_legend   = 8
-                    fs_axes     = 8
-                    f = plt.figure(figsize=(15, 3))
-                    f.add_subplot(111)
-                    plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
+                        # Conversion coefficient.
+                        coef = 1
+                        if var == cfg.var_pr:
+                            coef = cfg.spd
 
-                    # Precipitation.
-                    (ds_fut[var] * coef).plot(alpha=0.5)
-                    # ERROR: (ds_qqmap[var]*coef).plot(alpha=0.5)
-                    if var == cfg.var_pr:
-                        (ds_obs[var] * coef).plot()
-                    # Other variables.
-                    else:
-                        dt = 0
-                        if var in [cfg.var_tas, cfg.var_tasmax, cfg.var_tasmin]:
-                            dt = 273.15
-                        (ds_obs[var] + dt).plot()
-                    plt.legend(["sim", "obs"], fontsize=fs_legend)
-                    plt.xlabel("Année", fontsize=fs_axes)
-                    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-                    plt.title("")
-                    plt.suptitle(sup_title, fontsize=fs_sup_title)
-                    plt.tick_params(axis='x', labelsize=fs_axes)
-                    plt.tick_params(axis='y', labelsize=fs_axes)
+                        fs_sup_title = 8
+                        fs_legend = 8
+                        fs_axes = 8
+                        f = plt.figure(figsize=(15, 3))
+                        f.add_subplot(111)
+                        plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
 
-                    if opt_save:
-                        plt.savefig(fn_fig.replace(".png", "_ts.png"))
-                    # DEBUG: Need to add a breakpoint below to visualize plot.
-                    if opt_close:
-                        plt.close()
+                        # Precipitation.
+                        (ds_fut[var] * coef).plot(alpha=0.5)
+                        # ERROR: (ds_qqmap[var]*coef).plot(alpha=0.5)
+                        if var == cfg.var_pr:
+                            (ds_obs[var] * coef).plot()
+                        # Other variables.
+                        else:
+                            dt = 0
+                            if var in [cfg.var_tas, cfg.var_tasmax, cfg.var_tasmin]:
+                                dt = 273.15
+                            (ds_obs[var] + dt).plot()
+                        plt.legend(["sim", "obs"], fontsize=fs_legend)
+                        plt.xlabel("Année", fontsize=fs_axes)
+                        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+                        plt.title("")
+                        plt.suptitle(sup_title, fontsize=fs_sup_title)
+                        plt.tick_params(axis='x', labelsize=fs_axes)
+                        plt.tick_params(axis='y', labelsize=fs_axes)
+
+                        if cfg.opt_plt_save:
+                            plt.savefig(fn_fig.replace(".png", "_ts.png"))
+                        # DEBUG: Need to add a breakpoint below to visualize plot.
+                        if cfg.opt_plt_close:
+                            plt.close()
 
 
-def bias_correction(var, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_fig, sup_title):
+def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_fig, sup_title):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -167,6 +140,8 @@ def bias_correction(var, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_
     ----------
     var : str
         Weather variable.
+    nq : int
+        ...
     up_qmf   : float
         ...
     time_int  : int
@@ -226,7 +201,7 @@ def bias_correction(var, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_
     ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, time_int, detrend_order=cfg.detrend_order)
 
     # Calculate QQMAP.
-    if opt_qqmap:
+    if cfg.opt_calib_qqmap:
         if var == cfg.var_pr:
             ds_qmf.values[ds_qmf > up_qmf] = up_qmf
         ds_qqmap     = predict(ds_fut.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
@@ -336,10 +311,10 @@ def bias_correction(var, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_
     plt.tick_params(axis='y', labelsize=fs_axes)
 
     del ds_qqmap.attrs['bias_corrected']
-    if opt_save:
+    if cfg.opt_plt_save:
         plt.savefig(fn_fig)
     # DEBUG: Need to add a breakpoint below to visualize plot.
-    if opt_close:
+    if cfg.opt_plt_close:
         plt.close()
 
 
@@ -472,24 +447,24 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print(cfg.f_prefix + ": Launched")
+    print("Module calib launched.")
 
     # Loop through stations.
-    for stn_name in stn_names:
+    for stn_name in cfg.stn_names:
 
         # Loop through variables.
-        for var in variables:
+        for var in cfg.variables:
 
             # Bias correction.
-            if opt_bias_correction:
+            if cfg.opt_calib_bias:
 
                 bias_correction_loop(stn_name, var)
 
             # Physical coherence.
-            if opt_physical_coherence:
+            if cfg.opt_calib_coherence:
                 physical_coherence(stn_name, [cfg.var_tasmin, cfg.var_tasmax])
 
-    print(cfg.f_prefix + ": Completed")
+    print("Module calib completed successfully.")
 
 
 if __name__ == "__main__":

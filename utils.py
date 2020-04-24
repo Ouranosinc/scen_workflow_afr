@@ -8,7 +8,10 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+# Current package.
 import config as cfg
+
+# Other packages.
 import glob
 import numpy as np
 import numpy.matlib
@@ -532,12 +535,14 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    print("Module utils launched.")
+
     # Test.
     sets = info_cordex(cfg.path_src)
     for i in sets:
         print(i)
 
-    pass
+    print("Module utils completed successfully.")
 
 
 if __name__ == "__main__":

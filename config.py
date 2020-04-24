@@ -10,29 +10,29 @@
 
 # Project information.
 # Country name.
-country = "burkina"
+country = ""
 # Project.
-project = "pcci"
+project = ""
 # User name.
-user_name = "yrousseau"
-# File prefix (Python files).
-f_prefix = country + "_" + project
+user_name = ""
 # Provider of observations.
-obs_provider = "anam"
+obs_provider = ""
 
-# Path of directory containing simulation data.
+# File system.
+# Simulation data.
 path_src = "/dmf2/scenario/external_data/CORDEX-AFR/"
 path_ds1 = "/expl6/climato/arch/"
 path_ds2 = "/dmf2/climato/arch/"
 path_ds3 = "/expl7/climato/arch/"
+# Rank of token corresponding to the institute.
+idx_institute = len(path_src.split("/"))
+# Rank of token corresponding to the GCM.
+idx_gcm = idx_institute + 1
 
-# Emission scenarios and horizons.
-# Emission scenarios.
-rcps = ["rcp26", "rcp45", "rcp85"]
-# Reference period.
-per_ref = [1988, 2017]
-# Future period
-per_fut = [1988, 2095]
+# Emission scenarios and periods.
+rcps    = ["rcp26", "rcp45", "rcp85"]  # Emission scenarios.
+per_ref = [1981, 2010]                 # Reference period.
+per_fut = [1981, 2100]                 # Future period.
 
 # Geographic boundaries and search radius.
 # Latitude (southern and northern boundaries).
@@ -40,48 +40,31 @@ lat_bnds = [8, 16]
 # Longitude (western dn eastern boundaries).
 lon_bnds = [-6, 3]
 # Search radius (around any given location).
-radius = 0.5
+radius   = 0.5
 
 # Numerical parameters.
-# Number of days before and after any given days (15 days before and after = 30 days).
-# This needs to be adjusted as there is period of adjustment between cold period and monsoon). It's possible that a very
-# small precipitation amount be considered extreme. We need to limit correction factors.
-time_int = 30
-group = "time.dayofyear"
+group         = "time.dayofyear"
 detrend_order = None
 
-# Weather variables.
-# Wind in the eastward direction.
-var_uas = "uas"
-# Wind in the northward direction.
-var_vas = "vas"
-# Precipitation.
-var_pr = "pr"
-# Temperature (daily mean).
-var_tas = "tas"
-# Temperature (daily minimum).
-var_tasmin = "tasmin"
-# Temperature (daily maximum).
-var_tasmax = "tasmax"
-# Cloud cover.
-var_clt = "clt"
+# Variables.
+var_uas    = "uas"     # Wind in the eastward direction.
+var_vas    = "vas"     # Wind in the northward direction.
+var_pr     = "pr"      # Precipitation.
+var_tas    = "tas"     # Temperature (daily mean).
+var_tasmin = "tasmin"  # Temperature (daily minimum).
+var_tasmax = "tasmax"  # Temperature (daily maximum).
+var_clt    = "clt"     # Cloud cover.
 
-# Data categories.
-# Observation data.
-cat_obs = "obs"
-# Raw data.
-cat_raw = "raw"
-# Regrid data.
+# Data categories: observation, raw, regrid, qqmap or figure.
+cat_obs    = "obs"
+cat_raw    = "raw"
 cat_regrid = "regrid"
-# QQMap data.
-cat_qqmap = "qqmap"
+cat_qqmap  = "qqmap"
+cat_fig    = "fig"
 
-# Calendar types.
-# No-leap year.
+# Calendar types: no-leap, 360 days or 365 days.
 cal_noleap = "noleap"
-# Year described with 360 days.
 cal_360day = "360_day"
-# Year described with 365 days.
 cal_365day = "365_day"
 
 # Date types.
@@ -90,6 +73,59 @@ dtype_64 = "datetime64[ns]"
 
 # Number of seconds per day.
 spd = 86400
+
+# Stations.
+# Observations are located in directories /exec/<user_name>/<country>/<project>/obs/<obs_provider>/<var>/*.csv
+stn_names = [""]
+
+# Variables.
+variables = []
+priority_timestep = ["day"] * len(variables)
+
+# List of simulation and var-simulation combinations that must be avoided to avoid a crash.
+# Example: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85" (for sim_excepts).
+#          var_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc" (for var_sim_excepts).
+# TODO.YR: Determine why exception lists are required.
+sim_excepts     = []
+var_sim_excepts = []
+
+# Index of simulation set (if only a subset is required; there are 3 files per simulation).
+idx_sim = []
+
+# Bias correction.
+# The parameter 'time_int' is the number of days before and after any given days (15 days before and after = 30 days).
+# This needs to be adjusted as there is period of adjustment between cold period and monsoon). It's possible that a
+# very small precipitation amount be considered extreme. We need to limit correction factors.
+# For workflow.
+nq             = 50           # ...
+up_qmf         = 3            # ...
+time_int       = 30           # ...
+# For calibration.
+nq_calib       = [40]
+up_qmf_calib   = [2.5]
+time_int_calib = [time_int]
+
+# Calibration options.
+opt_calib_bias      = True  # If True, examines bias correction.
+opt_calib_coherence = True  # If True, examines physical coherence.
+opt_calib_qqmap     = True  # If true, calculate qqmap.
+opt_calib_extra     = True  # If True, overlaps additional curves on time-series.
+
+# Workflow options.
+opt_wflow_read_obs_netcdf    = True  # If True, converts observations to NetCDF files.
+opt_wflow_extract            = True  # If True, forces extraction.
+opt_wflow_itp_time           = True  # If True, performs temporal interpolation during extraction.
+opt_wflow_itp_space          = True  # If True, perform spatial interpolation during extraction.
+opt_wflow_regrid             = False # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
+opt_wflow_preprocess         = True  # If True, forces pre-processing.
+opt_wflow_postprocess        = True  # If True, forces post-processing.
+
+# Plot options.
+opt_plt_pp_fut_obs = True  # If True, generates plots of future and observation (in workflow).
+opt_plt_ref_fut    = True  # If True, generates plots of reference vs future (in workflow).
+opt_plt_365vs360   = True  # If True, generates plots of temporal interpolation (in worflow; for debug purpose only).
+opt_plt_save       = True  # If True, save plots.
+opt_plt_close      = True  # If True, close plots.
 
 
 def get_var_desc(var):
