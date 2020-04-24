@@ -70,7 +70,7 @@ def main():
 
     # This step is mandatory.
 
-    # calib.main()
+    calib.main()
 
     # Step #3: Workflow (mandatory) ------------------------------------------------------------------------------------
 
