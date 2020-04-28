@@ -49,14 +49,24 @@ def bias_correction_loop(stn_name, var):
     files = utils.list_files(path_regrid)
 
     # Loop through simulations sets (3 files per simulation set).
+    n_set = int(len(files) / 3)
+    cfg.nq       = [cfg.nq_default] * n_set
+    cfg.up_qmf   = [cfg.up_qmf_default] * n_set
+    cfg.time_int = [cfg.time_int_default] * n_set
     if len(cfg.idx_sim) == 0:
-        cfg.idx_sim = range(0, int(len(files) / 3))
+        cfg.idx_sim = range(0, n_set)
     for i in cfg.idx_sim:
 
+        # Best parameter set.
+        error_best      = -1
+
+        # Loop through nq values.
         for nq in cfg.nq_calib:
 
+            # Loop through up_qmf values.
             for up_qmf in cfg.up_qmf_calib:
 
+                # Loop through time_int values.
                 for time_int in cfg.time_int_calib:
 
                     print("Correcting i=" + str(i) + ", up_qmf=" + str(up_qmf) + ", time_int=" + str(time_int))
@@ -68,10 +78,10 @@ def bias_correction_loop(stn_name, var):
                     fn_qqmap = cfg.get_path_out(stn_name, cfg.cat_qqmap, var)
 
                     # Figures.
-                    fn_fig = fn_fut.split("/")[-1].replace("4qqmap.nc", "calibration.png")
+                    fn_fig = fn_fut.split("/")[-1].replace("4qqmap.nc", "calib.png")
                     sup_title = os.path.basename(fn_fig) + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + \
                         "_nq_" + str(nq)
-                    path_fig = cfg.get_path_out("", cfg.cat_fig + "/calibration", var)
+                    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/calib", var)
                     if not (os.path.isdir(path_fig)):
                         os.makedirs(path_fig)
                     fn_fig = path_fig + fn_fig
@@ -128,6 +138,15 @@ def bias_correction_loop(stn_name, var):
                         # DEBUG: Need to add a breakpoint below to visualize plot.
                         if cfg.opt_plt_close:
                             plt.close()
+
+                    # TODO: Calculate the error between observations and projection.
+                    error_current = -1
+
+                    # Set nq, up_qmf and time_int for the current simulation.
+                    if (error_best < 0) or (error_current < error_best):
+                        cfg.nq[i]       = nq
+                        cfg.up_qmf[i]   = up_qmf
+                        cfg.time_int[i] = time_int
 
 
 def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_fig, sup_title):
@@ -437,7 +456,7 @@ def adjust_date_format(ds):
     return da
 
 
-def main():
+def run():
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -468,4 +487,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run()

@@ -9,6 +9,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Current package.
+import calib
 import config as cfg
 import rcm
 import utils
@@ -31,7 +32,7 @@ from scipy import signal
 from scipy.interpolate import griddata
 
 
-def read_s_anam(var):
+def read_obs_csv(var):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -44,15 +45,16 @@ def read_s_anam(var):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Station files.
-    path_stn = cfg.get_path_stn(var)
-    fn_stn   = glob.glob(path_stn + "*.csv")
+    # Station list file and station files.
+    path_stn    = cfg.get_path_stn("", "")
+    fn_stn_list = glob.glob(path_stn + "*.csv")
+    fn_stn      = glob.glob(path_stn + var + "/*.csv")
 
     # Compile data.
     for i in range(0, len(fn_stn)):
 
         # DEBUG: i = 0
-        stn_name = os.path.basename(fn_stn[i]).replace(".nc", "")
+        stn_name = os.path.basename(fn_stn[i]).replace(".nc", "").split("_")[1]
         # DEBUG: print(stn_name)
 
         if not(stn_name in cfg.stn_names):
@@ -63,7 +65,7 @@ def read_s_anam(var):
             obs["annees"].astype("str") + "-" + obs["mois"].astype("str") + "-" + obs["jours"].astype("str"))
 
         # Find longitude and latitude.
-        lon_lat_data = pd.read_csv(fn_stn[0], sep=";")
+        lon_lat_data = pd.read_csv(fn_stn_list[0], sep=";")
         lon = float(lon_lat_data[lon_lat_data["station"] == stn_name]["lon"])
         lat = float(lon_lat_data[lon_lat_data["station"] == stn_name]["lat"])
 
@@ -162,12 +164,12 @@ def read_s_anam(var):
         # ds.attrs["Institution"]        = "Environment and Climate Change Canada"
 
         # Save data.
-        ds.to_netcdf(path_stn + ds.attrs["Station Name"] + ".nc")
+        ds.to_netcdf(path_stn + var + "/" + ds.attrs["Station Name"] + ".nc")
         ds.close()
         da.close()
 
 
-def extract(var, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid, fn_obs):
+def extract(var, fn_obs, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -177,6 +179,8 @@ def extract(var, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid, fn_obs):
     ----------
     var : str
         Weather variable.
+    fn_obs : str
+        Path of the file containing observations.
     fn_rcp_hist : str
         Path of the RCP file for the historical data.
     fn_rcp_proj : str
@@ -185,8 +189,6 @@ def extract(var, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid, fn_obs):
         Path of the directory containing raw data.
     fn_regrid : str
         Path of the file containing regrid data.
-    fn_obs : str
-        Path of the file containing the observations.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -288,11 +290,11 @@ def extract(var, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid, fn_obs):
             os.remove(fn_raw)
         ds.to_netcdf(fn_raw)
 
-    if ("ds_obs" in locals()) and not (os.path.isfile(fn_obs)):
-        print("Writing NetCDF: " + fn_obs)
-        if os.path.exists(fn_obs):
-            os.remove(fn_obs)
-        ds_obs.to_netcdf(fn_obs)
+    #if ("ds_obs" in locals()) and not (os.path.isfile(fn_obs)):
+    #    print("Writing NetCDF: " + fn_obs)
+    #    if os.path.exists(fn_obs):
+    #        os.remove(fn_obs)
+    #    ds_obs.to_netcdf(fn_obs)
 
     print("Extraction completed!")
 
@@ -339,6 +341,9 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
 
     # Write NetCDF file.
     if not (os.path.isfile(fn_obs_fut)):
+        dir_obs_fut = os.path.dirname(fn_obs_fut)
+        if not (os.path.isdir(dir_obs_fut)):
+            os.makedirs(dir_obs_fut)
         ds_obs.to_netcdf(fn_obs_fut)
 
     # Future data ------------------------------------------------------------------------------------------------------
@@ -402,7 +407,7 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
     print("Pre-processing completed!")
 
 
-def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
+def postprocess(var, stn_name, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -414,6 +419,12 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
         Weather variable.
     stn_name : str
         Station name.
+    nq : int
+        ...
+    up_qmf : float
+        ...
+    time_int : int
+        ...
     fn_obs : str
         Path of file containing observations for the future period.
     fn_regrid_ref : str
@@ -438,7 +449,7 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
 
     # Figures.
     fn_fig   = fn_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
-    sup_title = fn_fig[:-4] + "_time_int_" + str(cfg.time_int) + "_up_qmf_" + str(cfg.up_qmf) + "_nq_" + str(cfg.nq)
+    sup_title = fn_fig[:-4] + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
     path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/postprocess", var)
     if not (os.path.isdir(path_fig)):
         os.makedirs(path_fig)
@@ -480,10 +491,10 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
 
     # Calculate QMF.
     # TODO.MAB: The detrend_order seems to be not working.
-    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), cfg.nq, cfg.group, kind, cfg.time_int,
+    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, time_int,
                    detrend_order=cfg.detrend_order)
     if var == cfg.var_pr:
-        ds_qmf.values[ds_qmf > cfg.up_qmf] = cfg.up_qmf
+        ds_qmf.values[ds_qmf > up_qmf] = up_qmf
 
     # Apply transfer function.
     ds_qqmap = None
@@ -534,7 +545,7 @@ def postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
     print("Post-processing completed!")
 
 
-def gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig):
+def gen_plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig):
     """
     --------------------------------------------------------------------------------------------------------------------
     Generates a plot of reference and future periods.
@@ -543,6 +554,12 @@ def gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig):
     ----------
     var : str
         Weather var.
+    nq : int
+        ...
+    up_qmf : float
+        ...
+    time_int : int
+        ...
     fn_regrid_ref : str
         Path of the NetCDF file containing data for the reference period.
     fn_regrid_fut : str
@@ -575,7 +592,7 @@ def gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig):
     f.add_subplot(211)
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.00)
     sup_title = os.path.basename(fn_fig).replace(".png", "") +\
-        "_time_int_" + str(cfg.time_int) + "_up_qmf_" + str(cfg.up_qmf) + "_nq_" + str(cfg.nq)
+        "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
     plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     # Upper plot: Reference period.
@@ -607,7 +624,7 @@ def gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig):
         plt.close()
 
 
-def main():
+def run():
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -630,7 +647,7 @@ def main():
     # Convert observation to NetCDF.
     if cfg.opt_wflow_read_obs_netcdf:
         for var in cfg.variables:
-            read_s_anam(var)
+            read_obs_csv(var)
 
     # List CORDEX files.
     list_cordex = utils.list_cordex(cfg.path_src)
@@ -639,8 +656,8 @@ def main():
     for var in cfg.variables:
 
         # Select file name for observation.
-        path_stn   = cfg.get_path_stn(var)
-        fn_stn = glob.glob(path_stn + "*.nc")
+        path_stn = cfg.get_path_stn(var, "")
+        fn_stn   = glob.glob(path_stn + "*.nc")
 
         # Loop through stations.
         for i in range(0, len(fn_stn)):
@@ -652,10 +669,10 @@ def main():
                 continue
 
             # Create directories.
-            path_obs    = cfg.get_path_out(cfg.cat_obs, stn_name, var)
-            path_raw    = cfg.get_path_out(cfg.cat_raw, stn_name, var)
-            path_fut    = cfg.get_path_out(cfg.cat_qqmap, stn_name, var)
-            path_regrid = cfg.get_path_out(cfg.cat_regrid, stn_name, var)
+            path_obs    = cfg.get_path_out(stn_name, cfg.cat_obs, var)
+            path_raw    = cfg.get_path_out(stn_name, cfg.cat_raw, var)
+            path_fut    = cfg.get_path_out(stn_name, cfg.cat_qqmap, var)
+            path_regrid = cfg.get_path_out(stn_name, cfg.cat_regrid, var)
             if not (os.path.isdir(path_obs)):
                 os.makedirs(path_obs)
             if not (os.path.isdir(path_raw)):
@@ -669,18 +686,26 @@ def main():
             for rcp in cfg.rcps:
 
                 # Loop through simulations.
-                for sim in range(len(list_cordex[rcp])):
+                for j in range(len(list_cordex[rcp])):
 
-                    c = list_cordex[rcp][sim].split("/")
+                    sim      = list_cordex[rcp][j]
+                    sim_hist = list_cordex[rcp + "_historical"][j]
+
+                    # TODO: Determine nq, up_qmf and time_int for the current simulation.
+                    nq       = cfg.nq
+                    up_qmf   = cfg.up_qmf
+                    time_int = cfg.time_int
+
+                    c = sim.split("/")
                     print("Processing: variable = " + var + "; station = " + stn_name + ": " +
                           c[cfg.idx_institute] + "_" + c[cfg.idx_gcm])
 
                     # Files within CORDEX or CORDEX-NA.
-                    if "CORDEX" in list_cordex[rcp][sim]:
+                    if "CORDEX" in sim:
                         fn_raw = path_raw + var + "_" + c[cfg.idx_institute] + "_" +\
                                  c[cfg.idx_gcm].replace("*", "_") + ".nc"
-                    elif len(list_cordex[rcp][sim]) == 3:
-                        fn_raw = path_raw + var + "_Ouranos_" + list_cordex[rcp][sim] + ".nc"
+                    elif len(sim) == 3:
+                        fn_raw = path_raw + var + "_Ouranos_" + sim + ".nc"
                     else:
                         fn_raw = None
 
@@ -692,26 +717,30 @@ def main():
                     # Paths and NetCDF files.
                     fn_regrid     = fn_raw.replace(cfg.cat_raw, cfg.cat_regrid)
                     fn_qqmap      = fn_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
-                    fn_regrid_ref = fn_regrid[0:len(fn_regrid) - 3] + "_ref_4"+cfg.cat_qqmap+".nc"
-                    fn_regrid_fut = fn_regrid[0:len(fn_regrid) - 3] + "_4"+cfg.cat_qqmap+".nc"
+                    fn_regrid_ref = fn_regrid[0:len(fn_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
+                    fn_regrid_fut = fn_regrid[0:len(fn_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
                     fn_obs_fut    = cfg.get_path_obs(stn_name, var)
-                    fn_obs        = fn_obs_fut.replace(".nc", "_4qqmap.nc")
+                    #fn_obs        = fn_obs_fut.replace(".nc", "_4qqmap.nc")
+                    fn_obs        = cfg.get_path_stn(var, stn_name)
 
                     # Figures.
-                    fn_fig   = fn_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
-                    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/workflow", var)
+                    fn_fig   = fn_regrid_fut.split("/")[-1].replace("4qqmap.nc", "wflow.png")
+                    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/wflow", var)
                     if not (os.path.isdir(path_fig)):
                         os.makedirs(path_fig)
                     fn_fig = path_fig + fn_fig
 
                     # Data extraction.
                     if cfg.opt_wflow_extract or not (os.path.isfile(fn_raw)):
-                        extract(var, list_cordex[rcp + "_historical"][sim], list_cordex[rcp][sim],
-                                fn_raw, fn_regrid, fn_obs)
+                        extract(var, fn_obs, sim_hist, sim, fn_raw, fn_regrid)
 
                     # Pre-processing.
                     if cfg.opt_wflow_preprocess:
                         preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
+
+                    # Calibrate.
+                    if cfg.opt_calib:
+                        calib.run()
 
                     # Post-processing.
                     if cfg.opt_wflow_postprocess or not (os.path.isfile(fn_qqmap)):
@@ -721,14 +750,15 @@ def main():
                                 skip_postprocess = True
                                 break
                         if not skip_postprocess:
-                            postprocess(var, stn_name, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap)
+                            postprocess(var, stn_name, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid_fut,
+                                        fn_qqmap)
 
                     # Generates extra plot.
                     if cfg.opt_plt_ref_fut:
-                        gen_plot_ref_fut(var, fn_regrid_ref, fn_regrid_fut, fn_fig)
+                        gen_plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig)
 
     print("Module wflow completed successfully.")
 
 
 if __name__ == "__main__":
-    main()
+    run()

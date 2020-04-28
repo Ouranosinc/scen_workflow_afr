@@ -9,7 +9,6 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Current package.
-import calib
 import config as cfg
 import verif
 import wflow
@@ -44,8 +43,8 @@ def main():
     cfg.stn_names = ["boromo"]
 
     # Variables.
-    # cfg.variables = [cfg.var_tas, cfg.var_tasmin, cfg.var_tasmax, cfg.var_pr, cfg.var_uas, cfg.var_vas]
-    cfg.variables         = [cfg.var_uas, cfg.var_vas]
+    cfg.variables = [cfg.var_tas, cfg.var_tasmin, cfg.var_tasmax, cfg.var_pr, cfg.var_uas, cfg.var_vas]
+    # cfg.variables         = [cfg.var_uas, cfg.var_vas]
     cfg.priority_timestep = ["day"] * len(cfg.variables)
 
     # List of simulation and var-simulation combinations that must be avoided to avoid a crash.
@@ -57,34 +56,33 @@ def main():
                        cfg.var_tasmin + "_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc"]
 
     # Bias correction.
+    # Default values.
+    cfg.nq_default       = 50
+    cfg.up_qmf_default   = 3
+    cfg.time_int_default = 30
     # For calibration.
-    cfg.nq_calib       = [40]
-    cfg.up_qmf_calib   = [2.5] # range(2,3,1)
-    cfg.time_int_calib = [cfg.time_int] #range(1, 37, 5)
+    cfg.nq_calib         = [40]
+    cfg.up_qmf_calib     = [2.5] # range(2,3,1)
+    cfg.time_int_calib   = [cfg.time_int_default] #range(1, 37, 5)
     # For workflow.
-    cfg.nq             = 50
-    cfg.up_qmf         = 3
-    cfg.time_int       = 30
+    cfg.nq               = cfg.nq_default
+    cfg.up_qmf           = cfg.up_qmf_default
+    cfg.time_int         = cfg.time_int_default
 
-    # Step #2: Calibration ---------------------------------------------------------------------------------------------
-
-    # This step is mandatory.
-
-    calib.main()
-
-    # Step #3: Workflow (mandatory) ------------------------------------------------------------------------------------
+    # Step #2: Workflow (mandatory) ------------------------------------------------------------------------------------
 
     # This step is mandatory.
-    # Calibration is currently manual. It is based on looking at the plots generated in step #2. This involves that
-    # steps are to be run individually.
+    # Calibration is included, but it is currently done manually by looking at the generated plots. This means that the
+    # default values are used.
 
-    wflow.main()
+    cfg.opt_calib = True
+    wflow.run()
 
-    # Step #4: Verification --------------------------------------------------------------------------------------------
+    # Step #3: Verification --------------------------------------------------------------------------------------------
 
     # This step is optional. It is useful to verify generated NetCDF files.
 
-    verif.main()
+    verif.run()
 
     print("Module launcher completed successfully.")
 

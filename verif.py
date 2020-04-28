@@ -77,7 +77,7 @@ def plot_ts_single(stn_name, var):
 
         # Format.
         plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
-        sup_title = os.path.basename(fn_fut).replace("4qqmap.nc", "verification_ts_single")
+        sup_title = os.path.basename(fn_fut).replace("4qqmap.nc", "verif_ts_single")
         plt.suptitle(sup_title, fontsize=fs_sup_title)
         plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
@@ -88,7 +88,7 @@ def plot_ts_single(stn_name, var):
 
         if cfg.opt_plt_save:
             fn_fig = sup_title + ".png"
-            path_fig = cfg.get_path_out("", cfg.cat_fig + "/verification/ts_single", var)
+            path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/verif/ts_single", var)
             if not (os.path.isdir(path_fig)):
                 os.makedirs(path_fig)
             fn_fig = path_fig + fn_fig
@@ -171,12 +171,12 @@ def plot_ts_mosaic(stn_name, var):
         plt.tick_params(axis='y', labelsize=fs_axes)
         if i == 0:
             plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
-            sup_title = title + "_verification_ts_mosaic"
+            sup_title = title + "_verif_ts_mosaic"
             plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_out("", cfg.cat_fig + "/verification/ts_mosaic", var)
+        path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/verif/ts_mosaic", var)
         if not (os.path.isdir(path_fig)):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
@@ -251,7 +251,7 @@ def plot_monthly(stn_name, var):
         plt.tick_params(axis='x', labelsize=fs_axes)
         plt.tick_params(axis='y', labelsize=fs_axes)
         if i == 0:
-            sup_title = title + "_verification_monthly"
+            sup_title = title + "_verif_monthly"
             plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     # Format.
@@ -259,7 +259,7 @@ def plot_monthly(stn_name, var):
 
     if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_out("", cfg.cat_fig + "/verification/monthly", var)
+        path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/verif/monthly", var)
         if not (os.path.isdir(path_fig)):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
@@ -269,7 +269,7 @@ def plot_monthly(stn_name, var):
         plt.close()
 
 
-def main():
+def run():
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -298,4 +298,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run()

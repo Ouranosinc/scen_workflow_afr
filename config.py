@@ -96,29 +96,34 @@ idx_sim = []
 # The parameter 'time_int' is the number of days before and after any given days (15 days before and after = 30 days).
 # This needs to be adjusted as there is period of adjustment between cold period and monsoon). It's possible that a
 # very small precipitation amount be considered extreme. We need to limit correction factors.
-# For workflow.
-nq             = 50           # ...
-up_qmf         = 3            # ...
-time_int       = 30           # ...
+# Default values.
+nq_default       = 50   # ...
+up_qmf_default   = 3.0  # ...
+time_int_default = 30   # ...
 # For calibration.
-nq_calib       = [40]
-up_qmf_calib   = [2.5]
-time_int_calib = [time_int]
+nq_calib         = []   # ...
+up_qmf_calib     = []   # ...
+time_int_calib   = []   # ...
+# For workflow.
+nq               = []   # ...
+up_qmf           = []   # ...
+time_int         = []   # ...
 
 # Calibration options.
+opt_calib           = True  # If True, calibrates for nq, up_qmf and time_int parameters.
 opt_calib_bias      = True  # If True, examines bias correction.
 opt_calib_coherence = True  # If True, examines physical coherence.
 opt_calib_qqmap     = True  # If true, calculate qqmap.
 opt_calib_extra     = True  # If True, overlaps additional curves on time-series.
 
 # Workflow options.
-opt_wflow_read_obs_netcdf    = True  # If True, converts observations to NetCDF files.
-opt_wflow_extract            = True  # If True, forces extraction.
-opt_wflow_itp_time           = True  # If True, performs temporal interpolation during extraction.
-opt_wflow_itp_space          = True  # If True, perform spatial interpolation during extraction.
-opt_wflow_regrid             = False # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
-opt_wflow_preprocess         = True  # If True, forces pre-processing.
-opt_wflow_postprocess        = True  # If True, forces post-processing.
+opt_wflow_read_obs_netcdf = True   # If True, converts observations to NetCDF files.
+opt_wflow_extract         = True   # If True, forces extraction.
+opt_wflow_itp_time        = True   # If True, performs temporal interpolation during extraction.
+opt_wflow_itp_space       = True   # If True, perform spatial interpolation during extraction.
+opt_wflow_regrid          = False  # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
+opt_wflow_preprocess      = True   # If True, forces pre-processing.
+opt_wflow_postprocess     = True   # If True, forces post-processing.
 
 # Plot options.
 opt_plt_pp_fut_obs = True  # If True, generates plots of future and observation (in workflow).
@@ -205,17 +210,17 @@ def get_path_out(stn_name, category, var=""):
     """
 
     path = "/exec/" + user_name + "/sim_climat/" + country + "/" + project + "/"
-    if category != "":
-        path = path + category + "/"
     if stn_name != "":
         path = path + stn_name + "/"
+    if category != "":
+        path = path + category + "/"
     if var != "":
         path = path + var + "/"
 
     return path
 
 
-def get_path_stn(var=""):
+def get_path_stn(var, stn_name):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -223,14 +228,18 @@ def get_path_stn(var=""):
 
     Parameters
     ----------
-    var : str, optional
+    var : str
         Variable.
+    stn_name : str
+        Station name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     path = "/exec/" + user_name + "/" + country + "/" + project + "/" + cat_obs + "/" + obs_provider + "/"
     if var != "":
         path = path + var + "/"
+        if stn_name != "":
+            path = path + stn_name + ".nc"
 
     return path
 
