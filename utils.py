@@ -8,9 +8,6 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-# Current package.
-import config as cfg
-
 # Other packages.
 import glob
 import numpy as np
@@ -22,6 +19,7 @@ import re
 import scipy.stats
 import xarray as xr
 from cmath import rect, phase
+from collections import defaultdict
 from itertools import compress
 from math import radians, degrees
 from pathlib import Path
@@ -216,9 +214,6 @@ def regrid_cdo(ds, new_grid, tmpdir, method="cubic"):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # DEBUG: tmpdir = path_output + cfg.cat_raw + "/" + var + "/"
-    # DEBUG: new_grid = new_grid_info
-
     # Write a txt file with the mapping information.
     file = open(tmpdir + "new_grid.txt", "w")
     file.write("gridtype = lonlat\n")
@@ -346,7 +341,7 @@ def sfc_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
     return uas, vas
 
 
-def list_cordex(path_ds):
+def list_cordex(path_ds, rcps):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -356,16 +351,18 @@ def list_cordex(path_ds):
     ----------
     path_ds : str
         Path of data_source.
+    rcps : [str]
+        List of RCP scenarios.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     list_f = {}
 
     # Find all the available simulations for a given RCP.
-    for r in range(len(cfg.rcps)):
+    for r in range(len(rcps)):
         # DEBUG: r = 2
 
-        folder_format = path_ds + "*/*/AFR-*{r}".format(r=cfg.rcps[r]) + "/*/atmos/*/"
+        folder_format = path_ds + "*/*/AFR-*{r}".format(r=rcps[r]) + "/*/atmos/*/"
         folders = glob.glob(folder_format)
         folders = [i for i in folders if "day" in i]
 
@@ -379,8 +376,8 @@ def list_cordex(path_ds):
         # Keep only the simulations with all the variables we need.
         folders = list(compress(folders, valid_folders))
 
-        list_f[cfg.rcps[r] + "_historical"] = [w.replace(cfg.rcps[r], "historical") for w in folders]
-        list_f[cfg.rcps[r]] = folders
+        list_f[rcps[r] + "_historical"] = [w.replace(rcps[r], "historical") for w in folders]
+        list_f[rcps[r]] = folders
 
     return list_f
 
@@ -420,7 +417,7 @@ def info_cordex(path_ds):
     for i in glob.glob(dir_format):
         tokens_i = i.split("/")
 
-        # Extract institude, RGM, CGM and emission scenario.
+        # Extract institute, RGM, CGM and emission scenario.
         inst = tokens_i[n_token + 1]
         rgm  = tokens_i[n_token + 2]
         cgm  = tokens_i[n_token + 3].split("_")[1]
@@ -527,23 +524,22 @@ def list_files(path):
     return files
 
 
-def run():
+def create_multi_dict(n, type):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Entry point.
+    Create directory
+
+    Parameters
+    ----------
+    n : int
+        Number of dimensions
+    type : type
+        Data type.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print("Module utils launched.")
-
-    # Test.
-    sets = info_cordex(cfg.path_src)
-    for i in sets:
-        print(i)
-
-    print("Module utils completed successfully.")
-
-
-if __name__ == "__main__":
-    run()
+    if n == 1:
+        return defaultdict(type)
+    else:
+        return defaultdict(lambda: create_multi_dict(n - 1, type))

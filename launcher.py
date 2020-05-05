@@ -10,6 +10,7 @@
 
 # Current package.
 import config as cfg
+import utils
 import verif
 import wflow
 
@@ -43,8 +44,8 @@ def main():
     cfg.stn_names = ["boromo"]
 
     # Variables.
-    cfg.variables = [cfg.var_tas, cfg.var_tasmin, cfg.var_tasmax, cfg.var_pr, cfg.var_uas, cfg.var_vas]
-    # cfg.variables         = [cfg.var_uas, cfg.var_vas]
+    # cfg.variables = [cfg.var_tas, cfg.var_tasmin, cfg.var_tasmax, cfg.var_pr, cfg.var_uas, cfg.var_vas]
+    cfg.variables = [cfg.var_tasmin]
     cfg.priority_timestep = ["day"] * len(cfg.variables)
 
     # List of simulation and var-simulation combinations that must be avoided to avoid a crash.
@@ -55,7 +56,9 @@ def main():
     var_sim_excepts = [cfg.var_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc",
                        cfg.var_tasmin + "_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc"]
 
-    # Bias correction.
+    # Bias adjustment.
+    cfg.opt_calib        = False
+    cfg.opt_calib_auto   = False
     # Default values.
     cfg.nq_default       = 50
     cfg.up_qmf_default   = 3
@@ -65,9 +68,14 @@ def main():
     cfg.up_qmf_calib     = [2.5] # range(2,3,1)
     cfg.time_int_calib   = [cfg.time_int_default] #range(1, 37, 5)
     # For workflow.
-    cfg.nq               = cfg.nq_default
-    cfg.up_qmf           = cfg.up_qmf_default
-    cfg.time_int         = cfg.time_int_default
+    cfg.init_calib_params()
+
+    # List CORDEX data.
+    print("CORDEX data:")
+    sets = utils.info_cordex(cfg.path_src)
+    for i in sets:
+        print("  " + str(i))
+    print("")
 
     # Step #2: Workflow (mandatory) ------------------------------------------------------------------------------------
 

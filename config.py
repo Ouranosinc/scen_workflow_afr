@@ -8,6 +8,8 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+import utils
+
 # Project information.
 # Country name.
 country = ""
@@ -89,7 +91,7 @@ priority_timestep = ["day"] * len(variables)
 sim_excepts     = []
 var_sim_excepts = []
 
-# Index of simulation set (if only a subset is required; there are 3 files per simulation).
+# Index of simulation set (if the analysis is related to a single set; there are 3 files per simulation).
 idx_sim = []
 
 # Bias correction.
@@ -97,20 +99,24 @@ idx_sim = []
 # This needs to be adjusted as there is period of adjustment between cold period and monsoon). It's possible that a
 # very small precipitation amount be considered extreme. We need to limit correction factors.
 # Default values.
-nq_default       = 50   # ...
-up_qmf_default   = 3.0  # ...
-time_int_default = 30   # ...
+nq_default       = 50   # Default 'nq' value.
+up_qmf_default   = 3.0  # Default 'up_qmf' value.
+time_int_default = 30   # Default 'time_int' value.
 # For calibration.
-nq_calib         = []   # ...
-up_qmf_calib     = []   # ...
-time_int_calib   = []   # ...
+# Array of values to test for each calibration parameter.
+nq_calib         = None   # List of 'nq' values to test during calibration.
+up_qmf_calib     = None   # List of 'up_wmf' values to test during calibration.
+time_int_calib   = None   # List of 'time_int' values to test during calibration.
 # For workflow.
-nq               = []   # ...
-up_qmf           = []   # ...
-time_int         = []   # ...
+# Dictionary with 3 dimensi_nameons [sim][stn_name][var] where 'sim' is simulation name, 'stn_name' is station name,
+# and 'var' is the variable.
+nq               = None   # Number of quantiles (calibrated value).
+up_qmf           = None   # Upper limit for quantile mapping function.
+time_int         = None   # Windows size (i.e. number of days before + number of days after).
 
 # Calibration options.
-opt_calib           = True  # If True, calibrates for nq, up_qmf and time_int parameters.
+opt_calib           = True  # If True, explores the sensitivity to nq, up_qmf and time_int parameters.
+opt_calib_auto      = True  # If True, calibrates for nq, up_qmf and time_int parameters.
 opt_calib_bias      = True  # If True, examines bias correction.
 opt_calib_coherence = True  # If True, examines physical coherence.
 opt_calib_qqmap     = True  # If true, calculate qqmap.
@@ -267,3 +273,28 @@ def get_path_obs(stn_name, var, category=""):
     path = path + ".nc"
 
     return path
+
+
+def init_calib_params():
+
+    """
+    -----------------------------------------------------------------------------------------------------------------
+    Initialize calibration parameters.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    global nq, up_qmf, time_int
+    nq       = utils.create_multi_dict(3, float)
+    up_qmf   = utils.create_multi_dict(3, float)
+    time_int = utils.create_multi_dict(3, float)
+    list_cordex = utils.list_cordex(path_src, rcps)
+    for idx_rcp in range(len(rcps)):
+        rcp = rcps[idx_rcp]
+        for idx_sim in range(0, len(list_cordex[rcp])):
+            list     = list_cordex[rcp][idx_sim].split("/")
+            sim_name = list[idx_institute] + "_" + list[idx_institute + 1]
+            for stn_name in stn_names:
+                for var in variables:
+                    nq[sim_name][stn_name][var]       = nq_default
+                    up_qmf[sim_name][stn_name][var]   = up_qmf_default
+                    time_int[sim_name][stn_name][var] = time_int_default

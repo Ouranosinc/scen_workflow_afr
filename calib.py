@@ -50,12 +50,11 @@ def bias_correction_loop(stn_name, var):
 
     # Loop through simulations sets (3 files per simulation set).
     n_set = int(len(files) / 3)
-    cfg.nq       = [cfg.nq_default] * n_set
-    cfg.up_qmf   = [cfg.up_qmf_default] * n_set
-    cfg.time_int = [cfg.time_int_default] * n_set
     if len(cfg.idx_sim) == 0:
         cfg.idx_sim = range(0, n_set)
     for i in cfg.idx_sim:
+        list     = files[i * 3].split("/")
+        sim_name = list[len(list) - 1].replace(var + "_", "").replace(".nc", "")
 
         # Best parameter set.
         error_best      = -1
@@ -139,14 +138,14 @@ def bias_correction_loop(stn_name, var):
                         if cfg.opt_plt_close:
                             plt.close()
 
-                    # TODO: Calculate the error between observations and projection.
+                    # TODO: Calculate the error between observations and simulation for the reference period.
                     error_current = -1
 
                     # Set nq, up_qmf and time_int for the current simulation.
-                    if (error_best < 0) or (error_current < error_best):
-                        cfg.nq[i]       = nq
-                        cfg.up_qmf[i]   = up_qmf
-                        cfg.time_int[i] = time_int
+                    if cfg.opt_calib_auto and ((error_best < 0) or (error_current < error_best)):
+                        cfg.nq[sim_name][stn_name][var]       = float(nq)
+                        cfg.up_qmf[sim_name][stn_name][var]   = up_qmf
+                        cfg.time_int[sim_name][stn_name][var] = float(time_int)
 
 
 def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_fig, sup_title):
@@ -159,12 +158,12 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
     ----------
     var : str
         Weather variable.
-    nq : int
-        ...
-    up_qmf   : float
-        ...
-    time_int  : int
-        ...
+    nq : float
+        Number of quantiles
+    up_qmf : float
+        Upper limit for quantile mapping function.
+    time_int : float
+        Windows size (i.e. number of days before + number of days after).
     fn_obs : str
         NetCDF file for observations.
     fn_ref : str
@@ -217,7 +216,7 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
     # Calculate/read quantiles -----------------------------------------------------------------------------------------
 
     # Calculate QMF.
-    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, time_int, detrend_order=cfg.detrend_order)
+    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), int(nq), cfg.group, kind, time_int, detrend_order=cfg.detrend_order)
 
     # Calculate QQMAP.
     if cfg.opt_calib_qqmap:

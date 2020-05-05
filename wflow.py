@@ -2,6 +2,10 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Workflow functions.
 #
+# TODO: Build a function that verifies the amount of data that is available in a dataset using:
+#       ds.notnull().groupby('time.year').sum('time') or
+#       xclim.core.checks.missing_[pct|any|wmo]
+#
 # Contact information:
 # 1. bourgault.marcandre@ouranos.ca (original author)
 # 2. rousseau.yannick@ouranos.ca (pimping agent)
@@ -100,12 +104,12 @@ def read_obs_csv(var):
 
         elif var in [cfg.var_tas, cfg.var_tasmax, cfg.var_tasmin, cfg.var_pr]:
 
-            obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn_name[i]])
+            obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn_name])
 
             # Precipitation (involves converting from mm to kg m-2 s-1.
             if var == cfg.var_pr:
 
-                data        = obs[stn_name[i]].values / cfg.spd
+                data        = obs[stn_name].values / cfg.spd
                 data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
                 da          = xr.DataArray(data_xarray, coords=[("time", time), ("lon", [lon]), ("lat", [lat])])
 
@@ -120,7 +124,7 @@ def read_obs_csv(var):
             # Temperature.
             else:
 
-                data        = obs[stn_name[i]].values
+                data        = obs[stn_name].values
                 data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
                 da          = xr.DataArray(data_xarray, coords=[("time", time), ("lon", [lon]), ("lat", [lat])])
 
@@ -327,10 +331,9 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
     ds_obs = xr.open_dataset(fn_obs)
     ds_fut = xr.open_dataset(fn_regrid)
 
-    # Observation data -------------------------------------------------------------------------------------------------
+    # Observations -----------------------------------------------------------------------------------------------------
 
-    # Interpolate temporally by dropping February 29th and by sub-selecting between reference
-    # years.
+    # Interpolate temporally by dropping February 29th and by sub-selecting between reference years.
     ds_obs = ds_obs.sel(time=~((ds_obs.time.dt.month == 2) & (ds_obs.time.dt.day == 29)))
     ds_obs = ds_obs.where(
         (ds_obs.time.dt.year >= cfg.per_ref[0]) & (ds_obs.time.dt.year <= cfg.per_ref[1]), drop=True)
@@ -346,16 +349,17 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
             os.makedirs(dir_obs_fut)
         ds_obs.to_netcdf(fn_obs_fut)
 
-    # Future data ------------------------------------------------------------------------------------------------------
+    # Simulated climate ------------------------------------------------------------------------------------------------
 
     # TODO.MAB: This needs to be modified.
-    if not (os.path.isfile(fn_regrid)) and (var in cfg.var_clt):
+    if not (os.path.isfile(fn_regrid)) and (var == cfg.var_clt):
         print(fn_regrid + " does not exist. Skipping it. \n")
     else:
         print("Creating NetCDF: " + fn_regrid)
 
-        # Make sure that the data we post-process is
-        # within the boundaries.
+        # Simulated climate (future period) ----------------------------------------------------------------------------
+
+        # Make sure that the data we post-process is within the boundaries.
         if var in [cfg.var_pr, cfg.var_clt]:
             ds_fut[var].values[ds_fut[var] < 0] = 0
             if var == cfg.var_clt:
@@ -390,7 +394,7 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
             plt.plot(np.arange(1, 366), ds_fut_365[var].values[:365], alpha=0.5)
             plt.close()
 
-        # Reference data -----------------------------------------------------------------------------------------------
+        # Simulated climate (reference period) -------------------------------------------------------------------------
 
         ds_ref = ds_fut_365.sel(time=slice(str(cfg.per_ref[0]), str(cfg.per_ref[1])))
         # DELETE: ds_ref = ds_fut.where((ds_fut.time.dt.year >= cfg.per_ref[0]) & \
@@ -448,9 +452,9 @@ def postprocess(var, stn_name, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_r
     ds_ref = xr.open_dataset(fn_regrid_ref)[var]
 
     # Figures.
-    fn_fig   = fn_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
+    fn_fig    = fn_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
     sup_title = fn_fig[:-4] + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
-    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/postprocess", var)
+    path_fig  = cfg.get_path_out(stn_name, cfg.cat_fig + "/postprocess", var)
     if not (os.path.isdir(path_fig)):
         os.makedirs(path_fig)
     fn_fig = path_fig + fn_fig
@@ -644,27 +648,30 @@ def run():
     if not(os.path.isdir(path_out)):
         os.makedirs(path_out)
 
-    # Convert observation to NetCDF.
+    # Step #2: Data selection.
+
+    # Step #2a: Convert observations from .csv to NetCDF files.
     if cfg.opt_wflow_read_obs_netcdf:
         for var in cfg.variables:
             read_obs_csv(var)
 
-    # List CORDEX files.
-    list_cordex = utils.list_cordex(cfg.path_src)
+    # Step #2b: List CORDEX files.
+    list_cordex = utils.list_cordex(cfg.path_src, cfg.rcps)
 
     # Loop through variables.
-    for var in cfg.variables:
+    for idx_var in range(0, len(cfg.variables)):
+        var = cfg.variables[idx_var]
 
         # Select file name for observation.
         path_stn = cfg.get_path_stn(var, "")
         fn_stn   = glob.glob(path_stn + "*.nc")
 
         # Loop through stations.
-        for i in range(0, len(fn_stn)):
+        for idx_stn in range(0, len(fn_stn)):
 
             # Station name.
-            fn_stn_i = fn_stn[i]
-            stn_name = os.path.basename(fn_stn_i).replace(".nc", "")
+            fn_stn   = fn_stn[idx_stn]
+            stn_name = os.path.basename(fn_stn).replace(".nc", "")
             if not (stn_name in cfg.stn_names):
                 continue
 
@@ -686,19 +693,15 @@ def run():
             for rcp in cfg.rcps:
 
                 # Loop through simulations.
-                for j in range(len(list_cordex[rcp])):
+                for idx_sim in range(len(list_cordex[rcp])):
 
-                    sim      = list_cordex[rcp][j]
-                    sim_hist = list_cordex[rcp + "_historical"][j]
+                    sim      = list_cordex[rcp][idx_sim]
+                    sim_hist = list_cordex[rcp + "_historical"][idx_sim]
 
-                    # TODO: Determine nq, up_qmf and time_int for the current simulation.
-                    nq       = cfg.nq
-                    up_qmf   = cfg.up_qmf
-                    time_int = cfg.time_int
-
+                    # Get simulation name.
                     c = sim.split("/")
-                    print("Processing: variable = " + var + "; station = " + stn_name + ": " +
-                          c[cfg.idx_institute] + "_" + c[cfg.idx_gcm])
+                    sim_name = c[cfg.idx_institute] + "_" + c[cfg.idx_gcm]
+                    print("Processing: variable = " + var + "; station = " + stn_name + ": " + sim_name)
 
                     # Files within CORDEX or CORDEX-NA.
                     if "CORDEX" in sim:
@@ -720,7 +723,6 @@ def run():
                     fn_regrid_ref = fn_regrid[0:len(fn_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
                     fn_regrid_fut = fn_regrid[0:len(fn_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
                     fn_obs_fut    = cfg.get_path_obs(stn_name, var)
-                    #fn_obs        = fn_obs_fut.replace(".nc", "_4qqmap.nc")
                     fn_obs        = cfg.get_path_stn(var, stn_name)
 
                     # Figures.
@@ -730,19 +732,28 @@ def run():
                         os.makedirs(path_fig)
                     fn_fig = path_fig + fn_fig
 
-                    # Data extraction.
+                    # Step #3: Spatial and temporal extraction.
+                    # Step #4: Grid transfer or interpolation.
                     if cfg.opt_wflow_extract or not (os.path.isfile(fn_raw)):
                         extract(var, fn_obs, sim_hist, sim, fn_raw, fn_regrid)
 
-                    # Pre-processing.
+                    # Step #5: Post-processing.
+
+                    # Adjusting the datasets associated with observations and simulated conditions
+                    # (for the reference and future periods) to ensure that calendar is based on 365 days per year and
+                    # that values are within boundaries (0-100%).
                     if cfg.opt_wflow_preprocess:
                         preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
 
-                    # Calibrate.
+                    # Step #5a: Calculate adjustment factors.
                     if cfg.opt_calib:
                         calib.run()
+                    nq       = cfg.nq[sim_name][stn_name][idx_var]
+                    up_qmf   = cfg.up_qmf[sim_name][stn_name][idx_var]
+                    time_int = cfg.time_int[sim_name][stn_name][idx_var]
 
-                    # Post-processing.
+                    # Step #5b: Statistical downscaling.
+                    # Step #5c: Bias correction.
                     if cfg.opt_wflow_postprocess or not (os.path.isfile(fn_qqmap)):
                         skip_postprocess = False
                         for var_sim_except in cfg.var_sim_excepts:
@@ -750,12 +761,12 @@ def run():
                                 skip_postprocess = True
                                 break
                         if not skip_postprocess:
-                            postprocess(var, stn_name, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid_fut,
-                                        fn_qqmap)
+                            postprocess(var, stn_name, int(nq), up_qmf, int(time_int), fn_obs, fn_regrid_ref,
+                                        fn_regrid_fut, fn_qqmap)
 
                     # Generates extra plot.
                     if cfg.opt_plt_ref_fut:
-                        gen_plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig)
+                        gen_plot_ref_fut(var, int(nq), up_qmf, int(time_int), fn_regrid_ref, fn_regrid_fut, fn_fig)
 
     print("Module wflow completed successfully.")
 
