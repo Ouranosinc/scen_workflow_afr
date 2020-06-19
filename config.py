@@ -2,9 +2,8 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Script configuration.
 #
-# Contact information:
-# 1. bourgault.marcandre@ouranos.ca (original author)
-# 2. rousseau.yannick@ouranos.ca (pimping agent)
+# Authors:
+# 1. rousseau.yannick@ouranos.ca
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 

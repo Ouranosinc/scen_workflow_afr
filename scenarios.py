@@ -6,9 +6,9 @@
 #       ds.notnull().groupby('time.year').sum('time') or
 #       xclim.core.checks.missing_[pct|any|wmo]
 #
-# Contact information:
-# 1. bourgault.marcandre@ouranos.ca (original author)
-# 2. rousseau.yannick@ouranos.ca (pimping agent)
+# Authors:
+# 1. rousseau.yannick@ouranos.ca
+# 2. bourgault.marcandre@ouranos.ca (original)
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 

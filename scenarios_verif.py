@@ -2,9 +2,9 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Functions that allow to verify generated NetCDF files.
 #
-# Contact information:
-# 1. bourgault.marcandre@ouranos.ca (original author)
-# 2. rousseau.yannick@ouranos.ca (pimping agent)
+# Authors:
+# 1. rousseau.yannick@ouranos.ca
+# 2. bourgault.marcandre@ouranos.ca (original)
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
