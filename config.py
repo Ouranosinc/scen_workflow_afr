@@ -11,58 +11,97 @@
 import utils
 
 # Project information.
-# Country name.
-country = ""
-# Project.
-project = ""
-# User name.
-user_name = ""
-# Provider of observations.
-obs_provider = ""
+country = ""  # Country name.
+project = ""  # Project name.
 
-# File system.
-# Simulation data.
-path_src = "/dmf2/scenario/external_data/CORDEX-AFR/"
-path_ds1 = "/expl6/climato/arch/"
-path_ds2 = "/dmf2/climato/arch/"
-path_ds3 = "/expl7/climato/arch/"
-# Rank of token corresponding to the institute.
-idx_institute = len(path_src.split("/"))
-# Rank of token corresponding to the GCM.
-idx_gcm = idx_institute + 1
+# Reanalysis data.
+obs_src           = ""  # Provider of observations or reanalysis set.
+obs_src_username  = ""  # Username of account to download 'obs_src_era5' or 'obs_src_era5_land' data.
+obs_src_password  = ""  # Password of account to download 'obs_src_era5' or 'obs_src_era5_land' data.
+obs_src_era5      = "era5"
+obs_src_era5_land = "era5_land"
 
-# Emission scenarios and periods.
-rcps    = ["rcp26", "rcp45", "rcp85"]  # Emission scenarios.
-per_ref = [1981, 2010]                 # Reference period.
-per_fut = [1981, 2100]                 # Future period.
+# Base directories.
+path_base_in1       = ""  # Base directory #1 (input).
+path_base_in2       = ""  # Base directory #2 (input).
+path_base_out       = ""  # Base directory #3 (output).
+path_username       = ""  # Username on the machine running the script.
+
+# Input-only files and directories.
+path_bounds         = ""  # geog.json file comprising political boundaries.
+path_era5_hour      = ""  # ERA5 reanalysis set (hourly frequency).
+path_era5_land_hour = ""  # ERA5-Land reanalysis set (hourly frequency).
+path_cordex         = ""  # Climate projections (CORDEX).
+path_ds1            = ""  # TODO: Determine what this variable does.
+path_ds2            = ""  # TODO: Determine what this variable does.
+path_ds3            = ""  # TODO: Determine what this variable does.
+
+# Output-only files and directories.
+path_sim            = ""  # Climate projections.
+path_stn            = ""  # Grid version of observations.
+
+# Input and output files and directories.
+path_era5_day       = ""  # ERA5 reanalysis set (daily frequency).
+path_era5_land_day  = ""  # ERA5-Land reanalysis set (daily frequency).
+
+# Emission scenarios, periods and horizons.
+rcp_26  = "rcp26"                   # Emission scenario RCP 2.6.
+rcp_45  = "rcp45"                   # Emission scenario RCP 4.5.
+rcp_85  = "rcp85"                   # Emission scenario RCP 8.5.
+rcps    = [rcp_26, rcp_45, rcp_85]  # All emission scenarios.
+per_ref = [1981, 2010]                                # Reference period.
+per_fut = [1981, 2100]                                # Future period.
+per_hor = [[2021, 2040], [2041, 2060], [2061, 2080]]  # Horizons.
+
+# Indices.
+idx_names         = []  # Indices.
+idx_threshs       = []  # Thresholds.
+idx_tx_days_above = "tx_days_above"
 
 # Geographic boundaries and search radius.
 # Latitude (southern and northern boundaries).
-lat_bnds = [8, 16]
+lat_bnds = [0, 0]
 # Longitude (western dn eastern boundaries).
-lon_bnds = [-6, 3]
+lon_bnds = [0, 0]
 # Search radius (around any given location).
-radius   = 0.5
+radius = 0.5
 
 # Numerical parameters.
 group         = "time.dayofyear"
 detrend_order = None
+n_proc        = 4      # Number of processes (for multiprocessing).
+spd           = 86400  # Number of seconds per day.
 
-# Variables.
-var_uas    = "uas"     # Wind in the eastward direction.
-var_vas    = "vas"     # Wind in the northward direction.
-var_pr     = "pr"      # Precipitation.
-var_tas    = "tas"     # Temperature (daily mean).
-var_tasmin = "tasmin"  # Temperature (daily minimum).
-var_tasmax = "tasmax"  # Temperature (daily maximum).
-var_clt    = "clt"     # Cloud cover.
+# Variables (cordex).
+var_cordex_uas    = "uas"     # Wind speed, eastward.
+var_cordex_vas    = "vas"     # Wind speed, northward.
+var_cordex_ps     = "ps"      # Barometric pressure.
+var_cordex_pr     = "pr"      # Precipitation.
+var_cordex_rsds   = "rsds"    # Solar radiation.
+var_cordex_tas    = "tas"     # Temperature (daily mean).
+var_cordex_tasmin = "tasmin"  # Temperature (daily minimum).
+var_cordex_tasmax = "tasmax"  # Temperature (daily maximum).
+var_cordex_clt    = "clt"     # Cloud cover.
+var_cordex_huss   = "huss"    # Specific humidity.
+
+# Variables (era5 and era5_land).
+var_era5_d2m      = "d2m"     # Dew temperature.
+var_era5_e        = "e"       # Evaporation.
+var_era5_pev      = "pev"     # Potential evapotranspiration.
+var_era5_sp       = "sp"      # Barometric pressure.
+var_era5_ssrd     = "ssrd"    # Solar radiation.
+var_era5_t2m      = "t2m"     # Temperature.
+var_era5_tp       = "tp"      # Precipitation.
+var_era5_u10      = "u10"     # Wind speed, eastward.
+var_era5_v10      = "v10"     # Wind speed, northward.
+var_era5_sh       = "sh"      # Specific humidity.
 
 # Data categories: observation, raw, regrid, qqmap or figure.
-cat_obs    = "obs"
-cat_raw    = "raw"
-cat_regrid = "regrid"
-cat_qqmap  = "qqmap"
-cat_fig    = "fig"
+cat_obs           = "obs"
+cat_raw           = "raw"
+cat_regrid        = "regrid"
+cat_qqmap         = "qqmap"
+cat_fig           = "fig"
 
 # Calendar types: no-leap, 360 days or 365 days.
 cal_noleap = "noleap"
@@ -71,23 +110,21 @@ cal_365day = "365_day"
 
 # Date types.
 dtype_obj = "object"
-dtype_64 = "datetime64[ns]"
-
-# Number of seconds per day.
-spd = 86400
+dtype_64  = "datetime64[ns]"
 
 # Stations.
 # Observations are located in directories /exec/<user_name>/<country>/<project>/obs/<obs_provider>/<var>/*.csv
-stn_names = [""]
+stns = []
 
 # Variables.
-variables = []
-priority_timestep = ["day"] * len(variables)
+variables_cordex = []  # CORDEX data.
+variables_ra     = []  # Reanalysis data.
+priority_timestep = ["day"] * len(variables_cordex)
 
 # List of simulation and var-simulation combinations that must be avoided to avoid a crash.
 # Example: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85" (for sim_excepts).
-#          var_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc" (for var_sim_excepts).
-# TODO.YR: Determine why exception lists are required.
+#          var_cordex_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc" (for var_sim_excepts).
+# TODO.YR: Determine why exception lists are required (probably due to calendar format).
 sim_excepts     = []
 var_sim_excepts = []
 
@@ -108,13 +145,27 @@ nq_calib         = None   # List of 'nq' values to test during calibration.
 up_qmf_calib     = None   # List of 'up_wmf' values to test during calibration.
 time_int_calib   = None   # List of 'time_int' values to test during calibration.
 # For workflow.
-# Dictionary with 3 dimensi_nameons [sim][stn_name][var] where 'sim' is simulation name, 'stn_name' is station name,
+# Dictionary with 3 dimensi_nameons [sim][stn][var] where 'sim' is simulation name, 'stn' is station name,
 # and 'var' is the variable.
 nq               = None   # Number of quantiles (calibrated value).
 up_qmf           = None   # Upper limit for quantile mapping function.
 time_int         = None   # Windows size (i.e. number of days before + number of days after).
 
-# Calibration options.
+# Step 2 - Download options.
+opt_download = False
+
+# Step 3 - Aggregation options.
+opt_aggregate = False
+
+# Step 4 - Scenario options.
+opt_scen                 = True
+opt_scen_read_obs_netcdf = True   # If True, converts observations to NetCDF files.
+opt_scen_extract         = True   # If True, forces extraction.
+opt_scen_itp_time        = True   # If True, performs temporal interpolation during extraction.
+opt_scen_itp_space       = True   # If True, perform spatial interpolation during extraction.
+opt_scen_regrid          = False  # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
+opt_scen_preprocess      = True   # If True, forces pre-processing.
+opt_scen_postprocess     = True   # If True, forces post-processing.
 opt_calib           = True  # If True, explores the sensitivity to nq, up_qmf and time_int parameters.
 opt_calib_auto      = True  # If True, calibrates for nq, up_qmf and time_int parameters.
 opt_calib_bias      = True  # If True, examines bias correction.
@@ -122,14 +173,8 @@ opt_calib_coherence = True  # If True, examines physical coherence.
 opt_calib_qqmap     = True  # If true, calculate qqmap.
 opt_calib_extra     = True  # If True, overlaps additional curves on time-series.
 
-# Workflow options.
-opt_wflow_read_obs_netcdf = True   # If True, converts observations to NetCDF files.
-opt_wflow_extract         = True   # If True, forces extraction.
-opt_wflow_itp_time        = True   # If True, performs temporal interpolation during extraction.
-opt_wflow_itp_space       = True   # If True, perform spatial interpolation during extraction.
-opt_wflow_regrid          = False  # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
-opt_wflow_preprocess      = True   # If True, forces pre-processing.
-opt_wflow_postprocess     = True   # If True, forces post-processing.
+# Indices options.
+opt_idx = True  # If True, calculate indices.
 
 # Plot options.
 opt_plt_pp_fut_obs = True  # If True, generates plots of future and observation (in workflow).
@@ -139,7 +184,29 @@ opt_plt_save       = True  # If True, save plots.
 opt_plt_close      = True  # If True, close plots.
 
 
-def get_var_desc(var):
+def get_idx_inst():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get the token corresponding to the institute.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    return len(path_cordex.split("/"))
+
+
+def get_idx_gcm():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get the rank of token corresponding to the GCM.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    return get_idx_inst() + 1
+
+
+def get_var_desc(var, set_name="cordex"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -149,30 +216,59 @@ def get_var_desc(var):
     ----------
     var : str
         Variable.
+    set_name : str
+        Station name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Determine description.
     var_desc = ""
-    if var == var_tas:
-        var_desc = "Temp. moyenne"
-    elif var == var_tasmin:
-        var_desc = "Temp. minimale"
-    elif var == var_tasmax:
-        var_desc = "Temp. maximale"
-    elif var == var_pr:
-        var_desc = "Précipitations"
-    elif var == var_uas:
-        var_desc = "Vent (dir. est)"
-    elif var == var_vas:
-        var_desc = "Vent (dir. nord)"
-    elif var == var_clt:
-        var_desc = "Couvert nuageux"
+    if set_name == "cordex":
+        if var == var_cordex_tas:
+            var_desc = "Temp. moyenne"
+        elif var == var_cordex_tasmin:
+            var_desc = "Temp. minimale"
+        elif var == var_cordex_tasmax:
+            var_desc = "Temp. maximale"
+        elif var == var_cordex_ps:
+            var_desc = "Pression barométrique"
+        elif var == var_cordex_pr:
+            var_desc = "Précipitations"
+        elif var == var_cordex_rsds:
+            var_desc = "Radiation solaire"
+        elif var == var_cordex_uas:
+            var_desc = "Vent (dir. est)"
+        elif var == var_cordex_vas:
+            var_desc = "Vent (dir. nord)"
+        elif var == var_cordex_clt:
+            var_desc = "Couvert nuageux"
+        elif var == var_cordex_huss:
+            var_desc = "Humidité spécifique"
+    elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
+        if var == var_era5_d2m:
+            var_desc = "Point de rosée"
+        elif var == var_era5_t2m:
+            var_desc = "Température"
+        elif var == var_era5_sp:
+            var_desc = "Pression barométrique"
+        elif var == var_era5_tp:
+            var_desc = "Précipitations"
+        elif var == var_era5_u10:
+            var_desc = "Vent (dir. est)"
+        elif var == var_era5_v10:
+            var_desc = "Vent (dir. nord)"
+        elif var == var_era5_ssrd:
+            var_desc = "Radiation solaire"
+        elif var == var_era5_e:
+            var_desc = "Évaporation"
+        elif var == var_era5_pev:
+            var_desc = "Évapotranspiration potentielle"
+        elif var == var_era5_sh:
+            var_desc = "Humidité spécifique"
 
     return var_desc
 
 
-def get_var_unit(var):
+def get_var_unit(var, set_name="cordex"):
     """
     --------------------------------------------------------------------------------------------------------------------
     Gets the unit of a variable.
@@ -181,24 +277,43 @@ def get_var_unit(var):
     ----------
     var : str
         Variable.
+    set_name : str
+        Station name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Determine unit.
     var_unit = ""
-    if (var == var_tas) or (var == var_tasmin) or (var == var_tasmax):
-        var_unit = "°C"
-    elif var == var_pr:
-        var_unit = "mm"
-    elif (var == var_uas) or (var == var_vas):
-        var_unit = "m s-1"
-    elif var == var_clt:
-        var_unit = "%"
+    if set_name == "cordex":
+        if (var == var_cordex_tas) or (var == var_cordex_tasmin) or (var == var_cordex_tasmax):
+            var_unit = "°C"
+        elif var == var_cordex_rsds:
+            var_unit = "Pa"
+        elif var == var_cordex_pr:
+            var_unit = "mm"
+        elif (var == var_cordex_uas) or (var == var_cordex_vas):
+            var_unit = "m s-1"
+        elif var == var_cordex_clt:
+            var_unit = "%"
+        elif var == var_cordex_huss:
+            var_unit = "1"
+    elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
+        if (var == var_era5_d2m) or (var == var_era5_t2m):
+            var_unit = "°"
+        elif var == var_era5_sp:
+            var_unit = "Pa"
+        elif (var == var_era5_u10) or (var == var_era5_v10):
+            var_unit = "m s-1"
+        elif var == var_era5_ssrd:
+            var_unit = "J m-2"
+        elif (var == var_era5_tp) or (var == var_era5_e) or (var == var_era5_pev):
+            var_unit = "m"
+        elif var == var_era5_sh:
+            var_unit = "1"
 
     return var_unit
 
 
-def get_path_out(stn_name, category, var=""):
+def get_path_sim(stn, category, var=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -206,8 +321,8 @@ def get_path_out(stn_name, category, var=""):
 
     Parameters
     ----------
-    stn_name : str
-        Station name.
+    stn : str
+        Station.
     category : str
         Category.
     var : str, optional
@@ -215,9 +330,9 @@ def get_path_out(stn_name, category, var=""):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path = "/exec/" + user_name + "/sim_climat/" + country + "/" + project + "/"
-    if stn_name != "":
-        path = path + stn_name + "/"
+    path = path_sim
+    if stn != "":
+        path = path + stn + "/"
     if category != "":
         path = path + category + "/"
     if var != "":
@@ -226,7 +341,7 @@ def get_path_out(stn_name, category, var=""):
     return path
 
 
-def get_path_stn(var, stn_name):
+def get_path_stn(var, stn):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -236,16 +351,16 @@ def get_path_stn(var, stn_name):
     ----------
     var : str
         Variable.
-    stn_name : str
-        Station name.
+    stn : str
+        Station.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path = "/exec/" + user_name + "/" + country + "/" + project + "/" + cat_obs + "/" + obs_provider + "/"
+    path = ""
     if var != "":
-        path = path + var + "/"
-        if stn_name != "":
-            path = path + stn_name + ".nc"
+        path = path_stn + var + "/"
+        if stn != "":
+            path = path + stn + ".nc"
 
     return path
 
@@ -267,7 +382,7 @@ def get_path_obs(stn_name, var, category=""):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path = get_path_out(stn_name, "obs") + var + "/" + var + "_" + stn_name
+    path = get_path_sim(stn_name, "obs") + var + "/" + var + "_" + stn_name
     if category != "":
         path = path + "_4qqmap"
     path = path + ".nc"
@@ -284,17 +399,17 @@ def init_calib_params():
     """
 
     global nq, up_qmf, time_int
-    nq       = utils.create_multi_dict(3, float)
-    up_qmf   = utils.create_multi_dict(3, float)
+    nq = utils.create_multi_dict(3, float)
+    up_qmf = utils.create_multi_dict(3, float)
     time_int = utils.create_multi_dict(3, float)
-    list_cordex = utils.list_cordex(path_src, rcps)
+    list_cordex = utils.list_cordex(path_cordex, rcps)
     for idx_rcp in range(len(rcps)):
         rcp = rcps[idx_rcp]
-        for idx_sim in range(0, len(list_cordex[rcp])):
-            list     = list_cordex[rcp][idx_sim].split("/")
-            sim_name = list[idx_institute] + "_" + list[idx_institute + 1]
-            for stn_name in stn_names:
-                for var in variables:
-                    nq[sim_name][stn_name][var]       = nq_default
-                    up_qmf[sim_name][stn_name][var]   = up_qmf_default
-                    time_int[sim_name][stn_name][var] = time_int_default
+        for idx_sim_i in range(0, len(list_cordex[rcp])):
+            list_i = list_cordex[rcp][idx_sim_i].split("/")
+            sim_name = list_i[get_idx_inst()] + "_" + list_i[get_idx_inst() + 1]
+            for stn in stns:
+                for var in variables_cordex:
+                    nq[sim_name][stn][var] = nq_default
+                    up_qmf[sim_name][stn][var] = up_qmf_default
+                    time_int[sim_name][stn][var] = time_int_default

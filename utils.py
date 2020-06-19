@@ -437,7 +437,7 @@ def info_cordex(path_ds):
     return sets
 
 
-def calendar(x):
+def calendar(x, n_days_old=360, n_days_new=365):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -445,8 +445,12 @@ def calendar(x):
 
     Parameters
     ----------
-    x : ...
+    x : xarray
         Dataset.
+    n_days_old: int
+        Number of days in the old calendar.
+    n_days_new: int
+        Number of days in the new calendar.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -454,29 +458,30 @@ def calendar(x):
     # DEBUG: print(len(x.time))
 
     # Put 360 on 365 calendar.
-    ts         = x.assign_coords(time=x.time.dt.dayofyear / 360 * 365)
-    ts_year    = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * 365
+    ts         = x.assign_coords(time=x.time.dt.dayofyear / n_days_old * n_days_new)
+    ts_year    = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * n_days_new
     ts_time    = ts.time.values
     ts["time"] = ts_year + ts_time
     # DEBUG: print(len(ts.time))
 
     nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0])+1
-    time_new = np.arange(1, (nb_year*365)+1)
+    time_new = np.arange(1, (nb_year*n_days_new)+1)
     # DEBUG: print(len(time_new))
 
     # Create new times series.
     year_0  = str(ts.backup.dt.year.values[0])
-    month_0 = str(ts.backup.dt.month.values[0])
-    day_0   = str(ts.backup.dt.day.values[0])
-
+    month_0 = str(ts.backup.dt.month.values[0]).zfill(2)
+    day_0   = str(min(ts.backup.dt.day.values[0], 31)).zfill(2)
     year_1  = str(ts.backup.dt.year[-1].values)
-    month_1 = str(ts.backup.dt.month[-1].values)
+    month_1 = str(ts.backup.dt.month[-1].values).zfill(2)
     if int(month_1) == 11:
-        day_1 = str(ts.backup.dt.day[-1].values)
+        day_1 = str(min(ts.backup.dt.day[-1].values, 31)).zfill(2)
     else:
-        day_1 = str(ts.backup.dt.day[-1].values + 1)
+        day_1 = str(min(ts.backup.dt.day[-1].values + 1, 31)).zfill(2)
+    date_0 = year_0 + "-" + month_0 + "-" + day_0
+    date_1 = year_1 + "-" + month_1 + "-" + day_1
+    time_date = pd.date_range(start=date_0, end=date_1)
 
-    time_date = pd.date_range(year_0+"-" + month_0 + "-" + day_0, year_1+"-" + month_1 + "-" + day_1)
     # DEBUG: print(len(time_date))
 
     # Remove February 29th.
@@ -486,12 +491,12 @@ def calendar(x):
     # Interpolate 365 days time series.
     ref_365 = ts.interp(time=time_new, kwargs={"fill_value": "extrapolate"}, method="nearest")
 
-    # Recreate 365 time series.
+        # Recreate 365 time series.
     ref_365["time"] = time_date
 
     # DEBUG: Plot data.
-    # DEBUG: plt.plot(np.arange(1,366),ref_365[:365].values)
-    # DEBUG: plt.plot((np.arange(1, 361)/360*365), ts[0:360].values,alpha=0.5)
+    # DEBUG: plt.plot(np.arange(1,n_days_new+1),ref_365[:n_days_new].values)
+    # DEBUG: plt.plot((np.arange(1, n_days_old+1)/n_days_old*n_days_new), ts[0:n_days_old].values,alpha=0.5)
     # DEBUG: plt.show()
 
     return ref_365
@@ -524,7 +529,7 @@ def list_files(path):
     return files
 
 
-def create_multi_dict(n, type):
+def create_multi_dict(n, data_type):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -534,12 +539,12 @@ def create_multi_dict(n, type):
     ----------
     n : int
         Number of dimensions
-    type : type
+    data_type : type
         Data type.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     if n == 1:
-        return defaultdict(type)
+        return defaultdict(data_type)
     else:
-        return defaultdict(lambda: create_multi_dict(n - 1, type))
+        return defaultdict(lambda: create_multi_dict(n - 1, data_type))

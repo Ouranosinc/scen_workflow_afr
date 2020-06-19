@@ -23,7 +23,7 @@ import os
 import xarray as xr
 
 
-def bias_correction_loop(stn_name, var):
+def bias_correction_loop(stn, var):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ def bias_correction_loop(stn_name, var):
 
     Parameters
     ----------
-    stn_name : str
+    stn : str
         Station name.
     var : str
         Weather variable.
@@ -43,7 +43,7 @@ def bias_correction_loop(stn_name, var):
     var_unit = cfg.get_var_unit(var)
 
     # Path of directory containing regrid files.
-    path_regrid = cfg.get_path_sim(stn_name, cfg.cat_regrid, var)
+    path_regrid = cfg.get_path_sim(stn, cfg.cat_regrid, var)
 
     # List of files in 'path'.
     files = utils.list_files(path_regrid)
@@ -71,16 +71,16 @@ def bias_correction_loop(stn_name, var):
                     print("Correcting i=" + str(i) + ", up_qmf=" + str(up_qmf) + ", time_int=" + str(time_int))
 
                     # NetCDF file.
-                    fn_obs = cfg.get_path_obs(stn_name, var)
+                    fn_obs = cfg.get_path_obs(stn, var)
                     fn_ref = [i for i in files if "ref" in i][i]
                     fn_fut = fn_ref.replace("ref_", "")
-                    fn_qqmap = cfg.get_path_sim(stn_name, cfg.cat_qqmap, var)
+                    fn_qqmap = cfg.get_path_sim(stn, cfg.cat_qqmap, var)
 
                     # Figures.
                     fn_fig = fn_fut.split("/")[-1].replace("4qqmap.nc", "calib.png")
                     sup_title = os.path.basename(fn_fig) + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + \
                         "_nq_" + str(nq)
-                    path_fig = cfg.get_path_sim(stn_name, cfg.cat_fig + "/calib", var)
+                    path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/calib", var)
                     if not (os.path.isdir(path_fig)):
                         os.makedirs(path_fig)
                     fn_fig = path_fig + fn_fig
@@ -103,7 +103,7 @@ def bias_correction_loop(stn_name, var):
 
                         # Conversion coefficient.
                         coef = 1
-                        if var == cfg.var_pr:
+                        if var == cfg.var_cordex_pr:
                             coef = cfg.spd
 
                         fs_sup_title = 8
@@ -116,12 +116,12 @@ def bias_correction_loop(stn_name, var):
                         # Precipitation.
                         (ds_fut[var] * coef).plot(alpha=0.5)
                         # ERROR: (ds_qqmap[var]*coef).plot(alpha=0.5)
-                        if var == cfg.var_pr:
+                        if var == cfg.var_cordex_pr:
                             (ds_obs[var] * coef).plot()
                         # Other variables.
                         else:
                             dt = 0
-                            if var in [cfg.var_tas, cfg.var_tasmax, cfg.var_tasmin]:
+                            if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmax, cfg.var_cordex_tasmin]:
                                 dt = 273.15
                             (ds_obs[var] + dt).plot()
                         plt.legend(["sim", "obs"], fontsize=fs_legend)
@@ -143,9 +143,9 @@ def bias_correction_loop(stn_name, var):
 
                     # Set nq, up_qmf and time_int for the current simulation.
                     if cfg.opt_calib_auto and ((error_best < 0) or (error_current < error_best)):
-                        cfg.nq[sim_name][stn_name][var]       = float(nq)
-                        cfg.up_qmf[sim_name][stn_name][var]   = up_qmf
-                        cfg.time_int[sim_name][stn_name][var] = float(time_int)
+                        cfg.nq[sim_name][stn][var]       = float(nq)
+                        cfg.up_qmf[sim_name][stn][var]   = up_qmf
+                        cfg.time_int[sim_name][stn][var] = float(time_int)
 
 
 def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap, fn_fig, sup_title):
@@ -189,7 +189,7 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
     ds_fut = xr.open_dataset(fn_fut)[var]
 
     # DELETE: Amount of precipitation in winter.
-    # DELETE: if var == cfg.var_pr:
+    # DELETE: if var == cfg.var_cordex_pr:
     # DELETE:     pos_ref = (ds_ref.time.dt.month >= 11) | (ds_ref.time.dt.month <= 3)
     # DELETE:     pos_fut = (ds_fut.time.dt.month >= 11) | (ds_fut.time.dt.month <= 3)
     # DELETE:     ds_ref[pos_ref] = 1e-8
@@ -200,11 +200,11 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
     # Information for post-processing ---------------------------------------------------------------------------------
 
     # Precipitation.
-    if var == cfg.var_pr:
+    if var == cfg.var_cordex_pr:
         kind = "*"
         ds_obs.interpolate_na(dim="time")
     # Temperature.
-    elif var in [cfg.var_tas, cfg.var_tasmin, cfg.var_tasmax]:
+    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
         ds_obs  = ds_obs + 273.15
         ds_obs  = ds_obs.interpolate_na(dim="time")
         kind = "+"
@@ -221,7 +221,7 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
 
     # Calculate QQMAP.
     if cfg.opt_calib_qqmap:
-        if var == cfg.var_pr:
+        if var == cfg.var_cordex_pr:
             ds_qmf.values[ds_qmf > up_qmf] = up_qmf
         ds_qqmap     = predict(ds_fut.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
 
@@ -253,7 +253,7 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
 
     # Plot.
     f.add_subplot(332)
-    if var == cfg.var_pr:
+    if var == cfg.var_cordex_pr:
         draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "sum")
     else:
         draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "mean")
@@ -303,7 +303,7 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
 
     # Conversion coefficient.
     coef = 1
-    if var == cfg.var_pr:
+    if var == cfg.var_cordex_pr:
         coef = cfg.spd
 
     # TODO: The following block of code does not work. Compatibility with a xarray.DataArray that contains a time
@@ -313,7 +313,7 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
         (ds_qqmap * coef).plot(alpha=0.5)
         (ds_ref * coef).plot(alpha=0.5)
         (ds_obs * coef).plot(alpha=0.5)
-        if var == cfg.var_pr:
+        if var == cfg.var_cordex_pr:
             plt.ylim([0, 300])
         # Other variables.
         else:
@@ -366,7 +366,7 @@ def draw_curves(var, ds, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile=-1.0):
 
     # Conversion coefficient.
     coef = 1
-    if var == cfg.var_pr:
+    if var == cfg.var_cordex_pr:
         coef = cfg.spd
 
     # Draw curves.
@@ -396,7 +396,7 @@ def draw_curves(var, ds, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile=-1.0):
         (ds_fut * coef).groupby(ds_fut.time.dt.year).sum().plot()
 
 
-def physical_coherence(stn_name, var):
+def physical_coherence(stn, var):
 
     """
     # ------------------------------------------------------------------------------------------------------------------
@@ -404,21 +404,21 @@ def physical_coherence(stn_name, var):
 
     Parameters
     ----------
-    stn_name: str
+    stn: str
         Station name.
     var : [str]
         List of variables.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path_qqmap   = cfg.get_path_sim(stn_name, cfg.cat_qqmap, var[0])
+    path_qqmap   = cfg.get_path_sim(stn, cfg.cat_qqmap, var[0])
     files        = utils.list_files(path_qqmap)
     file_tasmin  = files
-    file_tasmax  = [i.replace(cfg.var_tasmin, cfg.var_tasmax) for i in files]
+    file_tasmax  = [i.replace(cfg.var_cordex_tasmin, cfg.var_cordex_tasmax) for i in files]
 
     for i in range(len(file_tasmin)):
         i = 10
-        print(stn_name + "____________" + file_tasmax[i])
+        print(stn + "____________" + file_tasmax[i])
         out_tasmax = xr.open_dataset(file_tasmax[i])
         out_tasmin = xr.open_dataset(file_tasmin[i])
 
@@ -469,19 +469,19 @@ def run():
     print("Module calib launched.")
 
     # Loop through stations.
-    for stn_name in cfg.stn_names:
+    for stn in cfg.stns:
 
         # Loop through variables.
-        for var in cfg.variables:
+        for var in cfg.variables_cordex:
 
             # Bias correction.
             if cfg.opt_calib_bias:
 
-                bias_correction_loop(stn_name, var)
+                bias_correction_loop(stn, var)
 
             # Physical coherence.
             if cfg.opt_calib_coherence:
-                physical_coherence(stn_name, [cfg.var_tasmin, cfg.var_tasmax])
+                physical_coherence(stn, [cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])
 
     print("Module calib completed successfully.")
 

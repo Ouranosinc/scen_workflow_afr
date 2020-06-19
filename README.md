@@ -1,2 +1,2 @@
-# burkina_pcci
-Scénarios climatiques pour le projet Burkina Faso PCCI.
+# scen_workflow_afr
+Développement de scénarios climatiques et calcul d'indicateurs climatiques.
