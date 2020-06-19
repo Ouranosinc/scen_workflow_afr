@@ -43,7 +43,7 @@ def bias_correction_loop(stn_name, var):
     var_unit = cfg.get_var_unit(var)
 
     # Path of directory containing regrid files.
-    path_regrid = cfg.get_path_out(stn_name, cfg.cat_regrid, var)
+    path_regrid = cfg.get_path_sim(stn_name, cfg.cat_regrid, var)
 
     # List of files in 'path'.
     files = utils.list_files(path_regrid)
@@ -53,11 +53,11 @@ def bias_correction_loop(stn_name, var):
     if len(cfg.idx_sim) == 0:
         cfg.idx_sim = range(0, n_set)
     for i in cfg.idx_sim:
-        list     = files[i * 3].split("/")
-        sim_name = list[len(list) - 1].replace(var + "_", "").replace(".nc", "")
+        list_i   = files[i * 3].split("/")
+        sim_name = list_i[len(list_i) - 1].replace(var + "_", "").replace(".nc", "")
 
         # Best parameter set.
-        error_best      = -1
+        error_best = -1
 
         # Loop through nq values.
         for nq in cfg.nq_calib:
@@ -74,13 +74,13 @@ def bias_correction_loop(stn_name, var):
                     fn_obs = cfg.get_path_obs(stn_name, var)
                     fn_ref = [i for i in files if "ref" in i][i]
                     fn_fut = fn_ref.replace("ref_", "")
-                    fn_qqmap = cfg.get_path_out(stn_name, cfg.cat_qqmap, var)
+                    fn_qqmap = cfg.get_path_sim(stn_name, cfg.cat_qqmap, var)
 
                     # Figures.
                     fn_fig = fn_fut.split("/")[-1].replace("4qqmap.nc", "calib.png")
                     sup_title = os.path.basename(fn_fig) + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + \
                         "_nq_" + str(nq)
-                    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/calib", var)
+                    path_fig = cfg.get_path_sim(stn_name, cfg.cat_fig + "/calib", var)
                     if not (os.path.isdir(path_fig)):
                         os.makedirs(path_fig)
                     fn_fig = path_fig + fn_fig
@@ -216,7 +216,8 @@ def bias_correction(var, nq, up_qmf, time_int, fn_obs, fn_ref, fn_fut, fn_qqmap,
     # Calculate/read quantiles -----------------------------------------------------------------------------------------
 
     # Calculate QMF.
-    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), int(nq), cfg.group, kind, time_int, detrend_order=cfg.detrend_order)
+    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), int(nq), cfg.group, kind, time_int,
+                   detrend_order=cfg.detrend_order)
 
     # Calculate QQMAP.
     if cfg.opt_calib_qqmap:
@@ -410,7 +411,7 @@ def physical_coherence(stn_name, var):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path_qqmap   = cfg.get_path_out(stn_name, cfg.cat_qqmap, var[0])
+    path_qqmap   = cfg.get_path_sim(stn_name, cfg.cat_qqmap, var[0])
     files        = utils.list_files(path_qqmap)
     file_tasmin  = files
     file_tasmax  = [i.replace(cfg.var_tasmin, cfg.var_tasmax) for i in files]

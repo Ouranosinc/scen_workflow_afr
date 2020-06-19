@@ -13,13 +13,13 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Current package.
-import calib
+import scen_calib
 import config as cfg
 import rcm
 import utils
 
 # Ouranos packages.
-from xclim.core.utils import sfcwind_2_uas_vas
+from xclim.indices import sfcwind_2_uas_vas
 from xsd.qm import train, predict
 
 # Other packages.
@@ -219,7 +219,7 @@ def extract(var, fn_obs, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid):
 
     print("Extracting data for " + fn_raw + "...")
 
-    path_tmp = cfg.get_path_out("", cfg.cat_raw, var)
+    path_tmp = cfg.get_path_sim("", cfg.cat_raw, var)
     ds = rcm.extract_variable(fn_rcp_hist, fn_rcp_proj, var, lat_bnds, lon_bnds,
                               priority_timestep=cfg.priority_timestep[cfg.variables.index(var)], tmpdir=path_tmp)
 
@@ -454,7 +454,7 @@ def postprocess(var, stn_name, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_r
     # Figures.
     fn_fig    = fn_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
     sup_title = fn_fig[:-4] + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
-    path_fig  = cfg.get_path_out(stn_name, cfg.cat_fig + "/postprocess", var)
+    path_fig  = cfg.get_path_sim(stn_name, cfg.cat_fig + "/postprocess", var)
     if not (os.path.isdir(path_fig)):
         os.makedirs(path_fig)
     fn_fig = path_fig + fn_fig
@@ -644,7 +644,7 @@ def run():
     print("Module wflow launched.")
 
     # Create directory.
-    path_out = cfg.get_path_out("", "", "")
+    path_out = cfg.get_path_sim("", "", "")
     if not(os.path.isdir(path_out)):
         os.makedirs(path_out)
 
@@ -656,7 +656,7 @@ def run():
             read_obs_csv(var)
 
     # Step #2b: List CORDEX files.
-    list_cordex = utils.list_cordex(cfg.path_src, cfg.rcps)
+    list_cordex = utils.list_cordex(cfg.path_cordex, cfg.rcps)
 
     # Loop through variables.
     for idx_var in range(0, len(cfg.variables)):
@@ -676,10 +676,10 @@ def run():
                 continue
 
             # Create directories.
-            path_obs    = cfg.get_path_out(stn_name, cfg.cat_obs, var)
-            path_raw    = cfg.get_path_out(stn_name, cfg.cat_raw, var)
-            path_fut    = cfg.get_path_out(stn_name, cfg.cat_qqmap, var)
-            path_regrid = cfg.get_path_out(stn_name, cfg.cat_regrid, var)
+            path_obs    = cfg.get_path_sim(stn_name, cfg.cat_obs, var)
+            path_raw    = cfg.get_path_sim(stn_name, cfg.cat_raw, var)
+            path_fut    = cfg.get_path_sim(stn_name, cfg.cat_qqmap, var)
+            path_regrid = cfg.get_path_sim(stn_name, cfg.cat_regrid, var)
             if not (os.path.isdir(path_obs)):
                 os.makedirs(path_obs)
             if not (os.path.isdir(path_raw)):
@@ -700,13 +700,13 @@ def run():
 
                     # Get simulation name.
                     c = sim.split("/")
-                    sim_name = c[cfg.idx_institute] + "_" + c[cfg.idx_gcm]
+                    sim_name = c[cfg.get_idx_inst()] + "_" + c[cfg.get_idx_gcm()]
                     print("Processing: variable = " + var + "; station = " + stn_name + ": " + sim_name)
 
                     # Files within CORDEX or CORDEX-NA.
                     if "CORDEX" in sim:
-                        fn_raw = path_raw + var + "_" + c[cfg.idx_institute] + "_" +\
-                                 c[cfg.idx_gcm].replace("*", "_") + ".nc"
+                        fn_raw = path_raw + var + "_" + c[cfg.get_idx_inst()] + "_" +\
+                                 c[cfg.get_idx_gcm()].replace("*", "_") + ".nc"
                     elif len(sim) == 3:
                         fn_raw = path_raw + var + "_Ouranos_" + sim + ".nc"
                     else:
@@ -727,7 +727,7 @@ def run():
 
                     # Figures.
                     fn_fig   = fn_regrid_fut.split("/")[-1].replace("4qqmap.nc", "wflow.png")
-                    path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/wflow", var)
+                    path_fig = cfg.get_path_sim(stn_name, cfg.cat_fig + "/wflow", var)
                     if not (os.path.isdir(path_fig)):
                         os.makedirs(path_fig)
                     fn_fig = path_fig + fn_fig
@@ -747,7 +747,7 @@ def run():
 
                     # Step #5a: Calculate adjustment factors.
                     if cfg.opt_calib:
-                        calib.run()
+                        scen_calib.run()
                     nq       = cfg.nq[sim_name][stn_name][idx_var]
                     up_qmf   = cfg.up_qmf[sim_name][stn_name][idx_var]
                     time_int = cfg.time_int[sim_name][stn_name][idx_var]

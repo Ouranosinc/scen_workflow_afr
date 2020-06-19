@@ -41,7 +41,7 @@ def plot_ts_single(stn_name, var):
     var_unit = cfg.get_var_unit(var)
 
     # Paths and NetCDF files.
-    path_regrid = cfg.get_path_out(stn_name, cfg.cat_regrid, var)
+    path_regrid = cfg.get_path_sim(stn_name, cfg.cat_regrid, var)
     files       = utils.list_files(path_regrid)
     fn_obs      = cfg.get_path_obs(stn_name, var)
 
@@ -88,7 +88,7 @@ def plot_ts_single(stn_name, var):
 
         if cfg.opt_plt_save:
             fn_fig = sup_title + ".png"
-            path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/verif/ts_single", var)
+            path_fig = cfg.get_path_sim(stn_name, cfg.cat_fig + "/verif/ts_single", var)
             if not (os.path.isdir(path_fig)):
                 os.makedirs(path_fig)
             fn_fig = path_fig + fn_fig
@@ -125,7 +125,7 @@ def plot_ts_mosaic(stn_name, var):
         coef = cfg.spd
 
     # Paths and NetCDF files.
-    path_regrid = cfg.get_path_out(stn_name, cfg.cat_regrid, var)
+    path_regrid = cfg.get_path_sim(stn_name, cfg.cat_regrid, var)
     files       = utils.list_files(path_regrid)
     fn_obs      = cfg.get_path_obs(stn_name, var)
 
@@ -176,7 +176,7 @@ def plot_ts_mosaic(stn_name, var):
 
     if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/verif/ts_mosaic", var)
+        path_fig = cfg.get_path_sim(stn_name, cfg.cat_fig + "/verif/ts_mosaic", var)
         if not (os.path.isdir(path_fig)):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
@@ -208,7 +208,7 @@ def plot_monthly(stn_name, var):
     var_unit = cfg.get_var_unit(var)
 
     # NetCDF files.
-    path_regrid = cfg.get_path_out(stn_name, cfg.cat_regrid, var)
+    path_regrid = cfg.get_path_sim(stn_name, cfg.cat_regrid, var)
     files       = utils.list_files(path_regrid)
     fn_obs      = cfg.get_path_obs(stn_name, var)
     ds_obs      = xr.open_dataset(fn_obs)
@@ -259,7 +259,7 @@ def plot_monthly(stn_name, var):
 
     if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_out(stn_name, cfg.cat_fig + "/verif/monthly", var)
+        path_fig = cfg.get_path_sim(stn_name, cfg.cat_fig + "/verif/monthly", var)
         if not (os.path.isdir(path_fig)):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
