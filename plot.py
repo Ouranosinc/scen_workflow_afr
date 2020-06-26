@@ -12,6 +12,7 @@ import config as cfg
 import matplotlib.pyplot as plt
 import numpy as np
 import os.path
+import seaborn as sns
 import utils
 import xarray as xr
 import xclim.subset as subset
@@ -80,8 +81,6 @@ def plot_dayofyear(ds_day, set_name, var, date):
 
     # Data.
     ds_day_sel = ds_day.sel(time=date)
-    if cfg.path_bounds != "":
-        ds_day_sel = subset.subset_shape(ds_day_sel, cfg.path_bounds)
 
     # Plot.
     fs = 10
@@ -93,113 +92,6 @@ def plot_dayofyear(ds_day, set_name, var, date):
     plt.ylabel("Latitude (º)", fontsize=fs)
     plt.tick_params(axis="x", labelsize=fs)
     plt.tick_params(axis="y", labelsize=fs)
-
-    plt.close()
-
-
-def plot_ts_indices(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_threshs, rcps, xlim, fn_fig):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Generate a time series comprising the reference period and all emission scenarios.
-
-    Parameters
-    ----------
-    ds_ref : xarray[]
-        Dataset for the reference period.
-    ds_rcp_26 : xarray[]
-        Dataset for RCP 2.6.
-    ds_rcp_45 : xarray[]
-        Dataset for RCP 4.5.
-    ds_rcp_85 : xarray[]
-        Dataset for RCP 8.5.
-    stn : str
-        Station name.
-    idx_name : str
-        Index name.
-    idx_threshs : float[]
-        Threshold value associated with 'var'.
-    rcps : [str]
-        Emission scenarios.
-    xlim : [int]
-        Minimum and maximum values along the x-axis.
-    fn_fig : str
-        File name of figure.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Variable-specific treatment.
-    title = ""
-    if idx_name == cfg.idx_tx_days_above:
-        title = "Nombre de jours avec " + cfg.get_var_desc(cfg.var_cordex_tasmax).lower() + " > " +\
-                str(idx_threshs[0]) + " " + cfg.get_var_unit(cfg.var_cordex_tasmax) + " (" + stn + ")"
-
-    # Initialize plot.
-    f, ax = plt.subplots()
-    ax.set_title(title)
-    ax.set_xlabel('Année')
-    ax.secondary_yaxis('right')
-    ax.get_yaxis().tick_right()
-    ax.axes.get_yaxis().set_visible(False)
-    secax = ax.secondary_yaxis('right')
-    secax.set_ylabel("Nombre de jours")
-    plt.subplots_adjust(top=0.925, bottom=0.10, left=0.03, right=0.90, hspace=0.30, wspace=0.416)
-
-    # Update plot.
-    ds_ref_curve = None
-    ds_ref_min = None
-    ds_ref_max = None
-    ds_fut_curve = None
-    ds_fut_min = None
-    ds_fut_max = None
-    for rcp in rcps:
-
-        color = "black"
-        if rcp == "ref":
-            ds_ref_curve = ds_ref[0]
-            ds_ref_min   = ds_ref[1]
-            ds_ref_max   = ds_ref[2]
-        elif rcp == cfg.rcp_26:
-            ds_fut_curve = ds_rcp_26[0]
-            ds_fut_min   = ds_rcp_26[1]
-            ds_fut_max   = ds_rcp_26[2]
-            color = "blue"
-        elif rcp == cfg.rcp_45:
-            ds_fut_curve = ds_rcp_45[0]
-            ds_fut_min   = ds_rcp_45[1]
-            ds_fut_max   = ds_rcp_45[2]
-            color = "green"
-        elif rcp == cfg.rcp_85:
-            ds_fut_curve = ds_rcp_85[0]
-            ds_fut_min   = ds_rcp_85[1]
-            ds_fut_max   = ds_rcp_85[2]
-            color = "red"
-
-        if rcp == "ref":
-            ax.plot(ds_ref_max["time"], ds_ref_curve, color=color, alpha=1.0)
-        else:
-            ax.fill_between(ds_ref_max["time"], ds_ref_min, ds_ref_max, color="grey", alpha=0.25)
-            ax.plot(ds_fut_max["time"], ds_fut_curve, color=color, alpha=1.0)
-            ax.fill_between(ds_fut_max["time"], ds_fut_min, ds_fut_max, color=color, alpha=0.25)
-
-    # Finalize plot.
-    legend_list = ["Référence"]
-    if cfg.rcp_26 in rcps:
-        legend_list.append("RCP 2,6")
-    if cfg.rcp_45 in rcps:
-        legend_list.append("RCP 4,5")
-    if cfg.rcp_85 in rcps:
-        legend_list.append("RCP 8,5")
-    ax.legend(legend_list, loc="upper left", frameon=False)
-    plt.xlim(xlim[0] * 365, xlim[1] * 365)
-    plt.ylim(bottom=0)
-
-    # Save figure.
-    if fn_fig != "":
-        dir_fig = os.path.dirname(fn_fig)
-        if not (os.path.isdir(dir_fig)):
-            os.makedirs(dir_fig)
-        plt.savefig(fn_fig)
 
     plt.close()
 
@@ -452,3 +344,179 @@ def plot_monthly(stn, var):
     # DEBUG: Need to add a breakpoint below to visualize plot.
     if cfg.opt_plt_close:
         plt.close()
+
+
+def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_threshs, rcps, xlim, fn_fig):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate a time series of a climate index for the reference period and for emission scenarios.
+
+    Parameters
+    ----------
+    ds_ref : xarray[]
+        Dataset for the reference period.
+    ds_rcp_26 : xarray[]
+        Dataset for RCP 2.6.
+    ds_rcp_45 : xarray[]
+        Dataset for RCP 4.5.
+    ds_rcp_85 : xarray[]
+        Dataset for RCP 8.5.
+    stn : str
+        Station name.
+    idx_name : str
+        Index name.
+    idx_threshs : float[]
+        Threshold value associated with 'var'.
+    rcps : [str]
+        Emission scenarios.
+    xlim : [int]
+        Minimum and maximum values along the x-axis.
+    fn_fig : str
+        File name of figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Variable-specific treatment.
+    title = ""
+    if idx_name == cfg.idx_tx_days_above:
+        title = "Nombre de jours avec " + cfg.get_var_desc(cfg.var_cordex_tasmax).lower() + " > " +\
+                str(idx_threshs[0]) + " " + cfg.get_var_unit(cfg.var_cordex_tasmax) + " (" + stn + ")"
+
+    # Initialize plot.
+    f, ax = plt.subplots()
+    ax.set_title(title)
+    ax.set_xlabel('Année')
+    ax.secondary_yaxis('right')
+    ax.get_yaxis().tick_right()
+    ax.axes.get_yaxis().set_visible(False)
+    secax = ax.secondary_yaxis('right')
+    secax.set_ylabel("Nombre de jours")
+    plt.subplots_adjust(top=0.925, bottom=0.10, left=0.03, right=0.90, hspace=0.30, wspace=0.416)
+
+    # Update plot.
+    ds_ref_curve = None
+    ds_ref_min = None
+    ds_ref_max = None
+    ds_fut_curve = None
+    ds_fut_min = None
+    ds_fut_max = None
+    for rcp in rcps:
+
+        color = "black"
+        if rcp == "ref":
+            ds_ref_curve = ds_ref[0]
+            ds_ref_min   = ds_ref[1]
+            ds_ref_max   = ds_ref[2]
+        elif rcp == cfg.rcp_26:
+            ds_fut_curve = ds_rcp_26[0]
+            ds_fut_min   = ds_rcp_26[1]
+            ds_fut_max   = ds_rcp_26[2]
+            color = "blue"
+        elif rcp == cfg.rcp_45:
+            ds_fut_curve = ds_rcp_45[0]
+            ds_fut_min   = ds_rcp_45[1]
+            ds_fut_max   = ds_rcp_45[2]
+            color = "green"
+        elif rcp == cfg.rcp_85:
+            ds_fut_curve = ds_rcp_85[0]
+            ds_fut_min   = ds_rcp_85[1]
+            ds_fut_max   = ds_rcp_85[2]
+            color = "red"
+
+        if rcp == "ref":
+            ax.plot(ds_ref_max["time"], ds_ref_curve, color=color, alpha=1.0)
+        else:
+            ax.fill_between(ds_ref_max["time"], ds_ref_min, ds_ref_max, color="grey", alpha=0.25)
+            ax.plot(ds_fut_max["time"], ds_fut_curve, color=color, alpha=1.0)
+            ax.fill_between(ds_fut_max["time"], ds_fut_min, ds_fut_max, color=color, alpha=0.25)
+
+    # Finalize plot.
+    legend_list = ["Référence"]
+    if cfg.rcp_26 in rcps:
+        legend_list.append("RCP 2,6")
+    if cfg.rcp_45 in rcps:
+        legend_list.append("RCP 4,5")
+    if cfg.rcp_85 in rcps:
+        legend_list.append("RCP 8,5")
+    ax.legend(legend_list, loc="upper left", frameon=False)
+    plt.xlim(xlim[0] * 365, xlim[1] * 365)
+    plt.ylim(bottom=0)
+
+    # Save figure.
+    if fn_fig != "":
+        dir_fig = os.path.dirname(fn_fig)
+        if not (os.path.isdir(dir_fig)):
+            os.makedirs(dir_fig)
+        plt.savefig(fn_fig)
+
+    plt.close()
+
+
+def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, fn_fig, map_package):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate a heat map of a climate index for the reference period and for emission scenarios.
+    TODO: Add a color scale common to all horizons.
+
+    Parameters
+    ----------
+    ds: xarray
+        Dataset (with 2 dimensions: longitude and latitude).
+    idx_name : str
+        Index name.
+    idx_threshs : float[]
+        Threshold value associated with 'var'.
+    grid_x: [float]
+        X-coordinates.
+    grid_y: [float]
+        Y-coordinates.
+    per: [int, int]
+        Period of interest, for instance, [1981, 2010].
+    fn_fig : str
+        File name of figure.
+    map_package: str
+        Map package: {"seaborn", "matplotlib"}
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    title = ""
+    label = ""
+    if idx_name == cfg.idx_tx_days_above:
+        title = "Nombre de jours avec " + cfg.get_var_desc(cfg.var_cordex_tasmax).lower() + " > " +\
+                str(idx_threshs[0]) + " " + cfg.get_var_unit(cfg.var_cordex_tasmax) +\
+                " (" + cfg.country.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
+        label = "Nombre de jours"
+    plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
+
+    # Using seaborn.
+    if map_package == "seaborn":
+        sns.set()
+        fig, ax = plt.subplots(figsize=(8, 5))
+        g = sns.heatmap(ax=ax, data=ds, xticklabels=grid_x, yticklabels=grid_y)
+        x_labels = ['{:,.2f}'.format(i) for i in grid_x]
+        y_labels = ['{:,.2f}'.format(i) for i in grid_y]
+        g.set_xticklabels(x_labels)
+        g.set_yticklabels(y_labels)
+
+    # Using matplotlib.
+    elif map_package == "matplotlib":
+        fs = 10
+        ds.plot.pcolormesh(add_colorbar=True, add_labels=True,
+                           cbar_kwargs=dict(orientation='vertical', pad=0.05, shrink=1, label=label))
+        plt.title(title)
+        plt.suptitle("", fontsize=fs)
+        plt.xlabel("Longitude (º)", fontsize=fs)
+        plt.ylabel("Latitude (º)", fontsize=fs)
+        plt.tick_params(axis="x", labelsize=fs)
+        plt.tick_params(axis="y", labelsize=fs)
+
+    # Save figure.
+    if fn_fig != "":
+        dir_fig = os.path.dirname(fn_fig)
+        if not (os.path.isdir(dir_fig)):
+            os.makedirs(dir_fig)
+        plt.savefig(fn_fig)
+
+    plt.close()

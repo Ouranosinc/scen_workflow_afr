@@ -644,9 +644,9 @@ def run():
     print("Module scenarios launched.")
 
     # Create directory.
-    path_out = cfg.get_path_sim("", "", "")
-    if not(os.path.isdir(path_out)):
-        os.makedirs(path_out)
+    path_exec = cfg.get_path_sim("", "", "")
+    if not(os.path.isdir(path_exec)):
+        os.makedirs(path_exec)
 
     # Step #2: Data selection.
 
