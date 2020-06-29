@@ -58,10 +58,11 @@ idx_threshs       = []  # Thresholds.
 idx_tx_days_above = "tx_days_above"
 
 # Geographic boundaries and search radius.
-# Latitude (southern and northern boundaries).
-lat_bnds = [0, 0]
-# Longitude (western dn eastern boundaries).
+# Longitude and latitude boundaries.
 lon_bnds = [0, 0]
+lat_bnds = [0, 0]
+# Spatial resolution for climate indices mapping.
+resol_idx = 0.05
 # Search radius (around any given location).
 radius = 0.5
 

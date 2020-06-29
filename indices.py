@@ -269,7 +269,9 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
     if idx_name == cfg.idx_tx_days_above:
         var = cfg.var_cordex_tasmax
 
-    # Collect values for each station.
+    # Collect values for each station and determine overall boundaries.
+    x_bnds = []
+    y_bnds = []
     data_stn = []
     for stn in cfg.stns:
 
@@ -281,6 +283,8 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
         data = [[], [], []]
         n = ds.dims["time"]
         for year in range(0, n):
+
+            # Collect data.
             x = ds["lon"].values.ravel()[0]
             y = ds["lat"].values.ravel()[0]
             z = ds[var][year]
@@ -290,18 +294,30 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
             data[1].append(y) # data[1].append(ds["lat"])
             data[2].append(int(z))
 
+            # Update overall boundaries (round according to the variable 'step').
+            if x_bnds == []:
+                x_bnds = [x, x]
+                y_bnds = [y, y]
+            else:
+                x_bnds = [min(x_bnds[0], x), max(x_bnds[1], x)]
+                y_bnds = [min(y_bnds[0], y), max(y_bnds[1], y)]
+
         # Add data from station to complete dataset.
         data_stn.append(data)
 
     # Build the list of x and y locations for which interpolation is needed.
-    step = 0.05
     grid_time = range(0, n_year)
-    grid_x = []
-    grid_y = []
-    # TODO: Select ranges automatically or add variable in the configuration file.
-    if cfg.country == "burkina":
-        grid_x = np.arange(-4.40, -1.10 + step, step)
-        grid_y = np.arange(10.30, 13.10 + step, step)
+    def round_to_nearest_decimal(val, step):
+        if val < 0:
+            val_rnd = math.floor(val/step) * step
+        else:
+            val_rnd = math.ceil(val/step) * step
+        return val_rnd
+    for i in range(0, 2):
+        x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cfg.resol_idx)
+        y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cfg.resol_idx)
+    grid_x = np.arange(x_bnds[0], x_bnds[1] + cfg.resol_idx, cfg.resol_idx)
+    grid_y = np.arange(y_bnds[0], y_bnds[1] + cfg.resol_idx, cfg.resol_idx)
 
     # Perform interpolation.
     # There is a certain flexibility regarding the number of years in a dataset. Ideally, the station should not have
