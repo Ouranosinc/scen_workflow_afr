@@ -15,6 +15,7 @@
 # Current package.
 import scenarios_calib
 import config as cfg
+import plot
 import rcm
 import utils
 
@@ -29,10 +30,8 @@ import pandas as pd
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.polynomial.polynomial as poly
 import os
 import xarray as xr
-from scipy import signal
 from scipy.interpolate import griddata
 
 
@@ -173,7 +172,7 @@ def read_obs_csv(var):
         da.close()
 
 
-def extract(var, fn_obs, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid):
+def extract(var, fn_obs, fn_rcp_ref, fn_rcp_fut, fn_raw, fn_regrid):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -185,9 +184,9 @@ def extract(var, fn_obs, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid):
         Weather variable.
     fn_obs : str
         Path of the file containing observations.
-    fn_rcp_hist : str
+    fn_rcp_ref : str
         Path of the RCP file for the historical data.
-    fn_rcp_proj : str
+    fn_rcp_fut : str
         Path of the RCP file for the projected data.
     fn_raw : str
         Path of the directory containing raw data.
@@ -214,21 +213,19 @@ def extract(var, fn_obs, fn_rcp_hist, fn_rcp_proj, fn_raw, fn_regrid):
 
     # Data extraction --------------------------------------------------------------------------------------------------
 
-    # The idea is to extract historical and projected data based on a range of longitude,
-    # latitude, years.
+    # The idea is to extract historical and projected data based on a range of longitude, latitude, years.
 
     print("Extracting data for " + fn_raw + "...")
 
     path_tmp = cfg.get_path_sim("", cfg.cat_raw, var)
-    ds = rcm.extract_variable(fn_rcp_hist, fn_rcp_proj, var, lat_bnds, lon_bnds,
+    ds = rcm.extract_variable(fn_rcp_ref, fn_rcp_fut, var, lat_bnds, lon_bnds,
                               priority_timestep=cfg.priority_timestep[cfg.variables_cordex.index(var)], tmpdir=path_tmp)
-
     print("Data extraction completed!")
 
     # Temporal interpolation -------------------------------------------------------------------------------------------
 
-    # This checks if the data is daily. If it is sub-daily, resample to daily. This can take a
-    # while, but should save us computation time later.
+    # This checks if the data is daily. If it is sub-daily, resample to daily. This can take a while, but should save us
+    # computation time later.
 
     if cfg.opt_scen_itp_time:
 
@@ -549,85 +546,6 @@ def postprocess(var, stn, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid
     print("Post-processing completed!")
 
 
-def gen_plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig):
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Generates a plot of reference and future periods.
-
-    Parameters
-    ----------
-    var : str
-        Weather var.
-    nq : int
-        ...
-    up_qmf : float
-        ...
-    time_int : int
-        ...
-    fn_regrid_ref : str
-        Path of the NetCDF file containing data for the reference period.
-    fn_regrid_fut : str
-        Path of the NetCDF file containing data for the future period.
-    fn_fig : str
-        Path of output figure.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
-
-    # Load datasets.
-    ds_ref = xr.open_dataset(fn_regrid_ref)[var]
-    ds_fut = xr.open_dataset(fn_regrid_fut)[var]
-
-    # Fit.
-    x     = [*range(len(ds_ref.time))]
-    y     = ds_ref.values
-    coefs = poly.polyfit(x, y, 4)
-    ffit  = poly.polyval(x, coefs)
-
-    # Initialize plot.
-    fs_sup_title = 8
-    fs_title     = 8
-    fs_legend    = 6
-    fs_axes      = 8
-    f = plt.figure(figsize=(15, 6))
-    f.add_subplot(211)
-    plt.subplots_adjust(top=0.90, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.00)
-    sup_title = os.path.basename(fn_fig).replace(".png", "") +\
-        "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
-    plt.suptitle(sup_title, fontsize=fs_sup_title)
-
-    # Upper plot: Reference period.
-    f.add_subplot(211)
-    plt.plot(ds_ref.time, y)
-    plt.plot(ds_ref.time, ffit)
-    plt.legend(["référence", "tendance"], fontsize=fs_legend)
-    plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-    plt.title("Période de référence", fontsize=fs_title)
-
-    # Lower plot: Complete simulation.
-    f.add_subplot(212)
-    plt.plot(signal.detrend(ds_fut), alpha=0.5)
-    plt.plot(y - ffit, alpha=0.5)
-    plt.legend(["simulation", "référence"], fontsize=fs_legend)
-    plt.xlabel("Jours", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-    plt.title("Période de simulation", fontsize=fs_title)
-
-    if cfg.opt_plt_save:
-        plt.savefig(fn_fig)
-    # DEBUG: Need to add a breakpoint below to visualize plot.
-    if cfg.opt_plt_close:
-        plt.close()
-
-
 def run():
 
     """
@@ -747,10 +665,10 @@ def run():
 
                     # Step #5a: Calculate adjustment factors.
                     if cfg.opt_calib:
-                        scenarios_calib.run()
-                    nq       = cfg.nq[sim_name][stn][idx_var]
-                    up_qmf   = cfg.up_qmf[sim_name][stn][idx_var]
-                    time_int = cfg.time_int[sim_name][stn][idx_var]
+                        scenarios_calib.run(var)
+                    nq       = cfg.nq[sim_name][stn][var]
+                    up_qmf   = cfg.up_qmf[sim_name][stn][var]
+                    time_int = cfg.time_int[sim_name][stn][var]
 
                     # Step #5b: Statistical downscaling.
                     # Step #5c: Bias correction.
@@ -766,7 +684,7 @@ def run():
 
                     # Generates extra plot.
                     if cfg.opt_plt_ref_fut:
-                        gen_plot_ref_fut(var, int(nq), up_qmf, int(time_int), fn_regrid_ref, fn_regrid_fut, fn_fig)
+                        plot.plot_ref_fut(var, int(nq), up_qmf, int(time_int), fn_regrid_ref, fn_regrid_fut, fn_fig)
 
     print("Module scenarios completed successfully.")
 

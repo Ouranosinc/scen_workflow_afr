@@ -124,7 +124,8 @@ priority_timestep = ["day"] * len(variables_cordex)
 # List of simulation and var-simulation combinations that must be avoided to avoid a crash.
 # Example: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85" (for sim_excepts).
 #          var_cordex_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc" (for var_sim_excepts).
-# TODO.YR: Determine why exception lists are required (probably due to calendar format).
+# TODO.YR: Determine why exception lists are required.
+#          This seems to be due to calendar format. This should be fixed.
 sim_excepts     = []
 var_sim_excepts = []
 

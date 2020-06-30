@@ -365,9 +365,12 @@ def list_cordex(path_ds, rcps):
         folder_format = path_ds + "*/*/AFR-*{r}".format(r=rcps[r]) + "/*/atmos/*/"
         folders = glob.glob(folder_format)
         folders = [i for i in folders if "day" in i]
+        folders.sort()
 
         # Remove timestep information.
-        folders = [w.replace(Path(w).parts[8], "*") for w in folders]
+        for i in range(0, len(folders)):
+            tokens = folders[i].split("/")
+            folders[i] = folders[i].replace(tokens[len(tokens) - 4], "*")
 
         # Keep only the unique simulation folders (with a * as the timestep).
         folders = list(set(folders))

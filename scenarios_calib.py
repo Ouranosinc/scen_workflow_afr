@@ -456,13 +456,18 @@ def adjust_date_format(ds):
     return da
 
 
-def run():
+def run(var):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Entry point.
     TODO: Quantify error numerically to facilitate calibration. "bias_correction" could return the error.
     TODO: Determine why an exception is launched at i = 9. It has to do with datetime format.
+
+    Parameters
+    ----------
+    var: str
+        Variable.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -471,17 +476,14 @@ def run():
     # Loop through stations.
     for stn in cfg.stns:
 
-        # Loop through variables.
-        for var in cfg.variables_cordex:
+        # Bias correction.
+        if cfg.opt_calib_bias:
 
-            # Bias correction.
-            if cfg.opt_calib_bias:
+            bias_correction_loop(stn, var)
 
-                bias_correction_loop(stn, var)
-
-            # Physical coherence.
-            if cfg.opt_calib_coherence:
-                physical_coherence(stn, [cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])
+        # Physical coherence.
+        if cfg.opt_calib_coherence:
+            physical_coherence(stn, [cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])
 
     print("Module calib completed successfully.")
 

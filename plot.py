@@ -11,11 +11,13 @@
 import config as cfg
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.polynomial.polynomial as poly
+import pandas as pd
 import os.path
 import seaborn as sns
 import utils
 import xarray as xr
-import xclim.subset as subset
+from scipy import signal
 
 
 def plot_year(ds_hour, ds_day, set_name, var):
@@ -520,3 +522,91 @@ def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, fn_fig, map
         plt.savefig(fn_fig)
 
     plt.close()
+
+
+def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot of reference and future periods.
+
+    Parameters
+    ----------
+    var : str
+        Weather var.
+    nq : int
+        ...
+    up_qmf : float
+        ...
+    time_int : int
+        ...
+    fn_regrid_ref : str
+        Path of the NetCDF file containing data for the reference period.
+    fn_regrid_fut : str
+        Path of the NetCDF file containing data for the future period.
+    fn_fig : str
+        Path of output figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Load datasets.
+    ds_ref = xr.open_dataset(fn_regrid_ref)[var]
+    ds_fut = xr.open_dataset(fn_regrid_fut)[var]
+
+    # Fit.
+    x     = [*range(len(ds_ref.time))]
+    y     = ds_ref.values
+    coefs = poly.polyfit(x, y, 4)
+    ffit  = poly.polyval(x, coefs)
+
+    # Initialize plot.
+    fs_sup_title = 8
+    fs_title     = 8
+    fs_legend    = 6
+    fs_axes      = 8
+    f = plt.figure(figsize=(15, 6))
+    f.add_subplot(211)
+    plt.subplots_adjust(top=0.90, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.00)
+    sup_title = os.path.basename(fn_fig).replace(".png", "") +\
+        "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
+    plt.suptitle(sup_title, fontsize=fs_sup_title)
+
+    # Convert date format if the need is.
+    if ds_ref.time.dtype == cfg.dtype_obj:
+        year_1 = ds_ref.time.values[0].year
+        year_n = ds_ref.time.values[len(ds_ref.time.values)-1].year
+        ds_ref["time"] = pd.date_range(str(year_1)+"-01-01", periods=(year_n - year_1 + 1) * 365, freq='D')
+
+    # Upper plot: Reference period.
+    f.add_subplot(211)
+    plt.plot(ds_ref.time, y)
+    plt.plot(ds_ref.time, ffit)
+    plt.legend(["référence", "tendance"], fontsize=fs_legend)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.title("Période de référence", fontsize=fs_title)
+
+    # Lower plot: Complete simulation.
+    f.add_subplot(212)
+    plt.plot(signal.detrend(ds_fut), alpha=0.5)
+    plt.plot(y - ffit, alpha=0.5)
+    plt.legend(["simulation", "référence"], fontsize=fs_legend)
+    plt.xlabel("Jours", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.title("Période de simulation", fontsize=fs_title)
+
+    # Save plot.
+    if cfg.opt_plt_save:
+        plt.savefig(fn_fig)
+
+    # Close plot.
+    if cfg.opt_plt_close:
+        plt.close()
