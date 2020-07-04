@@ -142,12 +142,12 @@ def plot_ts_single(stn, var):
         ds_fut   = xr.open_dataset(fn_fut)
         ds_qqmap = xr.open_dataset(fn_qqmap)
         ds_obs   = xr.open_dataset(fn_obs)
-        # ERROR: ds_fut.time.values = ds_fut.time.values.astype(cfg.dtype_64)
-        # ERROR: ds_qqmap.time.values = ds_qqmap.time.values.astype(cfg.dtype_64)
 
-        # TODO: Determine if there is a way to convert date format.
-        if (ds_fut.time.dtype == cfg.dtype_obj) or (ds_qqmap.time.dtype == cfg.dtype_obj):
-            return
+        # Convert date format if the need is.
+        if ds_fut.time.dtype == cfg.dtype_obj:
+            ds_fut["time"] = fix_calendar(ds_fut)
+        if ds_qqmap.time.dtype == cfg.dtype_obj:
+            ds_qqmap["time"] = fix_calendar(ds_qqmap)
 
         # Curves.
         (ds_obs[var]).plot(alpha=0.5)
@@ -165,6 +165,7 @@ def plot_ts_single(stn, var):
         plt.tick_params(axis='x', labelsize=fs_axes)
         plt.tick_params(axis='y', labelsize=fs_axes)
 
+        # Save plot.
         if cfg.opt_plt_save:
             fn_fig = sup_title + ".png"
             path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/verif/ts_single", var)
@@ -172,7 +173,8 @@ def plot_ts_single(stn, var):
                 os.makedirs(path_fig)
             fn_fig = path_fig + fn_fig
             plt.savefig(fn_fig)
-        # DEBUG: Need to add a breakpoint below to visualize plot.
+
+        # Close plot.
         if cfg.opt_plt_close:
             plt.close()
 
@@ -228,12 +230,12 @@ def plot_ts_mosaic(stn, var):
         ds_fut   = xr.open_dataset(fn_fut_i)
         ds_qqmap = xr.open_dataset(fn_qqmap_i)
         ds_obs   = xr.open_dataset(fn_obs)
-        # ERROR: ds_fut.time.values = ds_fut.time.values.astype(cfg.dtype_64)
-        # ERROR: ds_qqmap.time.values = ds_qqmap.time.values.astype(cfg.dtype_64)
 
-        # TODO: Determine if there is a way to convert date format.
-        if (ds_fut.time.dtype == cfg.dtype_obj) or (ds_qqmap.time.dtype == cfg.dtype_obj):
-            continue
+        # Convert date format if the need is.
+        if ds_fut.time.dtype == cfg.dtype_obj:
+            ds_fut["time"] = fix_calendar(ds_fut)
+        if ds_qqmap.time.dtype == cfg.dtype_obj:
+            ds_qqmap["time"] = fix_calendar(ds_qqmap)
 
         # Curves.
         plt.subplot(7, 7, i + 1)
@@ -253,6 +255,7 @@ def plot_ts_mosaic(stn, var):
             sup_title = title + "_verif_ts_mosaic"
             plt.suptitle(sup_title, fontsize=fs_sup_title)
 
+    # Save plot.
     if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
         path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/verif/ts_mosaic", var)
@@ -260,7 +263,8 @@ def plot_ts_mosaic(stn, var):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
         plt.savefig(fn_fig)
-    # DEBUG: Need to add a breakpoint below to visualize plot.
+
+    # Close plot.
     if cfg.opt_plt_close:
         plt.close()
 
@@ -336,6 +340,7 @@ def plot_monthly(stn, var):
     # Format.
     plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
 
+    # Save plot.
     if cfg.opt_plt_save:
         fn_fig = sup_title + ".png"
         path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/verif/monthly", var)
@@ -343,7 +348,8 @@ def plot_monthly(stn, var):
             os.makedirs(path_fig)
         fn_fig = path_fig + fn_fig
         plt.savefig(fn_fig)
-    # DEBUG: Need to add a breakpoint below to visualize plot.
+
+    # Close plot.
     if cfg.opt_plt_close:
         plt.close()
 
@@ -577,9 +583,7 @@ def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig
 
     # Convert date format if the need is.
     if ds_ref.time.dtype == cfg.dtype_obj:
-        year_1 = ds_ref.time.values[0].year
-        year_n = ds_ref.time.values[len(ds_ref.time.values)-1].year
-        ds_ref["time"] = pd.date_range(str(year_1)+"-01-01", periods=(year_n - year_1 + 1) * 365, freq='D')
+        ds_ref["time"] = fix_calendar(ds_ref)
 
     # Upper plot: Reference period.
     f.add_subplot(211)
@@ -610,3 +614,354 @@ def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig
     # Close plot.
     if cfg.opt_plt_close:
         plt.close()
+
+
+def plot_obs_fut(ds_obs, ds_fut, var, title, fn_fig):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot of observed and future periods.
+
+    Parameters
+    ----------
+    ds_obs : xarray
+        Dataset of observed period.
+    ds_fut : xarray
+        Dataset of future period.
+    var : str
+        Variable.
+    title : str
+        Title of figure.
+    fn_fig : str
+        Path of output figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Convert date format if the need is.
+    if ds_obs.time.dtype == cfg.dtype_obj:
+        ds_obs["time"] = fix_calendar(ds_obs)
+    if ds_fut.time.dtype == cfg.dtype_obj:
+        ds_fut["time"] = fix_calendar(ds_fut)
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+
+    fs_sup_title = 8
+    fs_legend = 8
+    fs_axes = 8
+    f = plt.figure(figsize=(15, 3))
+    f.add_subplot(111)
+    plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
+
+    # Precipitation.
+    (ds_fut[var] * coef).plot(alpha=0.5)
+    if var == cfg.var_cordex_pr:
+        (ds_obs[var] * coef).plot()
+    # Other variables.
+    else:
+        dt = 0
+        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmax, cfg.var_cordex_tasmin]:
+            dt = 273.15
+        (ds_obs[var] + dt).plot()
+    plt.legend(["sim", "obs"], fontsize=fs_legend)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.title("")
+    plt.suptitle(title, fontsize=fs_sup_title)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Save plot.
+    if cfg.opt_plt_save:
+        plt.savefig(fn_fig.replace(".png", "_ts.png"))
+
+    # Close plot.
+    if cfg.opt_plt_close:
+        plt.close()
+
+
+def plot_postprocess_fut_obs(ds_obs, ds_fut, ds_qqmap, var, fn_fig, title):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot of observed and future periods.
+
+    Parameters
+    ----------
+    ds_obs : xarray
+        Dataset of observed period.
+    ds_fut : xarray
+        Dataset of future period.
+    var : str
+        Variable.
+    title : str
+        Title of figure.
+    fn_fig : str
+        Path of output figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+
+    # Plot.
+    f = plt.figure(figsize=(15, 3))
+    f.add_subplot(111)
+    plt.subplots_adjust(top=0.9, bottom=0.15, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
+    fs_sup_title = 8
+    fs_legend = 8
+    fs_axes = 8
+    legend = ["sim", cfg.cat_obs]
+    if ds_qqmap is not None:
+        legend.insert(0, "pp")
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.year).mean().plot()
+    (ds_fut * coef).groupby(ds_fut.time.dt.year).mean().plot()
+    (ds_obs * coef).groupby(ds_obs.time.dt.year).mean().plot()
+    plt.legend(legend, fontsize=fs_legend)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.title("")
+    plt.suptitle(title, fontsize=fs_sup_title)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Save plot.
+    if cfg.opt_plt_save:
+        plt.savefig(fn_fig)
+
+    # Close plot.
+    if cfg.opt_plt_close:
+        plt.close()
+
+
+def plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, fn_fig):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot containing a summary of calibration.
+
+    Parameters
+    ----------
+    ds_qmf : xarray
+        Dataset of quantile mapping function.
+    ds_qqmap_per : xarray
+        ???
+    ds_obs : xarray
+        Dataset of bservations.
+    ds_ref : xarray
+        Dataset of reference period.
+    ds_fut : xarray
+        Dataset of future period.
+    ds_qqmap : xarray
+        Dataset of qqmap.
+    var : str
+        Variable.
+    title : str
+        Title of figure.
+    fn_fig : str
+        File of figure associated with the plot.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Quantile ---------------------------------------------------------------------------------------------------------
+
+    fs_sup_title = 8
+    fs_title     = 6
+    fs_legend    = 4
+    fs_axes      = 7
+
+    f = plt.figure(figsize=(9, 6))
+    f.add_subplot(331)
+    plt.subplots_adjust(top=0.9, bottom=0.126, left=0.070, right=0.973, hspace=0.695, wspace=0.416)
+
+    ds_qmf.plot()
+    plt.xlabel("Quantile", fontsize=fs_axes)
+    plt.ylabel("Jour de l'année", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Mean annual values -----------------------------------------------------------------------------------------------
+
+    # Plot.
+    f.add_subplot(332)
+    if var == cfg.var_cordex_pr:
+        draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "sum")
+    else:
+        draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "mean")
+    plt.title(var_desc, fontsize=fs_title)
+    plt.legend([cfg.cat_qqmap, "sim", cfg.cat_obs, cfg.cat_qqmap+"_all", "fut"], fontsize=fs_legend)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Maximum, Q99, Q75 and mean monthly values ------------------------------------------------------------------------
+
+    for i in range(1, 5):
+
+        plt.subplot(333 + i - 1)
+
+        title    = " (mensuel)"
+        quantile = -1
+        if i == 1:
+            title = "Maximum" + title
+        elif i == 2:
+            title    = "Q99" + title
+            quantile = 0.99
+        elif i == 3:
+            title    = "Q75" + title
+            quantile = 0.75
+        else:
+            title = "Moyenne" + title
+
+        if i == 1:
+            draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "max")
+        elif (i == 2) or (i == 3):
+            draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "quantile", quantile)
+        else:
+            draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "mean")
+
+        plt.xlim([1, 12])
+        plt.xticks(np.arange(1, 13, 1))
+        plt.xlabel("Mois", fontsize=fs_axes)
+        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.legend([cfg.cat_qqmap+"-ref", "sim-ref", cfg.cat_obs, cfg.cat_qqmap+"_all", "sim-all"], fontsize=fs_legend)
+        plt.title(title, fontsize=fs_title)
+        plt.tick_params(axis='x', labelsize=fs_axes)
+        plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Time series ------------------------------------------------------------------------------------------------------
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+
+    # Convert date format if the need is.
+    if ds_qqmap.time.time.dtype == cfg.dtype_obj:
+        ds_qqmap["time"] = fix_calendar(ds_qqmap.time)
+    if ds_ref.time.time.dtype == cfg.dtype_obj:
+        ds_ref["time"] = fix_calendar(ds_ref.time)
+
+    plt.subplot(313)
+    (ds_qqmap * coef).plot(alpha=0.5)
+    (ds_ref * coef).plot(alpha=0.5)
+    (ds_obs * coef).plot(alpha=0.5)
+    if var == cfg.var_cordex_pr:
+        plt.ylim([0, 300])
+    # Other variables.
+    else:
+        pass
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.legend([cfg.cat_qqmap, "sim", cfg.cat_obs], fontsize=fs_legend)
+    plt.title("")
+
+    f.suptitle(title, fontsize=fs_sup_title)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    del ds_qqmap.attrs['bias_corrected']
+
+    # Save plot.
+    if cfg.opt_plt_save:
+        plt.savefig(fn_fig)
+
+    # Close plot.
+    if cfg.opt_plt_close:
+        plt.close()
+
+
+def draw_curves(var, ds, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile=-1.0):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Draw curves.
+
+    Parameters
+    ----------
+    var : str
+        Weather variable.
+    ds : xarray.dataset
+        ...
+    ds_obs : xarray.dataset
+        ...
+    ds_ref : xarray.dataset
+        Dataset for the reference period.
+    ds_fut : xarray.dataset
+        Dataset for the future period.
+    ds_qqmap : xarray.dataset
+        Dataset for the qqmap.
+    stat : {"max", "quantile", "mean", "sum"}
+        Statistic.
+    quantile : float, optional
+        Quantile.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+
+    # Draw curves.
+    if stat == "max":
+        (ds * coef).groupby(ds.time.dt.month).max().plot()
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).max().plot()
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).max().plot()
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).max().plot()
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).max().plot()
+    elif stat == "quantile":
+        (ds * coef).groupby(ds.time.dt.month).quantile(quantile).plot()
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).quantile(quantile).plot()
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).quantile(quantile).plot()
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).quantile(quantile).plot()
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).quantile(quantile).plot()
+    elif stat == "mean":
+        (ds * coef).groupby(ds.time.dt.month).mean().plot()
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).mean().plot()
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).mean().plot()
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).mean().plot()
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).mean().plot()
+    elif stat == "sum":
+        (ds * coef).groupby(ds.time.dt.year).sum().plot()
+        (ds_ref * coef).groupby(ds_ref.time.dt.year).sum().plot()
+        (ds_obs * coef).groupby(ds_obs.time.dt.year).sum().plot()
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.year).sum().plot()
+        (ds_fut * coef).groupby(ds_fut.time.dt.year).sum().plot()
+
+
+def fix_calendar(ds):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Fix calendar when type is 'cfg.dtype_obj'.
+
+    Parameters
+    ----------
+    ds : xarray
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    year_1 = ds.time.values[0].year
+    year_n = ds.time.values[len(ds.time.values) - 1].year
+    new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * 365, freq='D')
+
+    return new_time

@@ -80,17 +80,17 @@ def calc_idx_ts(idx_name, idx_threshs):
             fn_sim = []
             for var in vars:
                 if rcp == "ref":
-                    fn_sim_i = cfg.get_path_sim(stn, cfg.cat_obs, "") + var + "_" + stn + "_4qqmap.nc"
+                    fn_sim_i = cfg.get_path_sim(stn, cfg.cat_obs, "") + var + "/" + var + "_" + stn + ".nc"
                     if os.path.exists(fn_sim_i) and (type(fn_sim_i) is str):
                         fn_sim_i = [fn_sim_i]
                 else:
                     fn_format = cfg.get_path_sim(stn, cfg.cat_qqmap, "") + var + "/*_" + rcp + ".nc"
                     fn_sim_i = glob.glob(fn_format)
-                if fn_sim_i:
+                if not(fn_sim_i):
+                    fn_sim = []
+                else:
                     fn_sim.append(fn_sim_i)
                     n_sim = len(fn_sim_i)
-                else:
-                    fn_sim = []
             if not fn_sim:
                 continue
 
@@ -382,12 +382,15 @@ def run():
         # Calculate index.
         calc_idx_ts(idx_name, idx_threshs)
 
-        # Perform interpolation (reference period).
-        calc_idx_heatmap(idx_name, idx_threshs, "ref", [cfg.per_ref])
+        # Perform interpolation. This requires multiples stations.
+        if len(cfg.stns) > 1:
 
-        # Perform interpolation (future period).
-        for rcp in cfg.rcps:
-            calc_idx_heatmap(idx_name, idx_threshs, rcp, cfg.per_hors)
+            # Reference period.
+            calc_idx_heatmap(idx_name, idx_threshs, "ref", [cfg.per_ref])
+
+            # Future period.
+            for rcp in cfg.rcps:
+                calc_idx_heatmap(idx_name, idx_threshs, rcp, cfg.per_hors)
 
 
 if __name__ == "__main__":

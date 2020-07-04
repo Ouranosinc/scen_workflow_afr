@@ -361,7 +361,7 @@ def get_path_stn(var, stn):
     if var != "":
         path = path_stn + var + "/"
         if stn != "":
-            path = path + stn + ".nc"
+            path = path + var + "_" + stn + ".nc"
 
     return path
 

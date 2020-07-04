@@ -297,7 +297,7 @@ def uas_vas_2_sfc(uas, vas):
     return sfcwind, sfcwind_dirmet
 
 
-def sfc_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
+def sfcwind_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -317,8 +317,7 @@ def sfc_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Transform wind direction from the meteorological standard to the
-    # mathematical standard.
+    # Transform wind direction from the meteorological standard to the mathematical standard.
     sfcwind_dirmath = (-winddir + 270) % 360.0
 
     daily_avg_angle = 0.0
@@ -326,12 +325,12 @@ def sfc_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
 
         sfcwind = sfcwind.resample(time=resample).mean(dim="time", keep_attrs=True)
 
-        # TODO: Remove nb_per_day and calculate it.
+        # TODO.MAB: Remove nb_per_day and calculate it.
 
-        # TODO: Improve the following line because it is very dirty.
+        # TODO.MAB: Improve the following line because it is very dirty.
         sfcwind_angle_per_day = sfcwind_dirmath.reshape((len(sfcwind.time), nb_per_day))
 
-        # TODO: Improve the following line because it is also very dirty.
+        # TODO.MAB: Improve the following line because it is also very dirty.
         daily_avg_angle = np.concatenate([[degrees(phase(sum(rect(1, radians(d)) for d in angles) / len(angles)))]
                                           for angles in sfcwind_angle_per_day])
 
@@ -360,7 +359,6 @@ def list_cordex(path_ds, rcps):
 
     # Find all the available simulations for a given RCP.
     for r in range(len(rcps)):
-        # DEBUG: r = 2
 
         folder_format = path_ds + "*/*/AFR-*{r}".format(r=rcps[r]) + "/*/atmos/*/"
         folders = glob.glob(folder_format)
