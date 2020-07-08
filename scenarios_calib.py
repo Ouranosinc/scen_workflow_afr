@@ -54,7 +54,7 @@ def bias_correction(stn, var):
             for up_qmf in cfg.up_qmf_calib:
                 for time_int in cfg.time_int_calib:
 
-                    msg = "Adjusting sim_id=" + str(i) + ", nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
+                    msg = "Adjusting " + sim_name + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
                           ", time_int=" + str(time_int)
                     utils.log(msg, True)
 
