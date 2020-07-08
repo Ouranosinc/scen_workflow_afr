@@ -12,12 +12,9 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-# Current package.
-
 import config as cfg
 import datetime
 import glob
-import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -27,9 +24,8 @@ import rcm
 import scenarios_calib
 import utils
 import xarray as xr
-from scipy.interpolate import griddata
 from qm import train, predict
-
+from scipy.interpolate import griddata
 
 def read_obs_csv(var):
 
@@ -45,25 +41,25 @@ def read_obs_csv(var):
     """
 
     # Station list file and station files.
-    path_stn    = cfg.get_path_stn(var, "")
-    fn_stn_list = glob.glob(path_stn + "../*.csv")
-    fn_stn      = glob.glob(path_stn + "*.csv")
-    fn_stn.sort()
+    d_stn      = cfg.get_d_stn(var)
+    p_stn_info = glob.glob(d_stn + "../*.csv")
+    p_stn_list = glob.glob(d_stn + "*.csv")
+    p_stn_list.sort()
 
     # Compile data.
-    for i in range(0, len(fn_stn)):
+    for i in range(0, len(p_stn_list)):
 
-        stn = os.path.basename(fn_stn[i]).replace(".nc", "").split("_")[1]
+        stn = os.path.basename(p_stn_list[i]).replace(".nc", "").split("_")[1]
 
         if not(stn in cfg.stns):
             continue
 
-        obs  = pd.read_csv(fn_stn[i], sep=";")
+        obs  = pd.read_csv(p_stn_list[i], sep=";")
         time = pd.to_datetime(
             obs["annees"].astype("str") + "-" + obs["mois"].astype("str") + "-" + obs["jours"].astype("str"))
 
         # Find longitude and latitude.
-        lon_lat_data = pd.read_csv(fn_stn_list[0], sep=";")
+        lon_lat_data = pd.read_csv(p_stn_info[0], sep=";")
         lon = float(lon_lat_data[lon_lat_data["station"] == stn]["lon"])
         lat = float(lon_lat_data[lon_lat_data["station"] == stn]["lat"])
 
@@ -172,44 +168,43 @@ def read_obs_csv(var):
         # ds.attrs["Institution"]        = "Environment and Climate Change Canada"
 
         # Save data.
-        fn_obs = path_stn + var + "_" + ds.attrs["Station Name"] + ".nc"
-        ds.to_netcdf(fn_obs)
+        p_obs = d_stn + var + "_" + ds.attrs["Station Name"] + ".nc"
+        utils.save_dataset(ds, p_obs)
         ds.close()
         da.close()
 
 
-def extract(var, fn_obs, fn_rcp_ref, fn_rcp_fut, fn_raw, fn_regrid):
+def extract(var, p_obs, p_rcp_ref, p_rcp_fut, p_raw, p_regrid):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Extracts data.
+    TODO.MAB: Something could be done to define the search radius as a function of the occurrence (or not) of a pixel
+              storm (data anomaly).
 
     Parameters
     ----------
     var : str
         Weather variable.
-    fn_obs : str
+    p_obs : str
         Path of the file containing observations.
-    fn_rcp_ref : str
+    p_rcp_ref : str
         Path of the RCP file for the historical data.
-    fn_rcp_fut : str
+    p_rcp_fut : str
         Path of the RCP file for the projected data.
-    fn_raw : str
+    p_raw : str
         Path of the directory containing raw data.
-    fn_regrid : str
+    p_regrid : str
         Path of the file containing regrid data.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Load observations.
-    ds_obs = xr.open_dataset(fn_obs)
+    ds_obs = xr.open_dataset(p_obs)
 
     # Define longitude and latitude of station.
     lat_stn = round(float(ds_obs.lat.values), 1)
     lon_stn = round(float(ds_obs.lon.values), 1)
-
-    # TODO.MAB: Something could be done to define the search radius as a function of the occurrence
-    #           (or not) of a pixel storm (data anomaly).
 
     # Define a squared zone around the station.
     lat_bnds = [lat_stn - cfg.radius, lat_stn + cfg.radius]
@@ -219,11 +214,11 @@ def extract(var, fn_obs, fn_rcp_ref, fn_rcp_fut, fn_raw, fn_regrid):
 
     # The idea is to extract historical and projected data based on a range of longitude, latitude, years.
 
-    print("          Extracting data from NetCDF file (raw)")
+    utils.log("Extracting data from NetCDF file (raw)", True)
 
-    path_tmp = cfg.get_path_sim("", cfg.cat_raw, var)
-    ds = rcm.extract_variable(fn_rcp_ref, fn_rcp_fut, var, lat_bnds, lon_bnds,
-                              priority_timestep=cfg.priority_timestep[cfg.variables_cordex.index(var)], tmpdir=path_tmp)
+    p_sim = cfg.get_d_sim("", cfg.cat_raw, var)
+    ds = rcm.extract_variable(p_rcp_ref, p_rcp_fut, var, lat_bnds, lon_bnds,
+                              priority_timestep=cfg.priority_timestep[cfg.variables_cordex.index(var)], tmpdir=p_sim)
 
     # Temporal interpolation -------------------------------------------------------------------------------------------
 
@@ -232,29 +227,29 @@ def extract(var, fn_obs, fn_rcp_ref, fn_rcp_fut, fn_raw, fn_regrid):
 
     if cfg.opt_scen_itp_time:
 
-        msg = "          Temporal interpolation is "
+        msg = "Temporal interpolation is "
 
         if ds.time.isel(time=[0, 1]).diff(dim="time").values[0] <\
                 np.array([datetime.timedelta(1)], dtype="timedelta64[ms]")[0]:
             msg = msg + "running"
-            print(msg)
+            utils.log(msg, True)
             ds = ds.resample(time="1D").mean(dim="time", keep_attrs=True)
         else:
             msg = msg + "not required (data is daily)"
-            print(msg)
+            utils.log(msg, True)
 
     # Spatial interpolation --------------------------------------------------------------------------------------------
 
     ds_regrid = None
     if cfg.opt_scen_itp_space:
 
-        msg = "          Spatial interpolation is "
+        msg = "Spatial interpolation is "
 
         # Method 1: Convert data to a new grid.
         if cfg.opt_scen_regrid:
 
             msg = msg + "running"
-            print(msg)
+            utils.log(msg, True)
 
             new_grid = np.meshgrid(ds_obs.lon.values.ravel(), ds_obs.lat.values.ravel())
             if np.min(new_grid[0]) > 0:
@@ -280,26 +275,22 @@ def extract(var, fn_obs, fn_rcp_ref, fn_rcp_fut, fn_raw, fn_regrid):
         else:
 
             msg = msg + "not required"
-            print(msg)
+            utils.log(msg, True)
 
             ds_regrid = ds.sel(rlat=lat_stn, rlon=lon_stn, method="nearest", tolerance=1)
 
     # Save as NetCDF ---------------------------------------------------------------------------------------------------
 
     if "ds" in locals():
-        print("          Writing NetCDF file (raw)")
-        if os.path.exists(fn_raw):
-            os.remove(fn_raw)
-        ds.to_netcdf(fn_raw)
+        utils.log("Writing NetCDF file (raw)", True)
+        utils.save_dataset(ds, p_raw)
 
     if "ds_regrid" in locals():
-        print("          Writing NetCDF file (regrid)")
-        if os.path.exists(fn_regrid):
-            os.remove(fn_regrid)
-        ds_regrid.to_netcdf(fn_regrid)
+        utils.log("Writing NetCDF file (regrid)", True)
+        utils.save_dataset(ds_regrid, p_regrid)
 
 
-def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut):
+def preprocess(var, p_obs, p_obs_fut, p_regrid, p_regrid_ref, p_regrid_fut):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -309,21 +300,21 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
     ----------
     var : str
         Variable.
-    fn_obs : str
+    p_obs : str
         Path of file that contains observation data.
-    fn_obs_fut : str
+    p_obs_fut : str
         Path of file that contains observation data for the future period.
-    fn_regrid : str
+    p_regrid : str
         Path of directory that contains regrid data.
-    fn_regrid_ref : str
+    p_regrid_ref : str
         Path of directory that contains regrid data for the reference period.
-    fn_regrid_fut : str
+    p_regrid_fut : str
         Path of directory that contains regrid data for the future period.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds_obs = xr.open_dataset(fn_obs)
-    ds_fut = xr.open_dataset(fn_regrid)
+    ds_obs = xr.open_dataset(p_obs)
+    ds_fut = xr.open_dataset(p_regrid)
 
     # Observations -----------------------------------------------------------------------------------------------------
 
@@ -336,12 +327,8 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
     if var == cfg.var_cordex_pr:
         ds_obs[var].values = ds_obs[var].values + np.random.rand(ds_obs[var].values.shape[0], 1, 1) * 1e-12
 
-    # Write NetCDF file.
-    if not (os.path.isfile(fn_obs_fut)):
-        dir_obs_fut = os.path.dirname(fn_obs_fut)
-        if not (os.path.isdir(dir_obs_fut)):
-            os.makedirs(dir_obs_fut)
-        ds_obs.to_netcdf(fn_obs_fut)
+    # Save NetCDF file.
+    utils.save_dataset(ds_obs, p_obs_fut)
 
     # Simulated climate (future period) --------------------------------------------------------------------------------
 
@@ -367,18 +354,15 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
         elif cf in [cfg.cal_360day]:
             ds_fut_365 = utils.calendar(ds_fut)
         else:
-            logging.error("          Calendar type not recognized")
+            utils.log("Calendar type not recognized", True)
             raise ValueError
 
-    if os.path.exists(fn_regrid_fut):
-        os.remove(fn_regrid_fut)
-    ds_fut_365.to_netcdf(fn_regrid_fut)
+    # Save dataset.
+    utils.save_dataset(ds_fut_365, p_regrid_fut)
 
     # DEBUG: Plot 365 versus 360 calendar.
     if cfg.opt_plt_365vs360:
-        plt.plot((np.arange(1, 361) / 360) * 365, ds_fut[var][:360].values)
-        plt.plot(np.arange(1, 366), ds_fut_365[var].values[:365], alpha=0.5)
-        plt.close()
+        plot.plot_360_vs_365(ds_fut, ds_fut_365, var)
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
 
@@ -388,12 +372,11 @@ def preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
         pos = np.where(np.squeeze(ds_ref[var].values) > 0.01)[0]
         ds_ref[var][pos] = 1e-12
 
-    if os.path.exists(fn_regrid_ref):
-        os.remove(fn_regrid_ref)
-    ds_ref.to_netcdf(fn_regrid_ref)
+    # Save dataset.
+    utils.save_dataset(ds_ref, p_regrid_ref)
 
 
-def postprocess(var, stn, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid_fut, fn_qqmap):
+def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fut, p_qqmap):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -411,29 +394,26 @@ def postprocess(var, stn, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid
         ...
     time_int : int
         ...
-    fn_obs : str
+    p_obs : str
         Path of file containing observations for the future period.
-    fn_regrid_ref : str
+    p_regrid_ref : str
         Path of file containing regrid data for the reference period.
-    fn_regrid_fut : str
+    p_regrid_fut : str
         Path of file containing regrid data for the future period.
-    fn_qqmap : str
+    p_qqmap : str
         Path of NetCDF file containing QQ data.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Load datasets.
-    ds_obs = xr.open_dataset(fn_obs)[var]
-    ds_fut = xr.open_dataset(fn_regrid_fut)[var]
-    ds_ref = xr.open_dataset(fn_regrid_ref)[var]
+    ds_obs = xr.open_dataset(p_obs)[var]
+    ds_fut = xr.open_dataset(p_regrid_fut)[var]
+    ds_ref = xr.open_dataset(p_regrid_ref)[var]
 
     # Figures.
-    fn_fig    = fn_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
-    title = fn_fig[:-4] + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
-    path_fig  = cfg.get_path_sim(stn, cfg.cat_fig + "/postprocess", var)
-    if not (os.path.isdir(path_fig)):
-        os.makedirs(path_fig)
-    fn_fig = path_fig + fn_fig
+    fn_fig  = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
+    title   = fn_fig[:-4] + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
+    p_fig   = cfg.get_d_sim(stn, cfg.cat_fig + "/postprocess", var) + fn_fig
 
     # Future -----------------------------------------------------------------------------------------------------------
 
@@ -447,14 +427,12 @@ def postprocess(var, stn, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid
         elif cf in [cfg.cal_360day]:
             ds_fut_365 = utils.calendar(ds_fut)
         else:
-            logging.error("          Calendar type not recognized.")
+            utils.log("Calendar type not recognized.", True)
             raise ValueError
 
     # Plot 365 versus 360 data.
     if cfg.opt_plt_365vs360:
-        plt.plot((np.arange(1, 361) / 360) * 365, ds_fut[:360].values)
-        plt.plot(np.arange(1, 366), ds_fut_365[:365].values, alpha=0.5)
-        plt.close()
+        plot.plot_360_vs_365(ds_fut, ds_fut_365)
 
     # Observation ------------------------------------------------------------------------------------------------------
 
@@ -481,15 +459,15 @@ def postprocess(var, stn, nq, up_qmf, time_int, fn_obs, fn_regrid_ref, fn_regrid
     try:
         ds_qqmap = predict(ds_fut_365.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
         del ds_qqmap.attrs["bias_corrected"]
-        ds_qqmap.to_netcdf(fn_qqmap)
+        utils.save_dataset(ds_qqmap, p_qqmap)
     except ValueError as err:
-        print("          Failed to create QQMAP NetCDF file.")
-        print(format(err))
+        utils.log("Failed to create QQMAP NetCDF file.", True)
+        utils.log(format(err), True)
         pass
 
     # Plot PP_FUT_OBS.
     if cfg.opt_plt_pp_fut_obs:
-        plot.plot_postprocess_fut_obs(ds_obs, ds_fut_365, ds_qqmap, var, fn_fig, title)
+        plot.plot_postprocess_fut_obs(ds_obs, ds_fut_365, ds_qqmap, var, p_fig, title)
 
 
 def run():
@@ -506,53 +484,53 @@ def run():
     """
 
     # Create directory.
-    path_exec = cfg.get_path_sim("", "", "")
-    if not(os.path.isdir(path_exec)):
-        os.makedirs(path_exec)
+    d_exec = cfg.get_d_sim("", "", "")
+    if not(os.path.isdir(d_exec)):
+        os.makedirs(d_exec)
 
     # Step #2: Data selection.
 
     # Step #2a: Convert observations from CSV to NetCDF files.
     # This creates one .nc file per variable-station in ~/<country>/<project>/<stn>/obs/<source>/<var>/.
-    print("Step #2a  Converting observations from CSV to NetCDF files")
+    utils.log("Step #2a  Converting observations from CSV to NetCDF files")
     if cfg.opt_scen_read_obs_netcdf:
         for var in cfg.variables_cordex:
             read_obs_csv(var)
 
     # Step #2b: List directories potentially containing CORDEX files (but not necessarily for all selected variables).
-    print("Step #2b  Listing directories with CORDEX files")
-    list_cordex = utils.list_cordex(cfg.path_cordex, cfg.rcps)
+    utils.log("Step #2b  Listing directories with CORDEX files")
+    list_cordex = utils.list_cordex(cfg.d_cordex, cfg.rcps)
 
     # Loop through variables.
     for idx_var in range(0, len(cfg.variables_cordex)):
         var = cfg.variables_cordex[idx_var]
 
         # Select file name for observation.
-        path_stn = cfg.get_path_stn(var, "")
-        fn_stn = glob.glob(path_stn + "*.nc")
-        fn_stn.sort()
+        d_stn = cfg.get_d_stn(var)
+        p_stn_list = glob.glob(d_stn + "*.nc")
+        p_stn_list.sort()
 
         # Loop through stations.
-        for idx_stn in range(0, len(fn_stn)):
+        for idx_stn in range(0, len(p_stn_list)):
 
             # Station name.
-            stn = os.path.basename(fn_stn[idx_stn]).replace(".nc", "").replace(var + "_", "")
+            stn = os.path.basename(p_stn_list[idx_stn]).replace(".nc", "").replace(var + "_", "")
             if not (stn in cfg.stns):
                 continue
 
             # Create directories.
-            path_obs    = cfg.get_path_sim(stn, cfg.cat_obs, var)
-            path_raw    = cfg.get_path_sim(stn, cfg.cat_raw, var)
-            path_fut    = cfg.get_path_sim(stn, cfg.cat_qqmap, var)
-            path_regrid = cfg.get_path_sim(stn, cfg.cat_regrid, var)
-            if not (os.path.isdir(path_obs)):
-                os.makedirs(path_obs)
-            if not (os.path.isdir(path_raw)):
-                os.makedirs(path_raw)
-            if not (os.path.isdir(path_fut)):
-                os.makedirs(path_fut)
-            if not (os.path.isdir(path_regrid)):
-                os.makedirs(path_regrid)
+            d_obs    = cfg.get_d_sim(stn, cfg.cat_obs, var)
+            d_raw    = cfg.get_d_sim(stn, cfg.cat_raw, var)
+            d_fut    = cfg.get_d_sim(stn, cfg.cat_qqmap, var)
+            d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+            if not (os.path.isdir(d_obs)):
+                os.makedirs(d_obs)
+            if not (os.path.isdir(d_raw)):
+                os.makedirs(d_raw)
+            if not (os.path.isdir(d_fut)):
+                os.makedirs(d_fut)
+            if not (os.path.isdir(d_regrid)):
+                os.makedirs(d_regrid)
 
             # Loop through RCPs.
             for rcp in cfg.rcps:
@@ -567,69 +545,66 @@ def run():
                     c = sim.split("/")
                     sim_name = c[cfg.get_idx_inst()] + "_" + c[cfg.get_idx_gcm()]
 
-                    print("--------------------------------------------------------------------------------")
-                    print("Variable   : " + var)
-                    print("Station    : " + stn)
-                    print("RCP        : " + rcp)
-                    print("Simulation : " + sim_name)
-                    print("--------------------------------------------------------------------------------")
+                    utils.log("-", True)
+                    utils.log("Variable   : " + var, True)
+                    utils.log("Station    : " + stn, True)
+                    utils.log("RCP        : " + rcp, True)
+                    utils.log("Simulation : " + sim_name, True)
+                    utils.log("-", True)
 
                     # Skip iteration if the variable 'var' is not available in the current directory.
-                    files_sim = glob.glob(sim + "/" + var + "/*.nc")
-                    files_sim_hist = glob.glob(sim_hist + "/" + var + "/*.nc")
-                    if (len(files_sim) == 0) or (len(files_sim_hist) == 0):
-                        print("Skipping iteration: data not available for this simulation-variable.")
+                    p_sim_list      = glob.glob(sim + "/" + var + "/*.nc")
+                    p_sim_list_hist = glob.glob(sim_hist + "/" + var + "/*.nc")
+                    if (len(p_sim_list) == 0) or (len(p_sim_list_hist) == 0):
+                        utils.log("Skipping iteration: data not available for this simulation-variable.", True)
                         continue
 
                     # Files within CORDEX or CORDEX-NA.
                     if "CORDEX" in sim:
-                        fn_raw = path_raw + var + "_" + c[cfg.get_idx_inst()] + "_" +\
-                                 c[cfg.get_idx_gcm()].replace("*", "_") + ".nc"
+                        p_raw = d_raw + var + "_" + c[cfg.get_idx_inst()] + "_" +\
+                                c[cfg.get_idx_gcm()].replace("*", "_") + ".nc"
                     elif len(sim) == 3:
-                        fn_raw = path_raw + var + "_Ouranos_" + sim + ".nc"
+                        p_raw = d_raw + var + "_Ouranos_" + sim + ".nc"
                     else:
-                        fn_raw = None
+                        p_raw = None
 
                     # Skip iteration if the simulation or simulation-variable is in the exception list.
                     is_sim_except = False
                     for sim_except in cfg.sim_excepts:
-                        if sim_except in fn_raw:
+                        if sim_except in p_raw:
                             is_sim_except = True
                             break
                     is_var_sim_except = False
                     for var_sim_except in cfg.var_sim_excepts:
-                        if var_sim_except in fn_raw:
+                        if var_sim_except in p_raw:
                             is_var_sim_except = True
                             break
                     if is_sim_except or is_var_sim_except:
-                        print("Skipping iteration: simulation is not compatible with the script.")
+                        utils.log("Skipping iteration: simulation is not compatible with the script.", True)
                         continue
 
                     # Paths and NetCDF files.
-                    fn_regrid     = fn_raw.replace(cfg.cat_raw, cfg.cat_regrid)
-                    fn_qqmap      = fn_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
-                    fn_regrid_ref = fn_regrid[0:len(fn_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
-                    fn_regrid_fut = fn_regrid[0:len(fn_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
-                    fn_obs_fut    = cfg.get_path_obs(stn, var)
-                    fn_obs        = cfg.get_path_stn(var, stn)
+                    p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
+                    p_qqmap      = p_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
+                    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
+                    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
+                    p_obs_fut    = cfg.get_p_obs(stn, var)
+                    p_obs        = cfg.get_p_stn(var, stn)
 
                     # Figures.
-                    fn_fig   = fn_regrid_fut.split("/")[-1].replace("4qqmap.nc", "wflow.png")
-                    path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/wflow", var)
-                    if not (os.path.isdir(path_fig)):
-                        os.makedirs(path_fig)
-                    fn_fig = path_fig + fn_fig
+                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/wflow", var) +\
+                            p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "wflow.png")
 
                     # Step #3: Spatial and temporal extraction.
                     # Step #4: Grid transfer or interpolation.
                     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
                     #              one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
                     msg = "Step #3-4 Spatial & temporal extraction and grid transfer (or interpolation) is "
-                    if cfg.opt_scen_extract and (not(os.path.isfile(fn_raw)) or not(os.path.isfile(fn_regrid))):
-                        print(msg + "running")
-                        extract(var, fn_obs, sim_hist, sim, fn_raw, fn_regrid)
+                    if cfg.opt_scen_extract and (not(os.path.isfile(p_raw)) or not(os.path.isfile(p_regrid))):
+                        utils.log(msg + "running")
+                        extract(var, p_obs, sim_hist, sim, p_raw, p_regrid)
                     else:
-                        print(msg + "not required")
+                        utils.log(msg + "not required")
 
                     # Adjusting the datasets associated with observations and simulated conditions
                     # (for the reference and future periods) to ensure that calendar is based on 365 days per year and
@@ -637,41 +612,48 @@ def run():
                     # This creates two .nc files in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
                     msg = "Step #4.5 Pre-processing is "
                     if cfg.opt_scen_preprocess and \
-                        (not(os.path.isfile(fn_regrid_ref)) or not(os.path.isfile(fn_regrid_fut))):
-                        print(msg + "running")
-                        preprocess(var, fn_obs, fn_obs_fut, fn_regrid, fn_regrid_ref, fn_regrid_fut)
+                        (not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut))):
+                        utils.log(msg + "running")
+                        preprocess(var, p_obs, p_obs_fut, p_regrid, p_regrid_ref, p_regrid_fut)
                     else:
-                        print(msg + "not required")
+                        utils.log(msg + "not required")
 
                     # Step #5: Post-processing.
 
                     # Step #5a: Calculate adjustment factors.
                     msg = "Step #5a  Calculating adjustment factors is "
                     if cfg.opt_calib:
-                        print(msg + "running")
-                        scenarios_calib.run(var)
+                        utils.log(msg + "running")
+                        scenarios_calib.bias_correction(stn, var)
                     else:
-                        print(msg + "not required")
+                        utils.log(msg + "not required")
                     nq       = cfg.nq[sim_name][stn][var]
                     up_qmf   = cfg.up_qmf[sim_name][stn][var]
                     time_int = cfg.time_int[sim_name][stn][var]
+                    bias_err = cfg.bias_err[sim_name][stn][var]
+
+                    # TODO.YR: That would be great to save the three calibration parameters to a CSV file and be able to
+                    #          load a calibration file. For now the information is only displayed in the console.
+                    msg = "Parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + ", time_int=" + str(time_int) +\
+                          ", bias_err=" + str(bias_err)
+                    utils.log(msg, True)
 
                     # Step #5b: Statistical downscaling.
                     # Step #5c: Bias correction.
                     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
                     msg = "Step #5bc Statistical downscaling and bias correction is "
-                    if cfg.opt_scen_postprocess and not(os.path.isfile(fn_qqmap)):
-                        print(msg + "running")
-                        postprocess(var, stn, int(nq), up_qmf, int(time_int), fn_obs, fn_regrid_ref,
-                                    fn_regrid_fut, fn_qqmap)
+                    if cfg.opt_scen_postprocess and not(os.path.isfile(p_qqmap)):
+                        utils.log(msg + "running")
+                        postprocess(var, stn, int(nq), up_qmf, int(time_int), p_obs, p_regrid_ref,
+                                    p_regrid_fut, p_qqmap)
                     else:
-                        print(msg + "not required")
+                        utils.log(msg + "not required")
 
                     # Generates extra plot.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/wflow/<var>/.
-                    if cfg.opt_plt_ref_fut and not(os.path.exists(fn_fig)):
-                        plot.plot_ref_fut(var, int(nq), up_qmf, int(time_int), fn_regrid_ref, fn_regrid_fut, fn_fig)
+                    if cfg.opt_plt_ref_fut:
+                        plot.plot_ref_fut(var, int(nq), up_qmf, int(time_int), p_regrid_ref, p_regrid_fut, p_fig)
 
 
 if __name__ == "__main__":

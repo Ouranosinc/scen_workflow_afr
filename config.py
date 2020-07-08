@@ -21,27 +21,25 @@ obs_src_era5      = "era5"
 obs_src_era5_land = "era5_land"
 
 # Base directories.
-path_base_in1       = ""  # Base directory #1 (input).
-path_base_in2       = ""  # Base directory #2 (input).
-path_base_exec      = ""  # Base directory #3 (stations and output).
-path_username       = ""  # Username on the machine running the script.
+d_base_in1        = ""  # Base directory #1 (input).
+d_base_in2        = ""  # Base directory #2 (input).
+d_base_exec       = ""  # Base directory #3 (stations and output).
+d_username        = ""  # Username on the machine running the script.
 
 # Input-only files and directories.
-path_bounds         = ""  # geog.json file comprising political boundaries.
-path_era5_hour      = ""  # ERA5 reanalysis set (hourly frequency).
-path_era5_land_hour = ""  # ERA5-Land reanalysis set (hourly frequency).
-path_cordex         = ""  # Climate projections (CORDEX).
-path_ds1            = ""  # TODO: Determine what this variable does.
-path_ds2            = ""  # TODO: Determine what this variable does.
-path_ds3            = ""  # TODO: Determine what this variable does.
+d_bounds          = ""  # geog.json file comprising political boundaries.
+d_era5_hour       = ""  # ERA5 reanalysis set (hourly frequency).
+d_era5_land_hour  = ""  # ERA5-Land reanalysis set (hourly frequency).
+d_cordex          = ""  # Climate projections (CORDEX).
+d_crcm5           = ""  # Climate projections (CRCM5).
 
 # Output-only files and directories.
-path_sim            = ""  # Climate projections.
-path_stn            = ""  # Grid version of observations.
+d_sim             = ""  # Climate projections.
+d_stn             = ""  # Grid version of observations.
 
 # Input and output files and directories.
-path_era5_day       = ""  # ERA5 reanalysis set (daily frequency).
-path_era5_land_day  = ""  # ERA5-Land reanalysis set (daily frequency).
+d_era5_day        = ""  # ERA5 reanalysis set (daily frequency).
+d_era5_land_day   = ""  # ERA5-Land reanalysis set (daily frequency).
 
 # Emission scenarios, periods and horizons.
 rcp_26  = "rcp26"                   # Emission scenario RCP 2.6.
@@ -133,24 +131,27 @@ var_sim_excepts = []
 idx_sim = []
 
 # Bias correction.
-# The parameter 'time_int' is the number of days before and after any given days (15 days before and after = 30 days).
+# The parameter 'time_int' is the number of days before and after any given day (15 days before and after = 30 days).
 # This needs to be adjusted as there is period of adjustment between cold period and monsoon). It's possible that a
 # very small precipitation amount be considered extreme. We need to limit correction factors.
 # Default values.
 nq_default       = 50   # Default 'nq' value.
 up_qmf_default   = 3.0  # Default 'up_qmf' value.
 time_int_default = 30   # Default 'time_int' value.
+bias_err_default = -1   # Default 'bias_err' value.
 # For calibration.
 # Array of values to test for each calibration parameter.
 nq_calib         = None   # List of 'nq' values to test during calibration.
 up_qmf_calib     = None   # List of 'up_wmf' values to test during calibration.
 time_int_calib   = None   # List of 'time_int' values to test during calibration.
+bias_err_calib   = None   # List of 'bias_err' values to test during calibration.
 # For workflow.
-# Dictionary with 3 dimensi_nameons [sim][stn][var] where 'sim' is simulation name, 'stn' is station name,
+# Dictionaries with 3 dimensions [sim][stn][var] where 'sim' is simulation name, 'stn' is station name,
 # and 'var' is the variable.
 nq               = None   # Number of quantiles (calibrated value).
 up_qmf           = None   # Upper limit for quantile mapping function.
 time_int         = None   # Windows size (i.e. number of days before + number of days after).
+bias_err         = None   # Bias adjustment error.
 
 # Step 2 - Download options.
 opt_download = False
@@ -159,20 +160,24 @@ opt_download = False
 opt_aggregate = False
 
 # Step 4 - Scenario options.
-opt_scen                 = True
-opt_scen_read_obs_netcdf = True   # If True, converts observations to NetCDF files.
-opt_scen_extract         = True   # If True, forces extraction.
-opt_scen_itp_time        = True   # If True, performs temporal interpolation during extraction.
-opt_scen_itp_space       = True   # If True, perform spatial interpolation during extraction.
-opt_scen_regrid          = False  # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
-opt_scen_preprocess      = True   # If True, forces pre-processing.
-opt_scen_postprocess     = True   # If True, forces post-processing.
-opt_calib           = True  # If True, explores the sensitivity to nq, up_qmf and time_int parameters.
-opt_calib_auto      = True  # If True, calibrates for nq, up_qmf and time_int parameters.
-opt_calib_bias      = True  # If True, examines bias correction.
-opt_calib_coherence = True  # If True, examines physical coherence.
-opt_calib_qqmap     = True  # If true, calculate qqmap.
-opt_calib_extra     = True  # If True, overlaps additional curves on time-series.
+opt_scen                  = True     # If True, produce climate scenarios.
+opt_scen_read_obs_netcdf  = True     # If True, converts observations to NetCDF files.
+opt_scen_extract          = True     # If True, forces extraction.
+opt_scen_itp_time         = True     # If True, performs temporal interpolation during extraction.
+opt_scen_itp_space        = True     # If True, perform spatial interpolation during extraction.
+opt_scen_regrid           = False    # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
+opt_scen_preprocess       = True     # If True, forces pre-processing.
+opt_scen_postprocess      = True     # If True, forces post-processing.
+opt_calib                 = True     # If True, explores the sensitivity to nq, up_qmf and time_int parameters.
+opt_calib_auto            = True     # If True, calibrates for nq, up_qmf and time_int parameters.
+opt_calib_bias            = True     # If True, examines bias correction.
+opt_calib_bias_meth       = "rrmse"  # Error quantification method (select one of the following methods).
+opt_calib_bias_meth_r2    = "r2"     # Coefficient of determination.
+opt_calib_bias_meth_mae   = "mae"    # Mean absolute error.
+opt_calib_bias_meth_rmse  = "rmse"   # Root mean square error.
+opt_calib_bias_meth_rrmse = "rrmse"  # Relative root mean square error.
+opt_calib_coherence       = False    # If True, examines physical coherence.
+opt_calib_qqmap           = True     # If true, calculate qqmap.
 
 # Indices options.
 opt_idx = True  # If True, calculate indices.
@@ -184,6 +189,9 @@ opt_plt_365vs360   = True  # If True, generates plots of temporal interpolation 
 opt_plt_save       = True  # If True, save plots.
 opt_plt_close      = True  # If True, close plots.
 
+# Log options.
+log_n_blank = 10  # Number of blanks at the beginning of a message.
+log_sep_len = 70  # Number of instances of the symbol "-" in a separator line.
 
 def get_idx_inst():
 
@@ -193,7 +201,7 @@ def get_idx_inst():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    return len(path_cordex.split("/"))
+    return len(d_cordex.split("/"))
 
 
 def get_idx_gcm():
@@ -270,6 +278,7 @@ def get_var_desc(var, set_name="cordex"):
 
 
 def get_var_unit(var, set_name="cordex"):
+
     """
     --------------------------------------------------------------------------------------------------------------------
     Gets the unit of a variable.
@@ -314,11 +323,32 @@ def get_var_unit(var, set_name="cordex"):
     return var_unit
 
 
-def get_path_sim(stn, category, var=""):
+def get_rcp_desc(rcp):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Gets a path.
+    Get the description of an emission scenario.
+
+    Parameters
+    ----------
+    rcp : str
+        Emission scenario, e.g., {"ref", "rcp26", "rcp45", "rcp85"}
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if rcp == "ref":
+        rcp_desc = "reference"
+    elif ("rcp" in rcp) and (len(rcp) == 5):
+        rcp_desc = rcp[0:3].upper() + " " + rcp[3] + "." + rcp[4]
+
+    return rcp_desc
+
+
+def get_d_sim(stn, category, var=""):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get directory of simulations.
 
     Parameters
     ----------
@@ -331,22 +361,42 @@ def get_path_sim(stn, category, var=""):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path = path_sim
+    d = d_sim
     if stn != "":
-        path = path + stn + "/"
+        d = d + stn + "/"
     if category != "":
-        path = path + category + "/"
+        d = d + category + "/"
     if var != "":
-        path = path + var + "/"
+        d = d + var + "/"
 
-    return path
+    return d
 
 
-def get_path_stn(var, stn):
+def get_d_stn(var):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Gets path of directory containing stations.
+    Get directory of stations.
+
+    Parameters
+    ----------
+    var : str
+        Variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    d = ""
+    if var != "":
+        d = d_stn + var + "/"
+
+    return d
+
+
+def get_p_stn(var, stn):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get path of stations.
 
     Parameters
     ----------
@@ -357,20 +407,16 @@ def get_path_stn(var, stn):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path = ""
-    if var != "":
-        path = path_stn + var + "/"
-        if stn != "":
-            path = path + var + "_" + stn + ".nc"
+    p = d_stn + var + "/" + var + "_" + stn + ".nc"
 
-    return path
+    return p
 
 
-def get_path_obs(stn_name, var, category=""):
+def get_p_obs(stn_name, var, category=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Gets the path of observations.
+    Get direction of observations.
 
     Parameters
     ----------
@@ -383,12 +429,12 @@ def get_path_obs(stn_name, var, category=""):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    path = get_path_sim(stn_name, "obs") + var + "/" + var + "_" + stn_name
+    p = get_d_sim(stn_name, "obs") + var + "/" + var + "_" + stn_name
     if category != "":
-        path = path + "_4qqmap"
-    path = path + ".nc"
+        p = p + "_4qqmap"
+    p = p + ".nc"
 
-    return path
+    return p
 
 
 def init_calib_params():
@@ -399,11 +445,12 @@ def init_calib_params():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    global nq, up_qmf, time_int
+    global nq, up_qmf, time_int, bias_err
     nq = utils.create_multi_dict(3, float)
     up_qmf = utils.create_multi_dict(3, float)
     time_int = utils.create_multi_dict(3, float)
-    list_cordex = utils.list_cordex(path_cordex, rcps)
+    bias_err = utils.create_multi_dict(3, float)
+    list_cordex = utils.list_cordex(d_cordex, rcps)
     for idx_rcp in range(len(rcps)):
         rcp = rcps[idx_rcp]
         for idx_sim_i in range(0, len(list_cordex[rcp])):
@@ -414,3 +461,4 @@ def init_calib_params():
                     nq[sim_name][stn][var] = nq_default
                     up_qmf[sim_name][stn][var] = up_qmf_default
                     time_int[sim_name][stn][var] = time_int_default
+                    bias_err[sim_name][stn][var] = bias_err_default

@@ -113,35 +113,35 @@ def plot_ts_single(stn, var):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print("Processing (single): variable = " + var + "; station = " + stn)
+    utils.log("Processing (single): variable = " + var + "; station = " + stn, True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
     var_unit = cfg.get_var_unit(var)
 
     # Paths and NetCDF files.
-    path_regrid = cfg.get_path_sim(stn, cfg.cat_regrid, var)
-    files       = utils.list_files(path_regrid)
-    fn_obs      = cfg.get_path_obs(stn, var)
+    d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+    p_list   = utils.list_files(d_regrid)
+    p_obs    = cfg.get_p_obs(stn, var)
 
     # Plot.
-    fs_sup_title = 8
-    fs_legend    = 8
-    fs_axes      = 8
+    fs_title  = 8
+    fs_legend = 8
+    fs_axes   = 8
 
     f = plt.figure(figsize=(15, 3))
     f.add_subplot(111)
     plt.subplots_adjust(top=0.9, bottom=0.18, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
 
     # Loop through simulation sets.
-    for i in range(int(len(files) / 3)):
+    for i in range(int(len(p_list) / 3)):
 
-        fn_ref   = [i for i in files if "ref" in i][i]
-        fn_fut   = fn_ref.replace("ref_", "")
-        fn_qqmap = fn_fut.replace("_4qqmap", "").replace(cfg.cat_regrid, cfg.cat_qqmap)
-        ds_fut   = xr.open_dataset(fn_fut)
-        ds_qqmap = xr.open_dataset(fn_qqmap)
-        ds_obs   = xr.open_dataset(fn_obs)
+        p_ref   = [i for i in p_list if "ref" in i][i]
+        p_fut   = p_ref.replace("ref_", "")
+        p_qqmap = p_fut.replace("_4qqmap", "").replace(cfg.cat_regrid, cfg.cat_qqmap)
+        ds_fut   = xr.open_dataset(p_fut)
+        ds_qqmap = xr.open_dataset(p_qqmap)
+        ds_obs   = xr.open_dataset(p_obs)
 
         # Convert date format if the need is.
         if ds_fut.time.dtype == cfg.dtype_obj:
@@ -156,23 +156,19 @@ def plot_ts_single(stn, var):
 
         # Format.
         plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
-        sup_title = os.path.basename(fn_fut).replace("4qqmap.nc", "verif_ts_single")
-        plt.suptitle(sup_title, fontsize=fs_sup_title)
+        title = os.path.basename(p_fut).replace("4qqmap.nc", "verif_ts_single")
+        plt.suptitle(title, fontsize=fs_title)
         plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
         plt.title("")
-        plt.suptitle(sup_title, fontsize=fs_sup_title)
+        plt.suptitle(title, fontsize=fs_title)
         plt.tick_params(axis='x', labelsize=fs_axes)
         plt.tick_params(axis='y', labelsize=fs_axes)
 
         # Save plot.
         if cfg.opt_plt_save:
-            fn_fig = sup_title + ".png"
-            path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/verif/ts_single", var)
-            if not (os.path.isdir(path_fig)):
-                os.makedirs(path_fig)
-            fn_fig = path_fig + fn_fig
-            plt.savefig(fn_fig)
+            p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_single", var) + title + ".png"
+            utils.save_plot(plt, p_fig)
 
         # Close plot.
         if cfg.opt_plt_close:
@@ -194,7 +190,7 @@ def plot_ts_mosaic(stn, var):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print("Processing (mosaic): variable = " + var + "; station = " + stn)
+    utils.log("Processing (mosaic): variable = " + var + "; station = " + stn, True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -206,30 +202,30 @@ def plot_ts_mosaic(stn, var):
         coef = cfg.spd
 
     # Paths and NetCDF files.
-    path_regrid = cfg.get_path_sim(stn, cfg.cat_regrid, var)
-    files       = utils.list_files(path_regrid)
-    fn_obs      = cfg.get_path_obs(stn, var)
+    d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+    p_list   = utils.list_files(d_regrid)
+    p_obs    = cfg.get_p_obs(stn, var)
 
     # Plot.
-    fs_sup_title = 8
-    fs_title     = 6
-    fs_legend    = 6
-    fs_axes      = 6
+    fs_title  = 8
+    fs_title  = 6
+    fs_legend = 6
+    fs_axes   = 6
     plt.figure(figsize=(15, 15))
     plt.subplots_adjust(top=0.96, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.30)
 
     # Loop through simulation sets.
-    sup_title = ""
-    for i in range(int(len(files) / 3)):
+    title = ""
+    for i in range(int(len(p_list) / 3)):
 
         # NetCDF files.
-        fn_fut_i   = [i for i in files if "ref" in i][i].replace("ref_", "")
-        fn_qqmap_i = fn_fut_i.replace("_4" + cfg.cat_qqmap, "").replace(cfg.cat_regrid, cfg.cat_qqmap)
+        p_fut_i   = [i for i in p_list if "ref" in i][i].replace("ref_", "")
+        p_qqmap_i = p_fut_i.replace("_4" + cfg.cat_qqmap, "").replace(cfg.cat_regrid, cfg.cat_qqmap)
 
         # Open datasets.
-        ds_fut   = xr.open_dataset(fn_fut_i)
-        ds_qqmap = xr.open_dataset(fn_qqmap_i)
-        ds_obs   = xr.open_dataset(fn_obs)
+        ds_fut   = xr.open_dataset(p_fut_i)
+        ds_qqmap = xr.open_dataset(p_qqmap_i)
+        ds_obs   = xr.open_dataset(p_obs)
 
         # Convert date format if the need is.
         if ds_fut.time.dtype == cfg.dtype_obj:
@@ -246,23 +242,19 @@ def plot_ts_mosaic(stn, var):
         # Format.
         plt.xlabel("", fontsize=fs_axes)
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-        title = os.path.basename(files[i]).replace(".nc", "")
+        title = os.path.basename(p_list[i]).replace(".nc", "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis='x', labelsize=fs_axes)
         plt.tick_params(axis='y', labelsize=fs_axes)
         if i == 0:
             plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
             sup_title = title + "_verif_ts_mosaic"
-            plt.suptitle(sup_title, fontsize=fs_sup_title)
+            plt.suptitle(sup_title, fontsize=fs_title)
 
     # Save plot.
     if cfg.opt_plt_save:
-        fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/verif/ts_mosaic", var)
-        if not (os.path.isdir(path_fig)):
-            os.makedirs(path_fig)
-        fn_fig = path_fig + fn_fig
-        plt.savefig(fn_fig)
+        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + ".png"
+        utils.save_plot(plt, p_fig)
 
     # Close plot.
     if cfg.opt_plt_close:
@@ -284,41 +276,41 @@ def plot_monthly(stn, var):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    print("Processing (monthly): variable = " + var + "; station = " + stn)
+    utils.log("Processing (monthly): variable = " + var + "; station = " + stn, True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
     var_unit = cfg.get_var_unit(var)
 
     # NetCDF files.
-    path_regrid = cfg.get_path_sim(stn, cfg.cat_regrid, var)
-    files       = utils.list_files(path_regrid)
-    fn_obs      = cfg.get_path_obs(stn, var)
-    ds_obs      = xr.open_dataset(fn_obs)
-    ds_plt = ds_obs.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().groupby("time.month").\
-        mean()[var]
+    d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+    p_list   = utils.list_files(d_regrid)
+    p_obs    = cfg.get_p_obs(stn, var)
+    ds_obs   = xr.open_dataset(p_obs)
+    ds_plt   = ds_obs.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().groupby("time.month").\
+               mean()[var]
 
     # Plot.
-    fs_sup_title = 8
-    fs_title     = 6
-    fs_legend    = 6
-    fs_axes      = 6
+    fs_title  = 8
+    fs_title  = 6
+    fs_legend = 6
+    fs_axes   = 6
     plt.figure(figsize=(15, 15))
     plt.subplots_adjust(top=0.96, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.30)
 
     # Loop through simulation sets.
     sup_title = ""
-    for i in range(int(len(files) / 3)):
+    for i in range(int(len(p_list) / 3)):
 
         # Plot.
         plt.subplot(7, 7, i + 1)
 
         # Curves.
-        ds = xr.open_dataset(files[i])[var]
+        ds = xr.open_dataset(p_list[i])[var]
         if isinstance(ds.time[0].values, np.datetime64):
             ds.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().groupby("time.month").mean().\
                 plot(color="blue")
-        ds = xr.open_dataset(files[i])[var]
+        ds = xr.open_dataset(p_list[i])[var]
         if isinstance(ds.time[0].values, np.datetime64):
             ds.sel(time=slice("2050-01-01", "2070-12-31")).resample(time="M").mean().groupby("time.month").mean().\
                 plot(color="green")
@@ -329,32 +321,28 @@ def plot_monthly(stn, var):
         plt.xticks(np.arange(1, 13, 1))
         plt.xlabel("Mois", fontsize=fs_axes)
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-        title = os.path.basename(files[i]).replace(".nc", "")
+        title = os.path.basename(p_list[i]).replace(".nc", "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis='x', labelsize=fs_axes)
         plt.tick_params(axis='y', labelsize=fs_axes)
         if i == 0:
             sup_title = title + "_verif_monthly"
-            plt.suptitle(sup_title, fontsize=fs_sup_title)
+            plt.suptitle(sup_title, fontsize=fs_title)
 
     # Format.
     plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
 
     # Save plot.
     if cfg.opt_plt_save:
-        fn_fig = sup_title + ".png"
-        path_fig = cfg.get_path_sim(stn, cfg.cat_fig + "/verif/monthly", var)
-        if not (os.path.isdir(path_fig)):
-            os.makedirs(path_fig)
-        fn_fig = path_fig + fn_fig
-        plt.savefig(fn_fig)
+        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + ".png"
+        utils.save_plot(plt, p_fig)
 
     # Close plot.
     if cfg.opt_plt_close:
         plt.close()
 
 
-def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_threshs, rcps, xlim, fn_fig):
+def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_threshs, rcps, xlim, p_fig):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -380,8 +368,8 @@ def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_thre
         Emission scenarios.
     xlim : [int]
         Minimum and maximum values along the x-axis.
-    fn_fig : str
-        File name of figure.
+    p_fig : str
+        Path of output figure.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -452,21 +440,18 @@ def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_thre
     plt.ylim(bottom=0)
 
     # Save figure.
-    if fn_fig != "":
-        dir_fig = os.path.dirname(fn_fig)
-        if not (os.path.isdir(dir_fig)):
-            os.makedirs(dir_fig)
-        plt.savefig(fn_fig)
+    if cfg.opt_plt_save and (p_fig != ""):
+        utils.save_plot(plt, p_fig)
 
     plt.close()
 
 
-def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, fn_fig, map_package):
+def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, p_fig, map_package):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Generate a heat map of a climate index for the reference period and for emission scenarios.
-    TODO: Add a color scale common to all horizons.
+    TODO: Add a color scale that is common to all horizons.
 
     Parameters
     ----------
@@ -482,8 +467,8 @@ def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, fn_fig, map
         Y-coordinates.
     per: [int, int]
         Period of interest, for instance, [1981, 2010].
-    fn_fig : str
-        File name of figure.
+    p_fig : str
+        Path of output figure.
     map_package: str
         Map package: {"seaborn", "matplotlib"}
     --------------------------------------------------------------------------------------------------------------------
@@ -521,16 +506,13 @@ def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, fn_fig, map
         plt.tick_params(axis="y", labelsize=fs)
 
     # Save figure.
-    if fn_fig != "":
-        dir_fig = os.path.dirname(fn_fig)
-        if not (os.path.isdir(dir_fig)):
-            os.makedirs(dir_fig)
-        plt.savefig(fn_fig)
+    if cfg.opt_plt_save and (p_fig != ""):
+        utils.save_plot(plt, p_fig)
 
     plt.close()
 
 
-def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig):
+def plot_ref_fut(var, nq, up_qmf, time_int, p_regrid_ref, p_regrid_fut, p_fig):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -546,11 +528,11 @@ def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig
         ...
     time_int : int
         ...
-    fn_regrid_ref : str
+    p_regrid_ref : str
         Path of the NetCDF file containing data for the reference period.
-    fn_regrid_fut : str
+    p_regrid_fut : str
         Path of the NetCDF file containing data for the future period.
-    fn_fig : str
+    p_fig : str
         Path of output figure.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -560,8 +542,8 @@ def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig
     var_unit = cfg.get_var_unit(var)
 
     # Load datasets.
-    ds_ref = xr.open_dataset(fn_regrid_ref)[var]
-    ds_fut = xr.open_dataset(fn_regrid_fut)[var]
+    ds_ref = xr.open_dataset(p_regrid_ref)[var]
+    ds_fut = xr.open_dataset(p_regrid_fut)[var]
 
     # Fit.
     x     = [*range(len(ds_ref.time))]
@@ -577,8 +559,8 @@ def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig
     f = plt.figure(figsize=(15, 6))
     f.add_subplot(211)
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.00)
-    sup_title = os.path.basename(fn_fig).replace(".png", "") +\
-        "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
+    sup_title = os.path.basename(p_fig).replace(".png", "") +\
+                "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
     plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     # Convert date format if the need is.
@@ -608,15 +590,15 @@ def plot_ref_fut(var, nq, up_qmf, time_int, fn_regrid_ref, fn_regrid_fut, fn_fig
     plt.title("Période de simulation", fontsize=fs_title)
 
     # Save plot.
-    if cfg.opt_plt_save:
-        plt.savefig(fn_fig)
+    if cfg.opt_plt_save and (p_fig != ""):
+        utils.save_plot(plt, p_fig)
 
     # Close plot.
     if cfg.opt_plt_close:
         plt.close()
 
 
-def plot_obs_fut(ds_obs, ds_fut, var, title, fn_fig):
+def plot_obs_fut(ds_obs, ds_fut, var, title, p_fig):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -632,7 +614,7 @@ def plot_obs_fut(ds_obs, ds_fut, var, title, fn_fig):
         Variable.
     title : str
         Title of figure.
-    fn_fig : str
+    p_fig : str
         Path of output figure.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -665,10 +647,7 @@ def plot_obs_fut(ds_obs, ds_fut, var, title, fn_fig):
         (ds_obs[var] * coef).plot()
     # Other variables.
     else:
-        dt = 0
-        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmax, cfg.var_cordex_tasmin]:
-            dt = 273.15
-        (ds_obs[var] + dt).plot()
+        ds_obs[var].plot()
     plt.legend(["sim", "obs"], fontsize=fs_legend)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
@@ -678,15 +657,15 @@ def plot_obs_fut(ds_obs, ds_fut, var, title, fn_fig):
     plt.tick_params(axis='y', labelsize=fs_axes)
 
     # Save plot.
-    if cfg.opt_plt_save:
-        plt.savefig(fn_fig.replace(".png", "_ts.png"))
+    if cfg.opt_plt_save and (p_fig != ""):
+        utils.save_plot(plt, p_fig)
 
     # Close plot.
     if cfg.opt_plt_close:
         plt.close()
 
 
-def plot_postprocess_fut_obs(ds_obs, ds_fut, ds_qqmap, var, fn_fig, title):
+def plot_postprocess_fut_obs(ds_obs, ds_fut, ds_qqmap, var, p_fig, title):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -702,7 +681,7 @@ def plot_postprocess_fut_obs(ds_obs, ds_fut, ds_qqmap, var, fn_fig, title):
         Variable.
     title : str
         Title of figure.
-    fn_fig : str
+    p_fig : str
         Path of output figure.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -738,15 +717,15 @@ def plot_postprocess_fut_obs(ds_obs, ds_fut, ds_qqmap, var, fn_fig, title):
     plt.tick_params(axis='y', labelsize=fs_axes)
 
     # Save plot.
-    if cfg.opt_plt_save:
-        plt.savefig(fn_fig)
+    if cfg.opt_plt_save and (p_fig != ""):
+        utils.save_plot(plt, p_fig)
 
     # Close plot.
     if cfg.opt_plt_close:
         plt.close()
 
 
-def plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, fn_fig):
+def plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, p_fig):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -770,8 +749,8 @@ def plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, v
         Variable.
     title : str
         Title of figure.
-    fn_fig : str
-        File of figure associated with the plot.
+    p_fig : str
+        Path of output figure.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -805,7 +784,9 @@ def plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, v
     else:
         draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "mean")
     plt.title(var_desc, fontsize=fs_title)
-    plt.legend([cfg.cat_qqmap, "sim", cfg.cat_obs, cfg.cat_qqmap+"_all", "fut"], fontsize=fs_legend)
+    plt.legend([cfg.cat_qqmap+"-ref", "sim-ref", cfg.cat_obs, cfg.cat_qqmap+"_all", "sim-all"], fontsize=fs_legend)
+    plt.xlim([1, 12])
+    plt.xticks(np.arange(1, 13, 1))
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.tick_params(axis='x', labelsize=fs_axes)
@@ -880,8 +861,8 @@ def plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, v
     del ds_qqmap.attrs['bias_corrected']
 
     # Save plot.
-    if cfg.opt_plt_save:
-        plt.savefig(fn_fig)
+    if cfg.opt_plt_save and (p_fig != ""):
+        utils.save_plot(plt, p_fig)
 
     # Close plot.
     if cfg.opt_plt_close:
@@ -965,3 +946,56 @@ def fix_calendar(ds):
     new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * 365, freq='D')
 
     return new_time
+
+
+def plot_360_vs_365(ds_360, ds_365, var=""):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Compare a 360- vs. 365-day calendars.
+
+    Parameters
+    ----------
+    ds_360 : xarray
+        Dataset.
+    ds_365 : xarray
+        Dataset.
+    var : str
+        Variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if var != "":
+        plt.plot((np.arange(1, 361) / 360) * 365, ds_360[var][:360].values)
+        plt.plot(np.arange(1, 366), ds_365[var].values[:365], alpha=0.5)
+    else:
+        plt.plot((np.arange(1, 361) / 360) * 365, ds_360[:360].values)
+        plt.plot(np.arange(1, 366), ds_365[:365].values, alpha=0.5)
+    plt.close()
+
+def plot_rsq(rsq, n_sim):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate a plot of root mean square error.
+
+    Parameters
+    ----------
+    rsq : np
+        Numpy array.
+    n_sim : int
+        Number of simulations
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    plt.figure()
+    plt.plot(range(1, n_sim + 1), rsq, "k", label="R²")
+    plt.plot(np.arange(1.5, n_sim + 0.5), np.diff(rsq), "r", label="ΔR²")
+    axes = plt.gca()
+    axes.set_xlim([0, n_sim])
+    axes.set_ylim([0, 1])
+    plt.xlabel("Number of groups")
+    plt.ylabel("R² / ΔR²")
+    plt.legend(loc="center right")
+    plt.title("R² of groups vs. full ensemble")
+    plt.close()

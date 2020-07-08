@@ -9,21 +9,24 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Other packages.
+import config as cfg
 import glob
+from math import sqrt
 import numpy as np
 import numpy.matlib
-import matplotlib.pyplot as plt
 import os
 import pandas as pd
+import plot
 import re
 import scipy.stats
+import utils
 import xarray as xr
 from cmath import rect, phase
 from collections import defaultdict
 from itertools import compress
 from math import radians, degrees
-from pathlib import Path
 from sklearn.cluster import KMeans
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
 def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, variable_weights=None, sample_weights=None,
@@ -75,10 +78,10 @@ def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, vari
 
     # Perform verifications.
     if max_clusters is not None and n_clusters is not None:
-        print("Both max_clusters and n_clusters have been defined! Giving priority to n_clusters.")
+        log("Both max_clusters and n_clusters have been defined! Giving priority to n_clusters.", True)
         sel_method = "n_clusters"
     elif max_clusters is None and n_clusters is None:
-        print("Neither max_clusters or n_clusters has been defined! Assuming that selection method = max_clusters")
+        log("Neither max_clusters or n_clusters has been defined! Assuming that selection method = max_clusters", True)
         sel_method = "max_clusters"
         max_clusters = n_sim
     elif n_clusters is not None:
@@ -87,11 +90,11 @@ def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, vari
         sel_method = "max_clusters"
 
     if sel_method == "max_clusters" and rsq_cutoff is None:
-        print("rsq_cutoff has not been defined! Using a default value of 0.90")
+        log("rsq_cutoff has not been defined! Using a default value of 0.90.", True)
         rsq_cutoff = 0.90
 
     if (rsq_cutoff is not None and rsq_cutoff >= 1) or (rsq_cutoff is not None and rsq_cutoff <= 0):
-        print("rsq_cutoff must be between 0 and 1! Using a default value of 0.90")
+        log("rsq_cutoff must be between 0 and 1! Using a default value of 0.90.", True)
         rsq_cutoff = 0.90
 
     # Normalize the data matrix.
@@ -111,9 +114,11 @@ def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, vari
     if sel_method == "max_clusters" or make_graph is True:
         sumd = np.empty(shape=n_sim)
         for nclust in range(n_sim):
+
             # This is k-means with only 10 iterations, to limit the computation times
             kmeans = KMeans(n_clusters=nclust + 1, n_init=10).fit(z, sample_weight=sample_weights)
             kmeans.fit(z)
+
             # Sum of the squared distance between each simulation and the
             # nearest cluster centroid.
             sumd[nclust] = kmeans.inertia_
@@ -121,17 +126,8 @@ def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, vari
         # R² of the groups vs. the full ensemble.
         rsq = (sumd[0] - sumd) / sumd[0]
 
-        # Make a plot of rsq.
-        plt.figure()
-        plt.plot(range(1, n_sim+1), rsq, "k", label="R²")
-        plt.plot(np.arange(1.5, n_sim+0.5), np.diff(rsq), "r", label="ΔR²")
-        axes = plt.gca()
-        axes.set_xlim([0, n_sim])
-        axes.set_ylim([0, 1])
-        plt.xlabel("Number of groups")
-        plt.ylabel("R² / ΔR²")
-        plt.legend(loc="center right")
-        plt.title("R² of groups vs. full ensemble")
+        # Plot of rsq.
+        plot.plot_rsq(rsq, n_sim)
 
         # If we actually need to find the optimal number of clusters, this is
         # where it is done.
@@ -141,21 +137,20 @@ def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, vari
             n_clusters = np.argmax(rsq > rsq_cutoff) + 1
 
             if n_clusters <= max_clusters:
-                print("Using " + str(n_clusters) +
-                      " clusters has been found to be the optimal number of clusters")
+                log("Using " + str(n_clusters) +
+                    " clusters has been found to be the optimal number of clusters.", True)
             else:
                 n_clusters = max_clusters
-                print("Using " + str(n_clusters) +
-                      " clusters has been found to be the optimal number of clusters, but limiting to " +
-                      str(max_clusters) + " as required by max_clusters")
+                log("Using " + str(n_clusters) +
+                    " clusters has been found to be the optimal number of clusters, but limiting to " +
+                    str(max_clusters) + " as required by max_clusters.", True)
 
     # k-means clustering with 1000 iterations to avoid instabilities in the
     # choice of final scenarios.
-    kmeans   = KMeans(n_clusters=n_clusters, n_init=1000)
+    kmeans = KMeans(n_clusters=n_clusters, n_init=1000)
+
     # We use 'fit_' only once, otherwise it computes everything again.
     clusters = kmeans.fit_predict(z, sample_weight=sample_weights)
-    # The following statement is not used:
-    # centers = kmeans.cluster_centers_
 
     # Squared distance between each point and each centroid.
     d = np.square(kmeans.transform(z))
@@ -178,9 +173,9 @@ def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, vari
         elif d_i.shape[0] == 2:
             # Standard deviation would be 0 for a 2-simulation cluster, meaning
             # that model_weights would be ignored.
-            sig    = 1
+            sig = 1
             # Weighted likelihood.
-            like   = scipy.stats.norm.pdf(d_i, 0, sig) * model_weights[clusters == i]
+            like = scipy.stats.norm.pdf(d_i, 0, sig) * model_weights[clusters == i]
             # Index of the maximum likelihood.
             argmax = np.argmax(like)
         else:
@@ -194,7 +189,7 @@ def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, vari
     return out, clusters
 
 
-def regrid_cdo(ds, new_grid, tmpdir, method="cubic"):
+def regrid_cdo(ds, new_grid, d_tmp, method="cubic"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -203,8 +198,8 @@ def regrid_cdo(ds, new_grid, tmpdir, method="cubic"):
 
     Parameters
     ----------
-    ds :xarray dataset
-        ???
+    ds : xarray
+        Dataset.
     new_grid : xarray dataset
         ???
     tmpdir : str
@@ -215,7 +210,7 @@ def regrid_cdo(ds, new_grid, tmpdir, method="cubic"):
     """
 
     # Write a txt file with the mapping information.
-    file = open(tmpdir + "new_grid.txt", "w")
+    file = open(d_tmp + "new_grid.txt", "w")
     file.write("gridtype = lonlat\n")
     file.write("xsize = " + str(len(new_grid.lon.values.tolist())) + "\n")
     file.write("xvals = " + ",".join(str(num) for num in new_grid.lon.values) + "\n")
@@ -224,26 +219,26 @@ def regrid_cdo(ds, new_grid, tmpdir, method="cubic"):
     file.close()
 
     # Write the xarray dataset to a NetCDF.
-    ds.to_netcdf(tmpdir + "old_data.nc")
+    utils.save_dataset(ds, d_tmp + "old_data.nc")
 
     # Remap to the new grid.
     # TODO: To be fixed. It is not working well.
     if method == "cubic":
-        os.system("cdo remapbic," + tmpdir + "new_grid.txt " + tmpdir + "old_data.nc " + tmpdir + "new_data.nc")
+        os.system("cdo remapbic," + d_tmp + "new_grid.txt " + d_tmp + "old_data.nc " + d_tmp + "new_data.nc")
         # import subprocess
         # subprocess.call()
     elif method == "linear":
-        os.system("cdo remapbil," + tmpdir + "new_grid.txt " + tmpdir + "old_data.nc " + tmpdir + "new_data.nc")
+        os.system("cdo remapbil," + d_tmp + "new_grid.txt " + d_tmp + "old_data.nc " + d_tmp + "new_data.nc")
     else:
         "Invalid method!"
 
     # Load the new data.
-    ds2 = xr.open_dataset(tmpdir + "new_data.nc")
+    ds2 = xr.open_dataset(d_tmp + "new_data.nc")
 
     # Remove created files.
-    os.system("rm " + tmpdir + "new_grid.txt")
-    os.system("rm " + tmpdir + "old_data.nc")
-    os.system("rm " + tmpdir + "new_data.nc")
+    os.system("rm " + d_tmp + "new_grid.txt")
+    os.system("rm " + d_tmp + "old_data.nc")
+    os.system("rm " + d_tmp + "new_data.nc")
 
     return ds2
 
@@ -340,7 +335,7 @@ def sfcwind_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
     return uas, vas
 
 
-def list_cordex(path_ds, rcps):
+def list_cordex(p_ds, rcps):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -348,7 +343,7 @@ def list_cordex(path_ds, rcps):
 
     Parameters
     ----------
-    path_ds : str
+    p_ds : str
         Path of data_source.
     rcps : [str]
         List of RCP scenarios.
@@ -360,30 +355,30 @@ def list_cordex(path_ds, rcps):
     # Find all the available simulations for a given RCP.
     for r in range(len(rcps)):
 
-        folder_format = path_ds + "*/*/AFR-*{r}".format(r=rcps[r]) + "/*/atmos/*/"
-        folders = glob.glob(folder_format)
-        folders = [i for i in folders if "day" in i]
-        folders.sort()
+        d_format = p_ds + "*/*/AFR-*{r}".format(r=rcps[r]) + "/*/atmos/*/"
+        d_list = glob.glob(d_format)
+        d_list = [i for i in d_list if "day" in i]
+        d_list.sort()
 
         # Remove timestep information.
-        for i in range(0, len(folders)):
-            tokens = folders[i].split("/")
-            folders[i] = folders[i].replace(tokens[len(tokens) - 4], "*")
+        for i in range(0, len(d_list)):
+            tokens = d_list[i].split("/")
+            d_list[i] = d_list[i].replace(tokens[len(tokens) - 4], "*")
 
         # Keep only the unique simulation folders (with a * as the timestep).
-        folders = list(set(folders))
-        valid_folders = [True] * len(folders)
+        d_list = list(set(d_list))
+        d_list_valid = [True] * len(d_list)
 
         # Keep only the simulations with all the variables we need.
-        folders = list(compress(folders, valid_folders))
+        d_list = list(compress(d_list, d_list_valid))
 
-        list_f[rcps[r] + "_historical"] = [w.replace(rcps[r], "historical") for w in folders]
-        list_f[rcps[r]] = folders
+        list_f[rcps[r] + "_historical"] = [w.replace(rcps[r], "historical") for w in d_list]
+        list_f[rcps[r]] = d_list
 
     return list_f
 
 
-def info_cordex(path_ds):
+def info_cordex(d_ds):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -392,8 +387,8 @@ def info_cordex(path_ds):
 
     Parameters
     ----------
-    path_ds : str
-        Path of data_source.
+    d_ds : str
+        Directory of data_source.
 
     Return
     ------
@@ -411,11 +406,11 @@ def info_cordex(path_ds):
     sets = []
 
     # List directories containing simulation sets.
-    dir_format = path_ds + "*/*/AFR-*/day/atmos/*/"
-    n_token = len(path_ds.split("/")) - 2
+    d_format = d_ds + "*/*/AFR-*/day/atmos/*/"
+    n_token = len(d_ds.split("/")) - 2
 
     # Loop through simulations sets.
-    for i in glob.glob(dir_format):
+    for i in glob.glob(d_format):
         tokens_i = i.split("/")
 
         # Extract institute, RGM, CGM and emission scenario.
@@ -456,18 +451,15 @@ def calendar(x, n_days_old=360, n_days_new=365):
     """
 
     x["backup"] = x.time
-    # DEBUG: print(len(x.time))
 
     # Put 360 on 365 calendar.
     ts         = x.assign_coords(time=x.time.dt.dayofyear / n_days_old * n_days_new)
     ts_year    = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * n_days_new
     ts_time    = ts.time.values
     ts["time"] = ts_year + ts_time
-    # DEBUG: print(len(ts.time))
 
     nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0])+1
     time_new = np.arange(1, (nb_year*n_days_new)+1)
-    # DEBUG: print(len(time_new))
 
     # Create new times series.
     year_0  = str(ts.backup.dt.year.values[0])
@@ -483,16 +475,13 @@ def calendar(x, n_days_old=360, n_days_new=365):
     date_1 = year_1 + "-" + month_1 + "-" + day_1
     time_date = pd.date_range(start=date_0, end=date_1)
 
-    # DEBUG: print(len(time_date))
-
     # Remove February 29th.
     time_date = time_date[~((time_date.month == 2) & (time_date.day == 29))]
-    # DEBUG: print(len(time_date))
 
     # Interpolate 365 days time series.
     ref_365 = ts.interp(time=time_new, kwargs={"fill_value": "extrapolate"}, method="nearest")
 
-        # Recreate 365 time series.
+    # Recreate 365 time series.
     ref_365["time"] = time_date
 
     # DEBUG: Plot data.
@@ -503,7 +492,7 @@ def calendar(x, n_days_old=360, n_days_new=365):
     return ref_365
 
 
-def list_files(path):
+def list_files(p):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -511,35 +500,35 @@ def list_files(path):
 
     Parameters
     ----------
-    path : str
+    p : str
         Path of directory.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # List.
-    files = []
+    p_list = []
     # r=root, d=directories, f = files
-    for r, d, f in os.walk(path):
-        for file in f:
-            if ".nc" in file:
-                files.append(os.path.join(r, file))
+    for r, d, f in os.walk(p):
+        for p in f:
+            if ".nc" in p:
+                p_list.append(os.path.join(r, p))
 
     # Sort.
-    files.sort()
+    p_list.sort()
 
-    return files
+    return p_list
 
 
 def create_multi_dict(n, data_type):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Create directory
+    Create directory.
 
     Parameters
     ----------
     n : int
-        Number of dimensions
+        Number of dimensions.
     data_type : type
         Data type.
     --------------------------------------------------------------------------------------------------------------------
@@ -549,3 +538,127 @@ def create_multi_dict(n, data_type):
         return defaultdict(data_type)
     else:
         return defaultdict(lambda: create_multi_dict(n - 1, data_type))
+
+
+def calc_error(values_obs, values_pred):
+    """
+    -------------------------------------------------------------------------------------------------------------------
+    Calculate the error between observed and predicted values.
+    The methods and equations are presented in the following thesis:
+    Parishkura D (2009) Évaluation de méthodes de mise à l'échelle statistique: reconstruction des extrêmes et de la
+    variabilité du régime de mousson au Sahel (mémoire de maîtrise). UQAM.
+
+    Parameters
+    ----------
+    values_obs : [float]
+        Observed values.
+    values_pred : [float]
+        Predicted values.
+    -------------------------------------------------------------------------------------------------------------------
+    """
+
+    error = -1
+
+    # Method #1: Coefficient of determination.
+    if cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_r2:
+        error = r2_score(values_obs, values_pred)
+
+    # Method #2: Mean absolute error.
+    elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_mae:
+        error = mean_absolute_error(values_obs, values_pred)
+
+    # Method #3: Root mean square error.
+    elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rmse:
+        error = sqrt(mean_squared_error(values_obs, values_pred))
+
+    # Method #4: Relative root mean square error.
+    elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rrmse:
+        error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
+
+    return error
+
+
+def log(msg, indent=False):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Log message.
+
+    Parameters
+    ----------
+    msg : str
+        Message.
+    indent : bool
+        If True, indent text.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    ln = ""
+
+    if indent:
+        ln += " " * cfg.log_n_blank
+    if (msg == "-") or (msg == "="):
+        if indent:
+            ln += msg * cfg.log_sep_len
+        else:
+            ln += msg * (cfg.log_sep_len + cfg.log_n_blank)
+    else:
+        ln += msg
+
+    print(ln)
+
+
+def save_dataset(ds, p):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Save an xarray dataset as a NetCDF file.
+
+    Parameters
+    ----------
+    ds : xarray
+        Dataset.
+    p : str
+        Path of file to be created.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Recursively create directories if the path does not exist.
+    d = os.path.dirname(p)
+    if not (os.path.isdir(d)):
+        os.makedirs(d)
+
+    # Discard file if it already exists.
+    if os.path.exists(p):
+        os.remove(p)
+
+    # Create NetCDF file.
+    ds.to_netcdf(p)
+
+
+def save_plot(plot, p):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Save an xarray dataset as a NetCDF file.
+
+    Parameters
+    ----------
+    plot : xarray
+        Plot.
+    path : str
+        Path of file to be created.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Recursively create directories if the path does not exist.
+    d = os.path.dirname(p)
+    if not (os.path.isdir(d)):
+        os.makedirs(d)
+
+    # Discard file if it already exists.
+    if os.path.exists(p):
+        os.remove(p)
+
+    # Create PNG file.
+    plot.savefig(p)

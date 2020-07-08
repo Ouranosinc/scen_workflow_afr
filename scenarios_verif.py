@@ -11,6 +11,7 @@
 # Current package.
 import config as cfg
 import plot
+import utils
 
 
 def run():
@@ -20,8 +21,6 @@ def run():
     Entry point.
     --------------------------------------------------------------------------------------------------------------------
     """
-
-    print("Module verif launched.")
 
     # Loop through station names.
     for stn in cfg.stns:
@@ -35,10 +34,8 @@ def run():
                 plot.plot_ts_mosaic(stn, var)
                 plot.plot_monthly(stn, var)
             except FileExistsError:
-                print("Unable to locate the required files!")
+                utils.log("Unable to locate the required files!", True)
                 pass
-
-    print("Module verif completed successfully.")
 
 
 if __name__ == "__main__":
