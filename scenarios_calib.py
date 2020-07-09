@@ -54,7 +54,7 @@ def bias_correction(stn, var):
             for up_qmf in cfg.up_qmf_calib:
                 for time_int in cfg.time_int_calib:
 
-                    msg = "Adjusting " + sim_name + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
+                    msg = "Assessing " + sim_name + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
                           ", time_int=" + str(time_int)
                     utils.log(msg, True)
 
@@ -65,7 +65,7 @@ def bias_correction(stn, var):
                     p_regrid_fut = p_regrid.replace(".nc", "_4qqmap.nc")
                     p_qqmap      = p_regrid.replace("/" + cfg.cat_regrid + "/", "/" + cfg.cat_qqmap + "/")
 
-                    msg = "A required file is missing: "
+                    msg = "File missing: "
                     if not(os.path.exists(p_obs)) or not(os.path.exists(p_regrid_ref)) or\
                        not(os.path.exists(p_regrid_fut)) or not(os.path.exists(p_qqmap)):
                         if not(os.path.exists(p_obs)):

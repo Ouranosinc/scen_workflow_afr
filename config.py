@@ -46,8 +46,8 @@ rcp_26  = "rcp26"                   # Emission scenario RCP 2.6.
 rcp_45  = "rcp45"                   # Emission scenario RCP 4.5.
 rcp_85  = "rcp85"                   # Emission scenario RCP 8.5.
 rcps    = [rcp_26, rcp_45, rcp_85]  # All emission scenarios.
-per_ref = [1981, 2010]                                # Reference period.
-per_fut = [1981, 2100]                                # Future period.
+per_ref = [1981, 2010]                                 # Reference period.
+per_fut = [1981, 2100]                                 # Future period.
 per_hors = [[2021, 2040], [2041, 2060], [2061, 2080]]  # Horizons.
 
 # Indices.

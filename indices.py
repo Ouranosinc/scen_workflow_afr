@@ -388,6 +388,7 @@ def run():
     """
 
     # Calculate indices.
+    utils.log("=")
     utils.log("Step #6a  Calculation of indices.")
     for i in range(0, len(cfg.idx_names)):
 
@@ -400,6 +401,7 @@ def run():
 
     # Map indices.
     # Interpolation requires multiples stations.
+    utils.log("=")
     utils.log("Step #6b  Generation of index maps.")
     if len(cfg.stns) > 1:
         for i in range(0, len(cfg.idx_names)):
