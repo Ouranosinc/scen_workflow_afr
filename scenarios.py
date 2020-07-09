@@ -631,7 +631,7 @@ def run():
                     msg = "Step #5a  Calculating adjustment factors is "
                     if cfg.opt_calib:
                         utils.log(msg + "running")
-                        scenarios_calib.bias_correction(stn, var)
+                        scenarios_calib.bias_correction(stn, var, sim_name)
                     else:
                         utils.log(msg + "not required")
                     nq       = cfg.nq[sim_name][stn][var]
@@ -641,8 +641,8 @@ def run():
 
                     # TODO.YR: That would be great to save the three calibration parameters to a CSV file and be able to
                     #          load a calibration file. For now the information is only displayed in the console.
-                    msg = "Parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + ", time_int=" + str(time_int) +\
-                          ", bias_err=" + str(bias_err)
+                    msg = "Selected parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + \
+                          ", time_int=" + str(time_int) + ", bias_err=" + str(bias_err)
                     utils.log(msg, True)
 
                     # Step #5b: Statistical downscaling.

@@ -19,7 +19,7 @@ import xarray as xr
 from qm import train, predict
 
 
-def bias_correction(stn, var):
+def bias_correction(stn, var, sim_name=""):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -31,6 +31,8 @@ def bias_correction(stn, var):
         Station name.
     var : str
         Weather variable.
+    sim_name : str
+        Simulation name.
     -------------------------------------------------------------------------------------------------------------------
     """
 
@@ -45,7 +47,11 @@ def bias_correction(stn, var):
     # Loop through simulation sets.
     for i in range(len(p_regrid_list)):
         p_regrid_tokens = p_regrid_list[i].split("/")
-        sim_name = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var + "_", "").replace(".nc", "")
+        sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var + "_", "").replace(".nc", "")
+
+        # Skip iteration if it does not correspond to the specified simulation name.
+        if (sim_name != "") and (sim_name != sim_name_i):
+            continue
 
         # Best parameter set.
         error_best = -1
@@ -55,7 +61,7 @@ def bias_correction(stn, var):
             for up_qmf in cfg.up_qmf_calib:
                 for time_int in cfg.time_int_calib:
 
-                    msg = "Assessing " + sim_name + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
+                    msg = "Assessing " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
                           ", time_int=" + str(time_int)
                     utils.log(msg, True)
 
@@ -79,8 +85,8 @@ def bias_correction(stn, var):
                     scen.postprocess(var, stn, int(nq), up_qmf, int(time_int), p_obs, p_regrid_ref, p_regrid_fut, "")
 
                     # Figures.
-                    fn_fig = var + "_" + sim_name + "_calib.png"
-                    title = sim_name + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + \
+                    fn_fig = var + "_" + sim_name_i + "_calib.png"
+                    title = sim_name_i + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + \
                         "_nq_" + str(nq)
                     p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/calib", var) + fn_fig
 
@@ -113,10 +119,10 @@ def bias_correction(stn, var):
                         error_current = utils.calc_error(ds_obs[var].values.ravel(), ds_regrid_ref[var].values.ravel())
 
                         if (error_best < 0) or (error_current < error_best):
-                            cfg.nq[sim_name][stn][var] = float(nq)
-                            cfg.up_qmf[sim_name][stn][var] = up_qmf
-                            cfg.time_int[sim_name][stn][var] = float(time_int)
-                            cfg.error[sim_name][stn][var] = error_current
+                            cfg.nq[sim_name_i][stn][var] = float(nq)
+                            cfg.up_qmf[sim_name_i][stn][var] = up_qmf
+                            cfg.time_int[sim_name_i][stn][var] = float(time_int)
+                            cfg.error[sim_name_i][stn][var] = error_current
 
 
 def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap, title, p_fig):
