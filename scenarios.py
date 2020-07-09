@@ -458,7 +458,8 @@ def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fu
     try:
         ds_qqmap = predict(ds_fut_365.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
         del ds_qqmap.attrs["bias_corrected"]
-        utils.save_dataset(ds_qqmap, p_qqmap)
+        if p_qqmap != "":
+            utils.save_dataset(ds_qqmap, p_qqmap)
     except ValueError as err:
         utils.log("Failed to create QQMAP NetCDF file.", True)
         utils.log(format(err), True)
@@ -467,6 +468,8 @@ def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fu
     # Plot PP_FUT_OBS.
     if cfg.opt_plt_pp_fut_obs:
         plot.plot_postprocess_fut_obs(ds_obs, ds_fut_365, ds_qqmap, var, p_fig, title)
+
+    return ds_qqmap
 
 
 def run():
@@ -552,12 +555,13 @@ def run():
                     utils.log("RCP        : " + rcp, True)
                     utils.log("Simulation : " + sim_name, True)
                     utils.log("-", True)
+                    utils.log("Looking for required files.", True)
 
                     # Skip iteration if the variable 'var' is not available in the current directory.
                     p_sim_list      = glob.glob(sim + "/" + var + "/*.nc")
                     p_sim_list_hist = glob.glob(sim_hist + "/" + var + "/*.nc")
                     if (len(p_sim_list) == 0) or (len(p_sim_list_hist) == 0):
-                        utils.log("Skipping iteration: data not available for this simulation-variable.", True)
+                        utils.log("Skipping iteration: data not available for simulation-variable.", True)
                         continue
 
                     # Files within CORDEX or CORDEX-NA.
@@ -574,14 +578,15 @@ def run():
                     for sim_except in cfg.sim_excepts:
                         if sim_except in p_raw:
                             is_sim_except = True
+                            utils.log("Skipping iteration: simulation-variable exception.", True)
                             break
                     is_var_sim_except = False
                     for var_sim_except in cfg.var_sim_excepts:
                         if var_sim_except in p_raw:
                             is_var_sim_except = True
+                            utils.log("Skipping iteration: simulation exception.", True)
                             break
                     if is_sim_except or is_var_sim_except:
-                        utils.log("Skipping iteration: simulation is not compatible with the script.", True)
                         continue
 
                     # Paths and NetCDF files.
@@ -647,7 +652,7 @@ def run():
                     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
                     utils.log("=")
-                    msg = "Step #5bc Statistical downscaling and bias correction is "
+                    msg = "Step #5bc Statistical downscaling and bias adjustment is "
                     if cfg.opt_scen_postprocess and not(os.path.isfile(p_qqmap)):
                         utils.log(msg + "running")
                         postprocess(var, stn, int(nq), up_qmf, int(time_int), p_obs, p_regrid_ref,

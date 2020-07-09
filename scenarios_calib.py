@@ -13,6 +13,7 @@ import config as cfg
 import numpy as np
 import os
 import plot
+import scenarios as scen
 import utils
 import xarray as xr
 from qm import train, predict
@@ -63,20 +64,19 @@ def bias_correction(stn, var):
                     p_regrid     = p_regrid_list[i]
                     p_regrid_ref = p_regrid.replace(".nc", "_ref_4qqmap.nc")
                     p_regrid_fut = p_regrid.replace(".nc", "_4qqmap.nc")
-                    p_qqmap      = p_regrid.replace("/" + cfg.cat_regrid + "/", "/" + cfg.cat_qqmap + "/")
-
                     msg = "File missing: "
                     if not(os.path.exists(p_obs)) or not(os.path.exists(p_regrid_ref)) or\
-                       not(os.path.exists(p_regrid_fut)) or not(os.path.exists(p_qqmap)):
+                       not(os.path.exists(p_regrid_fut)):
                         if not(os.path.exists(p_obs)):
                             utils.log(msg + p_obs, True)
                         if not(os.path.exists(p_regrid_ref)):
                             utils.log(msg + p_regrid_ref, True)
                         if not(os.path.exists(p_regrid_fut)):
                             utils.log(msg + p_regrid_fut, True)
-                        if not(os.path.exists(p_qqmap)):
-                            utils.log(msg + p_qqmap, True)
                         continue
+
+                    # Calculate QQmap.
+                    scen.postprocess(var, stn, int(nq), up_qmf, int(time_int), p_obs, p_regrid_ref, p_regrid_fut, "")
 
                     # Figures.
                     fn_fig = var + "_" + sim_name + "_calib.png"
@@ -86,8 +86,8 @@ def bias_correction(stn, var):
 
                     # Examine bias correction.
                     if not(os.path.exists(p_fig)):
-                        bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fut, p_qqmap,
-                                             title, p_fig)
+                        bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fut, "", title,
+                                             p_fig)
 
                     # Time series --------------------------------------------------------------------------------------
 
@@ -190,7 +190,7 @@ def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap
     if cfg.opt_calib_qqmap:
         if var == cfg.var_cordex_pr:
             ds_qmf.values[ds_qmf > up_qmf] = up_qmf
-        ds_qqmap     = predict(ds_fut.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
+        ds_qqmap = predict(ds_fut.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
 
     # Read QQMAP.
     else:
