@@ -495,14 +495,14 @@ def run():
     # Step #2a: Convert observations from CSV to NetCDF files.
     # This creates one .nc file per variable-station in ~/<country>/<project>/<stn>/obs/<source>/<var>/.
     utils.log("=")
-    utils.log("Step #2a  Converting observations from CSV to NetCDF files")
+    utils.log("Step #2c  Converting observations from CSV to NetCDF files")
     if cfg.opt_scen_read_obs_netcdf:
         for var in cfg.variables_cordex:
             read_obs_csv(var)
 
     # Step #2b: List directories potentially containing CORDEX files (but not necessarily for all selected variables).
     utils.log("=")
-    utils.log("Step #2b  Listing directories with CORDEX files")
+    utils.log("Step #2d  Listing directories with CORDEX files")
     list_cordex = utils.list_cordex(cfg.d_cordex, cfg.rcps)
 
     # Loop through variables.
@@ -549,13 +549,12 @@ def run():
                     c = sim.split("/")
                     sim_name = c[cfg.get_idx_inst()] + "_" + c[cfg.get_idx_gcm()]
 
-                    utils.log("-", True)
-                    utils.log("Variable   : " + var, True)
-                    utils.log("Station    : " + stn, True)
-                    utils.log("RCP        : " + rcp, True)
-                    utils.log("Simulation : " + sim_name, True)
-                    utils.log("-", True)
-                    utils.log("Looking for required files.", True)
+                    utils.log("=")
+                    utils.log("Variable   : " + var)
+                    utils.log("Station    : " + stn)
+                    utils.log("RCP        : " + rcp)
+                    utils.log("Simulation : " + sim_name)
+                    utils.log("=")
 
                     # Skip iteration if the variable 'var' is not available in the current directory.
                     p_sim_list      = glob.glob(sim + "/" + var + "/*.nc")
@@ -605,7 +604,6 @@ def run():
                     # Step #4: Grid transfer or interpolation.
                     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
                     #              one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
-                    utils.log("=")
                     msg = "Step #3-4 Spatial & temporal extraction and grid transfer (or interpolation) is "
                     if cfg.opt_scen_extract and (not(os.path.isfile(p_raw)) or not(os.path.isfile(p_regrid))):
                         utils.log(msg + "running")
@@ -617,7 +615,7 @@ def run():
                     # (for the reference and future periods) to ensure that calendar is based on 365 days per year and
                     # that values are within boundaries (0-100%).
                     # This creates two .nc files in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
-                    utils.log("=")
+                    utils.log("-")
                     msg = "Step #4.5 Pre-processing is "
                     if cfg.opt_scen_preprocess and \
                         (not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut))):
@@ -629,7 +627,7 @@ def run():
                     # Step #5: Post-processing.
 
                     # Step #5a: Calculate adjustment factors.
-                    utils.log("=")
+                    utils.log("-")
                     msg = "Step #5a  Calculating adjustment factors is "
                     if cfg.opt_calib:
                         utils.log(msg + "running")
@@ -651,7 +649,7 @@ def run():
                     # Step #5c: Bias correction.
                     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
-                    utils.log("=")
+                    utils.log("-")
                     msg = "Step #5bc Statistical downscaling and bias adjustment is "
                     if cfg.opt_scen_postprocess and not(os.path.isfile(p_qqmap)):
                         utils.log(msg + "running")
