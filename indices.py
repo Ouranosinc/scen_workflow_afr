@@ -55,8 +55,22 @@ def calc_idx_ts(idx_name, idx_threshs):
     for rcp in cfg.rcps:
         rcps.append(rcp)
 
+    # Select variables.
+    vars = []
+    if idx_name == cfg.idx_tx_days_above:
+        vars = [cfg.var_cordex_tasmax]
+
     # Loop through stations.
     for stn in cfg.stns:
+
+        # Verify if this variable is available for the current station.
+        vars_avail = True
+        for var in vars:
+            if not(os.path.isdir(cfg.get_d_sim(stn, cfg.cat_qqmap, var))):
+                vars_avail = False
+                break
+        if not(vars_avail):
+            continue
 
         # Loop through emissions scenarios.
         ds_rcp_26 = None
@@ -73,11 +87,6 @@ def calc_idx_ts(idx_name, idx_threshs):
             # Analysis of simulation files -----------------------------------------------------------------------------
 
             utils.log("Collecting simulation files.", True)
-
-            # Select variables.
-            vars = []
-            if idx_name == cfg.idx_tx_days_above:
-                vars = [cfg.var_cordex_tasmax]
 
             # List simulation files. As soon as there is no file for one variable, the analysis for the current RCP
             # needs to abort.
@@ -99,7 +108,7 @@ def calc_idx_ts(idx_name, idx_threshs):
             if not p_sim:
                 continue
 
-            utils.log("Calculating climate indices.", True)
+            utils.log("Calculating climate indices", True)
 
             # Loop through simulations.
             ds_idx_ref_mean = None
@@ -289,6 +298,8 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
 
         # Load dataset.
         p_stn = cfg.get_d_sim(stn, "regrid/" + idx_name) + idx_name + "_" + rcp + "_" + stat + "_4qqmap.nc"
+        if not(os.path.exists(p_stn)):
+            continue
         ds = xr.open_dataset(p_stn)
 
         # Extract data from stations.
@@ -342,7 +353,7 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
         arr_x = []
         arr_y = []
         arr_z = []
-        for i_stn in range(0, n_stn):
+        for i_stn in range(len(data_stn)):
             if i_year < len(data_stn[i_stn][0]):
                 arr_x.append(data_stn[i_stn][0][i_year])
                 arr_y.append(data_stn[i_stn][1][i_year])
