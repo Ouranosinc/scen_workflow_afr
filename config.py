@@ -7,6 +7,8 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+import numpy as np
+import pandas as pd
 import utils
 
 # Project information.
@@ -40,6 +42,10 @@ d_stn             = ""  # Grid version of observations.
 # Input and output files and directories.
 d_era5_day        = ""  # ERA5 reanalysis set (daily frequency).
 d_era5_land_day   = ""  # ERA5-Land reanalysis set (daily frequency).
+
+# Files.
+p_log             = ""           # Log file (date and time).
+p_calib           = "calib.csv"  # Calibration file (bias adjustment parameters).
 
 # Emission scenarios, periods and horizons.
 rcp_26  = "rcp26"                   # Emission scenario RCP 2.6.
@@ -148,10 +154,11 @@ bias_err_calib   = None   # List of 'bias_err' values to test during calibration
 # For workflow.
 # Dictionaries with 3 dimensions [sim][stn][var] where 'sim' is simulation name, 'stn' is station name,
 # and 'var' is the variable.
-nq               = None   # Number of quantiles (calibrated value).
-up_qmf           = None   # Upper limit for quantile mapping function.
-time_int         = None   # Windows size (i.e. number of days before + number of days after).
-bias_err         = None   # Bias adjustment error.
+# nq               = None   # Number of quantiles (calibrated value).
+# up_qmf           = None   # Upper limit for quantile mapping function.
+# time_int         = None   # Windows size (i.e. number of days before + number of days after).
+# bias_err         = None   # Bias adjustment error.
+df_calib = None  # Calibration parameters (pandas dataframe).
 
 # Step 2 - Download options.
 opt_download = False
@@ -192,6 +199,7 @@ opt_plt_close      = True  # If True, close plots.
 # Log options.
 log_n_blank = 10  # Number of blanks at the beginning of a message.
 log_sep_len = 70  # Number of instances of the symbol "-" in a separator line.
+
 
 def get_idx_inst():
 
@@ -435,30 +443,3 @@ def get_p_obs(stn_name, var, category=""):
     p = p + ".nc"
 
     return p
-
-
-def init_calib_params():
-
-    """
-    -----------------------------------------------------------------------------------------------------------------
-    Initialize calibration parameters.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    global nq, up_qmf, time_int, bias_err
-    nq = utils.create_multi_dict(3, float)
-    up_qmf = utils.create_multi_dict(3, float)
-    time_int = utils.create_multi_dict(3, float)
-    bias_err = utils.create_multi_dict(3, float)
-    list_cordex = utils.list_cordex(d_cordex, rcps)
-    for idx_rcp in range(len(rcps)):
-        rcp = rcps[idx_rcp]
-        for idx_sim_i in range(0, len(list_cordex[rcp])):
-            list_i = list_cordex[rcp][idx_sim_i].split("/")
-            sim_name = list_i[get_idx_inst()] + "_" + list_i[get_idx_inst() + 1]
-            for stn in stns:
-                for var in variables_cordex:
-                    nq[sim_name][stn][var] = nq_default
-                    up_qmf[sim_name][stn][var] = up_qmf_default
-                    time_int[sim_name][stn][var] = time_int_default
-                    bias_err[sim_name][stn][var] = bias_err_default

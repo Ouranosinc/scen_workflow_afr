@@ -634,13 +634,15 @@ def run():
                         scenarios_calib.bias_correction(stn, var, sim_name)
                     else:
                         utils.log(msg + "not required")
-                    nq       = cfg.nq[sim_name][stn][var]
-                    up_qmf   = cfg.up_qmf[sim_name][stn][var]
-                    time_int = cfg.time_int[sim_name][stn][var]
-                    bias_err = cfg.bias_err[sim_name][stn][var]
+                    df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                                              (cfg.df_calib["stn"] == stn) &
+                                              (cfg.df_calib["var"] == var)]
+                    nq       = float(df_sel["nq"])
+                    up_qmf   = float(df_sel["up_qmf"])
+                    time_int = float(df_sel["time_int"])
+                    bias_err = float(df_sel["bias_err"])
 
-                    # TODO.YR: That would be great to save the three calibration parameters to a CSV file and be able to
-                    #          load a calibration file. For now the information is only displayed in the console.
+                    # Display calibration parameters.
                     msg = "Selected parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + \
                           ", time_int=" + str(time_int) + ", bias_err=" + str(bias_err)
                     utils.log(msg, True)

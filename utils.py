@@ -11,7 +11,6 @@
 # Other packages.
 import config as cfg
 import glob
-from math import sqrt
 import numpy as np
 import numpy.matlib
 import os
@@ -24,7 +23,7 @@ import xarray as xr
 from cmath import rect, phase
 from collections import defaultdict
 from itertools import compress
-from math import radians, degrees
+from math import radians, degrees, sqrt
 from sklearn.cluster import KMeans
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
@@ -519,6 +518,47 @@ def list_files(p):
     return p_list
 
 
+def physical_coherence(stn, var):
+
+    """
+    # ------------------------------------------------------------------------------------------------------------------
+    Verifies physical coherence.
+    TODO.YR: Figure out what this function is doing. Not sure why files are being modified. File update was disabled.
+
+    Parameters
+    ----------
+    stn: str
+        Station name.
+    var : [str]
+        List of variables.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    d_qqmap      = cfg.get_d_sim(stn, cfg.cat_qqmap, var[0])
+    p_qqmap_list = utils.list_files(d_qqmap)
+    p_qqmap_tasmin_list = p_qqmap_list
+    p_qqmap_tasmax_list = [i.replace(cfg.var_cordex_tasmin, cfg.var_cordex_tasmax) for i in p_qqmap_list]
+
+    for i in range(len(p_qqmap_tasmin_list)):
+
+        utils.log(stn + "____________" + p_qqmap_tasmax_list[i], True)
+        ds_tasmax = xr.open_dataset(p_qqmap_tasmax_list[i])
+        ds_tasmin = xr.open_dataset(p_qqmap_tasmin_list[i])
+
+        pos = ds_tasmax[var[1]] < ds_tasmin[var[0]]
+
+        val_max = ds_tasmax[var[1]].values[pos]
+        val_min = ds_tasmin[var[0]].values[pos]
+
+        ds_tasmax[var[1]].values[pos] = val_min
+        ds_tasmin[var[0]].values[pos] = val_max
+
+        # os.remove(p_qqmap_tasmax_list[i])
+        # os.remove(p_qqmap_tasmin_list[i])
+        # save_dataset(ds_tasmax, p_qqmap_tasmax_list[i])
+        # save_dataset(ds_tasmin, p_qqmap_tasmin_list[i])
+
+
 def create_multi_dict(n, data_type):
 
     """
@@ -582,7 +622,7 @@ def log(msg, indent=False):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Log message.
+    Log message (to console and into a file.
 
     Parameters
     ----------
@@ -605,7 +645,14 @@ def log(msg, indent=False):
     else:
         ln += msg
 
+    # Print to console.
     print(ln)
+
+    # Print to file.
+    if cfg.p_log != "":
+        f = open(cfg.p_log, "a")
+        f.writelines(ln + "\n")
+        f.close()
 
 
 def save_dataset(ds, p):

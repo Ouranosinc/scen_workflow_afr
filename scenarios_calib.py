@@ -12,6 +12,7 @@
 import config as cfg
 import numpy as np
 import os
+import pandas as pd
 import plot
 import scenarios as scen
 import utils
@@ -54,7 +55,7 @@ def bias_correction(stn, var, sim_name=""):
             continue
 
         # Best parameter set.
-        error_best = -1
+        bias_err_best = -1
 
         # Loop through combinations of nq values, up_qmf and time_int values.
         for nq in cfg.nq_calib:
@@ -116,13 +117,18 @@ def bias_correction(stn, var, sim_name=""):
                     if cfg.opt_calib_auto:
 
                         # Calculate the error between observations and simulation for the reference period.
-                        error_current = utils.calc_error(ds_obs[var].values.ravel(), ds_regrid_ref[var].values.ravel())
+                        bias_err_current = utils.calc_error(ds_obs[var].values.ravel(), ds_regrid_ref[var].values.ravel())
 
-                        if (error_best < 0) or (error_current < error_best):
-                            cfg.nq[sim_name_i][stn][var] = float(nq)
-                            cfg.up_qmf[sim_name_i][stn][var] = up_qmf
-                            cfg.time_int[sim_name_i][stn][var] = float(time_int)
-                            cfg.error[sim_name_i][stn][var] = error_current
+                        if (bias_err_best < 0) or (bias_err_current < bias_err_best):
+                            col_names = ["nq", "up_qmf", "time_int", "bias_err"]
+                            col_values = [float(nq), up_qmf, float(time_int), bias_err_current]
+                            cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                                             (cfg.df_calib["stn"] == stn) &
+                                             (cfg.df_calib["var"] == var), col_names] = col_values
+
+        # Update calibration file.
+        if os.path.exists(cfg.p_calib):
+            cfg.df_calib.to_csv(cfg.p_calib)
 
 
 def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap, title, p_fig):
@@ -208,45 +214,53 @@ def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap
     plot.plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, p_fig)
 
 
-def physical_coherence(stn, var):
+def init_calib_params():
 
     """
-    # ------------------------------------------------------------------------------------------------------------------
-    Verifies physical coherence.
-    TODO.YR: Figure out what this function is doing. Not sure why files are being modified. File update was disabled.
-
-    Parameters
-    ----------
-    stn: str
-        Station name.
-    var : [str]
-        List of variables.
+    -----------------------------------------------------------------------------------------------------------------
+    Initialize calibration parameters.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    d_qqmap      = cfg.get_d_sim(stn, cfg.cat_qqmap, var[0])
-    p_qqmap_list = utils.list_files(d_qqmap)
-    p_qqmap_tasmin_list = p_qqmap_list
-    p_qqmap_tasmax_list = [i.replace(cfg.var_cordex_tasmin, cfg.var_cordex_tasmax) for i in p_qqmap_list]
+    # Attempt loading a calibration file.
+    if os.path.exists(cfg.p_calib):
+        cfg.df_calib = pd.read_csv(cfg.p_calib)
+        utils.log("Calibration file loaded.", True)
+        return
 
-    for i in range(len(p_qqmap_tasmin_list)):
+    # List CORDEX files.
+    list_cordex = utils.list_cordex(cfg.d_cordex, cfg.rcps)
 
-        utils.log(stn + "____________" + p_qqmap_tasmax_list[i], True)
-        ds_tasmax = xr.open_dataset(p_qqmap_tasmax_list[i])
-        ds_tasmin = xr.open_dataset(p_qqmap_tasmin_list[i])
+    # List simulation names, stations and variables.
+    sim_name_list = []
+    stn_list = []
+    var_list = []
+    for idx_rcp in range(len(cfg.rcps)):
+        rcp = cfg.rcps[idx_rcp]
+        for idx_sim_i in range(0, len(list_cordex[rcp])):
+            list_i = list_cordex[rcp][idx_sim_i].split("/")
+            sim_name = list_i[cfg.get_idx_inst()] + "_" + list_i[cfg.get_idx_inst() + 1]
+            for stn in cfg.stns:
+                for var in cfg.variables_cordex:
+                    sim_name_list.append(sim_name)
+                    stn_list.append(stn)
+                    var_list.append(var)
 
-        pos = ds_tasmax[var[1]] < ds_tasmin[var[0]]
+    # Build pandas dataframe.
+    dict = {"sim_name": sim_name_list,
+            "stn": stn_list,
+            "var": var_list,
+            "nq": cfg.nq_default,
+            "up_qmf": cfg.up_qmf_default,
+            "time_int": cfg.time_int_default,
+            "bias_err": cfg.bias_err_default}
+    cfg.df_calib = pd.DataFrame(dict)
 
-        val_max = ds_tasmax[var[1]].values[pos]
-        val_min = ds_tasmin[var[0]].values[pos]
-
-        ds_tasmax[var[1]].values[pos] = val_min
-        ds_tasmin[var[0]].values[pos] = val_max
-
-        # os.remove(p_qqmap_tasmax_list[i])
-        # os.remove(p_qqmap_tasmin_list[i])
-        # utils.save_dataset(ds_tasmax, p_qqmap_tasmax_list[i])
-        # utils.save_dataset(ds_tasmin, p_qqmap_tasmin_list[i])
+    # Save calibration parameters to a CSV file.
+    if cfg.p_calib != "":
+        cfg.df_calib.to_csv(cfg.p_calib)
+        if os.path.exists(cfg.p_calib):
+            utils.log("Calibration file created.", True)
 
 
 def adjust_date_format(ds):
