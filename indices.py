@@ -267,7 +267,7 @@ def calc_idx_ts(idx_name, idx_threshs):
                     val = ds_idx_fut.sel(time=slice(dates_hor[0], dates_hor[1])).mean()
 
             # Generate plot.
-            if rcp == rcps[len(rcps) - 1]:
+            if (rcp == rcps[len(rcps) - 1]) and cfg.opt_plot:
                 utils.log("Generating time series of indices.", True)
                 p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/indices", "") + idx_name + "_" + stn + ".png"
                 plot.plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), idx_name, idx_threshs, rcps,
@@ -392,24 +392,25 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
         ds_regrid = subset.subset_shape(ds_regrid, cfg.d_bounds)
 
     # Loop through horizons.
-    utils.log("Generating maps.", True)
-    for per_hor in per_hors:
+    if cfg.opt_plot:
+        utils.log("Generating maps.", True)
+        for per_hor in per_hors:
 
-        # Select years.
-        if rcp == "ref":
-            year_1 = 0
-            year_n = cfg.per_ref[1] - cfg.per_ref[0]
-        else:
-            year_1 = per_hor[0] - cfg.per_ref[1]
-            year_n = per_hor[1] - cfg.per_ref[1]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            ds_hor = ds_regrid[cfg.idx_tx_days_above][year_1:(year_n+1)][:][:].mean("time", skipna=True)
+            # Select years.
+            if rcp == "ref":
+                year_1 = 0
+                year_n = cfg.per_ref[1] - cfg.per_ref[0]
+            else:
+                year_1 = per_hor[0] - cfg.per_ref[1]
+                year_n = per_hor[1] - cfg.per_ref[1]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                ds_hor = ds_regrid[cfg.idx_tx_days_above][year_1:(year_n+1)][:][:].mean("time", skipna=True)
 
-        # Plot.
-        p_fig = cfg.get_d_sim("", cfg.cat_fig + "/indices", "") +\
-                idx_name + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
-        plot.plot_idx_heatmap(ds_hor, idx_name, idx_threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
+            # Plot.
+            p_fig = cfg.get_d_sim("", cfg.cat_fig + "/indices", "") +\
+                    idx_name + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
+            plot.plot_idx_heatmap(ds_hor, idx_name, idx_threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
 
 def run():
