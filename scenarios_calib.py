@@ -41,6 +41,7 @@ def bias_correction(stn, var, sim_name=""):
     d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
     p_regrid_list = utils.list_files(d_regrid)
     if p_regrid_list == []:
+        utils.log("The required files are not available.", True)
         return
     p_regrid_list = [i for i in p_regrid_list if "_4qqmap" not in i]
     p_regrid_list.sort()
@@ -57,13 +58,13 @@ def bias_correction(stn, var, sim_name=""):
         # Best parameter set.
         bias_err_best = -1
 
-        # Loop through combinations of nq values, up_qmf and time_int values.
+        # Loop through combinations of nq values, up_qmf and time_win values.
         for nq in cfg.nq_calib:
             for up_qmf in cfg.up_qmf_calib:
-                for time_int in cfg.time_int_calib:
+                for time_win in cfg.time_win_calib:
 
                     msg = "Assessing " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
-                          ", time_int=" + str(time_int)
+                          ", time_win=" + str(time_win)
                     utils.log(msg, True)
 
                     # NetCDF files.
@@ -83,55 +84,41 @@ def bias_correction(stn, var, sim_name=""):
                         continue
 
                     # Calculate QQmap.
-                    scen.postprocess(var, stn, int(nq), up_qmf, int(time_int), p_obs, p_regrid_ref, p_regrid_fut, "")
+                    scen.postprocess(var, stn, int(nq), up_qmf, int(time_win), p_obs, p_regrid_ref, p_regrid_fut, "")
 
-                    # Figures.
-                    fn_fig = var + "_" + sim_name_i + "_calib.png"
-                    title = sim_name_i + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + \
-                        "_nq_" + str(nq)
-                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/calib", var) + fn_fig
+                    # Path and title of calibration figure.
+                    fn_fig = var + "_" + sim_name_i + "_calibration.png"
+                    comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+                    title = sim_name_i + "_" + comb
+                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/calibration", var) + comb + "/" + fn_fig
 
                     # Examine bias correction.
-                    if not(os.path.exists(p_fig)):
-                        bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fut, "", title,
-                                             p_fig)
-
-                    # Time series --------------------------------------------------------------------------------------
-
-                    ds_obs        = xr.open_dataset(p_obs)
-                    ds_regrid_ref = xr.open_dataset(p_regrid_ref)
-                    ds_regrid_fut = xr.open_dataset(p_regrid_fut)
-                    if (var == cfg.var_cordex_tas) or (var == cfg.var_cordex_tasmin) or (var == cfg.var_cordex_tasmax):
-                        ds_regrid_ref[var] = ds_regrid_ref[var] - 273.15
-                        ds_regrid_fut[var] = ds_regrid_fut[var] - 273.15
-
-                    # Generate plot.
-                    p_fig = p_fig.replace(".png", "_ts.png")
-                    if not(os.path.exists(p_fig)):
-                        plot.plot_obs_fut(ds_obs, ds_regrid_fut, var, title, p_fig)
+                    bias_correction_spec(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", title, p_fig)
 
                     # Error --------------------------------------------------------------------------------------------
 
-                    # Set calibration parameters (nq, up_qmf and time_int) and calculate error according to the
+                    # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
                     # selected method.
                     if cfg.opt_calib_auto:
 
                         # Calculate the error between observations and simulation for the reference period.
+                        ds_obs        = xr.open_dataset(p_obs)
+                        ds_regrid_ref = xr.open_dataset(p_regrid_ref)
                         bias_err_current = utils.calc_error(ds_obs[var].values.ravel(), ds_regrid_ref[var].values.ravel())
 
                         if (bias_err_best < 0) or (bias_err_current < bias_err_best):
-                            col_names = ["nq", "up_qmf", "time_int", "bias_err"]
-                            col_values = [float(nq), up_qmf, float(time_int), bias_err_current]
+                            col_names = ["nq", "up_qmf", "time_win", "bias_err"]
+                            col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
                             cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
                                              (cfg.df_calib["stn"] == stn) &
                                              (cfg.df_calib["var"] == var), col_names] = col_values
 
         # Update calibration file.
-        if os.path.exists(cfg.p_calib):
+        if cfg.opt_calib_auto and os.path.exists(cfg.p_calib):
             cfg.df_calib.to_csv(cfg.p_calib)
 
 
-def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap, title, p_fig):
+def bias_correction_spec(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, title, p_fig):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -145,14 +132,14 @@ def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap
         Number of quantiles
     up_qmf : float
         Upper limit for quantile mapping function.
-    time_int : float
+    time_win : float
         Windows size (i.e. number of days before + number of days after).
     p_obs : str
-        NetCDF file for observations.
+        NetCDF file of observations.
     p_ref : str
-        NetCDF file for reference period.
+        NetCDF file of simulation for the reference period.
     p_fut : str
-        NetCDF file for future period.
+        NetCDF file of simulation for the future period.
     p_qqmap : str
         NetCDF file of qqmap.
     title : str
@@ -195,7 +182,7 @@ def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap
     # Calculate/read quantiles -----------------------------------------------------------------------------------------
 
     # Calculate QMF.
-    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), int(nq), cfg.group, kind, int(time_int),
+    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), int(nq), cfg.group, kind, int(time_win),
                    detrend_order=cfg.detrend_order)
 
     # Calculate QQMAP.
@@ -208,10 +195,27 @@ def bias_correction_spec(var, nq, up_qmf, time_int, p_obs, p_ref, p_fut, p_qqmap
     else:
         ds_qqmap = xr.open_dataset(p_qqmap)[var]
 
-    ds_qqmap_per = ds_qqmap.where((ds_qqmap.time.dt.year >= cfg.per_ref[0]) &
+    ds_qqmap_ref = ds_qqmap.where((ds_qqmap.time.dt.year >= cfg.per_ref[0]) &
                                   (ds_qqmap.time.dt.year <= cfg.per_ref[1]), drop=True)
 
-    plot.plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, p_fig)
+    # Convert to degrees Celcius.
+    if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        ds_qmf       = ds_qmf - 273.15
+        ds_qqmap_ref = ds_qqmap_ref - 273.15
+        ds_obs       = ds_obs - 273.15
+        ds_ref       = ds_ref - 273.15
+        ds_fut       = ds_fut - 273.15
+        ds_qqmap     = ds_qqmap - 273.15
+
+    # Create plots -----------------------------------------------------------------------------------------------------
+
+    # Generate big summary plot.
+    if cfg.opt_plot:
+        plot.plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, p_fig)
+
+    # Generate time series only.
+    if cfg.opt_plot:
+        plot.plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig.replace(".png", "_ts.png"))
 
 
 def init_calib_params():
@@ -252,7 +256,7 @@ def init_calib_params():
             "var": var_list,
             "nq": cfg.nq_default,
             "up_qmf": cfg.up_qmf_default,
-            "time_int": cfg.time_int_default,
+            "time_win": cfg.time_win_default,
             "bias_err": cfg.bias_err_default}
     cfg.df_calib = pd.DataFrame(dict)
 
@@ -271,7 +275,7 @@ def adjust_date_format(ds):
 
     Parameters
     ----------
-    ds : ...
+    ds : xr.Dataset
         Dataset.
     --------------------------------------------------------------------------------------------------------------------
     """

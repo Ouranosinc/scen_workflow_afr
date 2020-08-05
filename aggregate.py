@@ -222,18 +222,8 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Determine the path of the directory holding reanalysis datasets.
-    d_ra_hour = ""
-    d_ra_day  = ""
-    if cfg.obs_src == cfg.obs_src_era5_land:
-        d_ra_hour = cfg.d_era5_land_hour
-        d_ra_day  = cfg.d_era5_land_day
-    elif cfg.obs_src == cfg.obs_src_era5:
-        d_ra_hour = cfg.d_era5_hour
-        d_ra_day  = cfg.d_era5_day
-
     # List variables.
-    vars = os.listdir(d_ra_hour)
+    vars = os.listdir(cfg.d_ra_raw)
     vars.sort()
     if not(cfg.var_era5_sh in vars):
         vars.append(cfg.var_era5_sh)
@@ -242,24 +232,24 @@ def run():
     for var in vars:
 
         # Loop through files.
-        p_hour_lst = glob.glob(d_ra_hour + var + "/*.nc")
-        p_hour_lst.sort()
-        n_years = len(p_hour_lst)
-        for p_hour in p_hour_lst:
+        p_raw_lst = glob.glob(cfg.d_ra_raw + var + "/*.nc")
+        p_raw_lst.sort()
+        n_years = len(p_raw_lst)
+        for p_raw in p_raw_lst:
 
             # Create an hourly dataset for specific humidity.
             # This requires cfg.var_era5_t2m and cfg.var_era5_sp.
             if var == cfg.var_era5_d2m:
-                p_hour_d2m = p_hour
-                p_hour_sp  = p_hour_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sp)
-                p_hour_sh  = p_hour_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sh)
-                if os.path.exists(p_hour_d2m) and os.path.exists(p_hour_sp) and not(os.path.exists(p_hour_sh)):
-                    gen_dataset_sh(p_hour_d2m, p_hour_sp, p_hour_sh, n_years)
+                p_raw_d2m = p_raw
+                p_raw_sp  = p_raw_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sp)
+                p_raw_sh  = p_raw_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sh)
+                if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and not(os.path.exists(p_raw_sh)):
+                    gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
 
             # Perform aggregation.
             if var != cfg.var_era5_d2m:
-                p_day = d_ra_day + os.path.basename(p_hour).replace("hour", "day")
-                aggregate(p_hour, p_day, cfg.obs_src, var)
+                p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
+                aggregate(p_raw, p_day, cfg.obs_src, var)
 
 
 if __name__ == "__main__":

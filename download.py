@@ -183,29 +183,18 @@ def run():
     Entry point.
     --------------------------------------------------------------------------------------------------------------------
     """
-
-    # Area.
-    # Continent.
-    # area = [47, -29, -50, 65,]
-    # West Africa.
-    area = [40, -30, -15, 30, ]
+    # Area: [North, West, South, East, ]
+    # Ex1: Africa      = [47, -29, -50, 65, ]
+    # Ex2: West Africa = [40, -30, -15, 30, ]
+    area = [cfg.lat_bnds_download[1], cfg.lon_bnds_download[1], cfg.lat_bnds_download[0], cfg.lon_bnds_download[0], ]
 
     # Path of input data.
-    d_prefix = ""
-    if cfg.obs_src == cfg.obs_src_era5_land:
-        d_prefix = os.path.dirname(cfg.d_era5_land_day) + "/"
-    elif cfg.obs_src == cfg.obs_src_era5:
-        d_prefix = os.path.dirname(cfg.d_era5_day) + "/"
+    d_prefix = os.path.dirname(cfg.d_ra_day) + "/"
 
     # ERA5 or ERA5_LAND.
     if (cfg.obs_src == cfg.obs_src_era5_land) or (cfg.obs_src == cfg.obs_src_era5):
 
-        # Variables.
-        vars = [cfg.var_era5_d2m, cfg.var_era5_e, cfg.var_era5_pev, cfg.var_era5_sp, cfg.var_era5_ssrd,
-                cfg.var_era5_t2m, cfg.var_era5_tp, cfg.var_era5_u10, cfg.var_era5_v10]
-
         # Path, set code and years.
-        d_base = d_prefix + "scenario/external_data/ecmwf/" + cfg.obs_src + "/hour/"
         years = []
         if cfg.obs_src == cfg.obs_src_era5_land:
             years = range(1981, 2019 + 1)
@@ -213,27 +202,24 @@ def run():
             years = range(1979, 2019 + 1)
 
         # Loop through variable codes.
-        for var in vars:
+        for var in cfg.variables_ra:
 
             # Download.
             if cfg.n_proc == 1:
                 for year in years:
-                    download_from_copernicus(d_base, cfg.obs_src, area, var, year)
+                    download_from_copernicus(d_prefix, cfg.obs_src, area, var, year)
             else:
                 pool = multiprocessing.Pool(processes=cfg.n_proc)
-                func = functools.partial(download_from_copernicus, d_base, cfg.obs_src, area, var)
+                func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
                 pool.map(func, years)
                 pool.close()
                 pool.join()
 
     # MERRA2.
-    elif cfg.obs_src == "merra2":
-
-        # Path.
-        d_base = d_prefix + "scenario/external_data/nasa/merra2/raw/"
+    elif cfg.obs_src == cfg.obs_src_merra2:
 
         # Download.
-        download_merra2(d_base, "M2SDNXSLV.5.12.4")
+        download_merra2(d_prefix, "M2SDNXSLV.5.12.4")
 
 
 if __name__ == "__main__":

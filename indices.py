@@ -55,10 +55,20 @@ def calc_idx_ts(idx_name, idx_threshs):
     for rcp in cfg.rcps:
         rcps.append(rcp)
 
+    # ==========================================================
+    # TODO.CUSTOMIZATION.BEGIN
+    # When adding a new climate index, specify the required
+    # variable(s) by copying the following code block.
+    # ==========================================================
+
     # Select variables.
     vars = []
     if idx_name == cfg.idx_tx_days_above:
         vars = [cfg.var_cordex_tasmax]
+
+    # ==========================================================
+    # TODO.CUSTOMIZATION.END
+    # ==========================================================
 
     # Loop through stations.
     for stn in cfg.stns:
@@ -142,11 +152,19 @@ def calc_idx_ts(idx_name, idx_threshs):
 
                 # Indices ----------------------------------------------------------------------------------------------
 
-                # Below, unit conversion should not be required. The unit in the file produced by the scenario workflow
-                # is "degree_C", but it should be "C". Ideally, this would be fixed, but it's not a major issue.
+                # TODO: Below, unit conversion should not be required. The unit in the file produced by the scenario
+                #       workflow is "degree_C", but it should be "C". Ideally, this would be fixed, but it's not a major
+                #       issue.
+
+                ds_idx = None
+
+                # ==========================================================
+                # TODO.CUSTOMIZATION.BEGIN
+                # When adding a new climate index, calculate the index by
+                # copying the following code block.
+                # ==========================================================
 
                 # Number of days where daily maximum temperature exceed a threshold.
-                ds_idx = None
                 if idx_name == cfg.idx_tx_days_above:
                     ds_scen_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     if rcp == "ref":
@@ -154,6 +172,10 @@ def calc_idx_ts(idx_name, idx_threshs):
                         ds_scen_tasmax.attrs["units"] = "C"
                     idx_thresh_str_tasmax = idx_threshs_str[0]
                     ds_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax)
+
+                # ==========================================================
+                # TODO.CUSTOMIZATION.END
+                # ==========================================================
 
                 # Subset based on dates.
                 ds_idx_ref = ds_idx.sel(time=slice(dates_ref[0], dates_ref[1]))
@@ -338,10 +360,10 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
             val_rnd = math.ceil(val/step) * step
         return val_rnd
     for i in range(0, 2):
-        x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cfg.resol_idx)
-        y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cfg.resol_idx)
-    grid_x = np.arange(x_bnds[0], x_bnds[1] + cfg.resol_idx, cfg.resol_idx)
-    grid_y = np.arange(y_bnds[0], y_bnds[1] + cfg.resol_idx, cfg.resol_idx)
+        x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cfg.idx_resol)
+        y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cfg.idx_resol)
+    grid_x = np.arange(x_bnds[0], x_bnds[1] + cfg.idx_resol, cfg.idx_resol)
+    grid_y = np.arange(y_bnds[0], y_bnds[1] + cfg.idx_resol, cfg.idx_resol)
 
     # Perform interpolation.
     # There is a certain flexibility regarding the number of years in a dataset. Ideally, the station should not have

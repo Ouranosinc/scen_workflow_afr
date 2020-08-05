@@ -28,9 +28,9 @@ def plot_year(ds_hour, ds_day, set_name, var):
 
     Parameters
     ----------
-    ds_hour : xarray
+    ds_hour : xr.Dataset
         Dataset with hourly frequency.
-    ds_day : xarray
+    ds_day : xr.Dataset
         Dataset with daily frequency.
     set_name : str
         Set name.
@@ -67,7 +67,7 @@ def plot_dayofyear(ds_day, set_name, var, date):
 
     Parameters
     ----------
-    ds_day : xarray
+    ds_day : xr.Dataset
         Dataset with daily frequency.
     set_name : str
         Set name.
@@ -145,9 +145,9 @@ def plot_ts_single(stn, var):
 
         # Convert date format if the need is.
         if ds_fut.time.dtype == cfg.dtype_obj:
-            ds_fut["time"] = fix_calendar(ds_fut)
+            ds_fut["time"] = utils.fix_calendar(ds_fut)
         if ds_qqmap.time.dtype == cfg.dtype_obj:
-            ds_qqmap["time"] = fix_calendar(ds_qqmap)
+            ds_qqmap["time"] = utils.fix_calendar(ds_qqmap)
 
         # Curves.
         (ds_obs[var]).plot(alpha=0.5)
@@ -166,13 +166,11 @@ def plot_ts_single(stn, var):
         plt.tick_params(axis='y', labelsize=fs_axes)
 
         # Save plot.
-        if cfg.opt_plt_save:
-            p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_single", var) + title + ".png"
-            utils.save_plot(plt, p_fig)
+        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_single", var) + title + ".png"
+        utils.save_plot(plt, p_fig)
 
         # Close plot.
-        if cfg.opt_plt_close:
-            plt.close()
+        plt.close()
 
 
 def plot_ts_mosaic(stn, var):
@@ -207,7 +205,6 @@ def plot_ts_mosaic(stn, var):
     p_obs    = cfg.get_p_obs(stn, var)
 
     # Plot.
-    fs_title  = 8
     fs_title  = 6
     fs_legend = 6
     fs_axes   = 6
@@ -229,9 +226,9 @@ def plot_ts_mosaic(stn, var):
 
         # Convert date format if the need is.
         if ds_fut.time.dtype == cfg.dtype_obj:
-            ds_fut["time"] = fix_calendar(ds_fut)
+            ds_fut["time"] = utils.fix_calendar(ds_fut)
         if ds_qqmap.time.dtype == cfg.dtype_obj:
-            ds_qqmap["time"] = fix_calendar(ds_qqmap)
+            ds_qqmap["time"] = utils.fix_calendar(ds_qqmap)
 
         # Curves.
         plt.subplot(7, 7, i + 1)
@@ -252,13 +249,11 @@ def plot_ts_mosaic(stn, var):
             plt.suptitle(sup_title, fontsize=fs_title)
 
     # Save plot.
-    if cfg.opt_plt_save:
-        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + ".png"
-        utils.save_plot(plt, p_fig)
+    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + ".png"
+    utils.save_plot(plt, p_fig)
 
     # Close plot.
-    if cfg.opt_plt_close:
-        plt.close()
+    plt.close()
 
 
 def plot_monthly(stn, var):
@@ -333,13 +328,462 @@ def plot_monthly(stn, var):
     plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
 
     # Save plot.
-    if cfg.opt_plt_save:
-        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + ".png"
+    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + ".png"
+    utils.save_plot(plt, p_fig)
+
+    # Close plot.
+    plt.close()
+
+
+def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot of observed and future periods.
+
+    Parameters
+    ----------
+    p_obs : str
+        Dataset of observed period.
+    p_fut : str
+        Dataset of future period.
+    p_qqmap : str
+        Dataset of adjusted simulation.
+    var : str
+        Variable.
+    title : str
+        Title of figure.
+    p_fig : str
+        Path of output figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Load datasets.
+    ds_obs = xr.open_dataset(p_obs)[var]
+    ds_fut = xr.open_dataset(p_fut)[var]
+    ds_qqmap = xr.open_dataset(p_qqmap)[var]
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+    elif (var == cfg.var_cordex_tas) or (var == cfg.var_cordex_tasmin) or (var == cfg.var_cordex_tasmax):
+        ds_fut   = ds_fut - 273.15
+        ds_qqmap = ds_qqmap - 273.15
+
+    # Plot.
+    f = plt.figure(figsize=(15, 3))
+    f.add_subplot(111)
+    plt.subplots_adjust(top=0.9, bottom=0.15, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
+    fs_sup_title = 8
+    fs_legend = 8
+    fs_axes = 8
+    legend_items = ["Simulation", "Observation"]
+    if ds_qqmap is not None:
+        legend_items.insert(0, "Sim. ajustée")
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
+    (ds_fut * coef).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
+    (ds_obs * coef).groupby(ds_obs.time.dt.year).mean().plot(color=cfg.col_obs)
+
+    # Customize.
+    plt.legend(legend_items, fontsize=fs_legend, frameon=False)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.title("")
+    plt.suptitle(title, fontsize=fs_sup_title)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Save plot.
+    if p_fig != "":
         utils.save_plot(plt, p_fig)
 
     # Close plot.
-    if cfg.opt_plt_close:
-        plt.close()
+    plt.close()
+
+
+def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot of reference and future periods.
+
+    Parameters
+    ----------
+    var : str
+        Weather var.
+    nq : int
+        ...
+    up_qmf : float
+        ...
+    time_win : int
+        ...
+    p_regrid_ref : str
+        Path of the NetCDF file containing data for the reference period.
+    p_regrid_fut : str
+        Path of the NetCDF file containing data for the future period.
+    p_fig : str
+        Path of output figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Load datasets.
+    ds_ref = xr.open_dataset(p_regrid_ref)[var]
+    ds_fut = xr.open_dataset(p_regrid_fut)[var]
+    if (var == cfg.var_cordex_tas) or (var == cfg.var_cordex_tasmin) or (var == cfg.var_cordex_tasmax):
+        ds_ref = ds_ref - 273.15
+        ds_fut = ds_fut - 273.15
+
+    # Fit.
+    x     = [*range(len(ds_ref.time))]
+    y     = ds_ref.values
+    coefs = poly.polyfit(x, y, 4)
+    ffit  = poly.polyval(x, coefs)
+
+    # Initialize plot.
+    fs_sup_title = 8
+    fs_title     = 8
+    fs_legend    = 6
+    fs_axes      = 8
+    f = plt.figure(figsize=(15, 6))
+    f.add_subplot(211)
+    plt.subplots_adjust(top=0.90, bottom=0.07, left=0.07, right=0.99, hspace=0.40, wspace=0.00)
+    sup_title = os.path.basename(p_fig).replace(".png", "") +\
+                "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+    plt.suptitle(sup_title, fontsize=fs_sup_title)
+
+    # Convert date format if the need is.
+    if ds_ref.time.dtype == cfg.dtype_obj:
+        ds_ref["time"] = utils.fix_calendar(ds_ref)
+
+    # Upper plot: Reference period.
+    f.add_subplot(211)
+    plt.plot(ds_ref.time, y, color=cfg.col_sim_ref)
+    plt.plot(ds_ref.time, ffit, color="black")
+    plt.legend(["Simulation (pér. référence)", "Tendance"], fontsize=fs_legend, frameon=False)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.title("Tendance", fontsize=fs_title)
+
+    # Lower plot: Complete simulation.
+    f.add_subplot(212)
+    arr_y_detrend = signal.detrend(ds_fut)
+    arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
+    arr_y_error  = (y - ffit)
+    arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
+    plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=cfg.col_sim_fut)
+    plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=cfg.col_sim_ref)
+    plt.legend(["Simulation", "Simulation (prédiction), pér. référence)"],
+               fontsize=fs_legend, frameon=False)
+    plt.xlabel("Jours", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.title("Variation autour de la moyenne (prédiction basée sur une équation quartique)", fontsize=fs_title)
+
+    # Save plot.
+    if p_fig != "":
+        utils.save_plot(plt, p_fig)
+
+    # Close plot.
+    plt.close()
+
+
+def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_title, p_fig):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot containing a summary of calibration.
+
+    Parameters
+    ----------
+    ds_qmf : xr.Dataset
+        Dataset of quantile mapping function.
+    ds_qqmap_ref : xr.Dataset
+        Dataset of adjusted simulation for the referenc period.
+    ds_obs : xr.Dataset
+        Dataset of observations.
+    ds_ref : xr.Dataset
+        Dataset of simulation for the reference period.
+    ds_fut : xr.Dataset
+        Dataset of simulation for the future period.
+    ds_qqmap : xr.Dataset
+        Dataset of adjusted simulation.
+    var : str
+        Variable.
+    sup_title : str
+        Title of figure.
+    p_fig : str
+        Path of output figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Quantile ---------------------------------------------------------------------------------------------------------
+
+    fs_sup_title = 8
+    fs_title     = 6
+    fs_legend    = 4
+    fs_axes      = 7
+
+    f = plt.figure(figsize=(9, 9))
+    f.add_subplot(431)
+    plt.subplots_adjust(top=0.930, bottom=0.065, left=0.070, right=0.973, hspace=0.750, wspace=0.250)
+
+    ds_qmf.plot()
+    plt.xlabel("Quantile", fontsize=fs_axes)
+    plt.ylabel("Jour de l'année", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    legend_items = ["Sim. ajustée (pér. réf.)", "Sim. (pér. réf.)", "Observations",
+                    "Sim. ajustée", "Sim."]
+
+    # Mean values ------------------------------------------------------------------------------------------------------
+
+    # Plot.
+    f.add_subplot(432)
+    if var == cfg.var_cordex_pr:
+        draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, "sum")
+    else:
+        draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, "mean")
+    plt.title("Moyenne", fontsize=fs_title)
+    plt.legend(legend_items, fontsize=fs_legend, frameon=False)
+    plt.xlim([1, 12])
+    plt.xticks(np.arange(1, 13, 1))
+    plt.xlabel("Mois", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Mean, Q100, Q99, Q75, Q50, Q25, Q01 and Q00 monthly values -------------------------------------------------------
+
+    for i in range(1, 8):
+
+        plt.subplot(433 + i - 1)
+
+        title    = ""
+        quantile = -1
+        if i == 1:
+            title    = "Q100"
+            stat     = "max"
+        elif i == 2:
+            title    = "Q99"
+            stat     = "quantile"
+            quantile = 0.99
+        elif i == 3:
+            title    = "Q75"
+            stat     = "quantile"
+            quantile = 0.75
+        elif i == 4:
+            title    = "Q50"
+            stat     = "quantile"
+            quantile = 0.50
+        elif i == 5:
+            title    = "Q25"
+            stat     = "quantile"
+            quantile = 0.25
+        elif i == 6:
+            title    = "Q1"
+            stat     = "quantile"
+            quantile = 0.01
+        elif i == 7:
+            title    = "Q0"
+            stat     = "min"
+
+        draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile)
+
+        plt.xlim([1, 12])
+        plt.xticks(np.arange(1, 13, 1))
+        plt.xlabel("Mois", fontsize=fs_axes)
+        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.legend(legend_items, fontsize=fs_legend, frameon=False)
+        plt.title(title, fontsize=fs_title)
+        plt.tick_params(axis='x', labelsize=fs_axes)
+        plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Time series ------------------------------------------------------------------------------------------------------
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+
+    # Convert date format if the need is.
+    if ds_qqmap.time.time.dtype == cfg.dtype_obj:
+        ds_qqmap["time"] = utils.fix_calendar(ds_qqmap.time)
+    if ds_ref.time.time.dtype == cfg.dtype_obj:
+        ds_ref["time"] = utils.fix_calendar(ds_ref.time)
+
+    plt.subplot(313)
+    (ds_qqmap * coef).plot.line(alpha=0.5, color=cfg.col_sim_adj)
+    (ds_ref * coef).plot.line(alpha=0.5, color=cfg.col_sim_ref)
+    (ds_obs * coef).plot.line(alpha=0.5, color=cfg.col_obs)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.legend(["Sim. ajustée", "Sim. (pér. référence)", "Observations"], fontsize=fs_legend, frameon=False)
+    plt.title("")
+
+    f.suptitle(var + "_" + sup_title, fontsize=fs_sup_title)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    if "bias_corrected" in ds_qqmap.attrs:
+        del ds_qqmap.attrs["bias_corrected"]
+
+    # Save plot.
+    if p_fig != "":
+        utils.save_plot(plt, p_fig)
+
+    # Close plot.
+    plt.close()
+
+
+def plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generates a plot of observed and future periods.
+
+    Parameters
+    ----------
+    ds_obs : xr.Dataset
+        Dataset of observations.
+    ds_fut : xr.Dataset
+        Dataset of simulation for the future period.
+    ds_qqmap : xr.Dataset
+        Dataset of adjusted simulation.
+    var : str
+        Variable.
+    title : str
+        Title of figure.
+    p_fig : str
+        Path of output figure.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Convert date format if the need is.
+    if ds_qqmap.time.dtype == cfg.dtype_obj:
+        ds_qqmap["time"] = utils.fix_calendar(ds_qqmap)
+    if ds_fut.time.dtype == cfg.dtype_obj:
+        ds_fut["time"] = utils.fix_calendar(ds_fut)
+    if ds_obs.time.dtype == cfg.dtype_obj:
+        ds_obs["time"] = utils.fix_calendar(ds_obs)
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_var_desc(var)
+    var_unit = cfg.get_var_unit(var)
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+
+    fs_sup_title = 8
+    fs_legend = 8
+    fs_axes = 8
+    f = plt.figure(figsize=(15, 3))
+    f.add_subplot(111)
+    plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
+
+    # Add curves.
+    (ds_qqmap * coef).plot.line(alpha=0.5, color=cfg.col_sim_adj)
+    (ds_fut * coef).plot.line(alpha=0.5, color=cfg.col_sim_fut)
+    (ds_obs * coef).plot.line(alpha=0.5, color=cfg.col_obs)
+
+    # Customize.
+    plt.legend(["Sim. ajustée", "Sim. (pér. référence)", "Observations"], fontsize=fs_legend, frameon=False)
+    plt.xlabel("Année", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.title("")
+    plt.suptitle(title, fontsize=fs_sup_title)
+    plt.tick_params(axis='x', labelsize=fs_axes)
+    plt.tick_params(axis='y', labelsize=fs_axes)
+
+    # Save plot.
+    if p_fig != "":
+        utils.save_plot(plt, p_fig)
+
+    # Close plot.
+    plt.close()
+
+
+def draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile=-1.0):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Draw curves.
+
+    Parameters
+    ----------
+    var : str
+        Weather variable.
+    ds_qqmap_ref : xr.Dataset
+        Dataset of the adjusted simulation for the reference period.
+    ds_obs : xr.Dataset
+        Dataset of observations.
+    ds_ref : xr.Dataset
+        Dataset of simulation for the reference period.
+    ds_fut : xr.Dataset
+        Dataset of simulation for the future period.
+    ds_qqmap : xr.Dataset
+        Dataset of the adjusted simulation.
+    stat : {"max", "quantile", "mean", "sum"}
+        Statistic.
+    quantile : float, optional
+        Quantile.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Conversion coefficient.
+    coef = 1
+    if var == cfg.var_cordex_pr:
+        coef = cfg.spd
+
+    # Draw curves.
+    if stat == "min":
+        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).min().plot.line(color=cfg.col_sim_adj_ref)
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).min().plot.line(color=cfg.col_sim_ref)
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).min().plot.line(color=cfg.col_obs)
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).min().plot.line(color=cfg.col_sim_adj)
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).min().plot.line(color=cfg.col_sim_fut)
+    elif stat == "max":
+        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).max().plot.line(color=cfg.col_sim_adj_ref)
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).max().plot.line(color=cfg.col_sim_ref)
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).max().plot.line(color=cfg.col_obs)
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).max().plot.line(color=cfg.col_sim_adj)
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).max().plot.line(color=cfg.col_sim_fut)
+    elif stat == "quantile":
+        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj_ref)
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_ref)
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).quantile(quantile).plot.line(color=cfg.col_obs)
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj)
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_fut)
+    elif stat == "mean":
+        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_adj_ref)
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_ref)
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).mean().plot.line(color=cfg.col_obs)
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).mean().plot.line(color=cfg.col_sim_adj)
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).mean().plot.line(color=cfg.col_sim_fut)
+    elif stat == "sum":
+        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_adj_ref)
+        (ds_ref * coef).groupby(ds_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_ref)
+        (ds_obs * coef).groupby(ds_obs.time.dt.month).sum().plot.line(color=cfg.col_obs)
+        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).sum().plot.line(color=cfg.col_sim_adj)
+        (ds_fut * coef).groupby(ds_fut.time.dt.month).sum().plot.line(color=cfg.col_sim_fut)
 
 
 def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_threshs, rcps, xlim, p_fig):
@@ -350,13 +794,13 @@ def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_thre
 
     Parameters
     ----------
-    ds_ref : xarray[]
+    ds_ref : xr.Dataset
         Dataset for the reference period.
-    ds_rcp_26 : xarray[]
+    ds_rcp_26 : xr.Dataset
         Dataset for RCP 2.6.
-    ds_rcp_45 : xarray[]
+    ds_rcp_45 : xr.Dataset
         Dataset for RCP 4.5.
-    ds_rcp_85 : xarray[]
+    ds_rcp_85 : xr.Dataset
         Dataset for RCP 8.5.
     stn : str
         Station name.
@@ -440,7 +884,7 @@ def plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, idx_name, idx_thre
     plt.ylim(bottom=0)
 
     # Save figure.
-    if cfg.opt_plt_save and (p_fig != ""):
+    if p_fig != "":
         utils.save_plot(plt, p_fig)
 
     plt.close()
@@ -455,7 +899,7 @@ def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, p_fig, map_
 
     Parameters
     ----------
-    ds: xarray
+    ds: xr.Dataset
         Dataset (with 2 dimensions: longitude and latitude).
     idx_name : str
         Index name.
@@ -506,446 +950,10 @@ def plot_idx_heatmap(ds, idx_name, idx_threshs, grid_x, grid_y, per, p_fig, map_
         plt.tick_params(axis="y", labelsize=fs)
 
     # Save figure.
-    if cfg.opt_plt_save and (p_fig != ""):
+    if p_fig != "":
         utils.save_plot(plt, p_fig)
 
     plt.close()
-
-
-def plot_ref_fut(var, nq, up_qmf, time_int, p_regrid_ref, p_regrid_fut, p_fig):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Generates a plot of reference and future periods.
-
-    Parameters
-    ----------
-    var : str
-        Weather var.
-    nq : int
-        ...
-    up_qmf : float
-        ...
-    time_int : int
-        ...
-    p_regrid_ref : str
-        Path of the NetCDF file containing data for the reference period.
-    p_regrid_fut : str
-        Path of the NetCDF file containing data for the future period.
-    p_fig : str
-        Path of output figure.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
-
-    # Load datasets.
-    ds_ref = xr.open_dataset(p_regrid_ref)[var]
-    ds_fut = xr.open_dataset(p_regrid_fut)[var]
-
-    # Fit.
-    x     = [*range(len(ds_ref.time))]
-    y     = ds_ref.values
-    coefs = poly.polyfit(x, y, 4)
-    ffit  = poly.polyval(x, coefs)
-
-    # Initialize plot.
-    fs_sup_title = 8
-    fs_title     = 8
-    fs_legend    = 6
-    fs_axes      = 8
-    f = plt.figure(figsize=(15, 6))
-    f.add_subplot(211)
-    plt.subplots_adjust(top=0.90, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.00)
-    sup_title = os.path.basename(p_fig).replace(".png", "") +\
-                "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
-    plt.suptitle(sup_title, fontsize=fs_sup_title)
-
-    # Convert date format if the need is.
-    if ds_ref.time.dtype == cfg.dtype_obj:
-        ds_ref["time"] = fix_calendar(ds_ref)
-
-    # Upper plot: Reference period.
-    f.add_subplot(211)
-    plt.plot(ds_ref.time, y)
-    plt.plot(ds_ref.time, ffit)
-    plt.legend(["référence", "tendance"], fontsize=fs_legend)
-    plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-    plt.title("Période de référence", fontsize=fs_title)
-
-    # Lower plot: Complete simulation.
-    f.add_subplot(212)
-    plt.plot(signal.detrend(ds_fut), alpha=0.5)
-    plt.plot(y - ffit, alpha=0.5)
-    plt.legend(["simulation", "référence"], fontsize=fs_legend)
-    plt.xlabel("Jours", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-    plt.title("Période de simulation", fontsize=fs_title)
-
-    # Save plot.
-    if cfg.opt_plt_save and (p_fig != ""):
-        utils.save_plot(plt, p_fig)
-
-    # Close plot.
-    if cfg.opt_plt_close:
-        plt.close()
-
-
-def plot_obs_fut(ds_obs, ds_fut, var, title, p_fig):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Generates a plot of observed and future periods.
-
-    Parameters
-    ----------
-    ds_obs : xarray
-        Dataset of observed period.
-    ds_fut : xarray
-        Dataset of future period.
-    var : str
-        Variable.
-    title : str
-        Title of figure.
-    p_fig : str
-        Path of output figure.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Convert date format if the need is.
-    if ds_obs.time.dtype == cfg.dtype_obj:
-        ds_obs["time"] = fix_calendar(ds_obs)
-    if ds_fut.time.dtype == cfg.dtype_obj:
-        ds_fut["time"] = fix_calendar(ds_fut)
-
-    # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
-
-    # Conversion coefficient.
-    coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
-
-    fs_sup_title = 8
-    fs_legend = 8
-    fs_axes = 8
-    f = plt.figure(figsize=(15, 3))
-    f.add_subplot(111)
-    plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
-
-    # Precipitation.
-    (ds_fut[var] * coef).plot(alpha=0.5)
-    if var == cfg.var_cordex_pr:
-        (ds_obs[var] * coef).plot()
-    # Other variables.
-    else:
-        ds_obs[var].plot()
-    plt.legend(["sim", "obs"], fontsize=fs_legend)
-    plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.title("")
-    plt.suptitle(title, fontsize=fs_sup_title)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-
-    # Save plot.
-    if cfg.opt_plt_save and (p_fig != ""):
-        utils.save_plot(plt, p_fig)
-
-    # Close plot.
-    if cfg.opt_plt_close:
-        plt.close()
-
-
-def plot_postprocess_fut_obs(ds_obs, ds_fut, ds_qqmap, var, p_fig, title):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Generates a plot of observed and future periods.
-
-    Parameters
-    ----------
-    ds_obs : xarray
-        Dataset of observed period.
-    ds_fut : xarray
-        Dataset of future period.
-    var : str
-        Variable.
-    title : str
-        Title of figure.
-    p_fig : str
-        Path of output figure.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
-
-    # Conversion coefficient.
-    coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
-
-    # Plot.
-    f = plt.figure(figsize=(15, 3))
-    f.add_subplot(111)
-    plt.subplots_adjust(top=0.9, bottom=0.15, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
-    fs_sup_title = 8
-    fs_legend = 8
-    fs_axes = 8
-    legend = ["sim", cfg.cat_obs]
-    if ds_qqmap is not None:
-        legend.insert(0, "pp")
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.year).mean().plot()
-    (ds_fut * coef).groupby(ds_fut.time.dt.year).mean().plot()
-    (ds_obs * coef).groupby(ds_obs.time.dt.year).mean().plot()
-    plt.legend(legend, fontsize=fs_legend)
-    plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.title("")
-    plt.suptitle(title, fontsize=fs_sup_title)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-
-    # Save plot.
-    if cfg.opt_plt_save and (p_fig != ""):
-        utils.save_plot(plt, p_fig)
-
-    # Close plot.
-    if cfg.opt_plt_close:
-        plt.close()
-
-
-def plot_calib_summary(ds_qmf, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, p_fig):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Generates a plot containing a summary of calibration.
-
-    Parameters
-    ----------
-    ds_qmf : xarray
-        Dataset of quantile mapping function.
-    ds_qqmap_per : xarray
-        ???
-    ds_obs : xarray
-        Dataset of bservations.
-    ds_ref : xarray
-        Dataset of reference period.
-    ds_fut : xarray
-        Dataset of future period.
-    ds_qqmap : xarray
-        Dataset of qqmap.
-    var : str
-        Variable.
-    title : str
-        Title of figure.
-    p_fig : str
-        Path of output figure.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
-
-    # Quantile ---------------------------------------------------------------------------------------------------------
-
-    fs_sup_title = 8
-    fs_title     = 6
-    fs_legend    = 4
-    fs_axes      = 7
-
-    f = plt.figure(figsize=(9, 6))
-    f.add_subplot(331)
-    plt.subplots_adjust(top=0.9, bottom=0.126, left=0.070, right=0.973, hspace=0.695, wspace=0.416)
-
-    ds_qmf.plot()
-    plt.xlabel("Quantile", fontsize=fs_axes)
-    plt.ylabel("Jour de l'année", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-
-    # Mean annual values -----------------------------------------------------------------------------------------------
-
-    # Plot.
-    f.add_subplot(332)
-    if var == cfg.var_cordex_pr:
-        draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "sum")
-    else:
-        draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "mean")
-    plt.title(var_desc, fontsize=fs_title)
-    plt.legend([cfg.cat_qqmap+"-ref", "sim-ref", cfg.cat_obs, cfg.cat_qqmap+"_all", "sim-all"], fontsize=fs_legend)
-    plt.xlim([1, 12])
-    plt.xticks(np.arange(1, 13, 1))
-    plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-
-    # Maximum, Q99, Q75 and mean monthly values ------------------------------------------------------------------------
-
-    for i in range(1, 5):
-
-        plt.subplot(333 + i - 1)
-
-        title    = " (mensuel)"
-        quantile = -1
-        if i == 1:
-            title = "Maximum" + title
-        elif i == 2:
-            title    = "Q99" + title
-            quantile = 0.99
-        elif i == 3:
-            title    = "Q75" + title
-            quantile = 0.75
-        else:
-            title = "Moyenne" + title
-
-        if i == 1:
-            draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "max")
-        elif (i == 2) or (i == 3):
-            draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "quantile", quantile)
-        else:
-            draw_curves(var, ds_qqmap_per, ds_obs, ds_ref, ds_fut, ds_qqmap, "mean")
-
-        plt.xlim([1, 12])
-        plt.xticks(np.arange(1, 13, 1))
-        plt.xlabel("Mois", fontsize=fs_axes)
-        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-        plt.legend([cfg.cat_qqmap+"-ref", "sim-ref", cfg.cat_obs, cfg.cat_qqmap+"_all", "sim-all"], fontsize=fs_legend)
-        plt.title(title, fontsize=fs_title)
-        plt.tick_params(axis='x', labelsize=fs_axes)
-        plt.tick_params(axis='y', labelsize=fs_axes)
-
-    # Time series ------------------------------------------------------------------------------------------------------
-
-    # Conversion coefficient.
-    coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
-
-    # Convert date format if the need is.
-    if ds_qqmap.time.time.dtype == cfg.dtype_obj:
-        ds_qqmap["time"] = fix_calendar(ds_qqmap.time)
-    if ds_ref.time.time.dtype == cfg.dtype_obj:
-        ds_ref["time"] = fix_calendar(ds_ref.time)
-
-    plt.subplot(313)
-    (ds_qqmap * coef).plot(alpha=0.5)
-    (ds_ref * coef).plot(alpha=0.5)
-    (ds_obs * coef).plot(alpha=0.5)
-    if var == cfg.var_cordex_pr:
-        plt.ylim([0, 300])
-    # Other variables.
-    else:
-        pass
-    plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.legend([cfg.cat_qqmap, "sim", cfg.cat_obs], fontsize=fs_legend)
-    plt.title("")
-
-    f.suptitle(title, fontsize=fs_sup_title)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
-
-    del ds_qqmap.attrs['bias_corrected']
-
-    # Save plot.
-    if cfg.opt_plt_save and (p_fig != ""):
-        utils.save_plot(plt, p_fig)
-
-    # Close plot.
-    if cfg.opt_plt_close:
-        plt.close()
-
-
-def draw_curves(var, ds, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile=-1.0):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Draw curves.
-
-    Parameters
-    ----------
-    var : str
-        Weather variable.
-    ds : xarray.dataset
-        ...
-    ds_obs : xarray.dataset
-        ...
-    ds_ref : xarray.dataset
-        Dataset for the reference period.
-    ds_fut : xarray.dataset
-        Dataset for the future period.
-    ds_qqmap : xarray.dataset
-        Dataset for the qqmap.
-    stat : {"max", "quantile", "mean", "sum"}
-        Statistic.
-    quantile : float, optional
-        Quantile.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Conversion coefficient.
-    coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
-
-    # Draw curves.
-    if stat == "max":
-        (ds * coef).groupby(ds.time.dt.month).max().plot()
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).max().plot()
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).max().plot()
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).max().plot()
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).max().plot()
-    elif stat == "quantile":
-        (ds * coef).groupby(ds.time.dt.month).quantile(quantile).plot()
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).quantile(quantile).plot()
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).quantile(quantile).plot()
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).quantile(quantile).plot()
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).quantile(quantile).plot()
-    elif stat == "mean":
-        (ds * coef).groupby(ds.time.dt.month).mean().plot()
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).mean().plot()
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).mean().plot()
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).mean().plot()
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).mean().plot()
-    elif stat == "sum":
-        (ds * coef).groupby(ds.time.dt.year).sum().plot()
-        (ds_ref * coef).groupby(ds_ref.time.dt.year).sum().plot()
-        (ds_obs * coef).groupby(ds_obs.time.dt.year).sum().plot()
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.year).sum().plot()
-        (ds_fut * coef).groupby(ds_fut.time.dt.year).sum().plot()
-
-
-def fix_calendar(ds):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Fix calendar when type is 'cfg.dtype_obj'.
-
-    Parameters
-    ----------
-    ds : xarray
-        Dataset.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    year_1 = ds.time.values[0].year
-    year_n = ds.time.values[len(ds.time.values) - 1].year
-    new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * 365, freq='D')
-
-    return new_time
 
 
 def plot_360_vs_365(ds_360, ds_365, var=""):
@@ -956,9 +964,9 @@ def plot_360_vs_365(ds_360, ds_365, var=""):
 
     Parameters
     ----------
-    ds_360 : xarray
+    ds_360 : xr.Dataset
         Dataset.
-    ds_365 : xarray
+    ds_365 : xr.Dataset
         Dataset.
     var : str
         Variable.

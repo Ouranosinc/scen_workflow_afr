@@ -14,7 +14,7 @@ import xarray as xr
 from scipy import stats
 
 
-def train(x, y, nq, group='time.dayofyear', kind="+", timeint=0, detrend_order=0):
+def train(x, y, nq, group='time.dayofyear', kind="+", time_win=0, detrend_order=0):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ def train(x, y, nq, group='time.dayofyear', kind="+", timeint=0, detrend_order=0
         Grouping criterion. If only coordinate is given (e.g. 'time') no grouping will be done.
     kind : {'+', '*'}
         The transfer operation, + for additive and * for multiplicative.
-    timeint : int
+    time_win : int
         Number of days before and after any given day.
     detrend_order : int, None
         Polynomial order of detrending curve. Set to None to skip detrending.
@@ -68,13 +68,13 @@ def train(x, y, nq, group='time.dayofyear', kind="+", timeint=0, detrend_order=0
     yq = None
     if '.' in group:
         if prop == "dayofyear":
-            if timeint == 0:
+            if time_win == 0:
                 xq = x.groupby(group).quantile(q)
                 yq = y.groupby(group).quantile(q)
             else:
-                xq = x.rolling(time=timeint, center=True).construct(window_dim="values").groupby(group).\
+                xq = x.rolling(time=time_win, center=True).construct(window_dim="values").groupby(group).\
                     quantile(q, dim=["values", dim])
-                yq = y.rolling(time=timeint, center=True).construct(window_dim="values").groupby(group).\
+                yq = y.rolling(time=time_win, center=True).construct(window_dim="values").groupby(group).\
                     quantile(q, dim=["values", dim])
         if prop == "month":
             xq = x.groupby(group).quantile(q)

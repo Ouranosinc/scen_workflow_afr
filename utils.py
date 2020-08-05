@@ -11,6 +11,7 @@
 # Other packages.
 import config as cfg
 import glob
+import matplotlib.pyplot
 import numpy as np
 import numpy.matlib
 import os
@@ -18,7 +19,6 @@ import pandas as pd
 import plot
 import re
 import scipy.stats
-import utils
 import xarray as xr
 from cmath import rect, phase
 from collections import defaultdict
@@ -197,12 +197,12 @@ def regrid_cdo(ds, new_grid, d_tmp, method="cubic"):
 
     Parameters
     ----------
-    ds : xarray
+    ds : xr.Dataset
         Dataset.
     new_grid : xarray dataset
-        ???
-    tmpdir : str
-        Location where to put the temporary netCDF files (string).
+        Dataset that was regridded.
+    d_tmp : str
+        Directory.
     method : [str]
         {"cubic"}
     --------------------------------------------------------------------------------------------------------------------
@@ -218,7 +218,7 @@ def regrid_cdo(ds, new_grid, d_tmp, method="cubic"):
     file.close()
 
     # Write the xarray dataset to a NetCDF.
-    utils.save_dataset(ds, d_tmp + "old_data.nc")
+    save_dataset(ds, d_tmp + "old_data.nc")
 
     # Remap to the new grid.
     # TODO: To be fixed. It is not working well.
@@ -491,6 +491,32 @@ def calendar(x, n_days_old=360, n_days_new=365):
     return ref_365
 
 
+def fix_calendar(ds, year_1=-1, year_n=-1):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Fix calendar when type is 'cfg.dtype_obj'.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset.
+    year_1 : int
+        First year.
+    year_n : int
+        Last year.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if year_1 == -1:
+        year_1 = ds.time.values[0].year
+    if year_n == -1:
+        year_n = ds.time.values[len(ds.time.values) - 1].year
+    new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * 365, freq='D')
+
+    return new_time
+
+
 def list_files(p):
 
     """
@@ -535,13 +561,13 @@ def physical_coherence(stn, var):
     """
 
     d_qqmap      = cfg.get_d_sim(stn, cfg.cat_qqmap, var[0])
-    p_qqmap_list = utils.list_files(d_qqmap)
+    p_qqmap_list = list_files(d_qqmap)
     p_qqmap_tasmin_list = p_qqmap_list
     p_qqmap_tasmax_list = [i.replace(cfg.var_cordex_tasmin, cfg.var_cordex_tasmax) for i in p_qqmap_list]
 
     for i in range(len(p_qqmap_tasmin_list)):
 
-        utils.log(stn + "____________" + p_qqmap_tasmax_list[i], True)
+        log(stn + "____________" + p_qqmap_tasmax_list[i], True)
         ds_tasmax = xr.open_dataset(p_qqmap_tasmax_list[i])
         ds_tasmin = xr.open_dataset(p_qqmap_tasmin_list[i])
 
@@ -648,6 +674,11 @@ def log(msg, indent=False):
     # Print to console.
     print(ln)
 
+    # Recursively create directories if the path does not exist.
+    d = os.path.dirname(cfg.p_log)
+    if not (os.path.isdir(d)):
+        os.makedirs(d)
+
     # Print to file.
     if cfg.p_log != "":
         f = open(cfg.p_log, "a")
@@ -659,11 +690,11 @@ def save_dataset(ds, p):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Save an xarray dataset as a NetCDF file.
+    Save an xarray dataset to a NetCDF file.
 
     Parameters
     ----------
-    ds : xarray
+    ds : xr.Dataset
         Dataset.
     p : str
         Path of file to be created.
@@ -687,13 +718,13 @@ def save_plot(plot, p):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Save an xarray dataset as a NetCDF file.
+    Save a plot to a .png file.
 
     Parameters
     ----------
-    plot : xarray
+    plot : matplotlib.pyplot
         Plot.
-    path : str
+    p : str
         Path of file to be created.
     --------------------------------------------------------------------------------------------------------------------
     """

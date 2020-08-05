@@ -26,7 +26,7 @@ import xarray as xr
 from qm import train, predict
 from scipy.interpolate import griddata
 
-def read_obs_csv(var):
+def load_observations(var):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -360,8 +360,8 @@ def preprocess(var, p_obs, p_obs_fut, p_regrid, p_regrid_ref, p_regrid_fut):
     utils.save_dataset(ds_fut_365, p_regrid_fut)
 
     # DEBUG: Plot 365 versus 360 calendar.
-    if cfg.opt_plt_365vs360:
-        plot.plot_360_vs_365(ds_fut, ds_fut_365, var)
+    # DEBUG: if cfg.opt_plt_365vs360:
+    # DEBUG:     plot.plot_360_vs_365(ds_fut, ds_fut_365, var)
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
 
@@ -375,7 +375,7 @@ def preprocess(var, p_obs, p_obs_fut, p_regrid, p_regrid_ref, p_regrid_fut):
     utils.save_dataset(ds_ref, p_regrid_ref)
 
 
-def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fut, p_qqmap):
+def postprocess(var, stn, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, p_qqmap):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -391,7 +391,7 @@ def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fu
         ...
     up_qmf : float
         ...
-    time_int : int
+    time_win : int
         ...
     p_obs : str
         Path of file containing observations for the future period.
@@ -409,11 +409,6 @@ def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fu
     ds_fut = xr.open_dataset(p_regrid_fut)[var]
     ds_ref = xr.open_dataset(p_regrid_ref)[var]
 
-    # Figures.
-    fn_fig  = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
-    title   = fn_fig[:-4] + "_time_int_" + str(time_int) + "_up_qmf_" + str(up_qmf) + "_nq_" + str(nq)
-    p_fig   = cfg.get_d_sim(stn, cfg.cat_fig + "/postprocess", var) + fn_fig
-
     # Future -----------------------------------------------------------------------------------------------------------
 
     # Interpolation of 360 calendar to no-leap calendar.
@@ -429,26 +424,24 @@ def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fu
             utils.log("Calendar type not recognized.", True)
             raise ValueError
 
-    # Plot 365 versus 360 data.
-    if cfg.opt_plt_365vs360:
-        plot.plot_360_vs_365(ds_fut, ds_fut_365)
+    # DEBUG: Plot 365 versus 360 data.
+    # DEBUG: if cfg.opt_plt_365vs360:
+    # DEBUG:     plot.plot_360_vs_365(ds_fut, ds_fut_365)
 
     # Observation ------------------------------------------------------------------------------------------------------
 
     if var == cfg.var_cordex_pr:
         kind = "*"
-        ds_obs.interpolate_na(dim="time")
     elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
         ds_obs = ds_obs + 273.15
-        ds_obs = ds_obs.interpolate_na(dim="time")
         kind = "+"
     else:
-        ds_obs = ds_obs.interpolate_na(dim="time")
         kind = "+"
+    ds_obs = ds_obs.interpolate_na(dim="time")
 
     # Calculate QMF.
     # TODO.MAB: The detrend_order seems to be not working.
-    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, time_int,
+    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, time_win,
                    detrend_order=cfg.detrend_order)
     if var == cfg.var_cordex_pr:
         ds_qmf.values[ds_qmf > up_qmf] = up_qmf
@@ -464,10 +457,6 @@ def postprocess(var, stn, nq, up_qmf, time_int, p_obs, p_regrid_ref, p_regrid_fu
         utils.log("Failed to create QQMAP NetCDF file.", True)
         utils.log(format(err), True)
         pass
-
-    # Plot PP_FUT_OBS.
-    if cfg.opt_plt_pp_fut_obs:
-        plot.plot_postprocess_fut_obs(ds_obs, ds_fut_365, ds_qqmap, var, p_fig, title)
 
     return ds_qqmap
 
@@ -492,15 +481,15 @@ def run():
 
     # Step #2: Data selection.
 
-    # Step #2a: Convert observations from CSV to NetCDF files.
+    # Step #2c: Convert observations from CSV to NetCDF files.
     # This creates one .nc file per variable-station in ~/<country>/<project>/<stn>/obs/<source>/<var>/.
     utils.log("=")
     utils.log("Step #2c  Converting observations from CSV to NetCDF files")
-    if cfg.opt_scen_read_obs_netcdf:
+    if cfg.opt_scen_load_obs:
         for var in cfg.variables_cordex:
-            read_obs_csv(var)
+            load_observations(var)
 
-    # Step #2b: List directories potentially containing CORDEX files (but not necessarily for all selected variables).
+    # Step #2d: List directories potentially containing CORDEX files (but not necessarily for all selected variables).
     utils.log("=")
     utils.log("Step #2d  Listing directories with CORDEX files")
     list_cordex = utils.list_cordex(cfg.d_cordex, cfg.rcps)
@@ -596,10 +585,6 @@ def run():
                     p_obs_fut    = cfg.get_p_obs(stn, var)
                     p_obs        = cfg.get_p_stn(var, stn)
 
-                    # Figures.
-                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/wflow", var) +\
-                            p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "wflow.png")
-
                     # Step #3: Spatial and temporal extraction.
                     # Step #4: Grid transfer or interpolation.
                     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
@@ -618,7 +603,7 @@ def run():
                     utils.log("-")
                     msg = "Step #4.5 Pre-processing is "
                     if cfg.opt_scen_preprocess and \
-                        (not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut))):
+                       (not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut))):
                         utils.log(msg + "running")
                         preprocess(var, p_obs, p_obs_fut, p_regrid, p_regrid_ref, p_regrid_fut)
                     else:
@@ -639,31 +624,38 @@ def run():
                                               (cfg.df_calib["var"] == var)]
                     nq       = float(df_sel["nq"])
                     up_qmf   = float(df_sel["up_qmf"])
-                    time_int = float(df_sel["time_int"])
+                    time_win = float(df_sel["time_win"])
                     bias_err = float(df_sel["bias_err"])
 
                     # Display calibration parameters.
                     msg = "Selected parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + \
-                          ", time_int=" + str(time_int) + ", bias_err=" + str(bias_err)
+                          ", time_win=" + str(time_win) + ", bias_err=" + str(bias_err)
                     utils.log(msg, True)
 
                     # Step #5b: Statistical downscaling.
                     # Step #5c: Bias correction.
                     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
-                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
                     utils.log("-")
                     msg = "Step #5bc Statistical downscaling and bias adjustment is "
                     if cfg.opt_scen_postprocess and not(os.path.isfile(p_qqmap)):
                         utils.log(msg + "running")
-                        postprocess(var, stn, int(nq), up_qmf, int(time_int), p_obs, p_regrid_ref,
+                        postprocess(var, stn, int(nq), up_qmf, int(time_win), p_obs, p_regrid_ref,
                                     p_regrid_fut, p_qqmap)
                     else:
                         utils.log(msg + "not required")
 
-                    # Generates extra plot.
-                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/wflow/<var>/.
-                    if cfg.opt_plt_ref_fut:
-                        plot.plot_ref_fut(var, int(nq), up_qmf, int(time_int), p_regrid_ref, p_regrid_fut, p_fig)
+                    # Generate plots.
+                    if cfg.opt_plot:
+
+                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
+                        fn_fig = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
+                        title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+                        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/postprocess", var) + fn_fig
+                        plot.plot_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
+                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
+                        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/workflow", var) +\
+                                p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
+                        plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
 
 if __name__ == "__main__":
