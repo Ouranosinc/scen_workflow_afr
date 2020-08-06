@@ -167,7 +167,7 @@ def main():
         cfg.d_stn = cfg.d_base_exec + cfg.country + "/" + cfg.project + "/" + cfg.cat_obs + "/" + cfg.obs_src + "/"
     cfg.d_cordex = cfg.d_base_in1 + "scenario/external_data/CORDEX-AFR/"
     if cfg.d_bounds != "":
-        cfg.d_bounds = cfg.d_base_in2 + "scenario/external_data/geography/" + cfg.d_bounds
+        cfg.d_bounds = cfg.d_base_in2 + "scenario/external_data/gis/" + cfg.d_bounds
     cfg.d_sim = cfg.d_base_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
 
     # Log file.
