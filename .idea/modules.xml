@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../scen_workflow_afr/.idea/scen_workflow_afr.iml" filepath="$PROJECT_DIR$/../scen_workflow_afr/.idea/scen_workflow_afr.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../tools/.idea/tools.iml" filepath="$PROJECT_DIR$/../tools/.idea/tools.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../xclim/.idea/xclim.iml" filepath="$PROJECT_DIR$/../xclim/.idea/xclim.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../xsd/.idea/xsd.iml" filepath="$PROJECT_DIR$/../xsd/.idea/xsd.iml" />
+    </modules>
+  </component>
+</project>

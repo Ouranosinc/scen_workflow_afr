@@ -172,6 +172,9 @@ def calc_idx_ts(idx_name, idx_threshs):
                         ds_scen_tasmax.attrs["units"] = "C"
                     idx_thresh_str_tasmax = idx_threshs_str[0]
                     ds_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax)
+                    ds_idx.attrs["standard_name"] = idx_name
+                    ds_idx.attrs["long_name"] = idx_name
+                    ds_idx.attrs["units"] = "1"
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.END
@@ -240,7 +243,7 @@ def calc_idx_ts(idx_name, idx_threshs):
 
             # Create NetCDF files.
             utils.log("Generating NetCDF files containing indices.", True)
-            p_sim_format = cfg.get_d_sim(stn, cfg.cat_regrid, "") + idx_name + "/" + idx_name +\
+            p_sim_format = cfg.get_d_sim(stn, cfg.cat_qqmap, "") + idx_name + "/" + idx_name +\
                            "_<rcp>_<stat>_4qqmap.nc"
             dir_out = os.path.dirname(p_sim_format)
             if not (os.path.isdir(dir_out)):

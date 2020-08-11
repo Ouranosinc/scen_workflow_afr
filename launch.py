@@ -14,9 +14,10 @@ import datetime
 import download
 import indices
 import os
+import scenarios
 import scenarios_calib as scen_calib
 # import scenarios_verif as scen_verif
-import scenarios
+import statistics as stats
 import utils
 
 
@@ -56,19 +57,23 @@ def main():
                                 cfg.var_cordex_uas, cfg.var_cordex_vas]
         # Boundaries.
         # https://datacatalog.worldbank.org/dataset/burkina-faso-administrative-boundaries-2017
-        cfg.d_bounds = "bf_boundaries.geojson"
-        cfg.lon_bnds = [-6, 3]
-        cfg.lat_bnds = [8, 16]
+        cfg.d_bounds          = "bf_boundaries.geojson"
+        cfg.lon_bnds          = [-6, 3]
+        cfg.lat_bnds          = [8, 16]
         # Steps 3-4 - Data extraction and scenarios.
-        cfg.opt_scen        = True
-        cfg.opt_scen_regrid = False
+        cfg.opt_scen          = False       # True by default.
+        cfg.opt_scen_regrid   = False
         # Step #5 - Bias adjustment and statistical downscaling.
-        cfg.opt_calib       = True
-        cfg.opt_calib_auto  = False
+        cfg.opt_calib         = False       # True by default.
+        cfg.opt_calib_auto    = False
         # Step 6 - Index options.
-        cfg.opt_idx     = True
-        cfg.idx_names   = [cfg.idx_tx_days_above]
-        cfg.idx_threshs = [[36.0]]
+        cfg.opt_idx           = False       # True by default.
+        cfg.idx_names         = [cfg.idx_tx_days_above]
+        cfg.idx_threshs       = [[36.0]]
+        # Step 7 - Calculate statistics.
+        cfg.opt_stats         = True        # True by default.
+        # Step 8 - Visualization.
+        cfg.opt_plot          = False       # True by default.
 
     elif cfg.country == "coteivoire":
         # Project name.
@@ -86,24 +91,28 @@ def main():
                             cfg.var_era5_t2m, cfg.var_era5_tp, cfg.var_era5_u10, cfg.var_era5_v10]
         # Boundaries.
         # https://datacatalog.worldbank.org/dataset/cote-divoire-administrative-boundaries-2016
-        cfg.d_bounds = "ci_boundaries.geojson"
-        cfg.lon_bnds = [-9, -2]
-        cfg.lat_bnds = [4, 11]
+        cfg.d_bounds          = "ci_boundaries.geojson"
+        cfg.lon_bnds          = [-9, -2]
+        cfg.lat_bnds          = [4, 11]
         # Step 2 - Download and aggregation options.
         cfg.opt_download      = False
         cfg.lon_bnds_download = [-29, 65]
         cfg.lat_bnds_download = [-50, 47]
         cfg.opt_aggregate     = False
         # Steps 3-4 - Data extraction and scenarios.
-        cfg.opt_scen        = True
-        cfg.opt_scen_regrid = False
+        cfg.opt_scen          = True        # True by default.
+        cfg.opt_scen_regrid   = False
         # Step #5 - Bias adjustment and statistical downscaling.
-        cfg.opt_calib       = False
-        cfg.opt_calib_auto  = False
+        cfg.opt_calib         = True        # True by default.
+        cfg.opt_calib_auto    = False
         # Step 6 - Index options.
-        cfg.opt_idx     = True
-        cfg.idx_names   = [cfg.idx_tx_days_above]
-        cfg.idx_threshs = [[36.0]]
+        cfg.opt_idx           = True        # True by default.
+        cfg.idx_names         = [cfg.idx_tx_days_above]
+        cfg.idx_threshs       = [[36.0]]
+        # Step 7 - Calculate statistics.
+        cfg.opt_stats         = True        # True by default.
+        # Step 8 - Visualization.
+        cfg.opt_plot          = True        # True by default.
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END
@@ -320,6 +329,18 @@ def main():
     msg = "Step #6   Calculation of climate indices is "
     if cfg.opt_idx:
         indices.run()
+    else:
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
+
+    # Step #7: Statistics ----------------------------------------------------------------------------------------------
+
+    # Calculate statistics.
+    msg = "Step #7   Calculation of statistics is "
+    if cfg.opt_stats:
+        stats.run(1)
+        stats.run(2)
     else:
         utils.log("=")
         msg = msg + "not required"

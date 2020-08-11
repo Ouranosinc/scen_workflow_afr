@@ -61,6 +61,7 @@ cat_obs             = "obs"         # Observation
 cat_raw             = "raw"         # Simulation.
 cat_regrid          = "regrid"      # Reggrided.
 cat_qqmap           = "qqmap"       # Adjusted simulation.
+cat_stats           = "stats"       # Statistics.
 cat_fig             = "fig"         # Figures.
 
 # Calendar types.
@@ -174,8 +175,6 @@ sim_excepts         = []            # Simulation excluded from the analysis.
                                     # Ex: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85".
 var_sim_excepts     = []            # Simulation-variable combinations excluded from the analysis.
                                     # Ex: var_cordex_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc".
-idx_sim             = []            # Index of a simulation set. There are 3 files per simulation.
-                                    # This is only useful to debug a specific simulation.
 
 # Step 5 - Bias adjustment and statistical downscaling -----------------------------------------------------------------
 
@@ -215,7 +214,11 @@ idx_resol           = 0.05          # Spatial resolution for mapping.
 idx_names           = []            # Index names.
 idx_threshs         = []            # Index thresholds.
 
-# Plots ----------------------------------------------------------------------------------------------------------------
+# Step 7 - Statistics --------------------------------------------------------------------------------------------------
+
+opt_stats           = True          # If True, calculate statistics.
+
+# Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
 # Plots.
 opt_plot            = True          # If True, actives plot generation.
@@ -228,7 +231,7 @@ col_sim_adj         = "red"         # Simulation (bias-adjusted).
 col_sim_fut         = "purple"      # Simulation (non-adjusted) for the future period.
 
 
-def get_idx_inst():
+def get_rank_inst():
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -239,7 +242,7 @@ def get_idx_inst():
     return len(d_cordex.split("/"))
 
 
-def get_idx_gcm():
+def get_rank_gcm():
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -247,7 +250,7 @@ def get_idx_gcm():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    return get_idx_inst() + 1
+    return get_rank_inst() + 1
 
 
 def get_var_desc(var, set_name="cordex"):

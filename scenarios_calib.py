@@ -241,9 +241,9 @@ def init_calib_params():
     var_list = []
     for idx_rcp in range(len(cfg.rcps)):
         rcp = cfg.rcps[idx_rcp]
-        for idx_sim_i in range(0, len(list_cordex[rcp])):
-            list_i = list_cordex[rcp][idx_sim_i].split("/")
-            sim_name = list_i[cfg.get_idx_inst()] + "_" + list_i[cfg.get_idx_inst() + 1]
+        for i_sim in range(0, len(list_cordex[rcp])):
+            list_i = list_cordex[rcp][i_sim].split("/")
+            sim_name = list_i[cfg.get_rank_inst()] + "_" + list_i[cfg.get_rank_inst() + 1]
             for stn in cfg.stns:
                 for var in cfg.variables_cordex:
                     sim_name_list.append(sim_name)

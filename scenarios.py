@@ -529,14 +529,14 @@ def run():
             for rcp in cfg.rcps:
 
                 # Loop through simulations.
-                for idx_sim in range(len(list_cordex[rcp])):
+                for i_sim in range(len(list_cordex[rcp])):
 
-                    sim      = list_cordex[rcp][idx_sim]
-                    sim_hist = list_cordex[rcp + "_historical"][idx_sim]
+                    sim      = list_cordex[rcp][i_sim]
+                    sim_hist = list_cordex[rcp + "_historical"][i_sim]
 
                     # Get simulation name.
                     c = sim.split("/")
-                    sim_name = c[cfg.get_idx_inst()] + "_" + c[cfg.get_idx_gcm()]
+                    sim_name = c[cfg.get_rank_inst()] + "_" + c[cfg.get_rank_gcm()]
 
                     utils.log("=")
                     utils.log("Variable   : " + var)
@@ -554,8 +554,8 @@ def run():
 
                     # Files within CORDEX or CORDEX-NA.
                     if "CORDEX" in sim:
-                        p_raw = d_raw + var + "_" + c[cfg.get_idx_inst()] + "_" +\
-                                c[cfg.get_idx_gcm()].replace("*", "_") + ".nc"
+                        p_raw = d_raw + var + "_" + c[cfg.get_rank_inst()] + "_" +\
+                                c[cfg.get_rank_gcm()].replace("*", "_") + ".nc"
                     elif len(sim) == 3:
                         p_raw = d_raw + var + "_Ouranos_" + sim + ".nc"
                     else:
