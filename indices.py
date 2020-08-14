@@ -14,6 +14,7 @@ import numpy as np
 import os.path
 import pandas as pd
 import plot
+import statistics
 import utils
 import warnings
 import xarray as xr
@@ -26,12 +27,7 @@ def calc_idx_ts(idx_name, idx_threshs):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Calculate an index.
-    TODO: Determine if the curve needs to correspond to the mean or median value. It is currently the mean value, but it
-          would make more sense to use median in this type of analysis.
-          Determine if the curve needs to come from observations or from climate scenarios. It is currently associated
-          with observations, and I think this is the way to do it. However, the lower and upper limits (the grey zone)
-          are associated with climate scenarios.
+    Calculate a time series.
 
     Parameters:
     idx_names : str
@@ -43,17 +39,12 @@ def calc_idx_ts(idx_name, idx_threshs):
 
     # Reference period.
     years_ref   = [cfg.per_ref[0], cfg.per_ref[1]]
-    dates_ref   = [str(years_ref[0]) + "-01-01", str(years_ref[1]) + "-12-31"]
 
     # Future period.
     years_fut   = [cfg.per_ref[1], cfg.per_fut[1]]
-    dates_fut   = [str(years_fut[0]) + "-01-01", str(years_fut[1]) + "-12-31"]
-    n_years_fut = cfg.per_fut[1] - cfg.per_ref[1] + 1
 
     # Emission scenarios.
-    rcps = ["ref"]
-    for rcp in cfg.rcps:
-        rcps.append(rcp)
+    rcps = [cfg.rcp_ref] + cfg.rcps
 
     # ==========================================================
     # TODO.CUSTOMIZATION.BEGIN
@@ -83,6 +74,7 @@ def calc_idx_ts(idx_name, idx_threshs):
             continue
 
         # Loop through emissions scenarios.
+        ds_ref = None
         ds_rcp_26 = None
         ds_rcp_45 = None
         ds_rcp_85 = None
@@ -103,7 +95,7 @@ def calc_idx_ts(idx_name, idx_threshs):
             n_sim = 0
             p_sim = []
             for var in vars:
-                if rcp == "ref":
+                if rcp == cfg.rcp_ref:
                     p_sim_i = cfg.get_d_sim(stn, cfg.cat_obs, "") + var + "/" + var + "_" + stn + ".nc"
                     if os.path.exists(p_sim_i) and (type(p_sim_i) is str):
                         p_sim_i = [p_sim_i]
@@ -121,15 +113,7 @@ def calc_idx_ts(idx_name, idx_threshs):
             utils.log("Calculating climate indices", True)
 
             # Loop through simulations.
-            ds_idx_ref_mean = None
-            ds_idx_ref_min = None
-            ds_idx_ref_max = None
-            ds_idx_fut_mean = None
-            ds_idx_fut_min = None
-            ds_idx_fut_max = None
-            ds_idx_ref = None
-            ds_idx_fut = None
-            for sim in range(0, n_sim):
+            for i_sim in range(0, n_sim):
 
                 # Scenarios --------------------------------------------------------------------------------------------
 
@@ -137,13 +121,13 @@ def calc_idx_ts(idx_name, idx_threshs):
                 ds_scen = []
 
                 for var in range(0, len(vars)):
-                    ds = xr.open_dataset(p_sim[var][sim])
+                    ds = xr.open_dataset(p_sim[var][i_sim])
                     ds_scen.append(ds)
 
                 # Adjust units.
                 idx_threshs_str = []
                 for i in range(0, len(ds_scen)):
-                    if rcp == "ref":
+                    if rcp == cfg.rcp_ref:
                         for idx_thresh in idx_threshs:
                             idx_threshs_str.append(str(idx_thresh) + " C")
                     else:
@@ -153,10 +137,10 @@ def calc_idx_ts(idx_name, idx_threshs):
                 # Indices ----------------------------------------------------------------------------------------------
 
                 # TODO: Below, unit conversion should not be required. The unit in the file produced by the scenario
-                #       workflow is "degree_C", but it should be "C". Ideally, this would be fixed, but it's not a major
-                #       issue.
+                #       workflow is "degree_C", but it should be "C". This can be fixed eventually, but it's not a
+                #       priority.
 
-                ds_idx = None
+                idx_units = None
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.BEGIN
@@ -164,76 +148,78 @@ def calc_idx_ts(idx_name, idx_threshs):
                 # copying the following code block.
                 # ==========================================================
 
-                # Number of days where daily maximum temperature exceed a threshold.
+                # Number of days where daily maximum temperature exceeds a threshold value.
                 if idx_name == cfg.idx_tx_days_above:
                     ds_scen_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
-                    if rcp == "ref":
+                    if rcp == cfg.rcp_ref:
                         ds_scen_tasmax["units"] = "C"
                         ds_scen_tasmax.attrs["units"] = "C"
                     idx_thresh_str_tasmax = idx_threshs_str[0]
-                    ds_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax)
-                    ds_idx.attrs["standard_name"] = idx_name
-                    ds_idx.attrs["long_name"] = idx_name
-                    ds_idx.attrs["units"] = "1"
+                    arr_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax).values
+                    idx_units = 1
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.END
                 # ==========================================================
 
-                # Subset based on dates.
-                ds_idx_ref = ds_idx.sel(time=slice(dates_ref[0], dates_ref[1]))
-                ds_idx_fut = None
-                if rcp == "ref":
-                    ds_idx_ref = ds_idx_ref.isel(lon=0, lat=0)
+                # Create dataset.
+                da_idx = xr.DataArray(arr_idx)
+                da_idx.name = idx_name
+                ds_idx = da_idx.to_dataset()
+                ds_idx["units"] = idx_units
+                ds_idx = ds_idx.rename_dims({"dim_0": "time"})
+                if rcp == cfg.rcp_ref:
+                    ds_idx = ds_idx.rename_dims({"dim_1": "lon", "dim_2": "lat"})
                 else:
-                    ds_idx_fut = ds_idx.sel(time=slice(dates_fut[0], dates_fut[1]))
+                    ds_idx = ds_idx.expand_dims(lon=1)
+                    ds_idx = ds_idx.expand_dims(lat=1)
+                ds_idx.attrs["standard_name"] = idx_name
+                ds_idx.attrs["long_name"] = idx_name
+                ds_idx.assign_attrs({"lon": ds_scen[0]["lon"]})
+                ds_idx.assign_attrs({"lat": ds_scen[0]["lat"]})
 
-                # Convert to a specific time format.
-                year_1 = int(str(ds_idx_ref["time"][0].values)[0:4])
-                year_n = int(str(ds_idx_ref["time"][len(ds_idx_ref['time'])-1].values)[0:4])
-                ds_idx_ref["time"] = pd.date_range(str(year_1)+"-01-01", periods=year_n-year_1+1, freq="YS")
-                if rcp != "ref":
-                    ds_idx_fut['time'] = pd.date_range(dates_fut[0], periods=n_years_fut, freq="YS")
+                # Adjust calendar.
+                year_1 = cfg.per_fut[0]
+                year_n = cfg.per_fut[1]
+                if rcp == cfg.rcp_ref:
+                    year_1 = max(cfg.per_ref[0], int(str(ds_scen[0]["time"][0].values)[0:4]))
+                    year_n = min(cfg.per_ref[1], int(str(ds_scen[0]["time"][len(ds_scen[0]["time"]) - 1].values)[0:4]))
+                ds_idx["time"] =  utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
 
-                # Calculate minimum, maximum and mean values.
-                if ds_idx_ref_min is None:
-                    ds_idx_ref_min = ds_idx_ref
-                    ds_idx_ref_max = ds_idx_ref
-                    ds_idx_ref_mean = ds_idx_ref / n_sim
-                    if rcp != "ref":
-                        ds_idx_fut_min = ds_idx_fut
-                        ds_idx_fut_max = ds_idx_fut
-                        ds_idx_fut_mean = ds_idx_fut / n_sim
+                # Save result to NetCDF file.
+                if rcp == cfg.rcp_ref:
+                    p_idx = cfg.get_p_obs(stn, idx_name)
                 else:
-                    def set_lon_lat(ds, lon, lat):
-                        ds["lon"] = lon
-                        ds["lat"] = lat
-                        return ds
-                    ds_idx_ref_min = xr.ufuncs.minimum(ds_idx_ref_min, ds_idx_ref)
-                    ds_idx_ref_max = xr.ufuncs.maximum(ds_idx_ref_max, ds_idx_ref)
-                    ds_idx_ref_mean = ds_idx_ref_mean + ds_idx_ref / n_sim
-                    lon_lat = [ds_idx_ref["lon"], ds_idx_ref["lat"]]
-                    set_lon_lat(ds_idx_ref_min, lon_lat[0], lon_lat[1])
-                    set_lon_lat(ds_idx_ref_max, lon_lat[0], lon_lat[1])
-                    set_lon_lat(ds_idx_ref_mean, lon_lat[0], lon_lat[1])
-                    if rcp != "ref":
-                        if ds_idx_fut_min is None:
-                            ds_idx_fut_min = ds_idx_fut
-                            ds_idx_fut_max = ds_idx_fut
-                            ds_idx_fut_mean = ds_idx_fut / n_sim
-                        else:
-                            ds_idx_fut_min = xr.ufuncs.minimum(ds_idx_fut_min, ds_idx_fut)
-                            ds_idx_fut_max = xr.ufuncs.maximum(ds_idx_fut_max, ds_idx_fut)
-                            ds_idx_fut_mean = ds_idx_fut_mean + ds_idx_fut / n_sim
-                            lon_lat = [ds_idx_fut["lon"], ds_idx_fut["lat"]]
-                            set_lon_lat(ds_idx_fut_min, lon_lat[0], lon_lat[1])
-                            set_lon_lat(ds_idx_fut_max, lon_lat[0], lon_lat[1])
-                            set_lon_lat(ds_idx_fut_mean, lon_lat[0], lon_lat[1])
+                    p_idx = cfg.get_d_sim(stn, cfg.cat_idx, idx_name) +\
+                            os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
+                utils.save_dataset(ds_idx, p_idx)
 
-            # Combine statistics into an array (for each RCP).
-            ds_ref = [ds_idx_ref_mean, ds_idx_ref_min, ds_idx_ref_max]
-            if rcp != "ref":
-                ds_fut = [ds_idx_fut_mean, ds_idx_fut_min, ds_idx_fut_max]
+            # Calculate statistic.
+            def calc_stat(cat, stn, idx_name, rcp, years, stat):
+
+                # Calculate statistic.
+                ds_idx = statistics.calc_stat(cat, cfg.freq_YS, stn, idx_name, rcp, cfg.per_fut, stat)
+                if var == cfg.var_cordex_pr:
+                    ds_idx = ds_idx * 365
+
+                # Select years.
+                years_str   = [str(years[0]) + "-01-01", str(years[1]) + "-12-31"]
+                ds_idx = ds_idx.sel(time=slice(years_str[0], years_str[1])).sel(lon=0, lat=0)
+
+                return ds_idx
+
+            # Calculate statistics (future period).
+            if rcp != cfg.rcp_ref:
+
+                # Calculate statistics.
+                year_1 = max(cfg.per_ref[1], int(str(ds_scen[0]["time"][0].values)[0:4]))
+                year_n = min(cfg.per_fut[1], int(str(ds_scen[0]["time"][len(ds_scen[0]["time"]) - 1].values)[0:4]))
+                ds_idx_mean = calc_stat(cfg.cat_sim, stn, idx_name, rcp, [year_1, year_n], cfg.stat_mean)
+                ds_idx_min  = calc_stat(cfg.cat_sim, stn, idx_name, rcp, [year_1, year_n], cfg.stat_min)
+                ds_idx_max  = calc_stat(cfg.cat_sim, stn, idx_name, rcp, [year_1, year_n], cfg.stat_max)
+
+                # Combine datasets.
+                ds_fut  = [ds_idx_mean, ds_idx_min, ds_idx_max]
                 if rcp == cfg.rcp_26:
                     ds_rcp_26 = ds_fut
                 elif rcp == cfg.rcp_45:
@@ -241,43 +227,30 @@ def calc_idx_ts(idx_name, idx_threshs):
                 elif rcp == cfg.rcp_85:
                     ds_rcp_85 = ds_fut
 
-            # Create NetCDF files.
-            utils.log("Generating NetCDF files containing indices.", True)
-            p_sim_format = cfg.get_d_sim(stn, cfg.cat_qqmap, "") + idx_name + "/" + idx_name +\
-                           "_<rcp>_<stat>_4qqmap.nc"
-            dir_out = os.path.dirname(p_sim_format)
-            if not (os.path.isdir(dir_out)):
-                os.makedirs(dir_out)
-            if rcp == "ref":
-                p_sim_ref = p_sim_format.replace("<rcp>", rcp)
-                utils.save_dataset(ds_idx_ref_mean, p_sim_ref.replace("<stat>", "mean"))
-            else:
-                p_sim_ref = p_sim_format.replace("<rcp>", "ref")
-                utils.save_dataset(ds_idx_ref_min, p_sim_ref.replace("<stat>", "min"))
-                utils.save_dataset(ds_idx_ref_max, p_sim_ref.replace("<stat>", "max"))
-                p_sim_fut = p_sim_format.replace("<rcp>", rcp)
-                utils.save_dataset(ds_idx_fut_min, p_sim_fut.replace("<stat>", "min"))
-                utils.save_dataset(ds_idx_fut_max, p_sim_fut.replace("<stat>", "max"))
-                utils.save_dataset(ds_idx_fut_mean, p_sim_fut.replace("<stat>", "mean"))
+            # Calculate statistics (reference period).
+            # The minimum and maximum values are calculated using simulation data and future period. This is
+            # different than the mean value that comes from observations and reference period.
+            if rcp == rcps[len(rcps) - 1]:
 
-            # DEBUG: Calculate mean values.
-            for years_hor in cfg.per_hors:
-                dates_hor = [str(years_hor[0]) + "-01-01", str(years_hor[1]) + "-12-31"]
-                val = -1.0
-                if rcp == "ref":
-                    val = ds_idx_ref.sel(time=slice(dates_ref[0], dates_ref[1])).mean()
-                else:
-                    val = ds_idx_fut.sel(time=slice(dates_hor[0], dates_hor[1])).mean()
+                # Calculate statistics.
+                year_1      = max(cfg.per_ref[0], int(str(ds_scen[0]["time"][0].values)[0:4]))
+                year_n      = min(cfg.per_ref[1], int(str(ds_scen[0]["time"][len(ds_scen[0]["time"]) - 1].values)[0:4]))
+                ds_idx_mean = calc_stat(cfg.cat_obs, stn, idx_name, "ref", [year_1, year_n], cfg.stat_mean)
+                ds_idx_min  = calc_stat(cfg.cat_sim, stn, idx_name, "*", [year_1, year_n], cfg.stat_min)
+                ds_idx_max  = calc_stat(cfg.cat_sim, stn, idx_name, "*", [year_1, year_n], cfg.stat_max)
+
+                # Combine datasets.
+                ds_ref  = [ds_idx_mean, ds_idx_min, ds_idx_max]
 
             # Generate plot.
             if (rcp == rcps[len(rcps) - 1]) and cfg.opt_plot:
                 utils.log("Generating time series of indices.", True)
-                p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/indices", "") + idx_name + "_" + stn + ".png"
-                plot.plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), idx_name, idx_threshs, rcps,
-                                     [years_ref[0], years_fut[1]], p_fig)
+                p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_idx, "") + idx_name + "_" + stn + ".png"
+                plot.plot_idx_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(),
+                                 idx_name, idx_threshs, rcps, [years_ref[0], years_fut[1]], p_fig)
 
 
-def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
+def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors, stat=cfg.stat_mean):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -291,8 +264,10 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
         Climate index thresholds.
     rcp: str
         Emission scenario.
-    per_hors: [[int,int]]
+    per_hors: [[int]]
         Horizons.
+    stat: str
+        Statistics {cfg.stat_mean, cfg.stat_min, cfg.stat_max}.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -302,41 +277,52 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
     utils.log("-", True)
 
     # Number of years and stations.
-    if rcp == "ref":
+    if rcp == cfg.rcp_ref:
         n_year = cfg.per_ref[1] - cfg.per_ref[0] + 1
     else:
         n_year = cfg.per_fut[1] - cfg.per_ref[1] + 1
     n_stn = len(cfg.stns)
 
+    # ==========================================================
+    # TODO.CUSTOMIZATION.BEGIN
+    # When adding a new climate index, calculate the index by
+    # copying the following code block.
+    # ==========================================================
+
     # Determine variable.
     var = ""
-    stat = "mean"
     if idx_name == cfg.idx_tx_days_above:
         var = cfg.var_cordex_tasmax
 
+    # ==========================================================
+    # TODO.CUSTOMIZATION.END
+    # ==========================================================
+
     # Collect values for each station and determine overall boundaries.
-    utils.log("Collecting emissions scenarios at all stations.", True)
+    utils.log("Collecting emissions scenarios at each station.", True)
     x_bnds = []
     y_bnds = []
     data_stn = []
     for stn in cfg.stns:
 
-        # Load dataset.
-        p_stn = cfg.get_d_sim(stn, "regrid/" + idx_name) + idx_name + "_" + rcp + "_" + stat + "_4qqmap.nc"
-        if not(os.path.exists(p_stn)):
+        # Calculate statistics.
+        if rcp == cfg.rcp_ref:
+            ds_stat = stat.calc_stat(cfg.cat_obs, cfg.freq_YS, stn, idx_name, rcp, None, cfg.stat_mean)
+        else:
+            ds_stat = stat.calc_stat(cfg.cat_sim, cfg.freq_YS, stn, idx_name, rcp, None, cfg.stat_mean)
+        if ds_stat is None:
             continue
-        ds = xr.open_dataset(p_stn)
 
         # Extract data from stations.
         data = [[], [], []]
-        n = ds.dims["time"]
+        n = ds_stat.dims["time"]
         for year in range(0, n):
 
             # Collect data.
-            x = ds["lon"].values.ravel()[0]
-            y = ds["lat"].values.ravel()[0]
-            z = ds[var][year]
-            if (idx_name == cfg.idx_tx_days_above) and math.isnan(z):
+            x = ds_stat["lon"].values.ravel()[0]
+            y = ds_stat["lat"].values.ravel()[0]
+            z = ds_stat[var][year]
+            if math.isnan(z):
                 z = 0
             data[0].append(x)
             data[1].append(y)
@@ -400,7 +386,7 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
         for per_hor in per_hors:
 
             # Select years.
-            if rcp == "ref":
+            if rcp == cfg.rcp_ref:
                 year_1 = 0
                 year_n = cfg.per_ref[1] - cfg.per_ref[0]
             else:
@@ -411,7 +397,7 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors):
                 ds_hor = ds_regrid[cfg.idx_tx_days_above][year_1:(year_n+1)][:][:].mean("time", skipna=True)
 
             # Plot.
-            p_fig = cfg.get_d_sim("", cfg.cat_fig + "/indices", "") +\
+            p_fig = cfg.get_d_sim("", cfg.cat_fig + "/" + cfg.cat_idx, "") +\
                     idx_name + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
             plot.plot_idx_heatmap(ds_hor, idx_name, idx_threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
@@ -448,7 +434,7 @@ def run():
             idx_threshs = cfg.idx_threshs[i]
 
             # Reference period.
-            calc_idx_heatmap(idx_name, idx_threshs, "ref", [cfg.per_ref])
+            calc_idx_heatmap(idx_name, idx_threshs, cfg.rcp_ref, [cfg.per_ref])
 
             # Future period.
             for rcp in cfg.rcps:

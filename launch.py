@@ -17,7 +17,7 @@ import os
 import scenarios
 import scenarios_calib as scen_calib
 # import scenarios_verif as scen_verif
-import statistics as stats
+import statistics as stat
 import utils
 
 
@@ -67,13 +67,13 @@ def main():
         cfg.opt_calib         = False       # True by default.
         cfg.opt_calib_auto    = False
         # Step 6 - Index options.
-        cfg.opt_idx           = False       # True by default.
+        cfg.opt_idx           = True        # True by default.
         cfg.idx_names         = [cfg.idx_tx_days_above]
         cfg.idx_threshs       = [[36.0]]
         # Step 7 - Calculate statistics.
-        cfg.opt_stats         = True        # True by default.
+        cfg.opt_stat          = True        # True by default.
         # Step 8 - Visualization.
-        cfg.opt_plot          = False       # True by default.
+        cfg.opt_plot          = True        # True by default.
 
     elif cfg.country == "coteivoire":
         # Project name.
@@ -110,7 +110,7 @@ def main():
         cfg.idx_names         = [cfg.idx_tx_days_above]
         cfg.idx_threshs       = [[36.0]]
         # Step 7 - Calculate statistics.
-        cfg.opt_stats         = True        # True by default.
+        cfg.opt_stat          = True        # True by default.
         # Step 8 - Visualization.
         cfg.opt_plot          = True        # True by default.
 
@@ -338,9 +338,9 @@ def main():
 
     # Calculate statistics.
     msg = "Step #7   Calculation of statistics is "
-    if cfg.opt_stats:
-        stats.run(1)
-        stats.run(2)
+    if cfg.opt_stat:
+        stat.run(cfg.cat_scen)
+        stat.run(cfg.cat_idx)
     else:
         utils.log("=")
         msg = msg + "not required"

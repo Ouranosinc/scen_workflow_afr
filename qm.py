@@ -7,6 +7,7 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+import config as cfg
 import dask.array
 import numpy as np
 import pandas as pd
@@ -149,7 +150,7 @@ def predict(x, qmf, interp=False, detrend_order=4):
 
     # Compute the percentile time series of the input array.
     q = x.groupby(qmf.group).apply(xr.DataArray.rank, pct=True, dim=dim)
-    iq = xr.DataArray(q, dims=q.dims, coords=q.coords, name="quantile index")
+    iq = xr.DataArray(q, dims=q.dims, coords=q.coords, name=cfg.stat_quantile+" index")
 
     # Create DataArrays for indexing
     # TODO: Adjust for different calendars if necessary.
@@ -169,9 +170,9 @@ def predict(x, qmf, interp=False, detrend_order=4):
 
     # Extract the correct quantile for each time step.
     if interp:  # Interpolate both the time group and the quantile.
-        factor = qmf.interp({prop: it, "quantile": iq})
+        factor = qmf.interp({prop: it, cfg.stat_quantile: iq})
     else:  # Find quantile for nearest time group and quantile.
-        factor = qmf.sel({prop: it, "quantile": iq}, method="nearest")
+        factor = qmf.sel({prop: it, cfg.stat_quantile: iq}, method="nearest")
 
     # Apply correction factors.
     out = x.copy()
@@ -190,7 +191,7 @@ def predict(x, qmf, interp=False, detrend_order=4):
         out += trend
 
     # Remove time grouping and quantile coordinates.
-    return out.drop(["quantile", prop])
+    return out.drop([cfg.stat_quantile, prop])
 
 
 def add_cyclic(qmf, att):
@@ -221,7 +222,7 @@ def add_q_bounds(qmf):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    att = "quantile"
+    att = cfg.stat_quantile
     q = qmf.coords[att]
     i = np.concatenate(([0], range(len(q)), [-1]))
     qmf = qmf.reindex({att: q[i]})

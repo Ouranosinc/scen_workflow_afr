@@ -54,7 +54,7 @@ def aggregate(p_hour, p_day, set_name, var):
     fn_day  = os.path.basename(p_day)
 
     # Loop through statistics.
-    for stat in ["mean", "min", "max", "sum"]:
+    for stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_sum]:
 
         # Output file name.
         var_stat = var + "_" + stat
@@ -66,23 +66,23 @@ def aggregate(p_hour, p_day, set_name, var):
             # Aggregation.
             ds_day = None
             save = False
-            if stat == "mean":
+            if stat == cfg.stat_mean:
                 if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_t2m) or (var == cfg.var_era5_sp):
-                    ds_day = ds_hour.resample(time="D").mean()
+                    ds_day = ds_hour.resample(time=cfg.freq_D).mean()
                     save = True
-            elif stat == "min":
+            elif stat == cfg.stat_min:
                 if (var == cfg.var_era5_t2m) or (var == cfg.var_era5_sh):
-                    ds_day = ds_hour.resample(time="D").min()
+                    ds_day = ds_hour.resample(time=cfg.freq_D).min()
                     save = True
-            elif stat == "max":
+            elif stat == cfg.stat_max:
                 if (var == cfg.var_era5_t2m) or (var == cfg.var_era5_sh) or (var == cfg.var_era5_u10) or\
                         (var == cfg.var_era5_v10):
-                    ds_day = ds_hour.resample(time="D").max()
+                    ds_day = ds_hour.resample(time=cfg.freq_D).max()
                     save = True
-            elif stat == "sum":
+            elif stat == cfg.stat_sum:
                 if (var == cfg.var_era5_tp) or (var == cfg.var_era5_e) or (var == cfg.var_era5_pev) or\
                         (var == cfg.var_era5_ssrd):
-                    ds_day = ds_hour.resample(time="D").sum()
+                    ds_day = ds_hour.resample(time=cfg.freq_D).sum()
                     save = True
 
             # Save NetCDF file.

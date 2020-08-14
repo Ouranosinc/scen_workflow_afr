@@ -491,7 +491,7 @@ def calendar(x, n_days_old=360, n_days_new=365):
     return ref_365
 
 
-def fix_calendar(ds, year_1=-1, year_n=-1):
+def reset_calendar(ds, year_1=-1, year_n=-1, freq=cfg.freq_D):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -505,6 +505,8 @@ def fix_calendar(ds, year_1=-1, year_n=-1):
         First year.
     year_n : int
         Last year.
+    freq : str
+        Frequency: cfg.freq_D=daily; cfg.freq_YS=annual
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -512,7 +514,11 @@ def fix_calendar(ds, year_1=-1, year_n=-1):
         year_1 = ds.time.values[0].year
     if year_n == -1:
         year_n = ds.time.values[len(ds.time.values) - 1].year
-    new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * 365, freq='D')
+    if freq == cfg.freq_D:
+        mult = 365
+    elif freq == cfg.freq_YS:
+        mult = 1
+    new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * mult, freq=freq)
 
     return new_time
 

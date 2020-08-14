@@ -19,9 +19,10 @@ obs_src_era5_land   = "era5_land"   # ERA5-Land.
 obs_src_merra2      = "merra2"      # Merra2.
 
 # Emission scenarios.
-rcp_26              = "rcp26"       # RCP 2.6.
-rcp_45              = "rcp45"       # RCP 4.5.
-rcp_85              = "rcp85"       # RCP 8.5.
+rcp_ref             = "ref"         # Reference period.
+rcp_26              = "rcp26"       # Future period RCP 2.6.
+rcp_45              = "rcp45"       # Future period RCP 4.5.
+rcp_85              = "rcp85"       # Future period RCP 8.5.
 
 # ==========================================================
 # TODO.CUSTOMIZATION.BEGIN
@@ -57,11 +58,18 @@ var_era5_sh         = "sh"          # Specific humidity.
 # ==========================================================
 
 # Directory names.
-cat_obs             = "obs"         # Observation
-cat_raw             = "raw"         # Simulation.
+# Observations vs. simulations.
+cat_obs             = "obs"         # Observation.
+cat_sim             = "sim"         # Simulation.
+# Scenario files (in order of generation).
+cat_raw             = "raw"         # Raw.
 cat_regrid          = "regrid"      # Reggrided.
 cat_qqmap           = "qqmap"       # Adjusted simulation.
-cat_stats           = "stats"       # Statistics.
+# Scenarios vs. indices.
+cat_scen            = "scen"        # Scenarios.
+cat_idx             = "idx"         # Indices.
+# Other.
+cat_stat            = "stat"        # Statistics.
 cat_fig             = "fig"         # Figures.
 
 # Calendar types.
@@ -69,9 +77,13 @@ cal_noleap          = "noleap"      # No-leap.
 cal_360day          = "360_day"     # 360 days.
 cal_365day          = "365_day"     # 365 days.
 
-# Calendar types.
+# Date type.
 dtype_obj           = "object"
 dtype_64            = "datetime64[ns]"
+
+# Data frequency.
+freq_D              = "D"           # Daily.
+freq_YS             = "YS"          # Annual.
 
 # Scenarios.
 group               = "time.dayofyear"  # Grouping period.
@@ -84,6 +96,13 @@ opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 
 # Indices.
 idx_tx_days_above   = "tx_days_above"   # Number of days per year with a maximum temperature above a threshold value.
+
+# Statistics.
+stat_mean           = "mean"        # Mean value.
+stat_min            = "min"         # Minimum value.
+stat_max            = "max"         # Maximum value.
+stat_sum            = "sum"         # Sum of values.
+stat_quantile       = "quantile"    # Value associated with a given quantile.
 
 # Numerical parameters.
 spd                 = 86400         # Number of seconds per day.
@@ -216,7 +235,8 @@ idx_threshs         = []            # Index thresholds.
 
 # Step 7 - Statistics --------------------------------------------------------------------------------------------------
 
-opt_stats           = True          # If True, calculate statistics.
+opt_stat            = True          # If True, calculate statistics.
+stat_quantiles      = [1.00, 0.99, 0.75, 0.50, 0.25, 0.01, 0.00]  # Quantiles.
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
@@ -370,12 +390,12 @@ def get_rcp_desc(rcp):
     Parameters
     ----------
     rcp : str
-        Emission scenario, e.g., {"ref", "rcp26", "rcp45", "rcp85"}
+        Emission scenario, e.g., {cfg.rcp_ref, cfg.rcp_26, cfg.rcp_45, cfg.rcp_85}
     --------------------------------------------------------------------------------------------------------------------
     """
 
     rcp_desc = ""
-    if rcp == "ref":
+    if rcp == rcp_ref:
         rcp_desc = "reference"
     elif ("rcp" in rcp) and (len(rcp) == 5):
         rcp_desc = rcp[0:3].upper() + " " + rcp[3] + "." + rcp[4]
@@ -402,8 +422,11 @@ def get_d_sim(stn, category, var=""):
 
     d = d_sim
     if stn != "":
-        d = d + stn + "/"
+        d = d + "stn/" + stn + "/"
     if category != "":
+        d = d
+        if (category == cat_raw) or (category == cat_regrid) or (category == cat_qqmap):
+            d = d + "scen/"
         d = d + category + "/"
     if var != "":
         d = d + var + "/"
