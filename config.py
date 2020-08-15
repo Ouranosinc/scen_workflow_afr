@@ -107,6 +107,9 @@ stat_quantile       = "quantile"    # Value associated with a given quantile.
 # Numerical parameters.
 spd                 = 86400         # Number of seconds per day.
 
+# Files.
+file_sep            = ","           # File separator (in CSV files).
+
 # Context --------------------------------------------------------------------------------------------------------------
 
 # Country and project.

@@ -61,7 +61,7 @@ def main():
         cfg.lon_bnds          = [-6, 3]
         cfg.lat_bnds          = [8, 16]
         # Steps 3-4 - Data extraction and scenarios.
-        cfg.opt_scen          = False       # True by default.
+        cfg.opt_scen          = True        # True by default.
         cfg.opt_scen_regrid   = False
         # Step #5 - Bias adjustment and statistical downscaling.
         cfg.opt_calib         = False       # True by default.
@@ -74,6 +74,8 @@ def main():
         cfg.opt_stat          = True        # True by default.
         # Step 8 - Visualization.
         cfg.opt_plot          = True        # True by default.
+        # Files.
+        cfg.file_sep          = ";"
 
     elif cfg.country == "coteivoire":
         # Project name.

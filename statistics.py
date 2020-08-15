@@ -92,10 +92,30 @@ def calc_stat(data_type, freq, stn, var, rcp, hor, stat, q=-1):
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
 
         # Records values.
-        if "lon" in str(ds.dims):
-            arr_vals.append(ds.squeeze(["lat", "lon"])[var].values)
+        # Simulation data is assumed to be complete.
+        if (data_type != cfg.cat_obs) or (ds[var].size == n_time):
+            if "lon" in str(ds.dims):
+                arr_vals.append(ds.squeeze(["lat", "lon"])[var].values)
+            else:
+                arr_vals.append(ds[var].values)
+        # Observation data can be incomplete. This explains the day-by-day copy performed below. There is probably a
+        # nicer and more efficient way to do this.
         else:
-            arr_vals.append(ds[var].values)
+            vals = np.empty(n_time)
+            vals[:] = np.nan
+            for i_year in range(year_1, year_n + 1):
+                for i_month in range(1, 13):
+                    for i_day in range(1, 32):
+                        date_str = str(i_year) + "-" + str(i_month).zfill(2) + "-" + str(i_day).zfill(2)
+                        try:
+                            ds_i = ds.sel(time=slice(date_str, date_str))
+                            if ds_i[var].size != 0:
+                                dayofyear = ds_i[var].time.dt.dayofyear.values[0]
+                                val = ds_i[var].values[0][0][0]
+                                vals[(i_year - year_1) * 365 + dayofyear - 1] = val
+                        except:
+                            pass
+            arr_vals.append(vals)
         if n_sim == 1:
             arr_vals = [arr_vals]
 
@@ -176,7 +196,12 @@ def run(cat):
             q_list    = []
             val_list  = []
 
-            msg = "Processing: station = " + stn + "; variable = " + var
+            msg = "Processing: station = " + stn + "; "
+            if cat  == cfg.cat_scen:
+                msg = msg + "variable"
+            else:
+                msg = msg + "index"
+            msg = msg + " = " + var
             utils.log(msg, True)
 
             # Loop through emission scenarios.
@@ -197,6 +222,7 @@ def run(cat):
                         d = cfg.get_d_sim(stn, cfg.cat_idx, var)
 
                 if not(os.path.isdir(d)):
+                    utils.log("This combination does not exist.", True)
                     continue
 
                 # Loop through statistics.

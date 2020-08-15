@@ -53,12 +53,12 @@ def load_observations(var):
         if not(stn in cfg.stns):
             continue
 
-        obs  = pd.read_csv(p_stn_list[i], sep=";")
+        obs  = pd.read_csv(p_stn_list[i], sep=cfg.file_sep)
         time = pd.to_datetime(
             obs["annees"].astype("str") + "-" + obs["mois"].astype("str") + "-" + obs["jours"].astype("str"))
 
         # Find longitude and latitude.
-        lon_lat_data = pd.read_csv(p_stn_info[0], sep=";")
+        lon_lat_data = pd.read_csv(p_stn_info[0], sep=cfg.file_sep)
         lon = float(lon_lat_data[lon_lat_data["station"] == stn]["lon"])
         lat = float(lon_lat_data[lon_lat_data["station"] == stn]["lat"])
 

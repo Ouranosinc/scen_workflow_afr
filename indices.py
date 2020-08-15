@@ -298,6 +298,11 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors, stat=cfg.stat_mean):
     # TODO.CUSTOMIZATION.END
     # ==========================================================
 
+    # Get information on stations.
+    # TODO.YR: Coordinates should be embedded into ds_stat below.
+    p_stn = glob.glob(cfg.get_d_stn(cfg.var_cordex_tas) + "../*.csv")[0]
+    df = pd.read_csv(p_stn, sep=cfg.file_sep)
+
     # Collect values for each station and determine overall boundaries.
     utils.log("Collecting emissions scenarios at each station.", True)
     x_bnds = []
@@ -305,11 +310,15 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors, stat=cfg.stat_mean):
     data_stn = []
     for stn in cfg.stns:
 
+        # Get coordinates.
+        lon = df[df["station"] == stn]["lon"].values[0]
+        lat = df[df["station"] == stn]["lat"].values[0]
+
         # Calculate statistics.
         if rcp == cfg.rcp_ref:
-            ds_stat = stat.calc_stat(cfg.cat_obs, cfg.freq_YS, stn, idx_name, rcp, None, cfg.stat_mean)
+            ds_stat = statistics.calc_stat(cfg.cat_obs, cfg.freq_YS, stn, idx_name, rcp, None, cfg.stat_mean)
         else:
-            ds_stat = stat.calc_stat(cfg.cat_sim, cfg.freq_YS, stn, idx_name, rcp, None, cfg.stat_mean)
+            ds_stat = statistics.calc_stat(cfg.cat_sim, cfg.freq_YS, stn, idx_name, rcp, None, cfg.stat_mean)
         if ds_stat is None:
             continue
 
@@ -319,14 +328,14 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors, stat=cfg.stat_mean):
         for year in range(0, n):
 
             # Collect data.
-            x = ds_stat["lon"].values.ravel()[0]
-            y = ds_stat["lat"].values.ravel()[0]
-            z = ds_stat[var][year]
+            x = float(lon)
+            y = float(lat)
+            z = float(ds_stat[idx_name][0][0][year])
             if math.isnan(z):
-                z = 0
+                z = float(0)
             data[0].append(x)
             data[1].append(y)
-            data[2].append(int(z))
+            data[2].append(z)
 
             # Update overall boundaries (round according to the variable 'step').
             if x_bnds == []:
@@ -371,14 +380,17 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors, stat=cfg.stat_mean):
                 arr_z.append(data_stn[i_stn][2][i_year])
         new_grid_data[i_year, :, :] = griddata((arr_x, arr_y), arr_z, (new_grid[0], new_grid[1]), fill_value=np.nan,
                                                method="linear")
-    new_data = xr.DataArray(new_grid_data,
-                            coords={"time": grid_time, "lat": grid_y, "lon": grid_x},
-                            dims=["time", "lat", "lon"])
-    ds_regrid = new_data.to_dataset(name=idx_name)
+    da_idx = xr.DataArray(new_grid_data,
+                          coords={"time": grid_time, "lat": grid_y, "lon": grid_x}, dims=["time", "lat", "lon"])
+    ds_idx = da_idx.to_dataset(name=idx_name)
 
     # Clip to country boundaries.
+    # TODO: Clipping is no longer working when launching the script from a terminal.
     if cfg.d_bounds != "":
-        ds_regrid = subset.subset_shape(ds_regrid, cfg.d_bounds)
+        try:
+            ds_idx = subset.subset_shape(ds_idx, cfg.d_bounds)
+        except TypeError:
+            utils.log("Unable to use a mask.", True)
 
     # Loop through horizons.
     if cfg.opt_plot:
@@ -394,7 +406,7 @@ def calc_idx_heatmap(idx_name, idx_threshs, rcp, per_hors, stat=cfg.stat_mean):
                 year_n = per_hor[1] - cfg.per_ref[1]
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
-                ds_hor = ds_regrid[cfg.idx_tx_days_above][year_1:(year_n+1)][:][:].mean("time", skipna=True)
+                ds_hor = ds_idx[cfg.idx_tx_days_above][year_1:(year_n+1)][:][:].mean("time", skipna=True)
 
             # Plot.
             p_fig = cfg.get_d_sim("", cfg.cat_fig + "/" + cfg.cat_idx, "") +\
@@ -420,7 +432,7 @@ def run():
         idx_threshs = cfg.idx_threshs[i]
 
         # Calculate index.
-        calc_idx_ts(idx_name, idx_threshs)
+        # calc_idx_ts(idx_name, idx_threshs)
 
     # Map indices.
     # Interpolation requires multiples stations.
