@@ -495,7 +495,7 @@ def reset_calendar(ds, year_1=-1, year_n=-1, freq=cfg.freq_D):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Fix calendar when type is 'cfg.dtype_obj'.
+    Fix calendar using a start year, period and frequency.
 
     Parameters
     ----------
@@ -514,11 +514,32 @@ def reset_calendar(ds, year_1=-1, year_n=-1, freq=cfg.freq_D):
         year_1 = ds.time.values[0].year
     if year_n == -1:
         year_n = ds.time.values[len(ds.time.values) - 1].year
+    mult = 1
     if freq == cfg.freq_D:
         mult = 365
-    elif freq == cfg.freq_YS:
-        mult = 1
     new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * mult, freq=freq)
+
+    return new_time
+
+
+def reset_calendar_list(years):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Fix calendar using a list of years.
+    This is only working with a list of years at the moment.
+
+    Parameters
+    ----------
+    years : [int]
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    arr_str = []
+    for year in years:
+        arr_str.append(str(year) + "-01-01")
+    new_time = pd.DatetimeIndex(arr_str)
 
     return new_time
 

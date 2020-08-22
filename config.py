@@ -252,6 +252,10 @@ col_sim_ref         = "orange"      # Simulation (non-adjusted) for the referenc
 col_obs             = "green"       # Observations.
 col_sim_adj         = "red"         # Simulation (bias-adjusted).
 col_sim_fut         = "purple"      # Simulation (non-adjusted) for the future period.
+col_ref             = "black"       # Reference period.
+col_rcp26           = "blue"        # RCP 2.6.
+col_rcp45           = "green"       # RCP 4.5.
+col_rcp85           = "red"         # RCP 8.5.
 
 
 def get_rank_inst():
@@ -336,6 +340,28 @@ def get_var_desc(var, set_name="cordex"):
             var_desc = "Humidité spécifique"
 
     return var_desc
+
+
+def get_idx_desc(idx_name, idx_threshs):
+
+        """
+        ----------------------------------------------------------------------------------------------------------------
+        Gets the description of an index.
+
+        Parameters
+        ----------
+        idx_name : str
+            Climate index.
+        idx_threshs : [[float]]]
+            Thresholds
+        ----------------------------------------------------------------------------------------------------------------
+        """
+
+        idx_desc = ""
+        if idx_name == idx_tx_days_above:
+            idx_desc = "Nombre de jours avec " + get_var_desc(var_cordex_tasmax).lower() + " > " + str(idx_threshs[0])
+
+        return idx_desc
 
 
 def get_var_unit(var, set_name="cordex"):

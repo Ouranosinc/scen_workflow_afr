@@ -64,7 +64,7 @@ def main():
         cfg.opt_scen          = True        # True by default.
         cfg.opt_scen_regrid   = False
         # Step #5 - Bias adjustment and statistical downscaling.
-        cfg.opt_calib         = False       # True by default.
+        cfg.opt_calib         = True        # True by default.
         cfg.opt_calib_auto    = False
         # Step 6 - Index options.
         cfg.opt_idx           = True        # True by default.
@@ -308,45 +308,21 @@ def main():
     # Initialization.
     scen_calib.init_calib_params()
 
-    # Calculate scenarios.
-    msg = "Step #3-5 Generation of climate scenarios is "
-    if cfg.opt_scen:
+    # Calculation of scenarios.
+    scenarios.run()
 
-        # Uncomment the following line to calibrate for all stations and variables.
-        # scen_calib.run()
-
-        # Produce scenarios.
-        scenarios.run()
-    else:
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
-
-    # DEBUG: This following statement is optional. It is useful to verify generated NetCDF files.
+    # DEBUG: This following statement is optional. It is useful to verify the generated NetCDF files.
     # DEBUG: scen_verif.run()
 
     # Step #6: Indices -------------------------------------------------------------------------------------------------
 
-    # Calculate indices.
-    msg = "Step #6   Calculation of climate indices is "
-    if cfg.opt_idx:
-        indices.run()
-    else:
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
+    # Calculation of indices.
+    indices.run()
 
     # Step #7: Statistics ----------------------------------------------------------------------------------------------
 
-    # Calculate statistics.
-    msg = "Step #7   Calculation of statistics is "
-    if cfg.opt_stat:
-        stat.run(cfg.cat_scen)
-        stat.run(cfg.cat_idx)
-    else:
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
+    # Calculation of statistics.
+    stat.run()
 
     utils.log("=")
     utils.log("Script completed successfully.")

@@ -461,11 +461,11 @@ def postprocess(var, stn, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fu
     return ds_qqmap
 
 
-def run():
+def generate():
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Entry point.
+    Produce climate scenarios.
 
     Raises
     ------
@@ -495,8 +495,8 @@ def run():
     list_cordex = utils.list_cordex(cfg.d_cordex, cfg.rcps)
 
     # Loop through variables.
-    for idx_var in range(0, len(cfg.variables_cordex)):
-        var = cfg.variables_cordex[idx_var]
+    for i_var in range(0, len(cfg.variables_cordex)):
+        var = cfg.variables_cordex[i_var]
 
         # Select file name for observation.
         d_stn = cfg.get_d_stn(var)
@@ -656,6 +656,43 @@ def run():
                         p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/workflow", var) +\
                                 p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
                         plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+
+
+def run():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Entry point.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Generate climate scenarios.
+    msg = "Step #3-5 Generation of climate scenarios is "
+    if cfg.opt_scen:
+
+        msg = msg + "running"
+        utils.log(msg, True)
+
+        # Uncomment the following line to calibrate for all stations and variables.
+        # scen_calib.run()
+
+        # Generate scenarios.
+        generate()
+
+    else:
+
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
+
+    # Generate time series.
+    if cfg.opt_plot:
+
+        utils.log("=")
+        utils.log("Generating time series.", True)
+
+        for var in cfg.variables_cordex:
+            plot.plot_ts(var)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ import utils
 import xarray as xr
 
 
-def calc_stat(data_type, freq, stn, var, rcp, hor, stat, q=-1):
+def calc_stat(data_type, freq, stn, var_or_idx, rcp, hor, stat, q=-1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -30,8 +30,8 @@ def calc_stat(data_type, freq, stn, var, rcp, hor, stat, q=-1):
         Frequency: cfg.freq_D=daily; cfg.freq_YS=annual
     stn : str
         Station.
-    var : str
-        Variable.
+    var_or_idx : str
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
     rcp : str
         Emission scenario: {cfg.rcp_26, cfg.rcp_45, cfg_rcp_85, "*"}
     hor : [int]
@@ -51,12 +51,12 @@ def calc_stat(data_type, freq, stn, var, rcp, hor, stat, q=-1):
 
     # List files.
     if data_type == cfg.cat_obs:
-        p_sim_list = [cfg.get_p_obs(stn, var)]
+        p_sim_list = [cfg.get_p_obs(stn, var_or_idx)]
     else:
-        if var in cfg.variables_cordex:
-            d = cfg.get_d_sim(stn, cfg.cat_qqmap, var)
+        if var_or_idx in cfg.variables_cordex:
+            d = cfg.get_d_sim(stn, cfg.cat_qqmap, var_or_idx)
         else:
-            d = cfg.get_d_sim(stn, cfg.cat_idx, var)
+            d = cfg.get_d_sim(stn, cfg.cat_idx, var_or_idx)
         p_sim_list = glob.glob(d + "*_" + rcp + ".nc")
 
     # Exit if there is not file corresponding to the criteria.
@@ -68,6 +68,10 @@ def calc_stat(data_type, freq, stn, var, rcp, hor, stat, q=-1):
     ds = xr.open_dataset(p_sim_list[0])
     lon = ds["lon"]
     lat = ds["lat"]
+    if "units" in ds[var_or_idx].attrs:
+        units = ds[var_or_idx].attrs["units"]
+    else:
+        units = 1
     n_sim = len(p_sim_list)
 
     # First and last years.
@@ -76,11 +80,7 @@ def calc_stat(data_type, freq, stn, var, rcp, hor, stat, q=-1):
     if not(hor is None):
         year_1 = max(year_1, hor[0])
         year_n = min(year_n, hor[1])
-    if freq == cfg.freq_D:
-        mult = 365
-    elif freq == cfg.freq_YS:
-        mult = 1
-    n_time = (year_n - year_1 + 1) * mult
+    n_time = (year_n - year_1 + 1) * (365 if freq == cfg.freq_D else 1)
 
     # Collect values from simulations.
     arr_vals = []
@@ -93,62 +93,76 @@ def calc_stat(data_type, freq, stn, var, rcp, hor, stat, q=-1):
 
         # Records values.
         # Simulation data is assumed to be complete.
-        if (data_type != cfg.cat_obs) or (ds[var].size == n_time):
+        if ds[var_or_idx].size == n_time:
             if "lon" in str(ds.dims):
-                arr_vals.append(ds.squeeze(["lat", "lon"])[var].values)
+                vals = ds.squeeze(["lat", "lon"])[var_or_idx].values.tolist()
             else:
-                arr_vals.append(ds[var].values)
+                vals = ds[var_or_idx].values.tolist()
+            arr_vals.append(vals)
         # Observation data can be incomplete. This explains the day-by-day copy performed below. There is probably a
         # nicer and more efficient way to do this.
         else:
             vals = np.empty(n_time)
             vals[:] = np.nan
+            vals = vals.tolist()
             for i_year in range(year_1, year_n + 1):
                 for i_month in range(1, 13):
                     for i_day in range(1, 32):
                         date_str = str(i_year) + "-" + str(i_month).zfill(2) + "-" + str(i_day).zfill(2)
                         try:
                             ds_i = ds.sel(time=slice(date_str, date_str))
-                            if ds_i[var].size != 0:
-                                dayofyear = ds_i[var].time.dt.dayofyear.values[0]
-                                val = ds_i[var].values[0][0][0]
+                            if ds_i[var_or_idx].size != 0:
+                                dayofyear = ds_i[var_or_idx].time.dt.dayofyear.values[0]
+                                val = ds_i[var_or_idx].values[0][0][0]
                                 vals[(i_year - year_1) * 365 + dayofyear - 1] = val
                         except:
                             pass
             arr_vals.append(vals)
-        if n_sim == 1:
-            arr_vals = [arr_vals]
+
+    # Transpose.
+    # There is probably a more efficient way to do this (np.array(x).transpose() does not always work).
+    arr_vals_t = []
+    for i_time in range(n_time):
+        vals = []
+        for i_sim in range(n_sim):
+            vals.append(arr_vals[i_sim][i_time])
+        arr_vals_t.append(vals)
 
     # Calculate statistics.
-    arr_vals = np.transpose(arr_vals)
     arr_stat = []
     for i_time in range(n_time):
 
+        val_stat = None
         if (stat == cfg.stat_min) or (q == 0):
-            val_stat = np.min(arr_vals[i_time])
+            val_stat = np.min(arr_vals_t[i_time])
         elif (stat == cfg.stat_max) or (q == 1):
-            val_stat = np.max(arr_vals[i_time])
+            val_stat = np.max(arr_vals_t[i_time])
         elif stat == cfg.stat_mean:
-            val_stat = np.mean(arr_vals[i_time])
+            val_stat = np.mean(arr_vals_t[i_time])
         elif stat == cfg.stat_quantile:
-            val_stat = np.quantile(arr_vals[i_time], q)
+            val_stat = np.quantile(arr_vals_t[i_time], q)
         elif stat == cfg.stat_sum:
-            val_stat = np.sum()
+            val_stat = np.sum(arr_vals_t[i_time])
         arr_stat.append(val_stat)
 
     # Build dataset.
-    da_stat = xr.DataArray(np.array(arr_stat), name=var, coords=[("time", np.arange(n_time))])
+    da_stat = xr.DataArray(np.array(arr_stat), name=var_or_idx, coords=[("time", np.arange(n_time))])
     ds_stat = da_stat.to_dataset()
     ds_stat = ds_stat.expand_dims(lon=1, lat=1)
+
+    # Adjust coordinates and time.
     if not("lon" in ds_stat.dims):
         ds_stat["lon"] = lon
         ds_stat["lat"] = lat
     ds_stat["time"] = utils.reset_calendar(ds_stat, year_1, year_n, freq)
 
+    # Adjust units.
+    ds_stat[var_or_idx].attrs["units"] = units
+
     return ds_stat
 
 
-def run(cat):
+def calc_stats(cat):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -165,10 +179,7 @@ def run(cat):
     rcps = [cfg.rcp_ref] + cfg.rcps
 
     # Data frequency.
-    if cat == cfg.cat_scen:
-        freq = cfg.freq_D
-    elif  cat == cfg.cat_idx:
-        freq = cfg.freq_YS
+    freq = cfg.freq_D if cat == cfg.cat_scen else cfg.freq_YS
 
     # Scenarios.
     utils.log("=")
@@ -181,55 +192,48 @@ def run(cat):
     for stn in cfg.stns:
 
         # Loop through variables (or indices).
-        if cat == cfg.cat_scen:
-            vars = cfg.variables_cordex
-        else:
-            vars = cfg.idx_names
-        for var in vars:
+        vars_or_idxs = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
+        for var_or_idx in vars_or_idxs:
 
             # Containers.
-            stn_list  = []
-            var_list  = []
-            rcp_list  = []
-            hor_list  = []
-            stat_list = []
-            q_list    = []
-            val_list  = []
+            stn_list        = []
+            var_or_idx_list = []
+            rcp_list        = []
+            hor_list        = []
+            stat_list       = []
+            q_list          = []
+            val_list        = []
 
-            msg = "Processing: station = " + stn + "; "
-            if cat  == cfg.cat_scen:
-                msg = msg + "variable"
-            else:
-                msg = msg + "index"
-            msg = msg + " = " + var
+            msg = "Processing: station = " + stn + "; " + ("variable" if cat  == cfg.cat_scen else "index") + \
+                  " = " + var_or_idx
             utils.log(msg, True)
 
             # Loop through emission scenarios.
             for rcp in rcps:
 
                 # Select years.
+                cat_rcp = None
                 if rcp == cfg.rcp_ref:
                     hors = [cfg.per_ref]
-                    data_type = cfg.cat_obs
-                    d = os.path.dirname(cfg.get_p_obs(stn, var))
+                    cat_rcp = cfg.cat_obs
+                    d = os.path.dirname(cfg.get_p_obs(stn, var_or_idx))
                 else:
                     hors = cfg.per_hors
                     if cat == cfg.cat_scen:
-                        data_type = cfg.cat_scen
-                        d = cfg.get_d_sim(stn, cfg.cat_qqmap, var)
+                        cat_rcp = cfg.cat_scen
+                        d = cfg.get_d_sim(stn, cfg.cat_qqmap, var_or_idx)
                     elif cat == cfg.cat_idx:
-                        data_type = cfg.cat_idx
-                        d = cfg.get_d_sim(stn, cfg.cat_idx, var)
+                        cat_rcp = cfg.cat_idx
+                        d = cfg.get_d_sim(stn, cfg.cat_idx, var_or_idx)
 
                 if not(os.path.isdir(d)):
                     utils.log("This combination does not exist.", True)
                     continue
 
                 # Loop through statistics.
-                if data_type == cfg.cat_obs:
-                    stats = [cfg.stat_mean]
-                else:
-                    stats = [cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantile]
+                stats = [cfg.stat_mean]
+                if cat_rcp != cfg.cat_obs:
+                    stats = stats + [cfg.stat_min, cfg.stat_max, cfg.stat_quantile]
                 for stat in stats:
                     stat_quantiles = cfg.stat_quantiles
                     if stat != cfg.stat_quantile:
@@ -240,7 +244,7 @@ def run(cat):
 
                         # Calculate statistics.
                         hor = [min(min(hors)), max(max(hors))]
-                        ds_stat = calc_stat(data_type, freq, stn, var, rcp, hor, stat, q)
+                        ds_stat = calc_stat(cat_rcp, freq, stn, var_or_idx, rcp, hor, stat, q)
                         if ds_stat is None:
                             continue
 
@@ -251,16 +255,16 @@ def run(cat):
                             year_1 = max(hor[0], int(str(ds_stat.time.values[0])[0:4]))
                             year_n = min(hor[1], int(str(ds_stat.time.values[len(ds_stat.time.values) - 1])[0:4]))
                             years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
-                            val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var].mean())
-                            if (cat == cfg.cat_scen) and (rcp != cfg.rcp_ref) and (var != cfg.var_cordex_pr):
+                            val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var_or_idx].mean())
+                            if (cat == cfg.cat_scen) and (rcp != cfg.rcp_ref) and (var_or_idx != cfg.var_cordex_pr):
                                 val = val - 273.15
 
                             # Add row.
                             stn_list.append(stn)
-                            var_list.append(var)
+                            var_or_idx_list.append(var_or_idx)
                             rcp_list.append(rcp)
                             hor_list.append(str(hor[0]) + "-" + str(hor[1]))
-                            if data_type == cfg.cat_obs:
+                            if cat_rcp == cfg.cat_obs:
                                 stat = "none"
                             stat_list.append(stat)
                             q_list.append(str(q))
@@ -270,16 +274,43 @@ def run(cat):
             if len(stn_list) > 0:
 
                 # Build pandas dataframe.
-                dict = {"stn": stn_list, "var": var_list, "rcp": rcp_list, "hor": hor_list, "stat": stat_list,
-                        "q": q_list, "val": val_list}
+                dict = {"stn": stn_list, ("var" if cat == cfg.cat_scen else "idx"): var_or_idx_list, "rcp": rcp_list,
+                        "hor": hor_list, "stat": stat_list, "q": q_list, "val": val_list}
                 df = pd.DataFrame(dict)
 
                 # Save file.
-                fn = var + "_" + stn + ".csv"
-                d  = cfg.get_d_sim(stn, cfg.cat_stat, var)
+                fn = var_or_idx + "_" + stn + ".csv"
+                d  = cfg.get_d_sim(stn, cfg.cat_stat, var_or_idx)
                 if not(os.path.isdir(d)):
                     os.makedirs(d)
                 p = d + fn
                 df.to_csv(p)
                 if os.path.exists(p):
                     utils.log("Statistics file created/updated: " + fn, True)
+
+
+def run():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Entry point.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    msg = "Step #7   Calculation of statistics is "
+    if cfg.opt_stat:
+
+        msg = msg + "running"
+        utils.log(msg)
+
+        # Scenarios.
+        calc_stats(cfg.cat_scen)
+
+        # Indices.
+        calc_stats(cfg.cat_idx)
+
+    else:
+
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
