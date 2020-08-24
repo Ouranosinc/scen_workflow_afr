@@ -19,7 +19,8 @@ This is the initial stable release.
 
 ### 1.0.1
 
-...
+The following function was added:
+- calculation of statistics for climate scenarios to include user-defined quantiles.
 
 ### 1.0.2
 
