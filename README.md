@@ -16,12 +16,14 @@ The current version of the script (v1.0.2, August 204h, 2020) performs these tas
 ### 1.0.0
 
 This is the initial stable release.
+At the moment, there is one 'sample' climate indicator.
 
 ### 1.0.1
 
-The following function was added:
+The following functionality was added:
 - calculation of statistics for climate scenarios to include user-defined quantiles.
 
 ### 1.0.2
 
-...
+The following functionality was added:
+- generation of time series and maps for climate indicators.
