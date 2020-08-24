@@ -12,7 +12,7 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 
 The current version of the script (v1.0.2, August 204h, 2020) performs these tasks at a station. Soon, it will also perform these tasks on a grid.
 
-## Versions
+## Releases
 ### 1.0.0
 
 This is the initial stable release.
