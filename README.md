@@ -35,4 +35,4 @@ The following features will be added to upcoming versions:
 - Compatibility with grid data (not only at a station).
 
 ## Contributing
-This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features, new indices or report bugs, please leave us a message on the `issue tracker <https://github.com/Ouranosinc/scen_workflow_afr/issues>`.
+This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features, new indices or report bugs, please leave us a message on the `issue tracker <https://github.com/Ouranosinc/scen_workflow_afr/issues>`_.
