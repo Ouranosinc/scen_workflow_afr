@@ -1,5 +1,12 @@
 # scen_workflow_afr
-Développement de scénarios climatiques et calcul d'indicateurs climatiques.
+
+## Purpose
+
+This code performs tasks related to climate scenarios.
+* Production of climate scenarios using CORDEX NetCDF files and observations.
+* Download of reanalysis data.
+* Aggregation of hourly reanalysis data to a daily frequency.
+* 
 
 ## Versions
 ### 1.0.0
