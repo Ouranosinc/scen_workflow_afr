@@ -28,7 +28,7 @@ The following feature was added:
 The following feature was added:
 - generation of time series and maps for climate indicators.
 
-## Upcoming versions
+## Upcoming features
 
 The following features will be added to upcoming versions:
 - Storage of script parameters in a .ini file.
