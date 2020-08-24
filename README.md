@@ -10,12 +10,12 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 - calculation of statistics related to climate scenarios and indices;
 - generation of time series and maps.
 
-At the moment,the script only performs these tasks at a station. Soon, it will perform these tasks on a grid.
+The current version of the script (v1.0.2, August 204h, 2020) performs these tasks at a station. Soon, it will also perform these tasks on a grid.
 
 ## Versions
 ### 1.0.0
 
-The first release includes the following items:
+This is the initial stable release.
 
 ### 1.0.1
 
