@@ -2,11 +2,15 @@
 
 ## Purpose
 
-This code performs tasks related to climate scenarios.
-* Production of climate scenarios using CORDEX NetCDF files and observations.
-* Download of reanalysis data.
-* Aggregation of hourly reanalysis data to a daily frequency.
-* 
+This code produces climate scenarios using CORDEX NetCDF files and observations. It also performs the following tasks:
+- automated bias adjustment and statistical downscaling when producing climate scenarios;
+- download of reanalysis data;
+- aggregation of hourly data to a daily frequency for reanalysis data;
+- calculation of climate indices;
+- calculation of statistics related to climate scenarios and indices;
+- generation of time series and maps.
+
+At the moment,the script only performs these tasks at a station. Soon, it will perform these tasks on a grid.
 
 ## Versions
 ### 1.0.0
