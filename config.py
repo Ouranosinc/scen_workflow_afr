@@ -142,8 +142,10 @@ priority_timestep   = ["day"] * len(variables_cordex)
 # Base directories.
 d_base_in1          = ""            # Base directory #1 (input).
 d_base_in2          = ""            # Base directory #2 (input).
+dn_in1              = ""            # Base directory name #1 (input).
+dn_in2              = ""            # Base directory name #2 (input).
 d_base_exec         = ""            # Base directory #3 (stations and output).
-d_username          = ""            # Username on the machine running the script.
+dn_username         = ""            # Username on the machine running the script.
 # Input-only files and directories.
 d_bounds            = ""            # geog.json file comprising political boundaries.
 d_ra_raw            = ""            # ERA5 reanalysis set (default frequency).
