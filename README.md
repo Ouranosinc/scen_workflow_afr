@@ -13,17 +13,17 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 The current version of the script (v1.0.2, August 204h, 2020) performs these tasks at a station.
 
 ## Releases
-### 1.0.0
+### v1.0.0
 
 This is the initial stable release.
 At the moment, there is one 'sample' climate indicator.
 
-### 1.0.1
+### v1.0.1
 
 The following feature was added:
 - calculation of statistics for climate scenarios to include user-defined quantiles.
 
-### 1.0.2
+### v1.0.2
 
 The following feature was added:
 - generation of time series for climate variables (was done earlier for climate indices).
