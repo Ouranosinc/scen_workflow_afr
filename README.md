@@ -26,13 +26,14 @@ The following feature was added:
 ### 1.0.2
 
 The following feature was added:
-- generation of time series and maps for climate indicators.
+- generation of time series for climate variables (was done earlier for climate indices).
 
 ## Upcoming features
 
 The following features will be added to upcoming versions:
-- Storage of script parameters in a .ini file.
-- Compatibility with grid data (not only at a station).
+- generation of maps for climate variables;
+- storage of script parameters in a .ini file;
+- compatibility with gridded data (not only at a station).
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
