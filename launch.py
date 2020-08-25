@@ -9,7 +9,9 @@
 
 # Current package.
 import aggregate
+import ast
 import config as cfg
+import configparser
 import datetime
 import download
 import indices
@@ -19,6 +21,145 @@ import scenarios_calib as scen_calib
 # import scenarios_verif as scen_verif
 import statistics as stat
 import utils
+
+
+def load_params(p_ini):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Load parameters from an INI file.
+
+    Parameters
+    ----------
+    p_ini : str
+        Path of INI file.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    config = configparser.ConfigParser()
+    config.read(p_ini)
+
+    def convert_to_1d(value, type):
+
+        if type == str:
+            value_new = ast.literal_eval(value)
+        else:
+            value = value.replace("[", "").replace("]", "").split(",")
+            value_new = [type(i) for i in value]
+
+        return value_new
+
+    def convert_to_2d(value, type):
+
+        value_new = []
+        value = value[1:(len(value) - 1)].split("],")
+        for i in range(len(value)):
+            value_new.append(convert_to_1d(value[i], type))
+
+        return value_new
+
+    # Loop through sections.
+    for section in config.sections():
+
+        # Loop through keys.
+        for key in config[section]:
+
+            # Extract value.
+            value = config[section][key]
+
+            # PROJECT:
+            if key == "country":
+                cfg.country = ast.literal_eval(value)
+            elif key == "project":
+                cfg.project = ast.literal_eval(value)
+
+            # OBSERVATIONS:
+            elif key == "obs_src":
+                cfg.obs_src = ast.literal_eval(value)
+            elif key == "file_sep":
+                cfg.file_sep = ast.literal_eval(value)
+            elif key == "stns":
+                cfg.stns = convert_to_1d(value, str)
+
+            # CONTEXT:
+            elif key == "rcps":
+                cfg.rcps = ast.literal_eval(value)
+            elif key == "per_ref":
+                cfg.per_ref = convert_to_1d(value, int)
+            elif key == "per_fut":
+                cfg.per_fut = convert_to_1d(value, int)
+            elif key == "per_hors":
+                cfg.per_hors = convert_to_2d(value, int)
+            elif key == "variables_cordex":
+                cfg.variables_cordex = convert_to_1d(value, str)
+
+            # DATA:
+            elif key == "opt_download":
+                cfg.opt_download = ast.literal_eval(value)
+            elif key == "lon_bnds_download":
+                cfg.lon_bnds_download = convert_to_1d(value, float)
+            elif key == "lat_bnds_download":
+                cfg.lat_bnds_download = convert_to_1d(value, float)
+            elif key == "opt_aggregate":
+                cfg.opt_aggregate = ast.literal_eval(value)
+
+            # SCENARIOS:
+            elif key == "opt_scen":
+                cfg.opt_scen = ast.literal_eval(value)
+            elif key == "opt_scen_regrid":
+                cfg.opt_scen_regrid = ast.literal_eval(value)
+            elif key == "lon_bnds":
+                cfg.lon_bnds = convert_to_1d(value, float)
+            elif key == "lat_bnds":
+                cfg.lat_bnds = convert_to_1d(value, float)
+            elif key == "radius":
+                cfg.radius = value
+            elif key == "sim_excepts":
+                cfg.sim_excepts = convert_to_1d(value, str)
+            elif key == "var_sim_excepts":
+                cfg.var_sim_excepts = convert_to_1d(value, str)
+
+            # CALIBRATION:
+            elif key == "opt_calib":
+                cfg.opt_calib = ast.literal_eval(value)
+            elif key == "opt_calib_auto":
+                cfg.opt_calib_auto = ast.literal_eval(value)
+            elif key == "opt_calib_bias":
+                cfg.opt_calib_bias = ast.literal_eval(value)
+            elif key == "opt_calib_bias_meth":
+                cfg.opt_calib_bias_meth = ast.literal_eval(value)
+            elif key == "opt_calib_qqmap":
+                cfg.opt_calib_qqmap = ast.literal_eval(value)
+            elif key == "nq_default":
+                cfg.nq_default = value
+            elif key == "up_qmf_default":
+                cfg.up_qmf_default = value
+            elif key == "time_win_default":
+                cfg.time_win_default = value
+
+            # INDICES:
+            elif key == "opt_idx":
+                cfg.opt_idx = ast.literal_eval(value)
+            elif key == "idx_names":
+                cfg.idx_names = convert_to_1d(value, str)
+            elif key == "idx_threshs":
+                cfg.idx_threshs = convert_to_2d(value, float)
+
+            # STATISTICS:
+            elif key == "opt_stat":
+                cfg.opt_stat = ast.literal_eval(value)
+            elif key == "stat_quantiles":
+                cfg.stat_quantiles = convert_to_1d(value, float)
+
+            # VISUALIZATION:
+            elif key == "opt_plot":
+                cfg.opt_plot = ast.literal_eval(value)
+            elif key == "d_bounds":
+                cfg.d_bounds = ast.literal_eval(value)
+
+            # NUMERICAL:
+            elif key == "n_proc":
+                cfg.n_proc = value
 
 
 def main():
@@ -33,100 +174,22 @@ def main():
 
     # ==========================================================
     # TODO.CUSTOMIZATION.BEGIN
-    # Update project parameters in the following block code.
+    # Update system parameters in the following block code.
     # ==========================================================
 
-    # Country.
-    cfg.country = "burkina"
-    # cfg.country = "coteivoire"
-
-    # Project-dependent parameters.
-    if cfg.country == "burkina":
-        # Project name.
-        cfg.project = "pcci"
-        # Observations (from measurements).
-        cfg.obs_src = "anam"
-        cfg.stns = ["bereba", "boromo", "boura", "diebougou", "farakoba", "gao", "gaoua", "hounde", "kassoum",
-                    "koumbia", "leo", "nasso", "po", "sapouy", "valleedukou"]
-        # RCPs, and reference and future periods.
-        cfg.rcps    = [cfg.rcp_26, cfg.rcp_45, cfg.rcp_85]
-        cfg.per_ref = [1988, 2017]
-        cfg.per_fut = [cfg.per_ref[0], 2095]
-        # Variables.
-        cfg.variables_cordex = [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.var_cordex_pr,
-                                cfg.var_cordex_uas, cfg.var_cordex_vas]
-        # Boundaries.
-        # https://datacatalog.worldbank.org/dataset/burkina-faso-administrative-boundaries-2017
-        cfg.d_bounds          = "bf_boundaries.geojson"
-        cfg.lon_bnds          = [-6, 3]
-        cfg.lat_bnds          = [8, 16]
-        # Steps 3-4 - Data extraction and scenarios.
-        cfg.opt_scen          = True        # True by default.
-        cfg.opt_scen_regrid   = False
-        # Step #5 - Bias adjustment and statistical downscaling.
-        cfg.opt_calib         = True        # True by default.
-        cfg.opt_calib_auto    = False
-        # Step 6 - Index options.
-        cfg.opt_idx           = True        # True by default.
-        cfg.idx_names         = [cfg.idx_tx_days_above]
-        cfg.idx_threshs       = [[36.0]]
-        # Step 7 - Calculate statistics.
-        cfg.opt_stat          = True        # True by default.
-        # Step 8 - Visualization.
-        cfg.opt_plot          = True        # True by default.
-        # Files.
-        cfg.file_sep          = ";"
-
-    elif cfg.country == "coteivoire":
-        # Project name.
-        cfg.project = "adaptcoop"
-        # Observations (from reanalysis).
-        cfg.obs_src = cfg.obs_src_era5
-        # RCPs, and reference and future periods.
-        cfg.rcps    = [cfg.rcp_45, cfg.rcp_85]
-        cfg.per_ref = [1981, 2010]
-        cfg.per_fut = [cfg.per_ref[0], 2095]
-        # Variables.
-        cfg.variables_cordex = [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.var_cordex_pr,
-                                cfg.var_cordex_uas, cfg.var_cordex_vas]
-        cfg.variables_ra = [cfg.var_era5_d2m, cfg.var_era5_e, cfg.var_era5_pev, cfg.var_era5_sp, cfg.var_era5_ssrd,
-                            cfg.var_era5_t2m, cfg.var_era5_tp, cfg.var_era5_u10, cfg.var_era5_v10]
-        # Boundaries.
-        # https://datacatalog.worldbank.org/dataset/cote-divoire-administrative-boundaries-2016
-        cfg.d_bounds          = "ci_boundaries.geojson"
-        cfg.lon_bnds          = [-9, -2]
-        cfg.lat_bnds          = [4, 11]
-        # Step 2 - Download and aggregation options.
-        cfg.opt_download      = False
-        cfg.lon_bnds_download = [-29, 65]
-        cfg.lat_bnds_download = [-50, 47]
-        cfg.opt_aggregate     = False
-        # Steps 3-4 - Data extraction and scenarios.
-        cfg.opt_scen          = True        # True by default.
-        cfg.opt_scen_regrid   = False
-        # Step #5 - Bias adjustment and statistical downscaling.
-        cfg.opt_calib         = True        # True by default.
-        cfg.opt_calib_auto    = False
-        # Step 6 - Index options.
-        cfg.opt_idx           = True        # True by default.
-        cfg.idx_names         = [cfg.idx_tx_days_above]
-        cfg.idx_threshs       = [[36.0]]
-        # Step 7 - Calculate statistics.
-        cfg.opt_stat          = True        # True by default.
-        # Step 8 - Visualization.
-        cfg.opt_plot          = True        # True by default.
+    # The following variables are specific to the system on which the script is run.
+    cfg.d_username = "yrousseau"
+    cfg.d_base_in1 = "/media/" + cfg.d_username + ("/" if cfg.d_username != "" else "") + "ROCKET-XTRM/"
+    cfg.d_base_in2 = "/media/" + cfg.d_username + ("/" if cfg.d_username != "" else "") + "wd/"
+    cfg.d_base_exec = "/exec/" + cfg.d_username + ("/" if cfg.d_username != "" else "")
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END
     # ==========================================================
 
-    # List of simulation and var-simulation combinations that must be avoided to avoid a crash.
-    cfg.sim_excepts = ["RCA4_AFR-44_ICHEC-EC-EARTH_rcp85",
-                       "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
-                       "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45.nc",
-                       "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85.nc"]
-    cfg.var_sim_excepts = [cfg.var_cordex_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc",
-                           cfg.var_cordex_tasmin + "_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc"]
+    # Load parameters from INI file.
+    p_ini = "config_bf.ini"
+    load_params(p_ini)
 
     # Variables.
     cfg.priority_timestep = ["day"] * len(cfg.variables_cordex)
@@ -146,21 +209,6 @@ def main():
     # The following block of lines (in particular the 4 next lines) can be modified to fit the configuration of the
     # system on which the script is run. If all input and output files are located under the same directory, modify
     # the code to have: cfg.d_base_in2 = cfg.d_base_in1
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.BEGIN
-    # Update system parameters in the following block code.
-    # ==========================================================
-
-    # The following variables are specific to the system on which the script is run.
-    cfg.d_username = "yrousseau"
-    cfg.d_base_in1 = "/media/" + cfg.d_username + "/ROCKET-XTRM/"
-    cfg.d_base_in2 = "/media/" + cfg.d_username + "/wd/"
-    cfg.d_base_exec = "/exec/" + cfg.d_username + "/"
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.END
-    # ==========================================================
 
     # The following variables are determined automatically.
     if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):

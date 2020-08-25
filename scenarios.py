@@ -688,12 +688,25 @@ def run():
     # Generate time series.
     if cfg.opt_plot:
 
+        # TODO-Uncomment utils.log("=")
+        # TODO-Uncomment utils.log("Generating time series.", True)
+
+        # TODO-Uncomment: for var in cfg.variables_cordex:
+        # TODO-Uncomment    plot.plot_ts(var)
+
         utils.log("=")
-        utils.log("Generating time series.", True)
+        utils.log("Generating heat maps.", True)
 
-        for var in cfg.variables_cordex:
-            plot.plot_ts(var)
+        # Interpolation requires multiples stations.
+        if len(cfg.stns) > 1:
+            for i in range(len(cfg.variables_cordex)):
 
+                # Reference period.
+                plot.plot_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref])
+
+                # Future period.
+                for rcp in cfg.rcps:
+                    plot.plot_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors)
 
 if __name__ == "__main__":
     run()

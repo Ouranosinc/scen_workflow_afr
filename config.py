@@ -164,7 +164,7 @@ log_sep_len         = 70            # Number of instances of the symbol "-" in a
 p_calib             = "calib.csv"   # Calibration file (bias adjustment parameters).
 
 # Performance.
-n_proc              = 4             # Number of processes (for multiprocessing).
+n_proc              = 1             # Number of processes (for multiprocessing).
 
 # Step 2 - Download and aggregation ------------------------------------------------------------------------------------
 
@@ -193,10 +193,14 @@ radius                  = 0.5       # Search radius (around any given location).
 detrend_order           = None      # ???
 
 # Patch.
-sim_excepts         = []            # Simulation excluded from the analysis.
-                                    # Ex: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85".
-var_sim_excepts     = []            # Simulation-variable combinations excluded from the analysis.
-                                    # Ex: var_cordex_pr + "_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc".
+sim_excepts             = []        # Simulation excluded from the analysis.
+                                    # Ex: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85",
+                                    #     "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
+                                    #     "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45.nc",
+                                    #     "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85.nc"
+var_sim_excepts         = []        # Simulation-variable combinations excluded from the analysis.
+                                    # Ex: "pr_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc",
+                                    #     "tasmin_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc
 
 # Step 5 - Bias adjustment and statistical downscaling -----------------------------------------------------------------
 
