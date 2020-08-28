@@ -26,7 +26,8 @@ The following feature was added:
 ### v1.0.2
 
 The following feature was added:
-- generation of time series for climate variables (was done earlier for climate indices).
+- generation of time series for climate variables (was done earlier for climate indices);
+- automatic detection of minimum and maximum values along the y-axis in the main time series that are generated.
 
 ## Upcoming features
 
