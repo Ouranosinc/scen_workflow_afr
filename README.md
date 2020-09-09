@@ -25,20 +25,20 @@ The following feature was added:
 
 ### v1.0.2
 
-The following feature was added:
+The following features were added:
 - generation of time series for climate variables (was done earlier for climate indices);
 - determination of minimum and maximum values in plots of time series (scenarios and indices).
 
-### v1.0.3 (currently under development)
+### v1.0.3
 
-The following feature was added:
-- specification of the complete execution and input directories in the INI file.
+The following features were added:
+- storage of script parameters in a .ini file;
+- specification of the complete execution and input directories.
 
 ## Upcoming features
 
 The following features will be added to upcoming versions:
 - generation of maps for climate variables;
-- storage of script parameters in a .ini file;
 - compatibility with gridded data (not only at a station).
 
 ## Contributing
