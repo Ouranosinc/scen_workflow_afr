@@ -160,12 +160,12 @@ def load_params(p_ini):
             # ENVIRONMENT:
             elif key == "n_proc":
                 cfg.n_proc = value
-            elif key == "dn_username":
-                cfg.dn_username = ast.literal_eval(value)
-            elif key == "dn_in1":
-                cfg.dn_in1 = ast.literal_eval(value)
-            elif key == "dn_in2":
-                cfg.dn_in2 = ast.literal_eval(value)
+            elif key == "d_exec":
+                cfg.d_exec = ast.literal_eval(value)
+            elif key == "d_in1":
+                cfg.d_in1 = ast.literal_eval(value)
+            elif key == "d_in2":
+                cfg.d_in2 = ast.literal_eval(value)
 
 
 def main():
@@ -199,7 +199,7 @@ def main():
     #              Climate scenarios (output)
     # The following block of lines (in particular the 4 next lines) can be modified to fit the configuration of the
     # system on which the script is run. If all input and output files are located under the same directory, modify
-    # the code to have: cfg.d_base_in2 = cfg.d_base_in1
+    # the code to have: cfg.d_in2 = cfg.d_in1
 
     # ==========================================================
     # TODO.CUSTOMIZATION.BEGIN
@@ -207,29 +207,24 @@ def main():
     # the structure of the drive is different.
     # ==========================================================
 
-    # The following variables are specific to the system on which the script is run.
-    cfg.d_base_in1 = "/media/" + cfg.dn_username + ("/" if cfg.dn_username != "" else "") + cfg.dn_in1 + "/"
-    cfg.d_base_in2 = "/media/" + cfg.dn_username + ("/" if cfg.dn_username != "" else "") + cfg.dn_in2 + "/"
-    cfg.d_base_exec = "/exec/" + cfg.dn_username + ("/" if cfg.dn_username != "" else "")
-
     # The following variables are determined automatically.
     if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
         d_suffix_raw = "scenario/external_data/ecmwf/" + cfg.obs_src + "/hour/"
         if cfg.obs_src == cfg.obs_src_era5_land:
-            cfg.d_ra_raw = cfg.d_base_in1 + d_suffix_raw
-            cfg.d_ra_day = (cfg.d_base_in2 + d_suffix_raw).replace("hour", "day")
+            cfg.d_ra_raw = cfg.d_in1 + d_suffix_raw
+            cfg.d_ra_day = (cfg.d_in2 + d_suffix_raw).replace("hour", "day")
         else:
-            cfg.d_ra_raw = cfg.d_base_in2 + d_suffix_raw
+            cfg.d_ra_raw = cfg.d_in2 + d_suffix_raw
             cfg.d_ra_day = cfg.d_ra_raw.replace("hour", "day")
     elif cfg.obs_src == cfg.obs_src_merra2:
         d_suffix_raw = "scenario/external_data/nasa/merra2/raw/"
-        cfg.d_ra_raw = cfg.d_base_in2 + d_suffix_raw
+        cfg.d_ra_raw = cfg.d_in2 + d_suffix_raw
     else:
-        cfg.d_stn = cfg.d_base_exec + cfg.country + "/" + cfg.project + "/" + cfg.cat_obs + "/" + cfg.obs_src + "/"
-    cfg.d_cordex = cfg.d_base_in1 + "scenario/external_data/CORDEX-AFR/"
+        cfg.d_stn = cfg.d_exec + cfg.country + "/" + cfg.project + "/" + cfg.cat_obs + "/" + cfg.obs_src + "/"
+    cfg.d_cordex = cfg.d_in1 + "scenario/external_data/CORDEX-AFR/"
     if cfg.d_bounds != "":
-        cfg.d_bounds = cfg.d_base_in2 + "scenario/external_data/gis/" + cfg.d_bounds
-    cfg.d_sim = cfg.d_base_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
+        cfg.d_bounds = cfg.d_in2 + "scenario/external_data/gis/" + cfg.d_bounds
+    cfg.d_sim = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END
