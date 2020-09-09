@@ -76,6 +76,10 @@ def load_params(p_ini):
             # OBSERVATIONS:
             elif key == "obs_src":
                 cfg.obs_src = ast.literal_eval(value)
+            elif key == "obs_src_username":
+                cfg.obs_src_username = ast.literal_eval(value)
+            elif key == "obs_src_password":
+                cfg.obs_src_password = ast.literal_eval(value)
             elif key == "file_sep":
                 cfg.file_sep = ast.literal_eval(value)
             elif key == "stns":
@@ -179,7 +183,7 @@ def main():
     # Step #1: Parameters ----------------------------------------------------------------------------------------------
 
     # Load parameters from INI file.
-    p_ini = "config_bf.ini"
+    p_ini = "config.ini"
     load_params(p_ini)
 
     # Variables.
