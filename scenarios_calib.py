@@ -233,7 +233,7 @@ def init_calib_params():
         return
 
     # List CORDEX files.
-    list_cordex = utils.list_cordex(cfg.d_cordex, cfg.rcps)
+    list_cordex = utils.list_cordex(cfg.d_proj, cfg.rcps)
 
     # List simulation names, stations and variables.
     sim_name_list = []

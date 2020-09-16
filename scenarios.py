@@ -492,7 +492,7 @@ def generate():
     # Step #2d: List directories potentially containing CORDEX files (but not necessarily for all selected variables).
     utils.log("=")
     utils.log("Step #2d  Listing directories with CORDEX files")
-    list_cordex = utils.list_cordex(cfg.d_cordex, cfg.rcps)
+    list_cordex = utils.list_cordex(cfg.d_proj, cfg.rcps)
 
     # Loop through variables.
     for i_var in range(0, len(cfg.variables_cordex)):
