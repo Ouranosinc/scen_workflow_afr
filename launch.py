@@ -166,10 +166,12 @@ def load_params(p_ini):
                 cfg.n_proc = value
             elif key == "d_exec":
                 cfg.d_exec = ast.literal_eval(value)
-            elif key == "d_in1":
-                cfg.d_in1 = ast.literal_eval(value)
-            elif key == "d_in2":
-                cfg.d_in2 = ast.literal_eval(value)
+            elif key == "d_proj":
+                cfg.d_proj = ast.literal_eval(value)
+            elif key == "d_ra_raw":
+                cfg.d_ra_raw = ast.literal_eval(value)
+            elif key == "d_ra_day":
+                cfg.d_ra_day = ast.literal_eval(value)
 
 
 def main():
@@ -183,56 +185,17 @@ def main():
     # Step #1: Parameters ----------------------------------------------------------------------------------------------
 
     # Load parameters from INI file.
-    p_ini = "config.ini"
-    load_params(p_ini)
+    load_params("config_bf.ini")
 
     # Variables.
     cfg.priority_timestep = ["day"] * len(cfg.variables_cordex)
 
-    # System.
-    # Two base directories are used in the configuration below owing to limitations in the capacity of USB drives.
-    # Ideally, all the datasets should go under a single hierarchy. Alternatively, input files could be read from one
-    # location and saved to a second location to prevent overwriting input files by accident.
-    # Location #1: CORDEX-AFR (daily frequency) (input)
-    #              ERA5-Land (hourly frequency) (input)
-    # Location #2: ERA5-Land (daily frequency) (output and input)
-    #              ERA5 (hourly frequency) (input)
-    #              ERA5 (daily frequency) (output and input)
-    #              Geographic files (input)
-    #              Gridded version of observations (output)
-    #              Climate scenarios (output)
-    # The following block of lines (in particular the 4 next lines) can be modified to fit the configuration of the
-    # system on which the script is run. If all input and output files are located under the same directory, modify
-    # the code to have: cfg.d_in2 = cfg.d_in1
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.BEGIN
-    # Update system parameters in the following block code if
-    # the structure of the drive is different.
-    # ==========================================================
-
     # The following variables are determined automatically.
-    if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
-        d_suffix_raw = "scenario/external_data/ecmwf/" + cfg.obs_src + "/hour/"
-        if cfg.obs_src == cfg.obs_src_era5_land:
-            cfg.d_ra_raw = cfg.d_in1 + d_suffix_raw
-            cfg.d_ra_day = (cfg.d_in2 + d_suffix_raw).replace("hour", "day")
-        else:
-            cfg.d_ra_raw = cfg.d_in2 + d_suffix_raw
-            cfg.d_ra_day = cfg.d_ra_raw.replace("hour", "day")
-    elif cfg.obs_src == cfg.obs_src_merra2:
-        d_suffix_raw = "scenario/external_data/nasa/merra2/raw/"
-        cfg.d_ra_raw = cfg.d_in2 + d_suffix_raw
-    else:
+    if (cfg.obs_src != cfg.obs_src_era5) and (cfg.obs_src != cfg.obs_src_era5_land):
         cfg.d_stn = cfg.d_exec + cfg.country + "/" + cfg.project + "/" + cfg.cat_obs + "/" + cfg.obs_src + "/"
-    cfg.d_cordex = cfg.d_in1 + "scenario/external_data/CORDEX-AFR/"
-    if cfg.d_bounds != "":
-        cfg.d_bounds = cfg.d_in2 + "scenario/external_data/gis/" + cfg.d_bounds
     cfg.d_sim = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.END
-    # ==========================================================
+    if cfg.d_bounds != "":
+        cfg.d_bounds = cfg.d_sim + "gis/" + cfg.d_bounds
 
     # Log file.
     dt = datetime.datetime.now()

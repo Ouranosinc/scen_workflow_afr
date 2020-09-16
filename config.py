@@ -30,27 +30,29 @@ rcp_85              = "rcp85"       # Future period RCP 8.5.
 # ==========================================================
 
 # Variables (cordex).
-var_cordex_uas      = "uas"         # Wind speed, eastward.
-var_cordex_vas      = "vas"         # Wind speed, northward.
-var_cordex_ps       = "ps"          # Barometric pressure.
-var_cordex_pr       = "pr"          # Precipitation.
-var_cordex_rsds     = "rsds"        # Solar radiation.
 var_cordex_tas      = "tas"         # Temperature (daily mean).
 var_cordex_tasmin   = "tasmin"      # Temperature (daily minimum).
 var_cordex_tasmax   = "tasmax"      # Temperature (daily maximum).
-var_cordex_clt      = "clt"         # Cloud cover.
+var_cordex_pr       = "pr"          # Precipitation.
+var_cordex_uas      = "uas"         # Wind speed, eastward.
+var_cordex_vas      = "vas"         # Wind speed, northward.
+var_cordex_ps       = "ps"          # Barometric pressure.
+var_cordex_rsds     = "rsds"        # Solar radiation.
+var_cordex_evapsbl  = "evapsbl"     # Evaporation.
+var_cordex_evapsblpt= "evapsblpt"   # Potential evapotranspiration.
 var_cordex_huss     = "huss"        # Specific humidity.
+var_cordex_clt      = "clt"         # Cloud cover.
 
 # Variables (era5 and era5_land).
-var_era5_d2m        = "d2m"         # Dew temperature.
-var_era5_e          = "e"           # Evaporation.
-var_era5_pev        = "pev"         # Potential evapotranspiration.
-var_era5_sp         = "sp"          # Barometric pressure.
-var_era5_ssrd       = "ssrd"        # Solar radiation.
 var_era5_t2m        = "t2m"         # Temperature.
 var_era5_tp         = "tp"          # Precipitation.
 var_era5_u10        = "u10"         # Wind speed, eastward.
 var_era5_v10        = "v10"         # Wind speed, northward.
+var_era5_sp         = "sp"          # Barometric pressure.
+var_era5_ssrd       = "ssrd"        # Solar radiation.
+var_era5_e          = "e"           # Evaporation.
+var_era5_pev        = "pev"         # Potential evapotranspiration.
+var_era5_d2m        = "d2m"         # Dew temperature.
 var_era5_sh         = "sh"          # Specific humidity.
 
 # ==========================================================
@@ -138,21 +140,16 @@ priority_timestep   = ["day"] * len(variables_cordex)
 
 # System ---------------------------------------------------------------------------------------------------------------
 
-# Directories.
-# Base directories.
-d_in1               = ""            # Base directory #1 (input).
-d_in2               = ""            # Base directory #2 (input).
-d_exec              = ""            # Base directory #3 (stations and output).
 # Input-only files and directories.
+d_proj              = ""            # Projections.
+d_ra_raw            = ""            # Reanalysis set (default frequency, usually hourly).
 d_bounds            = ""            # geog.json file comprising political boundaries.
-d_ra_raw            = ""            # ERA5 reanalysis set (default frequency).
-d_cordex            = ""            # Climate projections (CORDEX).
-d_crcm5             = ""            # Climate projections (CRCM5).
 # Output-only files and directories.
 d_sim               = ""            # Climate projections.
 d_stn               = ""            # Grid version of observations.
 # Input and output files and directories.
-d_ra_day            = ""            # Reanalysis set (day frequency).
+d_exec              = ""            # Base directory #3 (stations and output).
+d_ra_day            = ""            # Reanalysis set (aggregated frequency, i.e. daily).
 
 # Log file.
 p_log               = ""            # Log file (date and time).
