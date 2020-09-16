@@ -37,7 +37,8 @@ The following features were added:
 
 ## Upcoming features
 
-The following features will be added to upcoming versions:
+The following features are currently being implemented:
+- a technical documentation describing the Python code;
 - generation of maps for climate variables;
 - compatibility with gridded data (not only at a station).
 
