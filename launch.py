@@ -185,7 +185,7 @@ def main():
     # Step #1: Parameters ----------------------------------------------------------------------------------------------
 
     # Load parameters from INI file.
-    load_params("config_bf.ini")
+    load_params("config.ini")
 
     # Variables.
     cfg.priority_timestep = ["day"] * len(cfg.variables_cordex)
