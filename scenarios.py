@@ -688,11 +688,11 @@ def run():
     # Generate time series.
     if cfg.opt_plot:
 
-        # TODO-Uncomment utils.log("=")
-        # TODO-Uncomment utils.log("Generating time series.", True)
+        utils.log("=")
+        utils.log("Generating time series.", True)
 
-        # TODO-Uncomment: for var in cfg.variables_cordex:
-        # TODO-Uncomment    plot.plot_ts(var)
+        for var in cfg.variables_cordex:
+            plot.plot_ts(var)
 
         utils.log("=")
         utils.log("Generating heat maps.", True)

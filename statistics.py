@@ -16,7 +16,7 @@ import utils
 import xarray as xr
 
 
-def calc_stat(data_type, freq, stn, var_or_idx, rcp, hor, stat, q=-1):
+def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -26,8 +26,10 @@ def calc_stat(data_type, freq, stn, var_or_idx, rcp, hor, stat, q=-1):
     ----------
     data_type : str
         Dataset type: {cfg.obs, cfg.cat_sim}
-    freq : str
-        Frequency: cfg.freq_D=daily; cfg.freq_YS=annual
+    freq_in : str
+        Frequency (input): cfg.freq_D=daily; cfg.freq_YS=annual
+    freq_out : str, optional
+        Frequency (output): cfg.freq_D=daily; cfg.freq_YS=annual
     stn : str
         Station.
     var_or_idx : str
@@ -39,7 +41,7 @@ def calc_stat(data_type, freq, stn, var_or_idx, rcp, hor, stat, q=-1):
         If None is specified, the complete time range is considered.
     stat : str
         Statistic: {cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantil"}
-    q : float
+    q : float, optional
         Quantile: value between 0 and 1.
 
     Returns
@@ -80,7 +82,7 @@ def calc_stat(data_type, freq, stn, var_or_idx, rcp, hor, stat, q=-1):
     if not(hor is None):
         year_1 = max(year_1, hor[0])
         year_n = min(year_n, hor[1])
-    n_time = (year_n - year_1 + 1) * (365 if freq == cfg.freq_D else 1)
+    n_time = (year_n - year_1 + 1) * (365 if freq_in == cfg.freq_D else 1)
 
     # Collect values from simulations.
     arr_vals = []
@@ -117,10 +119,29 @@ def calc_stat(data_type, freq, stn, var_or_idx, rcp, hor, stat, q=-1):
                                 vals[(i_year - year_1) * 365 + dayofyear - 1] = val
                         except:
                             pass
+            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                vals = [i * cfg.spd for i in vals]
             arr_vals.append(vals)
 
     # Transpose.
-    # There is probably a more efficient way to do this (np.array(x).transpose() does not always work).
+    arr_vals_t = []
+
+    # Collapse to yearly frequency.
+    if (freq_in == cfg.freq_D) and (freq_out == cfg.freq_YS):
+        for i_sim in range(n_sim):
+            vals_sim = []
+            for i_year in range(0, year_n - year_1 + 1):
+                vals_year = arr_vals[i_sim][(365 * i_year):(365 * (i_year + 1))]
+                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                    val_year = np.nansum(vals_year)
+                else:
+                    val_year = np.nanmean(vals_year)
+                vals_sim.append(val_year)
+            arr_vals_t.append(vals_sim)
+        arr_vals = arr_vals_t
+        n_time = year_n - year_1 + 1
+
+    # Transpose.
     arr_vals_t = []
     for i_time in range(n_time):
         vals = []
@@ -154,7 +175,7 @@ def calc_stat(data_type, freq, stn, var_or_idx, rcp, hor, stat, q=-1):
     if not("lon" in ds_stat.dims):
         ds_stat["lon"] = lon
         ds_stat["lat"] = lat
-    ds_stat["time"] = utils.reset_calendar(ds_stat, year_1, year_n, freq)
+    ds_stat["time"] = utils.reset_calendar(ds_stat, year_1, year_n, freq_out)
 
     # Adjust units.
     ds_stat[var_or_idx].attrs["units"] = units
@@ -244,7 +265,7 @@ def calc_stats(cat):
 
                         # Calculate statistics.
                         hor = [min(min(hors)), max(max(hors))]
-                        ds_stat = calc_stat(cat_rcp, freq, stn, var_or_idx, rcp, hor, stat, q)
+                        ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx, rcp, hor, stat, q)
                         if ds_stat is None:
                             continue
 
@@ -255,9 +276,18 @@ def calc_stats(cat):
                             year_1 = max(hor[0], int(str(ds_stat.time.values[0])[0:4]))
                             year_n = min(hor[1], int(str(ds_stat.time.values[len(ds_stat.time.values) - 1])[0:4]))
                             years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
-                            val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var_or_idx].mean())
-                            if (cat == cfg.cat_scen) and (rcp != cfg.rcp_ref) and (var_or_idx != cfg.var_cordex_pr):
-                                val = val - 273.15
+                            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                                val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var_or_idx].sum()) /\
+                                      (year_n - year_1 + 1)
+                            else:
+                                val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var_or_idx].mean())
+
+                            # Convert units.
+                            if (cat == cfg.cat_scen) and (rcp != cfg.rcp_ref) and \
+                               (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
+                                    val = val - 273.15
+                            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                                val = val * cfg.spd
 
                             # Add row.
                             stn_list.append(stn)

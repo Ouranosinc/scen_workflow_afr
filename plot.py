@@ -360,7 +360,8 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
 
         plt.subplot(433 + i - 1)
 
-        quantile = cfg.stat_quantiles[i]
+        stat     = "quantile"
+        quantile = cfg.stat_quantiles[i-1]
         title    = "Q_" + str(quantile).rjust(4, '0')
         if quantile == 0:
             stat = cfg.stat_min
@@ -665,9 +666,11 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
 
         # Calculate statistics.
         if rcp == cfg.rcp_ref:
-            ds_stat = statistics.calc_stat(cfg.cat_obs, cfg.freq_YS, stn, var_or_idx, rcp, None, cfg.stat_mean)
+            ds_stat = statistics.calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
+                                           cfg.stat_mean)
         else:
-            ds_stat = statistics.calc_stat(cfg.cat_sim, cfg.freq_YS, stn, var_or_idx, rcp, None, cfg.stat_mean)
+            ds_stat = statistics.calc_stat(cfg.cat_sim, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
+                                           cfg.stat_mean)
         if ds_stat is None:
             continue
 
@@ -918,7 +921,10 @@ def plot_ts(var_or_idx, threshs=[]):
                 # Calculate statistics.
                 # TODO: Include coordinates in the generated dataset.
                 years = ds.groupby(ds.time.dt.year).groups.keys()
-                ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
+                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                    ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
+                else:
+                    ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
                 if "lon" in ds.dims:
                     ds = ds.isel(lon=0, lat=0)
                 n_time = len(ds["time"].values)
@@ -932,6 +938,10 @@ def plot_ts(var_or_idx, threshs=[]):
                     if ds[var_or_idx].attrs["units"] == "K":
                         ds = ds - 273.15
                         ds[var_or_idx].attrs["units"] = "C"
+                elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                    if ds[var_or_idx].attrs["units"] == "kg m-2 s-1":
+                        ds = ds * cfg.spd
+                        ds[var_or_idx].attrs["units"] = "mm"
 
                 # Calculate minimum and maximum values along the y-axis.
                 if ylim == []:
