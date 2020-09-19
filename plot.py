@@ -149,11 +149,11 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
 
     # Conversion coefficient.
     coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
-    elif (var == cfg.var_cordex_tas) or (var == cfg.var_cordex_tasmin) or (var == cfg.var_cordex_tasmax):
-        ds_fut   = ds_fut - 273.15
-        ds_qqmap = ds_qqmap - 273.15
+    delta = 0
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+        coef = cfg.spd * 365
+    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        delta = -273.15
 
     # Plot.
     f = plt.figure(figsize=(15, 3))
@@ -165,8 +165,8 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
     legend_items = ["Simulation", "Observation"]
     if ds_qqmap is not None:
         legend_items.insert(0, "Sim. ajustée")
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
-    (ds_fut * coef).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
+        (ds_qqmap * coef + delta).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
+    (ds_fut * coef + delta).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
     (ds_obs * coef).groupby(ds_obs.time.dt.year).mean().plot(color=cfg.col_obs)
 
     # Customize.
@@ -218,13 +218,18 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     # Load datasets.
     ds_ref = xr.open_dataset(p_regrid_ref)[var]
     ds_fut = xr.open_dataset(p_regrid_fut)[var]
-    if (var == cfg.var_cordex_tas) or (var == cfg.var_cordex_tasmin) or (var == cfg.var_cordex_tasmax):
-        ds_ref = ds_ref - 273.15
-        ds_fut = ds_fut - 273.15
+
+    # Conversion coefficients.
+    coef = 1
+    delta = 0
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+        coef = cfg.spd
+    if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        delta = -273.15
 
     # Fit.
     x     = [*range(len(ds_ref.time))]
-    y     = ds_ref.values
+    y     = (ds_ref * coef + delta).values
     coefs = poly.polyfit(x, y, 4)
     ffit  = poly.polyval(x, coefs)
 
@@ -257,7 +262,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 
     # Lower plot: Complete simulation.
     f.add_subplot(212)
-    arr_y_detrend = signal.detrend(ds_fut)
+    arr_y_detrend = signal.detrend(ds_fut * coef + delta)
     arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
     arr_y_error  = (y - ffit)
     arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
