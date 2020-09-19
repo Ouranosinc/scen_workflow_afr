@@ -32,15 +32,21 @@ The following features were added:
 ### v1.0.3
 
 The following features were added:
-- storage of script parameters in a .ini file;
-- specification of the complete execution and input directories.
+- storage of script parameters in a .ini file (instead of launch.py);
+- integration of parameters d_exec, d_in1 and d_in2 in .ini file.
+
+### v1.0.4
+
+The following features were added:
+- a technical documentation describing the Python code;
+- conversion of precipitation values (from kg m-2 s-1 to mm) in workflow and postprocess figures (time series).
+- correction of an anomaly during the calculation of statistics of precipitation. 
 
 ## Upcoming features
 
 The following features are currently being implemented:
-- a technical documentation describing the Python code;
-- generation of maps for climate variables;
-- compatibility with gridded data (not only at a station).
+- compatibility with gridded data (not only at a station);
+- generation of maps for climate variables (interpolation).
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
