@@ -191,11 +191,12 @@ def main():
     cfg.priority_timestep = ["day"] * len(cfg.variables_cordex)
 
     # The following variables are determined automatically.
+    d_base = cfg.d_exec + cfg.country + "/" + cfg.project + "/"
     if (cfg.obs_src != cfg.obs_src_era5) and (cfg.obs_src != cfg.obs_src_era5_land):
-        cfg.d_stn = cfg.d_exec + cfg.country + "/" + cfg.project + "/" + cfg.cat_obs + "/" + cfg.obs_src + "/"
+        cfg.d_stn = d_base + cfg.cat_obs + "/" + cfg.obs_src + "/"
     cfg.d_sim = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
     if cfg.d_bounds != "":
-        cfg.d_bounds = cfg.d_sim + "gis/" + cfg.d_bounds
+        cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
 
     # Log file.
     dt = datetime.datetime.now()
