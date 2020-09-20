@@ -458,8 +458,8 @@ def plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig):
 
     # Conversion coefficient.
     coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+        coef = 365
 
     fs_sup_title = 8
     fs_legend = 8
