@@ -167,7 +167,7 @@ def bias_correction_spec(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap
     # Information for post-processing ---------------------------------------------------------------------------------
 
     # Precipitation.
-    if var == cfg.var_cordex_pr:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
         kind = "*"
         ds_obs.interpolate_na(dim="time")
     # Temperature.
@@ -200,22 +200,20 @@ def bias_correction_spec(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap
                                   (ds_qqmap.time.dt.year <= cfg.per_ref[1]), drop=True)
 
     # Conversion coefficients.
-    coef = 365
-    delta = -273.15
+    coef_1 = 1
+    coef_2 = 1
+    delta = 0
     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        ds_qmf       = ds_qmf + delta
-        ds_qqmap_ref = ds_qqmap_ref + delta
-        ds_obs       = ds_obs + delta
-        ds_ref       = ds_ref + delta
-        ds_fut       = ds_fut + delta
-        ds_qqmap     = ds_qqmap + delta
+        delta = -273.15
     elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
-        ds_qmf       = ds_qmf * coef
-        ds_qqmap_ref = ds_qqmap_ref * coef
-        ds_obs       = ds_obs * coef
-        ds_ref       = ds_ref * coef
-        ds_fut       = ds_fut * coef
-        ds_qqmap     = ds_qqmap * coef
+        coef_1 = cfg.spd
+        coef_2 = 365
+    ds_qmf       = ds_qmf * coef_2 + delta
+    ds_qqmap_ref = ds_qqmap_ref * coef_1 + delta
+    ds_obs       = ds_obs * coef_1 + delta
+    ds_ref       = ds_ref * coef_1 + delta
+    ds_fut       = ds_fut * coef_1 + delta
+    ds_qqmap     = ds_qqmap * coef_1 + delta
 
     # Create plots -----------------------------------------------------------------------------------------------------
 

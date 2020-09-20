@@ -360,11 +360,6 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
 
     # Mean, Q100, Q99, Q75, Q50, Q25, Q01 and Q00 monthly values -------------------------------------------------------
 
-    # Conversion coefficient.
-    coef = 1
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
-        coef = 365
-
     for i in range(1, len(cfg.stat_quantiles) + 1):
 
         plt.subplot(433 + i - 1)
@@ -377,8 +372,7 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
         elif quantile == 1:
             stat = cfg.stat_max
 
-        draw_curves(var, ds_qqmap_ref * coef, ds_obs * coef, ds_ref * coef, ds_fut * coef, ds_qqmap * coef, stat,
-                    quantile)
+        draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile)
 
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
@@ -398,9 +392,9 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
         ds_ref["time"] = utils.reset_calendar(ds_ref.time)
 
     plt.subplot(313)
-    (ds_qqmap * coef).plot.line(alpha=0.5, color=cfg.col_sim_adj)
-    (ds_ref * coef).plot.line(alpha=0.5, color=cfg.col_sim_ref)
-    (ds_obs * coef).plot.line(alpha=0.5, color=cfg.col_obs)
+    ds_qqmap.plot.line(alpha=0.5, color=cfg.col_sim_adj)
+    ds_ref.plot.line(alpha=0.5, color=cfg.col_sim_ref)
+    ds_obs.plot.line(alpha=0.5, color=cfg.col_obs)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.legend(["Sim. ajustée", "Sim. (pér. référence)", "Observations"], fontsize=fs_legend, frameon=False)
@@ -456,11 +450,6 @@ def plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig):
     var_desc = cfg.get_var_desc(var)
     var_unit = cfg.get_var_unit(var)
 
-    # Conversion coefficient.
-    coef = 1
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
-        coef = 365
-
     fs_sup_title = 8
     fs_legend = 8
     fs_axes = 8
@@ -469,9 +458,9 @@ def plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig):
     plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
 
     # Add curves.
-    (ds_qqmap * coef).plot.line(alpha=0.5, color=cfg.col_sim_adj)
-    (ds_fut * coef).plot.line(alpha=0.5, color=cfg.col_sim_fut)
-    (ds_obs * coef).plot.line(alpha=0.5, color=cfg.col_obs)
+    ds_qqmap.plot.line(alpha=0.5, color=cfg.col_sim_adj)
+    ds_fut.plot.line(alpha=0.5, color=cfg.col_sim_fut)
+    ds_obs.plot.line(alpha=0.5, color=cfg.col_obs)
 
     # Customize.
     plt.legend(["Sim. ajustée", "Sim. (pér. référence)", "Observations"], fontsize=fs_legend, frameon=False)
@@ -543,11 +532,13 @@ def draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quant
         ds_qqmap.groupby(ds_qqmap.time.dt.month).mean().plot.line(color=cfg.col_sim_adj)
         ds_fut.groupby(ds_fut.time.dt.month).mean().plot.line(color=cfg.col_sim_fut)
     elif stat == cfg.stat_sum:
-        ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_adj_ref)
-        ds_ref.groupby(ds_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_ref)
-        ds_obs.groupby(ds_obs.time.dt.month).sum().plot.line(color=cfg.col_obs)
-        ds_qqmap.groupby(ds_qqmap.time.dt.month).sum().plot.line(color=cfg.col_sim_adj)
-        ds_fut.groupby(ds_fut.time.dt.month).sum().plot.line(color=cfg.col_sim_fut)
+        n_years_obs = ds_obs["time"].size / 365
+        n_years_sim = ds_fut["time"].size / 365
+        (ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_adj_ref)
+        (ds_ref.groupby(ds_ref.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_ref)
+        (ds_obs.groupby(ds_obs.time.dt.month).sum() / n_years_obs).plot.line(color=cfg.col_obs)
+        (ds_qqmap.groupby(ds_qqmap.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_adj)
+        (ds_fut.groupby(ds_fut.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_fut)
 
 
 def plot_360_vs_365(ds_360, ds_365, var=""):
