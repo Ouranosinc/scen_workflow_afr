@@ -40,7 +40,7 @@ def bias_correction(stn, var, sim_name=""):
     # List regrid files.
     d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
     p_regrid_list = utils.list_files(d_regrid)
-    if p_regrid_list == []:
+    if p_regrid_list is None:
         utils.log("The required files are not available.", True)
         return
     p_regrid_list = [i for i in p_regrid_list if "_4qqmap" not in i]
@@ -84,7 +84,7 @@ def bias_correction(stn, var, sim_name=""):
                         continue
 
                     # Calculate QQmap.
-                    scen.postprocess(var, stn, int(nq), up_qmf, int(time_win), p_obs, p_regrid_ref, p_regrid_fut, "")
+                    scen.postprocess(var, int(nq), up_qmf, int(time_win), p_obs, p_regrid_ref, p_regrid_fut, "")
 
                     # Path and title of calibration figure.
                     fn_fig = var + "_" + sim_name_i + "_calibration.png"
@@ -104,7 +104,8 @@ def bias_correction(stn, var, sim_name=""):
                         # Calculate the error between observations and simulation for the reference period.
                         ds_obs        = xr.open_dataset(p_obs)
                         ds_regrid_ref = xr.open_dataset(p_regrid_ref)
-                        bias_err_current = utils.calc_error(ds_obs[var].values.ravel(), ds_regrid_ref[var].values.ravel())
+                        bias_err_current = utils.calc_error(ds_obs[var].values.ravel(),
+                                                            ds_regrid_ref[var].values.ravel())
 
                         if (bias_err_best < 0) or (bias_err_current < bias_err_best):
                             col_names = ["nq", "up_qmf", "time_win", "bias_err"]
@@ -198,14 +199,23 @@ def bias_correction_spec(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap
     ds_qqmap_ref = ds_qqmap.where((ds_qqmap.time.dt.year >= cfg.per_ref[0]) &
                                   (ds_qqmap.time.dt.year <= cfg.per_ref[1]), drop=True)
 
-    # Convert to degrees Celcius.
+    # Conversion coefficients.
+    coef = 365
+    delta = -273.15
     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        ds_qmf       = ds_qmf - 273.15
-        ds_qqmap_ref = ds_qqmap_ref - 273.15
-        ds_obs       = ds_obs - 273.15
-        ds_ref       = ds_ref - 273.15
-        ds_fut       = ds_fut - 273.15
-        ds_qqmap     = ds_qqmap - 273.15
+        ds_qmf       = ds_qmf + delta
+        ds_qqmap_ref = ds_qqmap_ref + delta
+        ds_obs       = ds_obs + delta
+        ds_ref       = ds_ref + delta
+        ds_fut       = ds_fut + delta
+        ds_qqmap     = ds_qqmap + delta
+    elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+        ds_qmf       = ds_qmf * coef
+        ds_qqmap_ref = ds_qqmap_ref * coef
+        ds_obs       = ds_obs * coef
+        ds_ref       = ds_ref * coef
+        ds_fut       = ds_fut * coef
+        ds_qqmap     = ds_qqmap * coef
 
     # Create plots -----------------------------------------------------------------------------------------------------
 

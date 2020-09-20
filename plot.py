@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 import numpy.polynomial.polynomial as poly
-import pandas as pd
 import os.path
 import pandas as pd
 import seaborn as sns
@@ -28,9 +27,9 @@ from scipy import signal
 from scipy.interpolate import griddata
 
 
-#=======================================================================================================================
+# ======================================================================================================================
 # Aggregation
-#=======================================================================================================================
+# ======================================================================================================================
 
 def plot_year(ds_hour, ds_day, set_name, var):
 
@@ -110,9 +109,9 @@ def plot_dayofyear(ds_day, set_name, var, date):
     plt.close()
 
 
-#=======================================================================================================================
+# ======================================================================================================================
 # Scenarios
-#=======================================================================================================================
+# ======================================================================================================================
 
 
 def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
@@ -242,7 +241,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     f.add_subplot(211)
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.07, right=0.99, hspace=0.40, wspace=0.00)
     sup_title = os.path.basename(p_fig).replace(".png", "") +\
-                "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+        "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
     plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     # Convert date format if the need is.
@@ -284,9 +283,9 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     plt.close()
 
 
-#=======================================================================================================================
+# ======================================================================================================================
 # Calibration
-#=======================================================================================================================
+# ======================================================================================================================
 
 
 def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_title, p_fig):
@@ -346,7 +345,7 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
 
     # Plot.
     f.add_subplot(432)
-    if var == cfg.var_cordex_pr:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
         draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, cfg.stat_sum)
     else:
         draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, cfg.stat_mean)
@@ -361,19 +360,25 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
 
     # Mean, Q100, Q99, Q75, Q50, Q25, Q01 and Q00 monthly values -------------------------------------------------------
 
+    # Conversion coefficient.
+    coef = 1
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+        coef = 365
+
     for i in range(1, len(cfg.stat_quantiles) + 1):
 
         plt.subplot(433 + i - 1)
 
         stat     = "quantile"
         quantile = cfg.stat_quantiles[i-1]
-        title    = "Q_" + str(quantile).rjust(4, '0')
+        title    = "Q_" + str(quantile)
         if quantile == 0:
             stat = cfg.stat_min
         elif quantile == 1:
             stat = cfg.stat_max
 
-        draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quantile)
+        draw_curves(var, ds_qqmap_ref * coef, ds_obs * coef, ds_ref * coef, ds_fut * coef, ds_qqmap * coef, stat,
+                    quantile)
 
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
@@ -385,11 +390,6 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
         plt.tick_params(axis='y', labelsize=fs_axes)
 
     # Time series ------------------------------------------------------------------------------------------------------
-
-    # Conversion coefficient.
-    coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
 
     # Convert date format if the need is.
     if ds_qqmap.time.time.dtype == cfg.dtype_obj:
@@ -517,42 +517,37 @@ def draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quant
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Conversion coefficient.
-    coef = 1
-    if var == cfg.var_cordex_pr:
-        coef = cfg.spd
-
     # Draw curves.
     if stat == cfg.stat_min:
-        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).min().plot.line(color=cfg.col_sim_adj_ref)
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).min().plot.line(color=cfg.col_sim_ref)
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).min().plot.line(color=cfg.col_obs)
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).min().plot.line(color=cfg.col_sim_adj)
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).min().plot.line(color=cfg.col_sim_fut)
+        ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).min().plot.line(color=cfg.col_sim_adj_ref)
+        ds_ref.groupby(ds_ref.time.dt.month).min().plot.line(color=cfg.col_sim_ref)
+        ds_obs.groupby(ds_obs.time.dt.month).min().plot.line(color=cfg.col_obs)
+        ds_qqmap.groupby(ds_qqmap.time.dt.month).min().plot.line(color=cfg.col_sim_adj)
+        ds_fut.groupby(ds_fut.time.dt.month).min().plot.line(color=cfg.col_sim_fut)
     elif stat == cfg.stat_max:
-        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).max().plot.line(color=cfg.col_sim_adj_ref)
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).max().plot.line(color=cfg.col_sim_ref)
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).max().plot.line(color=cfg.col_obs)
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).max().plot.line(color=cfg.col_sim_adj)
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).max().plot.line(color=cfg.col_sim_fut)
+        ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).max().plot.line(color=cfg.col_sim_adj_ref)
+        ds_ref.groupby(ds_ref.time.dt.month).max().plot.line(color=cfg.col_sim_ref)
+        ds_obs.groupby(ds_obs.time.dt.month).max().plot.line(color=cfg.col_obs)
+        ds_qqmap.groupby(ds_qqmap.time.dt.month).max().plot.line(color=cfg.col_sim_adj)
+        ds_fut.groupby(ds_fut.time.dt.month).max().plot.line(color=cfg.col_sim_fut)
     elif stat == cfg.stat_quantile:
-        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj_ref)
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_ref)
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).quantile(quantile).plot.line(color=cfg.col_obs)
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj)
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_fut)
+        ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj_ref)
+        ds_ref.groupby(ds_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_ref)
+        ds_obs.groupby(ds_obs.time.dt.month).quantile(quantile).plot.line(color=cfg.col_obs)
+        ds_qqmap.groupby(ds_qqmap.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj)
+        ds_fut.groupby(ds_fut.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_fut)
     elif stat == cfg.stat_mean:
-        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_adj_ref)
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_ref)
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).mean().plot.line(color=cfg.col_obs)
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).mean().plot.line(color=cfg.col_sim_adj)
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).mean().plot.line(color=cfg.col_sim_fut)
+        ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_adj_ref)
+        ds_ref.groupby(ds_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_ref)
+        ds_obs.groupby(ds_obs.time.dt.month).mean().plot.line(color=cfg.col_obs)
+        ds_qqmap.groupby(ds_qqmap.time.dt.month).mean().plot.line(color=cfg.col_sim_adj)
+        ds_fut.groupby(ds_fut.time.dt.month).mean().plot.line(color=cfg.col_sim_fut)
     elif stat == cfg.stat_sum:
-        (ds_qqmap_ref * coef).groupby(ds_qqmap_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_adj_ref)
-        (ds_ref * coef).groupby(ds_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_ref)
-        (ds_obs * coef).groupby(ds_obs.time.dt.month).sum().plot.line(color=cfg.col_obs)
-        (ds_qqmap * coef).groupby(ds_qqmap.time.dt.month).sum().plot.line(color=cfg.col_sim_adj)
-        (ds_fut * coef).groupby(ds_fut.time.dt.month).sum().plot.line(color=cfg.col_sim_fut)
+        ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_adj_ref)
+        ds_ref.groupby(ds_ref.time.dt.month).sum().plot.line(color=cfg.col_sim_ref)
+        ds_obs.groupby(ds_obs.time.dt.month).sum().plot.line(color=cfg.col_obs)
+        ds_qqmap.groupby(ds_qqmap.time.dt.month).sum().plot.line(color=cfg.col_sim_adj)
+        ds_fut.groupby(ds_fut.time.dt.month).sum().plot.line(color=cfg.col_sim_fut)
 
 
 def plot_360_vs_365(ds_360, ds_365, var=""):
@@ -609,9 +604,9 @@ def plot_rsq(rsq, n_sim):
     plt.close()
 
 
-#=======================================================================================================================
+# ======================================================================================================================
 # Scenarios and indices.
-#=======================================================================================================================
+# ======================================================================================================================
 
 
 def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
@@ -695,7 +690,7 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
             data[2].append(z)
 
             # Update overall boundaries (round according to the variable 'step').
-            if x_bnds == []:
+            if not x_bnds:
                 x_bnds = [x, x]
                 y_bnds = [y, y]
             else:
@@ -708,12 +703,14 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
     # Build the list of x and y locations for which interpolation is needed.
     utils.log("Collecting the coordinates of stations.", True)
     grid_time = range(0, n_year)
+
     def round_to_nearest_decimal(val, step):
         if val < 0:
             val_rnd = math.floor(val/step) * step
         else:
             val_rnd = math.ceil(val/step) * step
         return val_rnd
+
     for i in range(0, 2):
         x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cfg.idx_resol)
         y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cfg.idx_resol)
@@ -765,10 +762,15 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 ds_hor = ds_idx[var_or_idx][year_1:(year_n+1)][:][:].mean("time", skipna=True)
 
+            # Conversion coefficient.
+            coef = 1
+            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                coef = cfg.spd
+
             # Plot.
             p_fig = cfg.get_d_sim("", cfg.cat_fig + "/" + cat, "") +\
-                    var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
-            plot_heatmap_spec(ds_hor, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
+                var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
+            plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
 
 def plot_heatmap_spec(ds, var_or_idx, threshs, grid_x, grid_y, per, p_fig, map_package):
@@ -864,8 +866,6 @@ def plot_ts(var_or_idx, threshs=[]):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    group_by_rcp = True
-
     # Emission scenarios.
     rcps = cfg.rcps + [cfg.rcp_ref]
 
@@ -897,7 +897,7 @@ def plot_ts(var_or_idx, threshs=[]):
 
             # Exit if there is not file corresponding to the criteria.
             if (len(p_sim_list) == 0) or \
-            ((len(p_sim_list) > 0) and not(os.path.isdir(os.path.dirname(p_sim_list[0])))):
+               ((len(p_sim_list) > 0) and not(os.path.isdir(os.path.dirname(p_sim_list[0])))):
                 continue
 
             # Loop through simulation files.
@@ -933,7 +933,8 @@ def plot_ts(var_or_idx, threshs=[]):
                 if "lon" in ds.dims:
                     ds = ds.isel(lon=0, lat=0)
                 n_time = len(ds["time"].values)
-                da = xr.DataArray(np.array(ds[var_or_idx].values), name=var_or_idx, coords=[("time", np.arange(n_time))])
+                da = xr.DataArray(np.array(ds[var_or_idx].values), name=var_or_idx,
+                                  coords=[("time", np.arange(n_time))])
                 ds = da.to_dataset()
                 ds["time"] = utils.reset_calendar_list(years)
                 ds[var_or_idx].attrs["units"] = units
@@ -949,7 +950,7 @@ def plot_ts(var_or_idx, threshs=[]):
                         ds[var_or_idx].attrs["units"] = "mm"
 
                 # Calculate minimum and maximum values along the y-axis.
-                if ylim == []:
+                if not ylim:
                     ylim = [min(ds[var_or_idx].values), max(ds[var_or_idx].values)]
                 else:
                     ylim = [min(ylim[0], min(ds[var_or_idx].values)),
@@ -975,16 +976,15 @@ def plot_ts(var_or_idx, threshs=[]):
                     ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, var_or_idx)
 
         # Generate plots.
-        if cfg.opt_plot and (ds_ref != None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
+        if cfg.opt_plot and (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
             msg = "scenarios" if cat == cfg.cat_scen else "indices"
             utils.log("Generating time series of " + msg + ".", True)
-            xlim = [cfg.per_ref[0], cfg.per_fut[1]]
             p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cat, "") + var_or_idx + "_" + stn + "_rcp.png"
             plot_ts_spec(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx, threshs,
-                         rcps, xlim, ylim, p_fig, 1)
+                         rcps, ylim, p_fig, 1)
             p_fig = p_fig.replace("_rcp.png", "_sim.png")
             plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx, threshs,
-                         rcps, xlim, ylim, p_fig, 2)
+                         rcps, ylim, p_fig, 2)
 
 
 def calc_stat_mean_min_max(ds_list, var_or_idx):
@@ -1050,7 +1050,7 @@ def calc_stat_mean_min_max(ds_list, var_or_idx):
     return ds_mean_min_max
 
 
-def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, threshs, rcps, xlim, ylim, p_fig, mode=1):
+def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, threshs, rcps, ylim, p_fig, mode=1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1074,8 +1074,6 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
         Threshold values associated with a climate index.
     rcps : [str]
         Emission scenarios.
-    xlim : [int]
-        Minimum and maximum values along the x-axis.
     ylim : [int]
         Minimum and maximum values along the y-axis.
     p_fig : str
@@ -1136,7 +1134,7 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
         # Mode #1: Curves and envelopes.
         if mode == 1:
 
-            if (rcp == cfg.rcp_ref) and (ds_ref != None):
+            if (rcp == cfg.rcp_ref) and (ds_ref is not None):
                 ax.plot(ds_ref["time"], ds_ref[var_or_idx], color="black", alpha=1.0)
             else:
                 if rcp == cfg.rcp_26:
@@ -1158,7 +1156,7 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
         elif mode == 2:
 
             # Draw curves.
-            if (rcp == cfg.rcp_ref) and (ds_ref != None):
+            if (rcp == cfg.rcp_ref) and (ds_ref is not None):
                 ds = ds_ref
                 ax.plot(ds["time"], ds[var_or_idx].values, color="black", alpha=1.0)
             elif rcp == cfg.rcp_26:
@@ -1191,9 +1189,9 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
     plt.close()
 
 
-#=======================================================================================================================
+# ======================================================================================================================
 # Verification
-#=======================================================================================================================
+# ======================================================================================================================
 
 
 def plot_ts_single(stn, var):
@@ -1381,10 +1379,9 @@ def plot_monthly(stn, var):
     p_obs    = cfg.get_p_obs(stn, var)
     ds_obs   = xr.open_dataset(p_obs)
     ds_plt   = ds_obs.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().groupby("time.month").\
-               mean()[var]
+        mean()[var]
 
     # Plot.
-    fs_title  = 8
     fs_title  = 6
     fs_legend = 6
     fs_axes   = 6

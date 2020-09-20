@@ -9,6 +9,7 @@
 
 import config as cfg
 import glob
+import logging
 import numpy as np
 import os
 import pandas as pd
@@ -117,8 +118,8 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
                                 dayofyear = ds_i[var_or_idx].time.dt.dayofyear.values[0]
                                 val = ds_i[var_or_idx].values[0][0][0]
                                 vals[(i_year - year_1) * 365 + dayofyear - 1] = val
-                        except:
-                            pass
+                        except Exception as e:
+                            logging.exception(e)
             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
                 vals = [i * cfg.spd for i in vals]
             arr_vals.append(vals)
@@ -233,7 +234,6 @@ def calc_stats(cat):
             for rcp in rcps:
 
                 # Select years.
-                cat_rcp = None
                 if rcp == cfg.rcp_ref:
                     hors = [cfg.per_ref]
                     cat_rcp = cfg.cat_obs
@@ -243,11 +243,11 @@ def calc_stats(cat):
                     if cat == cfg.cat_scen:
                         cat_rcp = cfg.cat_scen
                         d = cfg.get_d_sim(stn, cfg.cat_qqmap, var_or_idx)
-                    elif cat == cfg.cat_idx:
+                    else:
                         cat_rcp = cfg.cat_idx
                         d = cfg.get_d_sim(stn, cfg.cat_idx, var_or_idx)
 
-                if not(os.path.isdir(d)):
+                if not os.path.isdir(d):
                     utils.log("This combination does not exist.", True)
                     continue
 
@@ -285,7 +285,7 @@ def calc_stats(cat):
                             # Convert units.
                             if (cat == cfg.cat_scen) and (rcp != cfg.rcp_ref) and \
                                (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
-                                    val = val - 273.15
+                                val = val - 273.15
                             elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
                                 val = val * cfg.spd
 

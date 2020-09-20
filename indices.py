@@ -57,7 +57,7 @@ def generate(idx_name, idx_threshs):
             if not(os.path.isdir(cfg.get_d_sim(stn, cfg.cat_qqmap, var))):
                 vars_avail = False
                 break
-        if not(vars_avail):
+        if not vars_avail:
             continue
 
         # Loop through emissions scenarios.
@@ -85,7 +85,7 @@ def generate(idx_name, idx_threshs):
                 else:
                     p_format = cfg.get_d_sim(stn, cfg.cat_qqmap, "") + var + "/*_" + rcp + ".nc"
                     p_sim_i = glob.glob(p_format)
-                if not(p_sim_i):
+                if not p_sim_i:
                     p_sim = []
                 else:
                     p_sim.append(p_sim_i)
@@ -109,7 +109,7 @@ def generate(idx_name, idx_threshs):
 
                 # Adjust units.
                 idx_threshs_str = []
-                for i in range(0, len(ds_scen)):
+                for _ in range(0, len(ds_scen)):
                     if rcp == cfg.rcp_ref:
                         for idx_thresh in idx_threshs:
                             idx_threshs_str.append(str(idx_thresh) + " C")
@@ -124,6 +124,7 @@ def generate(idx_name, idx_threshs):
                 #       priority.
 
                 idx_units = None
+                arr_idx = None
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.BEGIN
@@ -167,7 +168,7 @@ def generate(idx_name, idx_threshs):
                 if rcp == cfg.rcp_ref:
                     year_1 = max(cfg.per_ref[0], int(str(ds_scen[0]["time"][0].values)[0:4]))
                     year_n = min(cfg.per_ref[1], int(str(ds_scen[0]["time"][len(ds_scen[0]["time"]) - 1].values)[0:4]))
-                ds_idx["time"] =  utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
+                ds_idx["time"] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
 
                 # Save result to NetCDF file.
                 if rcp == cfg.rcp_ref:
@@ -207,15 +208,18 @@ def run():
         utils.log("=")
         utils.log("Generating time series.", True)
 
-        # Time series.
         for i in range(len(cfg.idx_names)):
             plot.plot_ts(cfg.idx_names[i], cfg.idx_threshs[i])
 
-        utils.log("=")
-        utils.log("Generating heat maps.", True)
+        # Perform interpolation (requires multiples stations).
+        # Heat maps are not generated:
+        # - the result is not good with a limited number of stations;
+        # - calculation is very slow (something is wrong).
+        if cfg.opt_plot_heat and (len(cfg.stns) > 1):
 
-        # Interpolation requires multiples stations.
-        if len(cfg.stns) > 1:
+            utils.log("=")
+            utils.log("Generating heat maps.", True)
+
             for i in range(len(cfg.idx_names)):
 
                 # Reference period.
@@ -224,6 +228,7 @@ def run():
                 # Future period.
                 for rcp in cfg.rcps:
                     plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors)
+
 
 if __name__ == "__main__":
     run()

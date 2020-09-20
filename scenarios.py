@@ -26,6 +26,7 @@ import xarray as xr
 from qm import train, predict
 from scipy.interpolate import griddata
 
+
 def load_observations(var):
 
     """
@@ -120,7 +121,7 @@ def load_observations(var):
                 da.attrs["long_name"]     = "Precipitation"
                 da.attrs["units"]         = "kg m-2 s-1"
                 da.attrs["grid_mapping"]  = "regular_lon_lat"
-                da.attrs["comments"]      = "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
+                da.attrs["comments"] = "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
 
             # Temperature.
             else:
@@ -375,7 +376,7 @@ def preprocess(var, p_obs, p_obs_fut, p_regrid, p_regrid_ref, p_regrid_fut):
     utils.save_dataset(ds_ref, p_regrid_ref)
 
 
-def postprocess(var, stn, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, p_qqmap):
+def postprocess(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, p_qqmap):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -385,8 +386,6 @@ def postprocess(var, stn, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fu
     ----------
     var : str
         Weather variable.
-    stn : str
-        Station name.
     nq : int
         ...
     up_qmf : float
@@ -639,7 +638,7 @@ def generate():
                     msg = "Step #5bc Statistical downscaling and bias adjustment is "
                     if cfg.opt_scen_postprocess and not(os.path.isfile(p_qqmap)):
                         utils.log(msg + "running")
-                        postprocess(var, stn, int(nq), up_qmf, int(time_win), p_obs, p_regrid_ref,
+                        postprocess(var, int(nq), up_qmf, int(time_win), p_obs, p_regrid_ref,
                                     p_regrid_fut, p_qqmap)
                     else:
                         utils.log(msg + "not required")
@@ -654,7 +653,7 @@ def generate():
                         plot.plot_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
                         # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
                         p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/workflow", var) +\
-                                p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
+                            p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
                         plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
 
@@ -694,11 +693,15 @@ def run():
         for var in cfg.variables_cordex:
             plot.plot_ts(var)
 
-        utils.log("=")
-        utils.log("Generating heat maps.", True)
+        # Perform interpolation (requires multiples stations).
+        # Heat maps are not generated:
+        # - the result is not good with a limited number of stations;
+        # - calculation is very slow (something is wrong).
+        if cfg.opt_plot_heat and (len(cfg.stns) > 1):
 
-        # Interpolation requires multiples stations.
-        if len(cfg.stns) > 1:
+            utils.log("=")
+            utils.log("Generating heat maps.", True)
+
             for i in range(len(cfg.variables_cordex)):
 
                 # Reference period.
@@ -707,6 +710,7 @@ def run():
                 # Future period.
                 for rcp in cfg.rcps:
                     plot.plot_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors)
+
 
 if __name__ == "__main__":
     run()

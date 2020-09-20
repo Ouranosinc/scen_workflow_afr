@@ -10,6 +10,7 @@
 
 import config as cfg
 import glob
+import logging
 import numpy as np
 import os
 import utils
@@ -83,9 +84,9 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
                 p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
                 if not p_list:
                     p_ref  = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
-                             cfg.cat_raw + "/" + var + "/*.nc"
+                        cfg.cat_raw + "/" + var + "/*.nc"
                     p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
-                             cfg.cat_raw + "/" + var + "/*.nc"
+                        cfg.cat_raw + "/" + var + "/*.nc"
                     p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
                 index_ts = index_ts+1
 
@@ -98,8 +99,9 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
             grid = ds[var].attrs["grid_mapping"]
             # Rotated_pole gets borked during subset.
             ds_subset[grid] = ds[grid]
-        except:
-            utils.log("Warning: Could not overwrite grid mapping", True)
+        except Exception as e:
+            utils.log("Warning: Could not overwrite grid mapping:", True)
+            logging.exception(e)
 
     # CRCM5-Ouranos ----------------------------------------------------------------------------------------------------
 

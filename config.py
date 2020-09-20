@@ -30,18 +30,18 @@ rcp_85              = "rcp85"       # Future period RCP 8.5.
 # ==========================================================
 
 # Variables (cordex).
-var_cordex_tas      = "tas"         # Temperature (daily mean).
-var_cordex_tasmin   = "tasmin"      # Temperature (daily minimum).
-var_cordex_tasmax   = "tasmax"      # Temperature (daily maximum).
-var_cordex_pr       = "pr"          # Precipitation.
-var_cordex_uas      = "uas"         # Wind speed, eastward.
-var_cordex_vas      = "vas"         # Wind speed, northward.
-var_cordex_ps       = "ps"          # Barometric pressure.
-var_cordex_rsds     = "rsds"        # Solar radiation.
-var_cordex_evapsbl  = "evapsbl"     # Evaporation.
-var_cordex_evapsblpt= "evapsblpt"   # Potential evapotranspiration.
-var_cordex_huss     = "huss"        # Specific humidity.
-var_cordex_clt      = "clt"         # Cloud cover.
+var_cordex_tas       = "tas"         # Temperature (daily mean).
+var_cordex_tasmin    = "tasmin"      # Temperature (daily minimum).
+var_cordex_tasmax    = "tasmax"      # Temperature (daily maximum).
+var_cordex_pr        = "pr"          # Precipitation.
+var_cordex_uas       = "uas"         # Wind speed, eastward.
+var_cordex_vas       = "vas"         # Wind speed, northward.
+var_cordex_ps        = "ps"          # Barometric pressure.
+var_cordex_rsds      = "rsds"        # Solar radiation.
+var_cordex_evapsbl   = "evapsbl"     # Evaporation.
+var_cordex_evapsblpt = "evapsblpt"   # Potential evapotranspiration.
+var_cordex_huss      = "huss"        # Specific humidity.
+var_cordex_clt       = "clt"         # Cloud cover.
 
 # Variables (era5 and era5_land).
 var_era5_t2m        = "t2m"         # Temperature.
@@ -189,14 +189,16 @@ radius                  = 0.5       # Search radius (around any given location).
 detrend_order           = None      # ???
 
 # Patch.
-sim_excepts             = []        # Simulation excluded from the analysis.
-                                    # Ex: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85",
-                                    #     "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
-                                    #     "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45.nc",
-                                    #     "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85.nc"
-var_sim_excepts         = []        # Simulation-variable combinations excluded from the analysis.
-                                    # Ex: "pr_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc",
-                                    #     "tasmin_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc
+# Simulation excluded from the analysis.
+# Ex1: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85",
+# Ex2: "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
+# Ex3: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45.nc",
+# Ex4: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85.nc"
+sim_excepts = []
+# Simulation-variable combinations excluded from the analysis.
+# Ex1: "pr_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc",
+# Ex2: "tasmin_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc
+var_sim_excepts = []
 
 # Step 5 - Bias adjustment and statistical downscaling -----------------------------------------------------------------
 
@@ -245,6 +247,7 @@ stat_quantiles      = [1.00, 0.99, 0.75, 0.50, 0.25, 0.01, 0.00]  # Quantiles.
 
 # Plots.
 opt_plot            = True          # If True, actives plot generation.
+opt_plot_heat       = False         # If True, generate heat maps (scenarios and indices).
 
 # Color associated with specific datasets (for consistency).
 col_sim_adj_ref     = "blue"        # Simulation (bias-adjusted) for the reference period.
@@ -342,26 +345,38 @@ def get_var_desc(var, set_name="cordex"):
     return var_desc
 
 
-def get_idx_desc(idx_name, idx_threshs):
+def get_idx_desc(idx_name, idx_threshs_loc):
 
-        """
-        ----------------------------------------------------------------------------------------------------------------
-        Gets the description of an index.
+    """
+    ----------------------------------------------------------------------------------------------------------------
+    Gets the description of an index.
 
-        Parameters
-        ----------
-        idx_name : str
-            Climate index.
-        idx_threshs : [[float]]]
-            Thresholds
-        ----------------------------------------------------------------------------------------------------------------
-        """
+    Parameters
+    ----------
+    idx_name : str
+        Climate index.
+    idx_threshs_loc : [[float]]]
+        Thresholds
+    ----------------------------------------------------------------------------------------------------------------
+    """
 
-        idx_desc = ""
-        if idx_name == idx_tx_days_above:
-            idx_desc = "Nombre de jours avec " + get_var_desc(var_cordex_tasmax).lower() + " > " + str(idx_threshs[0])
+    idx_desc = ""
 
-        return idx_desc
+    # ==========================================================
+    # TODO.CUSTOMIZATION.BEGIN
+    # When adding a new climate index, copy the following code
+    # block.
+    # ==========================================================
+
+    if idx_name == idx_tx_days_above:
+        idx_desc = "Nombre de jours avec " + get_var_desc(var_cordex_tasmax).lower() + " > " +\
+            str(idx_threshs_loc[0])
+
+    # ==========================================================
+    # TODO.CUSTOMIZATION.END
+    # ==========================================================
+
+    return idx_desc
 
 
 def get_var_unit(var, set_name="cordex"):

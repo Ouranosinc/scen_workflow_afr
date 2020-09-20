@@ -39,24 +39,24 @@ def load_params(p_ini):
     config = configparser.ConfigParser()
     config.read(p_ini)
 
-    def convert_to_1d(value, type):
+    def convert_to_1d(val, type):
 
         if type == str:
-            value_new = ast.literal_eval(value)
+            val_new = ast.literal_eval(val)
         else:
-            value = value.replace("[", "").replace("]", "").split(",")
-            value_new = [type(i) for i in value]
+            val = val.replace("[", "").replace("]", "").split(",")
+            val_new = [type(i) for i in val]
 
-        return value_new
+        return val_new
 
-    def convert_to_2d(value, type):
+    def convert_to_2d(val, type):
 
-        value_new = []
-        value = value[1:(len(value) - 1)].split("],")
-        for i in range(len(value)):
-            value_new.append(convert_to_1d(value[i], type))
+        val_new = []
+        val = val[1:(len(val) - 1)].split("],")
+        for i in range(len(val)):
+            val_new.append(convert_to_1d(val[i], type))
 
-        return value_new
+        return val_new
 
     # Loop through sections.
     for section in config.sections():
