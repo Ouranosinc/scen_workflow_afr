@@ -24,27 +24,49 @@ rcp_26              = "rcp26"       # Future period RCP 2.6.
 rcp_45              = "rcp45"       # Future period RCP 4.5.
 rcp_85              = "rcp85"       # Future period RCP 8.5.
 
+# Data array attributes.
+attrs_units         = "units"
+attrs_sname         = "standard_name"
+attrs_lname         = "long_name"
+attrs_axis          = "axis"
+attrs_gmap          = "grid_mapping"
+attrs_gmapname      = "grid_mapping_name"
+attrs_bias          = "bias_corrected"
+attrs_comments      = "comments"
+attrs_stn           = "Station Name"
+
+# Dataset dimensions.
+dim_lon       = "lon"
+dim_lat       = "lat"
+dim_rlon      = "rlon"
+dim_rlat      = "rlat"
+dim_longitude = "longitude"
+dim_latitude  = "latitude"
+dim_time      = "time"
+
 # ==========================================================
 # TODO.CUSTOMIZATION.BEGIN
 # Add new CORDEX AND ERA5* variables below.
 # ==========================================================
 
 # Variables (cordex).
-var_cordex_tas       = "tas"         # Temperature (daily mean).
-var_cordex_tasmin    = "tasmin"      # Temperature (daily minimum).
-var_cordex_tasmax    = "tasmax"      # Temperature (daily maximum).
-var_cordex_pr        = "pr"          # Precipitation.
-var_cordex_uas       = "uas"         # Wind speed, eastward.
-var_cordex_vas       = "vas"         # Wind speed, northward.
-var_cordex_ps        = "ps"          # Barometric pressure.
-var_cordex_rsds      = "rsds"        # Solar radiation.
-var_cordex_evapsbl   = "evapsbl"     # Evaporation.
-var_cordex_evapsblpt = "evapsblpt"   # Potential evapotranspiration.
-var_cordex_huss      = "huss"        # Specific humidity.
-var_cordex_clt       = "clt"         # Cloud cover.
+var_cordex_tas        = "tas"         # Temperature (daily mean).
+var_cordex_tasmin     = "tasmin"      # Temperature (daily minimum).
+var_cordex_tasmax     = "tasmax"      # Temperature (daily maximum).
+var_cordex_pr         = "pr"          # Precipitation.
+var_cordex_uas        = "uas"         # Wind speed, eastward.
+var_cordex_vas        = "vas"         # Wind speed, northward.
+var_cordex_ps         = "ps"          # Barometric pressure.
+var_cordex_rsds       = "rsds"        # Solar radiation.
+var_cordex_evapsbl    = "evapsbl"     # Evaporation.
+var_cordex_evapsblpot = "evapsblpot"   # Potential evapotranspiration.
+var_cordex_huss       = "huss"        # Specific humidity.
+var_cordex_clt        = "clt"         # Cloud cover.
 
 # Variables (era5 and era5_land).
 var_era5_t2m        = "t2m"         # Temperature.
+var_era5_t2mmin     = "t2mmin"      # Temperature (daily minimum).
+var_era5_t2mmax     = "t2mmax"      # Temperature (daily maximum).
 var_era5_tp         = "tp"          # Precipitation.
 var_era5_u10        = "u10"         # Wind speed, eastward.
 var_era5_v10        = "v10"         # Wind speed, northward.
@@ -90,6 +112,10 @@ freq_YS             = "YS"          # Annual.
 # Scenarios.
 group               = "time.dayofyear"  # Grouping period.
 
+# Kind.
+kind_add            = "+"               # Additive.
+kind_mult           = "*"               # Multiplicative.
+
 # Calibration.
 opt_calib_bias_meth_r2     = "r2"       # Coefficient of determination.
 opt_calib_bias_meth_mae    = "mae"      # Mean absolute error.
@@ -108,6 +134,7 @@ stat_quantile       = "quantile"    # Value associated with a given quantile.
 
 # Numerical parameters.
 spd                 = 86400         # Number of seconds per day.
+d_KC                = 273.15        # Temperature difference between Kelvin and Celcius.
 
 # Files.
 file_sep            = ","           # File separator (in CSV files).
@@ -144,9 +171,10 @@ priority_timestep   = ["day"] * len(variables_cordex)
 d_proj              = ""            # Projections.
 d_ra_raw            = ""            # Reanalysis set (default frequency, usually hourly).
 d_bounds            = ""            # geog.json file comprising political boundaries.
+d_bounds_shp        = ""            # Shapefile comprising political boundaries.
 # Output-only files and directories.
 d_sim               = ""            # Climate projections.
-d_stn               = ""            # Grid version of observations.
+d_stn               = ""            # Observations or reanalysis.
 # Input and output files and directories.
 d_exec              = ""            # Base directory #3 (stations and output).
 d_ra_day            = ""            # Reanalysis set (aggregated frequency, i.e. daily).
@@ -166,6 +194,7 @@ n_proc              = 1             # Number of processes (for multiprocessing).
 
 # Download.
 opt_download        = False         # If True, download a dataset.
+variables_download  = []            # Variables to download.
 lon_bnds_download   = [0, 0]        # Longitude boundaries.
 lat_bnds_download   = [0, 0]        # Latitude boundaries.
 
@@ -173,6 +202,8 @@ lat_bnds_download   = [0, 0]        # Latitude boundaries.
 opt_aggregate       = False         # If True, aggregate data.
 
 # Steps 3-4 - Data extraction and scenarios ----------------------------------------------------------------------------
+
+opt_ra                  = False      # If True, the analysis is based on reanalysis data.
 
 # Scenarios.
 opt_scen                = True      # If True, produce climate scenarios.
@@ -186,7 +217,7 @@ opt_scen_postprocess    = True      # If True, forces post-processing.
 lon_bnds                = [0, 0]    # Longitude boundaries.
 lat_bnds                = [0, 0]    # Latitude boundaries.
 radius                  = 0.5       # Search radius (around any given location).
-detrend_order           = None      # ???
+detrend_order           = None      # TODO.MAB: Seems not to be working.
 
 # Patch.
 # Simulation excluded from the analysis.
@@ -377,6 +408,39 @@ def get_idx_desc(idx_name, idx_threshs_loc):
     # ==========================================================
 
     return idx_desc
+
+
+def convert_var_name(var):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert from CORDEX variable name to the equivalent in the ERA5 set (or the opposite).
+
+    Parameters
+    ----------
+    var : str
+        Variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Pairs.
+    pairs = [[var_cordex_tas, var_era5_t2m], [var_cordex_tasmin, var_era5_t2mmin], [var_cordex_tasmax, var_era5_t2mmax],
+             [var_cordex_pr, var_era5_tp], [var_cordex_uas, var_era5_u10], [var_cordex_vas, var_era5_v10],
+             [var_cordex_ps, var_era5_sp], [var_cordex_rsds, var_era5_ssrd],
+             [var_cordex_evapsbl, var_era5_e], [var_cordex_evapsblpot, var_era5_pev], [var_cordex_huss, var_era5_sh]]
+
+    # Loop through pairs.
+    for i in range(len(pairs)):
+        var_type_a = pairs[i][0]
+        var_type_b = pairs[i][1]
+
+        # Verify if there is a match.
+        if var == var_type_a:
+            return var_type_b
+        elif var == var_type_b:
+            return var_type_a
+
+    return None
 
 
 def get_var_unit(var, set_name="cordex"):

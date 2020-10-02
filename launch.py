@@ -6,6 +6,28 @@
 # 1. rousseau.yannick@ouranos.ca
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
+# Notes:
+# 1. When using reanalysis data (instead of observations), the script requires a value of 1 in the following file:
+#      /proc/sys/vm/overcommit_memory
+#    If this is not the case, the following statement (from scenarios.extract()) will result in a memory error:
+#      new_grid_data = np.empty((t_len, lat_shp, lon_shp))
+#    To fix this issue, execute the following command:
+#      $ cat /proc/sys/vm/overcommit_memory
+#      $ echo 1 | sudo tee /proc/sys/vm/overcommit_memory
+#    The script also requires lots RAM or swap space (>64GB). Here is the procedure to do so on Ubuntu:
+#      $ sudo swapoff /swapfile
+#      $ swapon -s
+#      $ sudo fallocate -l 100G /swapfile
+#        or
+#        sudo dd if=/dev/zero of=/swapfile bs=1024 count=1048576
+#      $ sudo chmod 600 /swapfile
+#      $ sudo mkswap /swapfile
+#      $ sudo swapon /swapfile
+#      $ sudo gedit /etc/fstab
+#        /swapfile swap swap defaults 0 0
+#      $ sudo swapon --show
+#      $ sudo free -h
+# ----------------------------------------------------------------------------------------------------------------------
 
 # Current package.
 import aggregate
@@ -18,7 +40,6 @@ import indices
 import os
 import scenarios
 import scenarios_calib as scen_calib
-# import scenarios_verif as scen_verif
 import statistics as stat
 import utils
 
@@ -76,6 +97,9 @@ def load_params(p_ini):
             # OBSERVATIONS:
             elif key == "obs_src":
                 cfg.obs_src = ast.literal_eval(value)
+                cfg.opt_ra = (cfg.obs_src == cfg.obs_src_era5) or \
+                             (cfg.obs_src == cfg.obs_src_era5_land) and \
+                             (cfg.obs_src == cfg.obs_src_merra2)
             elif key == "obs_src_username":
                 cfg.obs_src_username = ast.literal_eval(value)
             elif key == "obs_src_password":
@@ -96,10 +120,14 @@ def load_params(p_ini):
                 cfg.per_hors = convert_to_2d(value, int)
             elif key == "variables_cordex":
                 cfg.variables_cordex = convert_to_1d(value, str)
+            elif key == "variables_ra":
+                cfg.variables_ra = convert_to_1d(value, str)
 
             # DATA:
             elif key == "opt_download":
                 cfg.opt_download = ast.literal_eval(value)
+            elif key == "variables_download":
+                cfg.variables_download = convert_to_1d(value, str)
             elif key == "lon_bnds_download":
                 cfg.lon_bnds_download = convert_to_1d(value, float)
             elif key == "lat_bnds_download":
@@ -117,7 +145,7 @@ def load_params(p_ini):
             elif key == "lat_bnds":
                 cfg.lat_bnds = convert_to_1d(value, float)
             elif key == "radius":
-                cfg.radius = value
+                cfg.radius = float(value)
             elif key == "sim_excepts":
                 cfg.sim_excepts = convert_to_1d(value, str)
             elif key == "var_sim_excepts":
@@ -135,11 +163,11 @@ def load_params(p_ini):
             elif key == "opt_calib_qqmap":
                 cfg.opt_calib_qqmap = ast.literal_eval(value)
             elif key == "nq_default":
-                cfg.nq_default = value
+                cfg.nq_default = int(value)
             elif key == "up_qmf_default":
-                cfg.up_qmf_default = value
+                cfg.up_qmf_default = float(value)
             elif key == "time_win_default":
-                cfg.time_win_default = value
+                cfg.time_win_default = int(value)
 
             # INDICES:
             elif key == "opt_idx":
@@ -158,12 +186,14 @@ def load_params(p_ini):
             # VISUALIZATION:
             elif key == "opt_plot":
                 cfg.opt_plot = ast.literal_eval(value)
+            elif key == "opt_plot_heat":
+                cfg.opt_plot_heat = ast.literal_eval(value)
             elif key == "d_bounds":
                 cfg.d_bounds = ast.literal_eval(value)
 
             # ENVIRONMENT:
             elif key == "n_proc":
-                cfg.n_proc = value
+                cfg.n_proc = int(value)
             elif key == "d_exec":
                 cfg.d_exec = ast.literal_eval(value)
             elif key == "d_proj":
@@ -192,8 +222,7 @@ def main():
 
     # The following variables are determined automatically.
     d_base = cfg.d_exec + cfg.country + "/" + cfg.project + "/"
-    if (cfg.obs_src != cfg.obs_src_era5) and (cfg.obs_src != cfg.obs_src_era5_land):
-        cfg.d_stn = d_base + cfg.cat_obs + "/" + cfg.obs_src + "/"
+    cfg.d_stn = d_base + cfg.cat_obs + "/" + cfg.obs_src + "/"
     cfg.d_sim = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
     if cfg.d_bounds != "":
         cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
@@ -217,19 +246,20 @@ def main():
 
     # Display configuration.
     utils.log("=")
-    utils.log("Country            : " + cfg.country)
-    utils.log("Project            : " + cfg.project)
-    utils.log("CORDEX variables   : " + str(cfg.variables_cordex))
+    utils.log("Country                : " + cfg.country)
+    utils.log("Project                : " + cfg.project)
+    utils.log("Variables (CORDEX)     : " + str(cfg.variables_cordex))
     for i in range(len(cfg.idx_names)):
-        utils.log("Climate index #" + str(i + 1) + "   : " + cfg.idx_names[i] + str(cfg.idx_threshs[i]))
+        utils.log("Climate index #" + str(i + 1) + "       : " + cfg.idx_names[i] + str(cfg.idx_threshs[i]))
     if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
-        utils.log("Reanalysis         : " + cfg.obs_src)
+        utils.log("Reanalysis set         : " + cfg.obs_src)
+        utils.log("Variables (reanalysis) : " + str(cfg.variables_ra))
     else:
-        utils.log("Stations           : " + str(cfg.stns))
-    utils.log("Emission scenarios : " + str(cfg.rcps))
-    utils.log("Reference period   : " + str(cfg.per_ref))
-    utils.log("Future period      : " + str(cfg.per_fut))
-    utils.log("Horizons           : " + str(cfg.per_hors))
+        utils.log("Stations               : " + str(cfg.stns))
+    utils.log("Emission scenarios     : " + str(cfg.rcps))
+    utils.log("Reference period       : " + str(cfg.per_ref))
+    utils.log("Future period          : " + str(cfg.per_fut))
+    utils.log("Horizons               : " + str(cfg.per_hors))
 
     # Step #2: Download and aggregation --------------------------------------------------------------------------------
 
@@ -329,17 +359,20 @@ def main():
     scenarios.run()
 
     # DEBUG: This following statement is optional. It is useful to verify the generated NetCDF files.
+    # DEBUG: import scenarios_verif as scen_verif
     # DEBUG: scen_verif.run()
 
     # Step #6: Indices -------------------------------------------------------------------------------------------------
 
     # Calculation of indices.
-    indices.run()
+    if not cfg.opt_ra:
+        indices.run()
 
     # Step #7: Statistics ----------------------------------------------------------------------------------------------
 
     # Calculation of statistics.
-    stat.run()
+    if not cfg.opt_ra:
+        stat.run()
 
     utils.log("=")
     utils.log("Script completed successfully.")

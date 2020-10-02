@@ -59,7 +59,7 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
 
     # CORDEX or CORDEX-NA ----------------------------------------------------------------------------------------------
 
-    if "CORDEX" in d_ref:
+    if "cordex" in d_ref.lower():
 
         # Find the data at the requested timestep.
         p_ref  = d_ref.replace("/*/", "/" + priority_timestep + "/") + var + "/*.nc"
@@ -91,12 +91,12 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
                 index_ts = index_ts+1
 
         # Extract the files with xarray.
-        ds = xr.open_mfdataset(p_list, chunks={"time": 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
+        ds = xr.open_mfdataset(p_list, chunks={cfg.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
                                combine="by_coords")
         ds_subset = ds.sel(rlat=slice(min(lat_bnds), max(lat_bnds)), rlon=slice(min(lon_bnds), max(lon_bnds))).\
             sel(time=slice(str(min(all_yr)), str(max(all_yr))))
         try:
-            grid = ds[var].attrs["grid_mapping"]
+            grid = ds[var].attrs[cfg.attrs_gmap]
             # Rotated_pole gets borked during subset.
             ds_subset[grid] = ds[grid]
         except Exception as e:
@@ -110,8 +110,8 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
         suffix = "/series/" + ("[0-9]"*6) + "/" + var + "_*.nc"
 
         # List files for the reference and future periods.
-        p_ref_list = glob.glob(cfg.dir_crcm5 + d_ref + suffix)
-        p_fut_list = glob.glob(cfg.dir_crcm5 + d_fut + suffix)
+        p_ref_list = glob.glob(cfg.d_proj + d_ref + suffix)
+        p_fut_list = glob.glob(cfg.d_proj + d_fut + suffix)
         p_all_list = p_ref_list + p_fut_list
 
         # Because there is so much data, we only keep the files for the years we actually want.
@@ -125,10 +125,10 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
         for y in np.arange(all_yr[0], all_yr[len(all_yr)-1], 10):
 
             sub_files = [f for f in p_list if "/" + str(y) in f]
-            for yy in range(y+1, y+10):
+            for yy in range(y + 1, y + 10):
                 sub_files.extend([f for f in p_list if "/" + str(yy) in f])
 
-            ds_tmp = xr.open_mfdataset(sub_files, chunks={"time": 31},
+            ds_tmp = xr.open_mfdataset(sub_files, chunks={cfg.dim_time: 31},
                                        drop_variables=["time_vectors", "ts", "time_bnds"])
 
             # Spatio-temporal averaging.
@@ -142,7 +142,7 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
             utils.save_dataset(ds_subset_tmp, tmpdir + str(y) + ".nc")
 
         p_list_new = sorted(glob.glob(tmpdir + ("[0-9]"*4) + ".nc"))
-        ds_subset = xr.open_mfdataset(p_list_new, chunks={"time": 365})
+        ds_subset = xr.open_mfdataset(p_list_new, chunks={cfg.dim_time: 365})
 
         # Remove temporary files.
         for f in p_list_new:

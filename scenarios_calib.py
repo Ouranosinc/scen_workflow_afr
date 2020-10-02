@@ -2,6 +2,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Quantile mapping functions.
 # This requires installing package SciTools (when xr.DataArray.time.dtype=cfg.dtype_obj).
+# TODO: Functions in this class should probably be included in scenarios.py to avoid a circular relationship.
 #
 # Authors:
 # 1. rousseau.yannick@ouranos.ca
@@ -13,11 +14,9 @@ import config as cfg
 import numpy as np
 import os
 import pandas as pd
-import plot
 import scenarios as scen
 import utils
 import xarray as xr
-from qm import train, predict
 
 
 def bias_correction(stn, var, sim_name=""):
@@ -83,17 +82,14 @@ def bias_correction(stn, var, sim_name=""):
                             utils.log(msg + p_regrid_fut, True)
                         continue
 
-                    # Calculate QQmap.
-                    scen.postprocess(var, int(nq), up_qmf, int(time_win), p_obs, p_regrid_ref, p_regrid_fut, "")
-
                     # Path and title of calibration figure.
                     fn_fig = var + "_" + sim_name_i + "_calibration.png"
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
                     p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/calibration", var) + comb + "/" + fn_fig
 
-                    # Examine bias correction.
-                    bias_correction_spec(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", title, p_fig)
+                    # Calculate QQ and generate calibration plots.
+                    scen.postprocess(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", title, p_fig)
 
                     # Error --------------------------------------------------------------------------------------------
 
@@ -119,117 +115,10 @@ def bias_correction(stn, var, sim_name=""):
             cfg.df_calib.to_csv(cfg.p_calib)
 
 
-def bias_correction_spec(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, title, p_fig):
-
-    """
-    -------------------------------------------------------------------------------------------------------------------
-    Performs bias correction.
-
-    Parameters
-    ----------
-    var : str
-        Weather variable.
-    nq : float
-        Number of quantiles
-    up_qmf : float
-        Upper limit for quantile mapping function.
-    time_win : float
-        Windows size (i.e. number of days before + number of days after).
-    p_obs : str
-        NetCDF file of observations.
-    p_ref : str
-        NetCDF file of simulation for the reference period.
-    p_fut : str
-        NetCDF file of simulation for the future period.
-    p_qqmap : str
-        NetCDF file of qqmap.
-    title : str
-        Title of figure.
-    p_fig : str
-        Path of figure.
-    -------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Datasets.
-    ds_obs = xr.open_dataset(p_obs)[var].squeeze()
-    ds_ref = xr.open_dataset(p_ref)[var]
-    ds_fut = xr.open_dataset(p_fut)[var]
-
-    # DELETE: Amount of precipitation in winter.
-    # DELETE: if var == cfg.var_cordex_pr:
-    # DELETE:     pos_ref = (ds_ref.time.dt.month >= 11) | (ds_ref.time.dt.month <= 3)
-    # DELETE:     pos_fut = (ds_fut.time.dt.month >= 11) | (ds_fut.time.dt.month <= 3)
-    # DELETE:     ds_ref[pos_ref] = 1e-8
-    # DELETE:     ds_fut[pos_fut] = 1e-8
-    # DELETE:     ds_ref.values[ds_ref<1e-7] = 0
-    # DELETE:     ds_fut.values[ds_fut<1e-7] = 0
-
-    # Information for post-processing ---------------------------------------------------------------------------------
-
-    # Precipitation.
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
-        kind = "*"
-        ds_obs.interpolate_na(dim="time")
-    # Temperature.
-    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        ds_obs  = ds_obs + 273.15
-        ds_obs  = ds_obs.interpolate_na(dim="time")
-        kind = "+"
-    # Other variables.
-    else:
-        ds_obs = ds_obs.interpolate_na(dim="time")
-        kind = "+"
-
-    # Calculate/read quantiles -----------------------------------------------------------------------------------------
-
-    # Calculate QMF.
-    ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), int(nq), cfg.group, kind, int(time_win),
-                   detrend_order=cfg.detrend_order)
-
-    # Calculate QQMAP.
-    if cfg.opt_calib_qqmap:
-        if var == cfg.var_cordex_pr:
-            ds_qmf.values[ds_qmf > up_qmf] = up_qmf
-        ds_qqmap = predict(ds_fut.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
-
-    # Read QQMAP.
-    else:
-        ds_qqmap = xr.open_dataset(p_qqmap)[var]
-
-    ds_qqmap_ref = ds_qqmap.where((ds_qqmap.time.dt.year >= cfg.per_ref[0]) &
-                                  (ds_qqmap.time.dt.year <= cfg.per_ref[1]), drop=True)
-
-    # Conversion coefficients.
-    coef_1 = 1
-    coef_2 = 1
-    delta = 0
-    if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        delta = -273.15
-    elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
-        coef_1 = cfg.spd
-        coef_2 = 365
-    ds_qmf       = ds_qmf * coef_2 + delta
-    ds_qqmap_ref = ds_qqmap_ref * coef_1 + delta
-    ds_obs       = ds_obs * coef_1 + delta
-    ds_ref       = ds_ref * coef_1 + delta
-    ds_fut       = ds_fut * coef_1 + delta
-    ds_qqmap     = ds_qqmap * coef_1 + delta
-
-    # Create plots -----------------------------------------------------------------------------------------------------
-
-    # Generate big summary plot.
-    if cfg.opt_plot:
-        plot.plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, title, p_fig)
-
-    # Generate time series only.
-    if cfg.opt_plot:
-        plot.plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig.replace(".png", "_ts.png"))
-
-
 def init_calib_params():
 
     """
-    -----------------------------------------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------------------------------------------
     Initialize calibration parameters.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -243,6 +132,11 @@ def init_calib_params():
     # List CORDEX files.
     list_cordex = utils.list_cordex(cfg.d_proj, cfg.rcps)
 
+    # Stations.
+    stns = cfg.stns
+    if cfg.opt_ra:
+        stns = [cfg.obs_src]
+
     # List simulation names, stations and variables.
     sim_name_list = []
     stn_list = []
@@ -252,7 +146,7 @@ def init_calib_params():
         for i_sim in range(0, len(list_cordex[rcp])):
             list_i = list_cordex[rcp][i_sim].split("/")
             sim_name = list_i[cfg.get_rank_inst()] + "_" + list_i[cfg.get_rank_inst() + 1]
-            for stn in cfg.stns:
+            for stn in stns:
                 for var in cfg.variables_cordex:
                     sim_name_list.append(sim_name)
                     stn_list.append(stn)
@@ -289,7 +183,7 @@ def adjust_date_format(ds):
     """
 
     dates = ds.cftime_range(start="0001", periods=24, freq="MS", calendar=cfg.cal_noleap)
-    da    = xr.DataArray(np.arange(24), coords=[dates], dims=["time"], name="ds")
+    da    = xr.DataArray(np.arange(24), coords=[dates], dims=[cfg.dim_time], name="ds")
 
     return da
 

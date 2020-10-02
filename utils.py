@@ -11,6 +11,7 @@
 # Other packages.
 import config as cfg
 import glob
+import math
 import matplotlib.pyplot
 import numpy as np
 import numpy.matlib
@@ -317,7 +318,7 @@ def sfcwind_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
     daily_avg_angle = 0.0
     if resample is not None:
 
-        sfcwind = sfcwind.resample(time=resample).mean(dim="time", keep_attrs=True)
+        sfcwind = sfcwind.resample(time=resample).mean(dim=cfg.dim_time, keep_attrs=True)
 
         # TODO.MAB: Remove nb_per_day and calculate it.
 
@@ -440,7 +441,7 @@ def calendar(x, n_days_old=360, n_days_new=365):
 
     Parameters
     ----------
-    x : xarray
+    x : xarray.Dataset
         Dataset.
     n_days_old: int
         Number of days in the old calendar.
@@ -452,10 +453,10 @@ def calendar(x, n_days_old=360, n_days_new=365):
     x["backup"] = x.time
 
     # Put 360 on 365 calendar.
-    ts         = x.assign_coords(time=x.time.dt.dayofyear / n_days_old * n_days_new)
-    ts_year    = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * n_days_new
-    ts_time    = ts.time.values
-    ts["time"] = ts_year + ts_time
+    ts      = x.assign_coords(time=x.time.dt.dayofyear / n_days_old * n_days_new)
+    ts_year = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * n_days_new
+    ts_time = ts.time.values
+    ts[cfg.dim_time] = ts_year + ts_time
 
     nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0])+1
     time_new = np.arange(1, (nb_year*n_days_new)+1)
@@ -481,7 +482,7 @@ def calendar(x, n_days_old=360, n_days_new=365):
     ref_365 = ts.interp(time=time_new, kwargs={"fill_value": "extrapolate"}, method="nearest")
 
     # Recreate 365 time series.
-    ref_365["time"] = time_date
+    ref_365[cfg.dim_time] = time_date
 
     # DEBUG: Plot data.
     # DEBUG: plt.plot(np.arange(1,n_days_new+1),ref_365[:n_days_new].values)
@@ -634,6 +635,7 @@ def create_multi_dict(n, data_type):
 
 
 def calc_error(values_obs, values_pred):
+
     """
     -------------------------------------------------------------------------------------------------------------------
     Calculate the error between observed and predicted values.
@@ -767,3 +769,69 @@ def save_plot(plot, p):
 
     # Create PNG file.
     plot.savefig(p)
+
+
+def subset_lon_lat(ds, lon_bnds=None, lat_bnds=None):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Subset a dataset using a box described by a range of longitudes and latitudes.
+    That's probably not the best way to do it, but using 'xarray.sel' and 'xarray.where' did not work.
+    The rank of cells is increasing for longitude and is decreasing for latitude.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset.
+    lon_bnds : [float], optional
+        Longitude boundaries.
+    lat_bnds : [float], optional
+        Latitude boundaries.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+    if lon_bnds is None:
+        lon_bnds = cfg.lon_bnds
+    if lat_bnds is None:
+        lat_bnds = cfg.lat_bnds
+
+    # Latitude.
+    if cfg.dim_latitude in ds.dims:
+        n_lat = len(ds.latitude)
+        lat_min = ds.latitude.min()
+        lat_max = ds.latitude.max()
+    else:
+        n_lat = len(ds.rlat)
+        lat_min = ds.rlat.min()
+        lat_max = ds.rlat.max()
+
+    # Longitude.
+    if cfg.dim_longitude in ds.dims:
+        n_lon = len(ds.longitude)
+        lon_min = ds.longitude.min()
+        lon_max = ds.longitude.max()
+    else:
+        n_lon = len(ds.rlon)
+        lon_min = ds.rlon.min()
+        lon_max = ds.rlon.max()
+
+    # Calculate latitude.
+    lat_range = lat_max - lat_min
+    i_lat_min = math.floor((lat_max - lat_bnds[1]) / lat_range * n_lat)
+    i_lat_max = math.ceil((lat_max - lat_bnds[0]) / lat_range * n_lat)
+    if lat_bnds[0] == lat_bnds[1]:
+        i_lat_max = i_lat_min
+
+    # Calculate longitude.
+    lon_range = lon_max - lon_min
+    i_lon_min = math.floor((lon_bnds[0] - lon_min) / lon_range * n_lon)
+    i_lon_max = math.ceil((lon_bnds[1] - lon_min) / lon_range * n_lon)
+    if lon_bnds[0] == lon_bnds[1]:
+        i_lon_max = i_lon_min
+
+    # Slice.
+    if cfg.dim_latitude in ds.dims:
+        ds = ds.isel(latitude=slice(i_lat_min, i_lat_max), longitude=slice(i_lon_min, i_lon_max))
+    else:
+        ds = ds.isel(rlat=slice(i_lat_min, i_lat_max), rlon=slice(i_lon_min, i_lon_max))
+
+    return ds

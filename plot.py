@@ -98,7 +98,7 @@ def plot_dayofyear(ds_day, set_name, var, date):
     # Plot.
     fs = 10
     ds_day_sel.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                               cbar_kwargs=dict(orientation='vertical', pad=0.05, shrink=1, label=var_desc))
+                               cbar_kwargs=dict(orientation="vertical", pad=0.05, shrink=1, label=var_desc))
     plt.title(date)
     plt.suptitle("", fontsize=fs)
     plt.xlabel("Longitude (º)", fontsize=fs)
@@ -139,8 +139,18 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
 
     # Load datasets.
     ds_obs = xr.open_dataset(p_obs)[var]
+    if cfg.dim_longitude in ds_obs.dims:
+        ds_obs = ds_obs.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
     ds_fut = xr.open_dataset(p_fut)[var]
     ds_qqmap = xr.open_dataset(p_qqmap)[var]
+
+    # Select the cells to plot.
+    if cfg.opt_ra and (len(ds_obs.rlat) > 1) or (len(ds_obs.rlon) > 1):
+        lon_mean = round(float(ds_obs.rlon.mean()))
+        lat_mean = round(float(ds_obs.rlat.mean()))
+        ds_obs = ds_obs.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+        ds_fut = ds_fut.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+        ds_qqmap = ds_qqmap.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -149,10 +159,10 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
     # Conversion coefficient.
     coef = 1
     delta = 0
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd * 365
-    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        delta = -273.15
+    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax] and cfg.opt_ra:
+        delta = -cfg.d_KC
 
     # Plot.
     f = plt.figure(figsize=(15, 3))
@@ -166,7 +176,7 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
         legend_items.insert(0, "Sim. ajustée")
         (ds_qqmap * coef + delta).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
     (ds_fut * coef + delta).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
-    (ds_obs * coef).groupby(ds_obs.time.dt.year).mean().plot(color=cfg.col_obs)
+    (ds_obs * coef + delta).groupby(ds_obs.time.dt.year).mean().plot(color=cfg.col_obs)
 
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
@@ -174,8 +184,8 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.title("")
     plt.suptitle(title, fontsize=fs_sup_title)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
 
     # Save plot.
     if p_fig != "":
@@ -218,13 +228,20 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     ds_ref = xr.open_dataset(p_regrid_ref)[var]
     ds_fut = xr.open_dataset(p_regrid_fut)[var]
 
+    # Select the cells to plot.
+    if cfg.opt_ra and (len(ds_ref.rlat) > 1) or (len(ds_ref.rlon) > 1):
+        lon_mean = round(float(ds_ref.rlon.mean()))
+        lat_mean = round(float(ds_ref.rlat.mean()))
+        ds_ref = ds_ref.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+        ds_fut = ds_fut.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+
     # Conversion coefficients.
     coef = 1
     delta = 0
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd
     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        delta = -273.15
+        delta = -cfg.d_KC
 
     # Fit.
     x     = [*range(len(ds_ref.time))]
@@ -246,7 +263,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 
     # Convert date format if the need is.
     if ds_ref.time.dtype == cfg.dtype_obj:
-        ds_ref["time"] = utils.reset_calendar(ds_ref)
+        ds_ref[cfg.dim_time] = utils.reset_calendar(ds_ref)
 
     # Upper plot: Reference period.
     f.add_subplot(211)
@@ -255,8 +272,8 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     plt.legend(["Simulation (pér. référence)", "Tendance"], fontsize=fs_legend, frameon=False)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
     plt.title("Tendance", fontsize=fs_title)
 
     # Lower plot: Complete simulation.
@@ -271,8 +288,8 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
                fontsize=fs_legend, frameon=False)
     plt.xlabel("Jours", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
     plt.title("Variation autour de la moyenne (prédiction basée sur une équation quartique)", fontsize=fs_title)
 
     # Save plot.
@@ -335,8 +352,8 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
     ds_qmf.plot()
     plt.xlabel("Quantile", fontsize=fs_axes)
     plt.ylabel("Jour de l'année", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
 
     legend_items = ["Sim. ajustée (pér. réf.)", "Sim. (pér. réf.)", "Observations",
                     "Sim. ajustée", "Sim."]
@@ -345,7 +362,7 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
 
     # Plot.
     f.add_subplot(432)
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, cfg.stat_sum)
     else:
         draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, cfg.stat_mean)
@@ -355,8 +372,8 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
     plt.xticks(np.arange(1, 13, 1))
     plt.xlabel("Mois", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
 
     # Mean, Q100, Q99, Q75, Q50, Q25, Q01 and Q00 monthly values -------------------------------------------------------
 
@@ -380,16 +397,16 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
         plt.legend(legend_items, fontsize=fs_legend, frameon=False)
         plt.title(title, fontsize=fs_title)
-        plt.tick_params(axis='x', labelsize=fs_axes)
-        plt.tick_params(axis='y', labelsize=fs_axes)
+        plt.tick_params(axis="x", labelsize=fs_axes)
+        plt.tick_params(axis="y", labelsize=fs_axes)
 
     # Time series ------------------------------------------------------------------------------------------------------
 
     # Convert date format if the need is.
     if ds_qqmap.time.time.dtype == cfg.dtype_obj:
-        ds_qqmap["time"] = utils.reset_calendar(ds_qqmap.time)
+        ds_qqmap[cfg.dim_time] = utils.reset_calendar(ds_qqmap.time)
     if ds_ref.time.time.dtype == cfg.dtype_obj:
-        ds_ref["time"] = utils.reset_calendar(ds_ref.time)
+        ds_ref[cfg.dim_time] = utils.reset_calendar(ds_ref.time)
 
     plt.subplot(313)
     ds_qqmap.plot.line(alpha=0.5, color=cfg.col_sim_adj)
@@ -401,11 +418,11 @@ def plot_calib(ds_qmf, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, var, sup_
     plt.title("")
 
     f.suptitle(var + "_" + sup_title, fontsize=fs_sup_title)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
 
-    if "bias_corrected" in ds_qqmap.attrs:
-        del ds_qqmap.attrs["bias_corrected"]
+    if cfg.attrs_bias in ds_qqmap.attrs:
+        del ds_qqmap.attrs[cfg.attrs_bias]
 
     # Save plot.
     if p_fig != "":
@@ -440,11 +457,11 @@ def plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig):
 
     # Convert date format if the need is.
     if ds_qqmap.time.dtype == cfg.dtype_obj:
-        ds_qqmap["time"] = utils.reset_calendar(ds_qqmap)
+        ds_qqmap[cfg.dim_time] = utils.reset_calendar(ds_qqmap)
     if ds_fut.time.dtype == cfg.dtype_obj:
-        ds_fut["time"] = utils.reset_calendar(ds_fut)
+        ds_fut[cfg.dim_time] = utils.reset_calendar(ds_fut)
     if ds_obs.time.dtype == cfg.dtype_obj:
-        ds_obs["time"] = utils.reset_calendar(ds_obs)
+        ds_obs[cfg.dim_time] = utils.reset_calendar(ds_obs)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -468,8 +485,8 @@ def plot_calib_ts(ds_obs, ds_fut, ds_qqmap, var, title, p_fig):
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.title("")
     plt.suptitle(title, fontsize=fs_sup_title)
-    plt.tick_params(axis='x', labelsize=fs_axes)
-    plt.tick_params(axis='y', labelsize=fs_axes)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
 
     # Save plot.
     if p_fig != "":
@@ -532,8 +549,8 @@ def draw_curves(var, ds_qqmap_ref, ds_obs, ds_ref, ds_fut, ds_qqmap, stat, quant
         ds_qqmap.groupby(ds_qqmap.time.dt.month).mean().plot.line(color=cfg.col_sim_adj)
         ds_fut.groupby(ds_fut.time.dt.month).mean().plot.line(color=cfg.col_sim_fut)
     elif stat == cfg.stat_sum:
-        n_years_obs = ds_obs["time"].size / 365
-        n_years_sim = ds_fut["time"].size / 365
+        n_years_obs = ds_obs[cfg.dim_time].size / 365
+        n_years_sim = ds_fut[cfg.dim_time].size / 365
         (ds_qqmap_ref.groupby(ds_qqmap_ref.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_adj_ref)
         (ds_ref.groupby(ds_ref.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_ref)
         (ds_obs.groupby(ds_obs.time.dt.month).sum() / n_years_obs).plot.line(color=cfg.col_obs)
@@ -639,101 +656,169 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
     else:
         n_year = cfg.per_fut[1] - cfg.per_ref[1] + 1
 
-    # Get information on stations.
-    # TODO.YR: Coordinates should be embedded into ds_stat below.
-    p_stn = glob.glob(cfg.get_d_stn(cfg.var_cordex_tas) + "../*.csv")[0]
-    df = pd.read_csv(p_stn, sep=cfg.file_sep)
+    # List stations.
+    if not cfg.opt_ra:
+        stns = cfg.stns
+    else:
+        stns = [cfg.obs_src]
 
-    # Collect values for each station and determine overall boundaries.
-    utils.log("Collecting emissions scenarios at each station.", True)
-    x_bnds = []
-    y_bnds = []
-    data_stn = []
-    for stn in cfg.stns:
+    # Observations -----------------------------------------------------------------------------------------------------
 
-        # Get coordinates.
-        lon = df[df["station"] == stn]["lon"].values[0]
-        lat = df[df["station"] == stn]["lat"].values[0]
+    if not cfg.opt_ra:
 
-        # Calculate statistics.
-        if rcp == cfg.rcp_ref:
-            ds_stat = statistics.calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
-                                           cfg.stat_mean)
-        else:
-            ds_stat = statistics.calc_stat(cfg.cat_sim, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
-                                           cfg.stat_mean)
-        if ds_stat is None:
-            continue
+        # Get information on stations.
+        # TODO.YR: Coordinates should be embedded into ds_stat below.
+        p_stn = glob.glob(cfg.get_d_stn(cfg.var_cordex_tas) + "../*.csv")[0]
+        df = pd.read_csv(p_stn, sep=cfg.file_sep)
 
-        # Extract data from stations.
-        data = [[], [], []]
-        n = ds_stat.dims["time"]
-        for year in range(0, n):
+        # Collect values for each station and determine overall boundaries.
+        utils.log("Collecting emissions scenarios at each station.", True)
+        x_bnds = []
+        y_bnds = []
+        data_stn = []
+        for stn in stns:
 
-            # Collect data.
-            x = float(lon)
-            y = float(lat)
-            z = float(ds_stat[var_or_idx][0][0][year])
-            if math.isnan(z):
-                z = float(0)
-            data[0].append(x)
-            data[1].append(y)
-            data[2].append(z)
+            # Get coordinates.
+            lon = df[df["station"] == stn][cfg.dim_lon].values[0]
+            lat = df[df["station"] == stn][cfg.dim_lat].values[0]
 
-            # Update overall boundaries (round according to the variable 'step').
-            if not x_bnds:
-                x_bnds = [x, x]
-                y_bnds = [y, y]
+            # Calculate statistics.
+            if rcp == cfg.rcp_ref:
+                ds_stat = statistics.calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
+                                               cfg.stat_mean)
             else:
-                x_bnds = [min(x_bnds[0], x), max(x_bnds[1], x)]
-                y_bnds = [min(y_bnds[0], y), max(y_bnds[1], y)]
+                ds_stat = statistics.calc_stat(cfg.cat_sim, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
+                                               cfg.stat_mean)
+            if ds_stat is None:
+                continue
 
-        # Add data from station to complete dataset.
-        data_stn.append(data)
+            # Extract data from stations.
+            data = [[], [], []]
+            n = ds_stat.dims[cfg.dim_time]
+            for year in range(0, n):
 
-    # Build the list of x and y locations for which interpolation is needed.
-    utils.log("Collecting the coordinates of stations.", True)
-    grid_time = range(0, n_year)
+                # Collect data.
+                x = float(lon)
+                y = float(lat)
+                z = float(ds_stat[var_or_idx][0][0][year])
+                if math.isnan(z):
+                    z = float(0)
+                data[0].append(x)
+                data[1].append(y)
+                data[2].append(z)
 
-    def round_to_nearest_decimal(val, step):
-        if val < 0:
-            val_rnd = math.floor(val/step) * step
+                # Update overall boundaries (round according to the variable 'step').
+                if not x_bnds:
+                    x_bnds = [x, x]
+                    y_bnds = [y, y]
+                else:
+                    x_bnds = [min(x_bnds[0], x), max(x_bnds[1], x)]
+                    y_bnds = [min(y_bnds[0], y), max(y_bnds[1], y)]
+
+            # Add data from station to complete dataset.
+            data_stn.append(data)
+
+        # Build the list of x and y locations for which interpolation is needed.
+        utils.log("Collecting the coordinates of stations.", True)
+        grid_time = range(0, n_year)
+
+        def round_to_nearest_decimal(val, step):
+            if val < 0:
+                val_rnd = math.floor(val/step) * step
+            else:
+                val_rnd = math.ceil(val/step) * step
+            return val_rnd
+
+        for i in range(0, 2):
+            x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cfg.idx_resol)
+            y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cfg.idx_resol)
+        grid_x = np.arange(x_bnds[0], x_bnds[1] + cfg.idx_resol, cfg.idx_resol)
+        grid_y = np.arange(y_bnds[0], y_bnds[1] + cfg.idx_resol, cfg.idx_resol)
+
+        # Perform interpolation.
+        # There is a certain flexibility regarding the number of years in a dataset. Ideally, the station should not
+        # have been considered in the analysis, unless there is no better option.
+        utils.log("Performing interpolation.", True)
+        new_grid = np.meshgrid(grid_x, grid_y)
+        new_grid_data = np.empty((n_year, len(grid_y), len(grid_x)))
+        for i_year in range(0, n_year):
+            arr_x = []
+            arr_y = []
+            arr_z = []
+            for i_stn in range(len(data_stn)):
+                if i_year < len(data_stn[i_stn][0]):
+                    arr_x.append(data_stn[i_stn][0][i_year])
+                    arr_y.append(data_stn[i_stn][1][i_year])
+                    arr_z.append(data_stn[i_stn][2][i_year])
+            new_grid_data[i_year, :, :] =\
+                griddata((arr_x, arr_y), arr_z, (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
+        da_itp = xr.DataArray(new_grid_data,
+                              coords={cfg.dim_time: grid_time, cfg.dim_lat: grid_y, cfg.dim_lon: grid_x},
+                              dims=[cfg.dim_time, cfg.dim_lat, cfg.dim_lon])
+        ds_itp = da_itp.to_dataset(name=var_or_idx)
+
+    # Reanalysis -------------------------------------------------------------------------------------------------------
+
+    # There is no need to interpolate.
+    else:
+
+        # Reference period.
+        if rcp == cfg.rcp_ref:
+            p_itp = cfg.get_p_obs(cfg.obs_src, var_or_idx, "")
+            if not os.path.exists(p_itp):
+                return
+            ds_itp = xr.open_dataset(p_itp)
+
+        # Future period.
         else:
-            val_rnd = math.ceil(val/step) * step
-        return val_rnd
 
-    for i in range(0, 2):
-        x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cfg.idx_resol)
-        y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cfg.idx_resol)
-    grid_x = np.arange(x_bnds[0], x_bnds[1] + cfg.idx_resol, cfg.idx_resol)
-    grid_y = np.arange(y_bnds[0], y_bnds[1] + cfg.idx_resol, cfg.idx_resol)
+            # List simulations files for the current RCP.
+            d = cfg.get_d_sim(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
+            p_sim_list = glob.glob(d + "*.nc")
 
-    # Perform interpolation.
-    # There is a certain flexibility regarding the number of years in a dataset. Ideally, the station should not have
-    # been considered in the analysis, unless there is no better option.
-    utils.log("Performing interpolation.", True)
-    new_grid = np.meshgrid(grid_x, grid_y)
-    new_grid_data = np.empty((n_year, len(grid_y), len(grid_x)))
-    for i_year in range(0, n_year):
-        arr_x = []
-        arr_y = []
-        arr_z = []
-        for i_stn in range(len(data_stn)):
-            if i_year < len(data_stn[i_stn][0]):
-                arr_x.append(data_stn[i_stn][0][i_year])
-                arr_y.append(data_stn[i_stn][1][i_year])
-                arr_z.append(data_stn[i_stn][2][i_year])
-        new_grid_data[i_year, :, :] = griddata((arr_x, arr_y), arr_z, (new_grid[0], new_grid[1]), fill_value=np.nan,
-                                               method="linear")
-    da_idx = xr.DataArray(new_grid_data,
-                          coords={"time": grid_time, "lat": grid_y, "lon": grid_x}, dims=["time", "lat", "lon"])
-    ds_idx = da_idx.to_dataset(name=var_or_idx)
+            # Combine datasets.
+            ds_itp = None
+            n_sim = 0
+            units = None
+            for p_sim in p_sim_list:
+                if os.path.exists(p_sim) and (rcp in p_sim):
+                    ds_sim = xr.open_dataset(p_sim)
+                    if ds_itp is None:
+                        ds_itp = ds_sim
+                        units = ds_sim[var_or_idx].attrs[cfg.attrs_units]
+                    else:
+                        ds_itp = ds_itp + ds_sim
+                    n_sim = n_sim + 1
+            if ds_itp is None:
+                return
+            ds_itp = ds_itp / float(n_sim)
+            ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
+
+        # Adjust units.
+        if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
+           (ds_itp[var_or_idx].attrs[cfg.attrs_units] == "K"):
+            ds_itp = ds_itp - cfg.d_KC
+            ds_itp[var_or_idx].attrs[cfg.attrs_units] = "C"
+
+        # Adjust coordinate names.
+        # TODO.YR: Ideally, this should be done elsewhere.
+        if cfg.dim_longitude not in list(ds_itp.dims):
+            ds_itp = ds_itp.rename_dims({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+            ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_rlon]
+            del ds_itp[cfg.dim_rlon]
+            ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_rlat]
+            del ds_itp[cfg.dim_rlat]
+
+        grid_x = None
+        grid_y = None
+
+    # Clip -------------------------------------------------------------------------------------------------------------
 
     # Clip to country boundaries.
-    # TODO: Clipping is no longer working when launching the script from a terminal.
+    # TODO.YR: Clipping is not working when launching the script from a terminal.
     if cfg.d_bounds != "":
         try:
-            ds_idx = subset.subset_shape(ds_idx, cfg.d_bounds)
+            ds_itp = subset.subset_shape(ds_itp, cfg.d_bounds)
         except TypeError:
             utils.log("Unable to use a mask.", True)
 
@@ -751,11 +836,11 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
                 year_n = per_hor[1] - cfg.per_ref[1]
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
-                ds_hor = ds_idx[var_or_idx][year_1:(year_n+1)][:][:].mean("time", skipna=True)
+                ds_hor = ds_itp[var_or_idx][year_1:(year_n+1)][:][:].mean(cfg.dim_time, skipna=True)
 
             # Conversion coefficient.
             coef = 1
-            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                 coef = cfg.spd
 
             # Plot.
@@ -818,10 +903,12 @@ def plot_heatmap_spec(ds, var_or_idx, threshs, grid_x, grid_y, per, p_fig, map_p
         sns.set()
         fig, ax = plt.subplots(figsize=(8, 5))
         g = sns.heatmap(ax=ax, data=ds, xticklabels=grid_x, yticklabels=grid_y)
-        x_labels = ['{:,.2f}'.format(i) for i in grid_x]
-        y_labels = ['{:,.2f}'.format(i) for i in grid_y]
-        g.set_xticklabels(x_labels)
-        g.set_yticklabels(y_labels)
+        if grid_x is not None:
+            x_labels = ['{:,.2f}'.format(i) for i in grid_x]
+            g.set_xticklabels(x_labels)
+        if grid_y is not None:
+            y_labels = ['{:,.2f}'.format(i) for i in grid_y]
+            g.set_yticklabels(y_labels)
 
     # Using matplotlib.
     elif map_package == "matplotlib":
@@ -834,6 +921,8 @@ def plot_heatmap_spec(ds, var_or_idx, threshs, grid_x, grid_y, per, p_fig, map_p
         plt.ylabel("Latitude (º)", fontsize=fs)
         plt.tick_params(axis="x", labelsize=fs)
         plt.tick_params(axis="y", labelsize=fs)
+        plt.xlim(cfg.lon_bnds)
+        plt.ylim(cfg.lat_bnds)
 
     # Save figure.
     if p_fig != "":
@@ -866,8 +955,14 @@ def plot_ts(var_or_idx, threshs=[]):
     # minimum and maximum values along the y-axis
     ylim = []
 
+    # Select stations.
+    if not cfg.opt_ra:
+        stns = cfg.stns
+    else:
+        stns = [cfg.obs_src]
+
     # Loop through stations.
-    for stn in cfg.stns:
+    for stn in stns:
 
         # Loop through emission scenarios.
         ds_ref = None
@@ -897,6 +992,20 @@ def plot_ts(var_or_idx, threshs=[]):
                 # Load dataset.
                 ds = xr.open_dataset(p_sim_list[i_sim])
 
+                # Select the cells to plot.
+                if cfg.opt_ra:
+                    # Adjust units.
+                    if cfg.dim_longitude in ds.dims:
+                        if (len(ds.latitude) > 1) or (len(ds.longitude) > 1):
+                            lon_mean = round(float(ds.longitude.mean()))
+                            lat_mean = round(float(ds.latitude.mean()))
+                            ds = ds.isel(longitude=lon_mean, latitude=lat_mean, drop=True)
+                    else:
+                        if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
+                            lon_mean = round(float(ds.rlon.mean()))
+                            lat_mean = round(float(ds.rlat.mean()))
+                            ds = ds.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+
                 # First and last years.
                 year_1 = int(str(ds.time.values[0])[0:4])
                 year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
@@ -910,35 +1019,35 @@ def plot_ts(var_or_idx, threshs=[]):
                 # Select years.
                 years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
                 ds = ds.sel(time=slice(years_str[0], years_str[1]))
-                units = ds[var_or_idx].attrs["units"] if cat == cfg.cat_scen else ds["units"]
+                units = ds[var_or_idx].attrs[cfg.atrs_units] if cat == cfg.cat_scen else ds[cfg.attrs_units]
                 if units == "degree_C":
                     units = "C"
 
                 # Calculate statistics.
                 # TODO: Include coordinates in the generated dataset.
                 years = ds.groupby(ds.time.dt.year).groups.keys()
-                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
+                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                     ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
                 else:
                     ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
-                if "lon" in ds.dims:
+                if cfg.dim_lon in ds.dims:
                     ds = ds.isel(lon=0, lat=0)
-                n_time = len(ds["time"].values)
+                n_time = len(ds[cfg.dim_time].values)
                 da = xr.DataArray(np.array(ds[var_or_idx].values), name=var_or_idx,
-                                  coords=[("time", np.arange(n_time))])
+                                  coords=[(cfg.dim_time, np.arange(n_time))])
                 ds = da.to_dataset()
-                ds["time"] = utils.reset_calendar_list(years)
-                ds[var_or_idx].attrs["units"] = units
+                ds[cfg.dim_time] = utils.reset_calendar_list(years)
+                ds[var_or_idx].attrs[cfg.attrs_units] = units
 
                 # Convert units.
                 if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-                    if ds[var_or_idx].attrs["units"] == "K":
-                        ds = ds - 273.15
-                        ds[var_or_idx].attrs["units"] = "C"
-                elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpt]:
-                    if ds[var_or_idx].attrs["units"] == "kg m-2 s-1":
+                    if ds[var_or_idx].attrs[cfg.attrs_units] == "K":
+                        ds = ds - cfg.d_KC
+                        ds[var_or_idx].attrs[cfg.attrs_units] = "C"
+                elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                    if ds[var_or_idx].attrs[cfg.attrs_units] == "kg m-2 s-1":
                         ds = ds * cfg.spd
-                        ds[var_or_idx].attrs["units"] = "mm"
+                        ds[var_or_idx].attrs[cfg.attrs_units] = "mm"
 
                 # Calculate minimum and maximum values along the y-axis.
                 if not ylim:
@@ -968,11 +1077,16 @@ def plot_ts(var_or_idx, threshs=[]):
 
         # Generate plots.
         if cfg.opt_plot and (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
+
             msg = "scenarios" if cat == cfg.cat_scen else "indices"
             utils.log("Generating time series of " + msg + ".", True)
+
+            # Time series with simulations grouped by RCP scenario.
             p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cat, "") + var_or_idx + "_" + stn + "_rcp.png"
             plot_ts_spec(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx, threshs,
                          rcps, ylim, p_fig, 1)
+
+            # Time series showing individual simulations.
             p_fig = p_fig.replace("_rcp.png", "_sim.png")
             plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx, threshs,
                          rcps, ylim, p_fig, 2)
@@ -1002,7 +1116,7 @@ def calc_stat_mean_min_max(ds_list, var_or_idx):
     ds_mean_min_max = []
 
     # Get years, units and coordinates.
-    units = ds_list[0][var_or_idx].attrs["units"]
+    units = ds_list[0][var_or_idx].attrs[cfg.attrs_units]
     year_1 = int(str(ds_list[0].time.values[0])[0:4])
     year_n = int(str(ds_list[0].time.values[len(ds_list[0].time.values) - 1])[0:4])
     n_time = year_n - year_1 + 1
@@ -1031,10 +1145,10 @@ def calc_stat_mean_min_max(ds_list, var_or_idx):
             arr_vals = arr_vals_max
 
         # Build dataset.
-        da = xr.DataArray(np.array(arr_vals), name=var_or_idx, coords=[("time", np.arange(n_time))])
+        da = xr.DataArray(np.array(arr_vals), name=var_or_idx, coords=[(cfg.dim_time, np.arange(n_time))])
         ds = da.to_dataset()
-        ds["time"] = utils.reset_calendar(ds, year_1, year_n, cfg.freq_YS)
-        ds[var_or_idx].attrs["units"] = units
+        ds[cfg.dim_time] = utils.reset_calendar(ds, year_1, year_n, cfg.freq_YS)
+        ds[var_or_idx].attrs[cfg.attrs_units] = units
 
         ds_mean_min_max.append(ds)
 
@@ -1101,7 +1215,7 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
     ax.secondary_yaxis('right')
     ax.get_yaxis().tick_right()
     ax.axes.get_yaxis().set_visible(False)
-    secax = ax.secondary_yaxis('right')
+    secax = ax.secondary_yaxis("right")
     secax.set_ylabel(label)
     plt.subplots_adjust(top=0.925, bottom=0.10, left=0.03, right=0.90, hspace=0.30, wspace=0.416)
 
@@ -1111,7 +1225,13 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
     ds_max = None
     for rcp in rcps:
 
-        # Colors.
+        # Skip if no simulation is available for this RCP.
+        if ((rcp == cfg.rcp_26) and (ds_rcp_26 == [])) or\
+           ((rcp == cfg.rcp_45) and (ds_rcp_45 == [])) or\
+           ((rcp == cfg.rcp_85) and (ds_rcp_85 == [])):
+            continue
+
+            # Colors.
         color = "black"
         if rcp == cfg.rcp_ref:
             color = cfg.col_ref
@@ -1126,7 +1246,7 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
         if mode == 1:
 
             if (rcp == cfg.rcp_ref) and (ds_ref is not None):
-                ax.plot(ds_ref["time"], ds_ref[var_or_idx], color="black", alpha=1.0)
+                ax.plot(ds_ref[cfg.dim_time], ds_ref[var_or_idx], color="black", alpha=1.0)
             else:
                 if rcp == cfg.rcp_26:
                     ds_mean = ds_rcp_26[0]
@@ -1140,8 +1260,8 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
                     ds_mean = ds_rcp_85[0]
                     ds_min  = ds_rcp_85[1]
                     ds_max  = ds_rcp_85[2]
-                ax.plot(ds_mean["time"], ds_mean[var_or_idx], color=color, alpha=1.0)
-                ax.fill_between(ds_max["time"], ds_min[var_or_idx], ds_max[var_or_idx], color=color, alpha=0.25)
+                ax.plot(ds_mean[cfg.dim_time], ds_mean[var_or_idx], color=color, alpha=1.0)
+                ax.fill_between(ds_max[cfg.dim_time], ds_min[var_or_idx], ds_max[var_or_idx], color=color, alpha=0.25)
 
         # Mode #2: Curves only.
         elif mode == 2:
@@ -1149,16 +1269,16 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
             # Draw curves.
             if (rcp == cfg.rcp_ref) and (ds_ref is not None):
                 ds = ds_ref
-                ax.plot(ds["time"], ds[var_or_idx].values, color="black", alpha=1.0)
+                ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color="black", alpha=1.0)
             elif rcp == cfg.rcp_26:
                 for ds in ds_rcp_26:
-                    ax.plot(ds["time"], ds[var_or_idx].values, color=color, alpha=0.5)
+                    ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
             elif rcp == cfg.rcp_45:
                 for ds in ds_rcp_45:
-                    ax.plot(ds["time"], ds[var_or_idx].values, color=color, alpha=0.5)
+                    ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
             elif rcp == cfg.rcp_85:
                 for ds in ds_rcp_85:
-                    ax.plot(ds["time"], ds[var_or_idx].values, color=color, alpha=0.5)
+                    ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
 
     # Finalize plot.
     legend_list = ["Référence"]
@@ -1232,9 +1352,9 @@ def plot_ts_single(stn, var):
 
         # Convert date format if the need is.
         if ds_fut.time.dtype == cfg.dtype_obj:
-            ds_fut["time"] = utils.reset_calendar(ds_fut)
+            ds_fut[cfg.dim_time] = utils.reset_calendar(ds_fut)
         if ds_qqmap.time.dtype == cfg.dtype_obj:
-            ds_qqmap["time"] = utils.reset_calendar(ds_qqmap)
+            ds_qqmap[cfg.dim_time] = utils.reset_calendar(ds_qqmap)
 
         # Curves.
         (ds_obs[var]).plot(alpha=0.5)
@@ -1249,8 +1369,8 @@ def plot_ts_single(stn, var):
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
         plt.title("")
         plt.suptitle(title, fontsize=fs_title)
-        plt.tick_params(axis='x', labelsize=fs_axes)
-        plt.tick_params(axis='y', labelsize=fs_axes)
+        plt.tick_params(axis="x", labelsize=fs_axes)
+        plt.tick_params(axis="y", labelsize=fs_axes)
 
         # Save plot.
         p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_single", var) + title + ".png"
@@ -1313,9 +1433,9 @@ def plot_ts_mosaic(stn, var):
 
         # Convert date format if the need is.
         if ds_fut.time.dtype == cfg.dtype_obj:
-            ds_fut["time"] = utils.reset_calendar(ds_fut)
+            ds_fut[cfg.dim_time] = utils.reset_calendar(ds_fut)
         if ds_qqmap.time.dtype == cfg.dtype_obj:
-            ds_qqmap["time"] = utils.reset_calendar(ds_qqmap)
+            ds_qqmap[cfg.dim_time] = utils.reset_calendar(ds_qqmap)
 
         # Curves.
         plt.subplot(7, 7, i + 1)
@@ -1328,8 +1448,8 @@ def plot_ts_mosaic(stn, var):
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
         title = os.path.basename(p_list[i]).replace(".nc", "")
         plt.title(title, fontsize=fs_title)
-        plt.tick_params(axis='x', labelsize=fs_axes)
-        plt.tick_params(axis='y', labelsize=fs_axes)
+        plt.tick_params(axis="x", labelsize=fs_axes)
+        plt.tick_params(axis="y", labelsize=fs_axes)
         if i == 0:
             plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
             sup_title = title + "_verif_ts_mosaic"
@@ -1404,8 +1524,8 @@ def plot_monthly(stn, var):
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
         title = os.path.basename(p_list[i]).replace(".nc", "")
         plt.title(title, fontsize=fs_title)
-        plt.tick_params(axis='x', labelsize=fs_axes)
-        plt.tick_params(axis='y', labelsize=fs_axes)
+        plt.tick_params(axis="x", labelsize=fs_axes)
+        plt.tick_params(axis="y", labelsize=fs_axes)
         if i == 0:
             sup_title = title + "_verif_monthly"
             plt.suptitle(sup_title, fontsize=fs_title)

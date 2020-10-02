@@ -1,3 +1,5 @@
 .idea/
 __pycache__/
 config.ini
+config_aggregate.ini
+config_download.ini

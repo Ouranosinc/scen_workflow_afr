@@ -115,7 +115,7 @@ def generate(idx_name, idx_threshs):
                             idx_threshs_str.append(str(idx_thresh) + " C")
                     else:
                         for idx_thresh in idx_threshs:
-                            idx_threshs_str.append(str(idx_thresh + 273.15) + " K")
+                            idx_threshs_str.append(str(idx_thresh + cfg.d_KC) + " K")
 
                 # Indices ----------------------------------------------------------------------------------------------
 
@@ -136,8 +136,8 @@ def generate(idx_name, idx_threshs):
                 if idx_name == cfg.idx_tx_days_above:
                     ds_scen_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     if rcp == cfg.rcp_ref:
-                        ds_scen_tasmax["units"] = "C"
-                        ds_scen_tasmax.attrs["units"] = "C"
+                        ds_scen_tasmax[cfg.attrs_units] = "C"
+                        ds_scen_tasmax.attrs[cfg.attrs_units] = "C"
                     idx_thresh_str_tasmax = idx_threshs_str[0]
                     arr_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax).values
                     idx_units = 1
@@ -150,25 +150,26 @@ def generate(idx_name, idx_threshs):
                 da_idx = xr.DataArray(arr_idx)
                 da_idx.name = idx_name
                 ds_idx = da_idx.to_dataset()
-                ds_idx["units"] = idx_units
-                ds_idx = ds_idx.rename_dims({"dim_0": "time"})
+                ds_idx[cfg.attrs_units] = idx_units
+                ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
                 if rcp == cfg.rcp_ref:
-                    ds_idx = ds_idx.rename_dims({"dim_1": "lon", "dim_2": "lat"})
+                    ds_idx = ds_idx.rename_dims({"dim_1": cfg.dim_lon, "dim_2": cfg.dim_lat})
                 else:
                     ds_idx = ds_idx.expand_dims(lon=1)
                     ds_idx = ds_idx.expand_dims(lat=1)
-                ds_idx.attrs["standard_name"] = idx_name
-                ds_idx.attrs["long_name"] = idx_name
-                ds_idx.assign_attrs({"lon": ds_scen[0]["lon"]})
-                ds_idx.assign_attrs({"lat": ds_scen[0]["lat"]})
+                ds_idx.attrs[cfg.attrs_sname] = idx_name
+                ds_idx.attrs[cfg.attrs_lname] = idx_name
+                ds_idx.assign_attrs({cfg.dim_lon: ds_scen[0][cfg.dim_lon]})
+                ds_idx.assign_attrs({cfg.dim_lat: ds_scen[0][cfg.dim_lat]})
 
                 # Adjust calendar.
                 year_1 = cfg.per_fut[0]
                 year_n = cfg.per_fut[1]
                 if rcp == cfg.rcp_ref:
-                    year_1 = max(cfg.per_ref[0], int(str(ds_scen[0]["time"][0].values)[0:4]))
-                    year_n = min(cfg.per_ref[1], int(str(ds_scen[0]["time"][len(ds_scen[0]["time"]) - 1].values)[0:4]))
-                ds_idx["time"] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
+                    year_1 = max(cfg.per_ref[0], int(str(ds_scen[0][cfg.dim_time][0].values)[0:4]))
+                    year_n = min(cfg.per_ref[1],
+                                 int(str(ds_scen[0][cfg.dim_time][len(ds_scen[0][cfg.dim_time]) - 1].values)[0:4]))
+                ds_idx[cfg.dim_time] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
 
                 # Save result to NetCDF file.
                 if rcp == cfg.rcp_ref:

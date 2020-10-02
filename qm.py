@@ -15,7 +15,7 @@ import xarray as xr
 from scipy import stats
 
 
-def train(x, y, nq, group='time.dayofyear', kind="+", time_win=0, detrend_order=0):
+def train(x, y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0, detrend_order=0):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -46,8 +46,8 @@ def train(x, y, nq, group='time.dayofyear', kind="+", time_win=0, detrend_order=
     """
 
     prop = ""
-    if '.' in group:
-        dim, prop = group.split('.')
+    if "." in group:
+        dim, prop = group.split(".")
     else:
         dim = group
 
@@ -85,9 +85,9 @@ def train(x, y, nq, group='time.dayofyear', kind="+", time_win=0, detrend_order=
         yq = y.quantile(q, dim=dim)
 
     # Compute correction factor.
-    if kind == "+":
+    if kind == cfg.kind_add:
         out = yq - xq
-    elif kind == "*":
+    elif kind == cfg.kind_mult:
         out = yq / xq
     else:
         raise ValueError("kind must be + or *.")
@@ -127,8 +127,8 @@ def predict(x, qmf, interp=False, detrend_order=4):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if '.' in qmf.group:
-        dim, prop = qmf.group.split('.')
+    if "." in qmf.group:
+        dim, prop = qmf.group.split(".")
     else:
         dim, prop = qmf.group, None
 
@@ -150,7 +150,7 @@ def predict(x, qmf, interp=False, detrend_order=4):
 
     # Compute the percentile time series of the input array.
     q = x.groupby(qmf.group).apply(xr.DataArray.rank, pct=True, dim=dim)
-    iq = xr.DataArray(q, dims=q.dims, coords=q.coords, name=cfg.stat_quantile+" index")
+    iq = xr.DataArray(q, dims=q.dims, coords=q.coords, name=cfg.stat_quantile + " index")
 
     # Create DataArrays for indexing
     # TODO: Adjust for different calendars if necessary.
@@ -169,20 +169,22 @@ def predict(x, qmf, interp=False, detrend_order=4):
     it = xr.DataArray(y, dims=dim, coords={dim: coord}, name=dim + " group index")
 
     # Extract the correct quantile for each time step.
-    if interp:  # Interpolate both the time group and the quantile.
+    # Interpolate both the time group and the quantile.
+    if interp:
         factor = qmf.interp({prop: it, cfg.stat_quantile: iq})
-    else:  # Find quantile for nearest time group and quantile.
+    # Find quantile for nearest time group and quantile.
+    else:
         factor = qmf.sel({prop: it, cfg.stat_quantile: iq}, method="nearest")
 
     # Apply correction factors.
     out = x.copy()
 
-    if qmf.kind == "+":
+    if qmf.kind == cfg.kind_add:
         out += factor
-    elif qmf.kind == "*":
+    elif qmf.kind == cfg.kind_mult:
         out *= factor
 
-    out.attrs["bias_corrected"] = True
+    out.attrs[cfg.attrs_bias] = True
     if detrend_order is not None:
         out.attrs["detrending_poly_coeffs"] = coeffs
 
@@ -244,7 +246,7 @@ def _calc_slope(x, y):
     return slope
 
 
-def polyfit(da, deg=1, dim="time"):
+def polyfit(da, deg=1, dim=cfg.dim_time):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -282,7 +284,7 @@ def polyfit(da, deg=1, dim="time"):
 
     coords = dict(da.coords.items())
     coords.pop(dim)
-    coords['degree'] = range(deg, -1, -1)
+    coords["degree"] = range(deg, -1, -1)
 
     dims = list(da.dims)
     dims.remove(dim)
@@ -308,12 +310,12 @@ def polyval(coefs, coord):
     """
 
     x = get_index(coord)
-    y = xr.apply_ufunc(np.polyval, coefs, x, input_core_dims=[['degree'], []], dask='allowed')
+    y = xr.apply_ufunc(np.polyval, coefs, x, input_core_dims=[["degree"], []], dask="allowed")
 
     return y
 
 
-def detrend(obj, dim="time", deg=1, kind="+"):
+def detrend(obj, dim=cfg.dim_time, deg=1, kind=cfg.kind_add):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -332,9 +334,9 @@ def detrend(obj, dim="time", deg=1, kind="+"):
     # Remove trend from original series while preserving means.
     # TODO.MAB: Get the residuals directly from polyfit
     detrended = None
-    if kind == "+":
+    if kind == cfg.kind_add:
         detrended = obj - trend - trend.mean() + obj.mean()
-    elif kind == "*":
+    elif kind == cfg.kind_mult:
         detrended = obj / trend / trend.mean() * obj.mean()
 
     return detrended, trend, coefs
@@ -354,10 +356,10 @@ def get_index(coord):
 
     if pd.api.types.is_datetime64_dtype(coord.data):
         x = pd.to_numeric(coord) / f
-    elif 'calendar' in coord.encoding:
-        dt = xr.coding.cftime_offsets.get_date_type(coord.encoding['calendar'])
+    elif "calendar" in coord.encoding:
+        dt = xr.coding.cftime_offsets.get_date_type(coord.encoding["calendar"])
         offset = dt(1970, 1, 1)
-        x = xr.Variable(data=xr.core.duck_array_ops.datetime_to_numeric(coord, offset) / f, dims=("time",))
+        x = xr.Variable(data=xr.core.duck_array_ops.datetime_to_numeric(coord, offset) / f, dims=(cfg.dim_time,))
     else:
         x = coord
 

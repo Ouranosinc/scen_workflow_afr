@@ -13,6 +13,7 @@
 import cdsapi
 import config as cfg
 import functools
+import glob
 import multiprocessing
 import os
 
@@ -92,18 +93,19 @@ def download_from_copernicus(p_base, obs_src, area, var, year):
         os.makedirs(p)
 
     c = cdsapi.Client()
+    api_request = {
+        "product_type": "reanalysis",
+        "variable": var_code,
+        "year": str(year),
+        "month": months,
+        "day": days,
+        "time": times,
+        "area": area,
+        "format": "netcdf",
+    }
     c.retrieve(
         "reanalysis-" + set_name,
-        {
-            "product_type": "reanalysis",
-            "variable": var_code,
-            "year": str(year),
-            "month": months,
-            "day": days,
-            "time": times,
-            "area": area,
-            "format": "netcdf",
-        },
+        api_request,
         fn)
 
 
@@ -189,7 +191,7 @@ def run():
     area = [cfg.lat_bnds_download[1], cfg.lon_bnds_download[1], cfg.lat_bnds_download[0], cfg.lon_bnds_download[0], ]
 
     # Path of input data.
-    d_prefix = os.path.dirname(cfg.d_ra_day) + "/"
+    d_prefix = os.path.dirname(cfg.d_ra_raw) + "/"
 
     # ERA5 or ERA5_LAND.
     if (cfg.obs_src == cfg.obs_src_era5_land) or (cfg.obs_src == cfg.obs_src_era5):
@@ -202,18 +204,33 @@ def run():
             years = range(1979, 2019 + 1)
 
         # Loop through variable codes.
-        for var in cfg.variables_ra:
+        for var in cfg.variables_download:
 
-            # Download.
-            if cfg.n_proc == 1:
-                for year in years:
-                    download_from_copernicus(d_prefix, cfg.obs_src, area, var, year)
-            else:
-                pool = multiprocessing.Pool(processes=cfg.n_proc)
-                func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
-                pool.map(func, years)
-                pool.close()
-                pool.join()
+            # Need to loop until all files were generated.
+            done = False
+            while not done:
+
+                # Download.
+                if cfg.n_proc == 1:
+                    for year in years:
+                        download_from_copernicus(d_prefix, cfg.obs_src, area, var, year)
+                else:
+                    try:
+                        pool = multiprocessing.Pool(processes=cfg.n_proc)
+                        func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
+                        pool.map(func, years)
+                        pool.close()
+                        pool.join()
+                    except Exception as e:
+                        pass
+
+                # Verify if treatment is done. Files are sometimes forgotten.
+                years_processed = glob.glob(d_prefix + var + "/*.nc")
+                years_processed.sort()
+                for i in range(len(years_processed)):
+                    years_processed[i] = int(years_processed[i].replace(".nc", "")[-4:])
+                years_processed.sort()
+                done = (list(years) == years_processed)
 
     # MERRA2.
     elif cfg.obs_src == cfg.obs_src_merra2:

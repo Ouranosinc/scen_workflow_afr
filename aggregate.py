@@ -57,8 +57,11 @@ def aggregate(p_hour, p_day, set_name, var):
     for stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_sum]:
 
         # Output file name.
-        var_stat = var + "_" + stat
-        p_day_stat = dir_day + var_stat + "/" + fn_day.replace(var + "_", var_stat + "_")
+        var_stat = var + stat
+        if var == cfg.var_era5_t2m and ((stat == cfg.stat_min) or (stat == cfg.stat_max)):
+            p_day_stat = dir_day + var_stat + "/" + fn_day.replace(var + "_", var_stat + "_")
+        else:
+            p_day_stat = dir_day + var + "/" + fn_day
 
         # Aggregate only if output file does not exist.
         if not(os.path.exists(p_day_stat)):
@@ -67,16 +70,16 @@ def aggregate(p_hour, p_day, set_name, var):
             ds_day = None
             save = False
             if stat == cfg.stat_mean:
-                if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_t2m) or (var == cfg.var_era5_sp):
+                if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_t2m) or\
+                   (var == cfg.var_era5_sh) or (var == cfg.var_era5_u10) or (var == cfg.var_era5_v10):
                     ds_day = ds_hour.resample(time=cfg.freq_D).mean()
                     save = True
             elif stat == cfg.stat_min:
-                if (var == cfg.var_era5_t2m) or (var == cfg.var_era5_sh):
+                if var == cfg.var_era5_t2m:
                     ds_day = ds_hour.resample(time=cfg.freq_D).min()
                     save = True
             elif stat == cfg.stat_max:
-                if (var == cfg.var_era5_t2m) or (var == cfg.var_era5_sh) or (var == cfg.var_era5_u10) or\
-                        (var == cfg.var_era5_v10):
+                if var == cfg.var_era5_t2m:
                     ds_day = ds_hour.resample(time=cfg.freq_D).max()
                     save = True
             elif stat == cfg.stat_sum:
@@ -192,8 +195,8 @@ def gen_dataset_sh(p_d2m, p_sp, p_sh, n_years):
     """
 
     # Load datasets.
-    ds_d2m = xr.open_mfdataset(p_d2m, chunks={"time": n_years})[cfg.var_era5_d2m]
-    ds_sp  = xr.open_dataset(p_sp, chunks={"time": n_years})[cfg.var_era5_sp]
+    ds_d2m = xr.open_mfdataset(p_d2m, chunks={cfg.dim_time: n_years})[cfg.var_era5_d2m]
+    ds_sp  = xr.open_dataset(p_sp, chunks={cfg.dim_time: n_years})[cfg.var_era5_sp]
 
     # DEBUG: Specific day.
     # date   = "1979-01-01"
@@ -201,14 +204,14 @@ def gen_dataset_sh(p_d2m, p_sp, p_sh, n_years):
     # ds_sp  = ds_sp.sel(time=date)
 
     # Calculate specific humidity values.
-    ds_sh = calc_spec_humidity(ds_d2m - 273.15, ds_sp / 100.0)
+    ds_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)
 
     # Update meta information.
     ds_sh.name = cfg.var_era5_sh
-    ds_sh["long_name"] = "specific humidity"
-    ds_sh["units"]     = "1"
-    ds_sh.attrs["long_name"] = "specific humidity"
-    ds_sh.attrs["units"]     = "1"
+    ds_sh[cfg.attrs_lname] = "specific humidity"
+    ds_sh[cfg.attrs_units] = "1"
+    ds_sh.attrs[cfg.attrs_lname] = "specific humidity"
+    ds_sh.attrs[cfg.attrs_units] = "1"
 
     # Save NetCDF file.
     utils.save_dataset(ds_sh, p_sh)
@@ -243,7 +246,7 @@ def run():
                 p_raw_d2m = p_raw
                 p_raw_sp  = p_raw_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sp)
                 p_raw_sh  = p_raw_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sh)
-                if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and not(os.path.exists(p_raw_sh)):
+                if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and not os.path.exists(p_raw_sh):
                     gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
 
             # Perform aggregation.
