@@ -771,6 +771,40 @@ def save_plot(plot, p):
     plot.savefig(p)
 
 
+def subset_ctr_mass(ds):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Select the center cell.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    ds_ctr = None
+
+    if cfg.dim_rlon in ds.dims:
+        if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
+            lon_mean = round(float(ds.rlon.mean()))
+            lat_mean = round(float(ds.rlat.mean()))
+            ds_ctr = ds.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+    elif cfg.dim_lon in ds.dims:
+        if (len(ds.lat) > 1) or (len(ds.lon) > 1):
+            lon_mean = round(float(ds.lon.mean()))
+            lat_mean = round(float(ds.lat.mean()))
+            ds_ctr = ds.isel(lon=lon_mean, lat=lat_mean, drop=True)
+    elif cfg.dim_longitude in ds.dims:
+        if (len(ds.latitude) > 1) or (len(ds.longitude) > 1):
+            lon_mean = round(float(ds.longitude.mean()))
+            lat_mean = round(float(ds.latitude.mean()))
+            ds_ctr = ds.isel(longitude=lon_mean, latitude=lat_mean, drop=True)
+
+    return ds_ctr
+
+
 def subset_lon_lat(ds, lon_bnds=None, lat_bnds=None):
 
     """
@@ -789,6 +823,7 @@ def subset_lon_lat(ds, lon_bnds=None, lat_bnds=None):
         Latitude boundaries.
     --------------------------------------------------------------------------------------------------------------------
     """
+
     if lon_bnds is None:
         lon_bnds = cfg.lon_bnds
     if lat_bnds is None:

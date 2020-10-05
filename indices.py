@@ -48,8 +48,14 @@ def generate(idx_name, idx_threshs):
     # TODO.CUSTOMIZATION.END
     # ==========================================================
 
+    # List stations.
+    if cfg.opt_ra:
+        stns = [cfg.obs_src]
+    else:
+        stns = cfg.stns
+
     # Loop through stations.
-    for stn in cfg.stns:
+    for stn in stns:
 
         # Verify if this variable is available for the current station.
         vars_avail = True
@@ -150,17 +156,25 @@ def generate(idx_name, idx_threshs):
                 da_idx = xr.DataArray(arr_idx)
                 da_idx.name = idx_name
                 ds_idx = da_idx.to_dataset()
-                ds_idx[cfg.attrs_units] = idx_units
-                ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
-                if rcp == cfg.rcp_ref:
+                ds_idx.attrs[cfg.attrs_units] = idx_units
+                if "dim_0" in list(ds_idx.dims):
+                    ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
+                if "dim_1" in list(ds_idx.dims):
                     ds_idx = ds_idx.rename_dims({"dim_1": cfg.dim_lon, "dim_2": cfg.dim_lat})
                 else:
                     ds_idx = ds_idx.expand_dims(lon=1)
                     ds_idx = ds_idx.expand_dims(lat=1)
                 ds_idx.attrs[cfg.attrs_sname] = idx_name
                 ds_idx.attrs[cfg.attrs_lname] = idx_name
-                ds_idx.assign_attrs({cfg.dim_lon: ds_scen[0][cfg.dim_lon]})
-                ds_idx.assign_attrs({cfg.dim_lat: ds_scen[0][cfg.dim_lat]})
+                if cfg.dim_longitude in list(ds_scen[0].dims):
+                    ds_idx.assign_attrs({cfg.dim_longitude: ds_scen[0][cfg.dim_longitude]})
+                    ds_idx.assign_attrs({cfg.dim_latitude: ds_scen[0][cfg.dim_latitude]})
+                elif cfg.dim_rlon in list(ds_scen[0].dims):
+                    ds_idx.assign_attrs({cfg.dim_rlon: ds_scen[0][cfg.dim_rlon]})
+                    ds_idx.assign_attrs({cfg.dim_rlat: ds_scen[0][cfg.dim_rlat]})
+                elif cfg.dim_lon in list(ds_scen[0].dims):
+                    ds_idx.assign_attrs({cfg.dim_lon: ds_scen[0][cfg.dim_lon]})
+                    ds_idx.assign_attrs({cfg.dim_lat: ds_scen[0][cfg.dim_lat]})
 
                 # Adjust calendar.
                 year_1 = cfg.per_fut[0]

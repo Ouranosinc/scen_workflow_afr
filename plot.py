@@ -144,13 +144,11 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
     ds_fut = xr.open_dataset(p_fut)[var]
     ds_qqmap = xr.open_dataset(p_qqmap)[var]
 
-    # Select the cells to plot.
+    # Select the center cell.
     if cfg.opt_ra and (len(ds_obs.rlat) > 1) or (len(ds_obs.rlon) > 1):
-        lon_mean = round(float(ds_obs.rlon.mean()))
-        lat_mean = round(float(ds_obs.rlat.mean()))
-        ds_obs = ds_obs.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-        ds_fut = ds_fut.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-        ds_qqmap = ds_qqmap.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+        ds_obs = utils.subset_ctr_mass(ds_obs)
+        ds_fut = utils.subset_ctr_mass(ds_fut)
+        ds_qqmap = utils.subset_ctr_mass(ds_qqmap)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -230,10 +228,8 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 
     # Select the cells to plot.
     if cfg.opt_ra and (len(ds_ref.rlat) > 1) or (len(ds_ref.rlon) > 1):
-        lon_mean = round(float(ds_ref.rlon.mean()))
-        lat_mean = round(float(ds_ref.rlat.mean()))
-        ds_ref = ds_ref.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-        ds_fut = ds_fut.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+        ds_ref = utils.subset_ctr_mass(ds_ref)
+        ds_fut = utils.subset_ctr_mass(ds_fut)
 
     # Conversion coefficients.
     coef = 1
@@ -992,19 +988,9 @@ def plot_ts(var_or_idx, threshs=[]):
                 # Load dataset.
                 ds = xr.open_dataset(p_sim_list[i_sim])
 
-                # Select the cells to plot.
+                # Select the center cell.
                 if cfg.opt_ra:
-                    # Adjust units.
-                    if cfg.dim_longitude in ds.dims:
-                        if (len(ds.latitude) > 1) or (len(ds.longitude) > 1):
-                            lon_mean = round(float(ds.longitude.mean()))
-                            lat_mean = round(float(ds.latitude.mean()))
-                            ds = ds.isel(longitude=lon_mean, latitude=lat_mean, drop=True)
-                    else:
-                        if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
-                            lon_mean = round(float(ds.rlon.mean()))
-                            lat_mean = round(float(ds.rlat.mean()))
-                            ds = ds.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+                    ds = utils.subset_ctr_mass(ds)
 
                 # First and last years.
                 year_1 = int(str(ds.time.values[0])[0:4])
@@ -1019,7 +1005,7 @@ def plot_ts(var_or_idx, threshs=[]):
                 # Select years.
                 years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
                 ds = ds.sel(time=slice(years_str[0], years_str[1]))
-                units = ds[var_or_idx].attrs[cfg.atrs_units] if cat == cfg.cat_scen else ds[cfg.attrs_units]
+                units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds.attrs[cfg.attrs_units]
                 if units == "degree_C":
                     units = "C"
 
@@ -1030,8 +1016,6 @@ def plot_ts(var_or_idx, threshs=[]):
                     ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
                 else:
                     ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
-                if cfg.dim_lon in ds.dims:
-                    ds = ds.isel(lon=0, lat=0)
                 n_time = len(ds[cfg.dim_time].values)
                 da = xr.DataArray(np.array(ds[var_or_idx].values), name=var_or_idx,
                                   coords=[(cfg.dim_time, np.arange(n_time))])
@@ -1261,7 +1245,8 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
                     ds_min  = ds_rcp_85[1]
                     ds_max  = ds_rcp_85[2]
                 ax.plot(ds_mean[cfg.dim_time], ds_mean[var_or_idx], color=color, alpha=1.0)
-                ax.fill_between(ds_max[cfg.dim_time], ds_min[var_or_idx], ds_max[var_or_idx], color=color, alpha=0.25)
+                ax.fill_between(np.array(ds_max[cfg.dim_time]), ds_min[var_or_idx], ds_max[var_or_idx],
+                                color=color, alpha=0.25)
 
         # Mode #2: Curves only.
         elif mode == 2:

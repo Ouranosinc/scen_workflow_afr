@@ -356,7 +356,7 @@ def main():
     scen_calib.init_calib_params()
 
     # Calculation of scenarios.
-    scenarios.run()
+    Tscenarios.run()
 
     # DEBUG: This following statement is optional. It is useful to verify the generated NetCDF files.
     # DEBUG: import scenarios_verif as scen_verif
@@ -365,8 +365,7 @@ def main():
     # Step #6: Indices -------------------------------------------------------------------------------------------------
 
     # Calculation of indices.
-    if not cfg.opt_ra:
-        indices.run()
+    indices.run()
 
     # Step #7: Statistics ----------------------------------------------------------------------------------------------
 

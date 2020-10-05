@@ -343,7 +343,7 @@ def extract(var, p_stn, d_ref, d_fut, p_raw, p_regrid):
             # This checks if the data is daily. If it is sub-daily, resample to daily. This can take a while, but should
             # save us computation time later.
             if ds_raw.time.isel(time=[0, 1]).diff(dim=cfg.dim_time).values[0] <\
-                    np.array([datetime.timedelta(1)], dtype=cfg.dtype_64)[0]:
+                    np.array([datetime.timedelta(1)], dtype="timedelta64[ms]")[0]:
                 msg = msg + "running"
                 utils.log(msg, True)
                 ds_raw = ds_raw.resample(time="1D").mean(dim=cfg.dim_time, keep_attrs=True)
@@ -623,10 +623,10 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, title="
         else:
             ds_qqmap = predict(ds_fut_365, ds_qmf, interp=False, detrend_order=cfg.detrend_order)
         del ds_qqmap.attrs[cfg.attrs_bias]
-        ds_qqmap[var].attrs[cfg.attrs_sname] = ds_ref[var].attrs[cfg.attrs_sname]
-        ds_qqmap[var].attrs[cfg.attrs_lname]     = ds_ref[var].attrs[cfg.attrs_lname]
-        ds_qqmap[var].attrs[cfg.attrs_units]         = ds_ref[var].attrs[cfg.attrs_units]
-        ds_qqmap[var].attrs[cfg.attrs_gmap]  = ds_ref[var].attrs[cfg.attrs_gmap]
+        ds_qqmap.attrs[cfg.attrs_sname] = ds_obs.attrs[cfg.attrs_sname]
+        ds_qqmap.attrs[cfg.attrs_lname] = ds_obs.attrs[cfg.attrs_lname]
+        ds_qqmap.attrs[cfg.attrs_units] = ds_obs.attrs[cfg.attrs_units]
+        ds_qqmap.attrs[cfg.attrs_gmap]  = ds_obs.attrs[cfg.attrs_gmap]
         if p_qqmap != "":
             utils.save_dataset(ds_qqmap, p_qqmap)
 
@@ -673,14 +673,12 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, title="
         ds_fut_xy       = ds_fut
         ds_qqmap_xy     = ds_qqmap
         if cfg.opt_ra:
-            lon_mean = round(float(ds_obs.rlon.mean()))
-            lat_mean = round(float(ds_obs.rlat.mean()))
-            ds_qmf_xy       = ds_qmf_xy.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-            ds_qqmap_ref_xy = ds_qqmap_ref_xy.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-            ds_obs_xy       = ds_obs_xy.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-            ds_ref_xy       = ds_ref_xy.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-            ds_fut_xy       = ds_fut_xy.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
-            ds_qqmap_xy     = ds_qqmap_xy.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+            ds_qmf_xy       = utils.subset_ctr_mass(ds_qmf_xy)
+            ds_qqmap_ref_xy = utils.subset_ctr_mass(ds_qqmap_ref_xy)
+            ds_obs_xy       = utils.subset_ctr_mass(ds_obs_xy)
+            ds_ref_xy       = utils.subset_ctr_mass(ds_ref_xy)
+            ds_fut_xy       = utils.subset_ctr_mass(ds_fut_xy)
+            ds_qqmap_xy     = utils.subset_ctr_mass(ds_qqmap_xy)
 
         # Generate summary plot.
         if cfg.opt_plot:
