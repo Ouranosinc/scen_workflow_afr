@@ -623,6 +623,8 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
             ds_qmf = train(ds_ref, ds_obs, nq, cfg.group, kind, time_win, detrend_order=cfg.detrend_order)
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
             ds_qmf.values[ds_qmf > up_qmf] = up_qmf
+        if p_qmf != "":
+            utils.save_dataset(ds_qmf, p_qmf)
 
     # Quantile Mapping -------------------------------------------------------------------------------------------------
 
