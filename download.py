@@ -211,10 +211,12 @@ def run():
             done = False
             while not done:
 
-                # Download.
+                # Scalar processing mode.
                 if cfg.n_proc == 1:
                     for year in years:
                         download_from_copernicus(d_prefix, cfg.obs_src, area, var, year)
+
+                # Parallel processing mode.
                 else:
                     try:
                         utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)

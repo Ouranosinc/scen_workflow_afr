@@ -304,7 +304,10 @@ def extract(var, p_stn, d_ref, d_fut, p_raw, p_regrid):
 
         # Projections.
         p_proj = list(glob.glob(d_ref + var + "/*.nc"))[0]
-        ds_proj = xr.open_dataset(p_proj)
+        try:
+            ds_proj = xr.open_dataset(p_proj)
+        except Exception as e:
+            ds_proj = xr.open_dataset(p_proj, drop_variables=["time_bnds"])
         res_proj_lat = abs(ds_proj.rlat.values[1] - ds_proj.rlat.values[0])
         res_proj_lon = abs(ds_proj.rlon.values[1] - ds_proj.rlon.values[0])
 
@@ -776,14 +779,7 @@ def generate():
             d_raw    = cfg.get_d_sim(stn, cfg.cat_raw, var)
             d_fut    = cfg.get_d_sim(stn, cfg.cat_qqmap, var)
             d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
-            if not (os.path.isdir(d_obs)):
-                os.makedirs(d_obs)
-            if not (os.path.isdir(d_raw)):
-                os.makedirs(d_raw)
-            if not (os.path.isdir(d_fut)):
-                os.makedirs(d_fut)
-            if not (os.path.isdir(d_regrid)):
-                os.makedirs(d_regrid)
+            d_qqmap  = cfg.get_d_sim(stn, cfg.cat_qqmap, var)
 
             # Loop through RCPs.
             for rcp in cfg.rcps:
@@ -793,33 +789,51 @@ def generate():
                 list_cordex_fut = list_cordex[rcp]
                 list_cordex_ref.sort()
                 list_cordex_fut.sort()
+                n_sim = len(list_cordex_ref)
 
                 if not cfg.opt_ra:
                     p_stn = cfg.get_p_stn(var, stn)
 
-                # Loop until all simulations have been processed.
-                n_sim = len(list_cordex_ref)
-                n_sim_processed = 0
-                while n_sim_processed < n_sim:
+                # Scalar processing mode.
+                if cfg.n_proc == 1:
 
-                    # Calculate the number of simulations that were processed (based on qqmap).
-                    n_sim_processed = len(list(glob.glob(cfg.get_d_sim(stn, cfg.cat_qqmap, var) + "*.nc")))
-                    if n_sim == n_sim_processed:
-                        break
+                    for i_sim in range(n_sim):
+                        generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim)
 
-                    # Split work between threads.
-                    try:
-                        utils.log("Step #3-5 Production of climate scenarios.")
-                        utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
-                        pool = multiprocessing.Pool(processes=cfg.n_proc)
-                        func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, p_stn, d_raw,
-                                                 var, stn, rcp)
-                        pool.map(func, list(range(n_sim)))
-                        pool.close()
-                        pool.join()
-                        utils.log("Parallel processing ended.", True)
-                    except Exception as e:
-                        pass
+                # Parallel processing mode.
+                else:
+
+                    # Loop until all simulations have been processed.
+                    n_sim_processed = 0
+                    while n_sim_processed < n_sim:
+
+                        # Calculate the number of simulations that were processed.
+                        # This quick verification is based on the QQMAP NetCDF file, but there are several other
+                        # files that are generated. The 'completeness' verification is more complete in scalar mode.
+                        n_sim_processed = len(list(glob.glob(d_qqmap + "*.nc")))
+                        if n_sim == n_sim_processed:
+                            break
+
+                        # Scalar processing mode.
+                        if cfg.n_proc == 1:
+                            for i_sim in range(n_sim):
+                                generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim)
+
+                        # Parallel processing mode.
+                        else:
+
+                            try:
+                                utils.log("Step #3-5 Production of climate scenarios.")
+                                utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
+                                pool = multiprocessing.Pool(processes=cfg.n_proc)
+                                func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, p_stn, d_raw,
+                                                         var, stn, rcp)
+                                pool.map(func, list(range(n_sim)))
+                                pool.close()
+                                pool.join()
+                                utils.log("Parallel processing ended.", True)
+                            except Exception as e:
+                                pass
 
 
 def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim_proc):

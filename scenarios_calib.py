@@ -62,10 +62,6 @@ def bias_correction(stn, var, sim_name=""):
             for up_qmf in cfg.up_qmf_calib:
                 for time_win in cfg.time_win_calib:
 
-                    msg = "Assessing " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
-                          ", time_win=" + str(time_win)
-                    utils.log(msg, True)
-
                     # NetCDF files.
                     p_obs        = cfg.get_p_obs(stn, var)
                     p_regrid     = p_regrid_list[i]
@@ -89,7 +85,14 @@ def bias_correction(stn, var, sim_name=""):
                     p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/calibration", var) + comb + "/" + fn_fig
 
                     # Calculate QQ and generate calibration plots.
-                    scen.postprocess(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", "", title, p_fig)
+                    msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
+                          ", time_win=" + str(time_win) + " is "
+                    if not (os.path.exists(p_fig) and os.path.exists(p_fig.replace(".png", "_ts.png"))):
+                        utils.log(msg + "running", True)
+                        scen.postprocess(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", "", title,
+                                         p_fig)
+                    else:
+                        utils.log(msg + "not required", True)
 
                     # Error --------------------------------------------------------------------------------------------
 
