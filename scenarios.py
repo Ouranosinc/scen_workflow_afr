@@ -13,8 +13,10 @@
 
 import config as cfg
 import datetime
+import functools
 import glob
 import math
+import multiprocessing
 import numpy as np
 import os
 import pandas as pd
@@ -532,7 +534,7 @@ def preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
         utils.save_dataset(ds_ref, p_regrid_ref)
 
 
-def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, title="", p_fig=""):
+def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, title="", p_fig=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -555,7 +557,9 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, title="
     p_fut : str
         Path of NetCDF file of simulation for the future period.
     p_qqmap : str
-        Path of NetCDF file of QQ data.
+        Path of NetCDF file of adjusted simulation.
+    p_qmf : str
+        Path of NetCDF file of quantile map function.
     title : str, optional
         Title of figure.
     p_fig : str, optimal
@@ -604,36 +608,48 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, title="
     if not cfg.opt_ra:
         ds_obs = ds_obs.interpolate_na(dim=cfg.dim_time)
 
-    # QMF --------------------------------------------------------------------------------------------------------------
+    # Quantile Mapping Function ----------------------------------------------------------------------------------------
+
+    # Load transfer function.
+    if (p_qmf != "") and os.path.exists(p_qmf):
+        ds_qmf = xr.open_dataset(p_qmf)
 
     # Calculate transfer function.
-    if not cfg.opt_ra:
-        ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, time_win,
-                       detrend_order=cfg.detrend_order)
     else:
-        ds_qmf = train(ds_ref, ds_obs, nq, cfg.group, kind, time_win, detrend_order=cfg.detrend_order)
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-        ds_qmf.values[ds_qmf > up_qmf] = up_qmf
+        if not cfg.opt_ra:
+            ds_qmf = train(ds_ref.squeeze(), ds_obs.squeeze(), nq, cfg.group, kind, time_win,
+                           detrend_order=cfg.detrend_order)
+        else:
+            ds_qmf = train(ds_ref, ds_obs, nq, cfg.group, kind, time_win, detrend_order=cfg.detrend_order)
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+            ds_qmf.values[ds_qmf > up_qmf] = up_qmf
+
+    # Quantile Mapping -------------------------------------------------------------------------------------------------
+
+    # Load quantile mapping.
+    ds_qqmap = None
+    if (p_qqmap != "") and os.path.exists(p_qqmap):
+        ds_qqmap = xr.open_dataset(p_qqmap)
 
     # Apply transfer function.
-    ds_qqmap = None
-    try:
-        if not cfg.opt_ra:
-            ds_qqmap = predict(ds_fut_365.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
-        else:
-            ds_qqmap = predict(ds_fut_365, ds_qmf, interp=False, detrend_order=cfg.detrend_order)
-        del ds_qqmap.attrs[cfg.attrs_bias]
-        ds_qqmap.attrs[cfg.attrs_sname] = ds_obs.attrs[cfg.attrs_sname]
-        ds_qqmap.attrs[cfg.attrs_lname] = ds_obs.attrs[cfg.attrs_lname]
-        ds_qqmap.attrs[cfg.attrs_units] = ds_obs.attrs[cfg.attrs_units]
-        ds_qqmap.attrs[cfg.attrs_gmap]  = ds_obs.attrs[cfg.attrs_gmap]
-        if p_qqmap != "":
-            utils.save_dataset(ds_qqmap, p_qqmap)
+    else:
+        try:
+            if not cfg.opt_ra:
+                ds_qqmap = predict(ds_fut_365.squeeze(), ds_qmf, interp=True, detrend_order=cfg.detrend_order)
+            else:
+                ds_qqmap = predict(ds_fut_365, ds_qmf, interp=False, detrend_order=cfg.detrend_order)
+            del ds_qqmap.attrs[cfg.attrs_bias]
+            ds_qqmap.attrs[cfg.attrs_sname] = ds_obs.attrs[cfg.attrs_sname]
+            ds_qqmap.attrs[cfg.attrs_lname] = ds_obs.attrs[cfg.attrs_lname]
+            ds_qqmap.attrs[cfg.attrs_units] = ds_obs.attrs[cfg.attrs_units]
+            ds_qqmap.attrs[cfg.attrs_gmap]  = ds_obs.attrs[cfg.attrs_gmap]
+            if p_qqmap != "":
+                utils.save_dataset(ds_qqmap, p_qqmap)
 
-    except ValueError as err:
-        utils.log("Failed to create QQMAP NetCDF file.", True)
-        utils.log(format(err), True)
-        pass
+        except ValueError as err:
+            utils.log("Failed to create QQMAP NetCDF file.", True)
+            utils.log(format(err), True)
+            pass
 
     # Create plots -----------------------------------------------------------------------------------------------------
 
@@ -776,139 +792,189 @@ def generate():
                 list_cordex_ref.sort()
                 list_cordex_fut.sort()
 
-                # Loop through simulations.
-                for i_sim in range(len(list_cordex_ref)):
+                if not cfg.opt_ra:
+                    p_stn = cfg.get_p_stn(var, stn)
 
-                    # Directories containing simulations.
-                    d_sim_ref = list_cordex_ref[i_sim]
-                    d_sim_fut = list_cordex_fut[i_sim]
+                # Loop until all simulations have been processed.
+                n_sim = len(list_cordex_ref)
+                n_sim_processed = 0
+                while n_sim_processed < n_sim:
 
-                    # Get simulation name.
-                    c = d_sim_fut.split("/")
-                    sim_name = c[cfg.get_rank_inst()] + "_" + c[cfg.get_rank_gcm()]
+                    # Calculate the number of simulations that were processed (based on qqmap).
+                    n_sim_processed = len(list(glob.glob(cfg.get_d_sim(stn, cfg.cat_qqmap, var) + "*.nc")))
+                    if n_sim == n_sim_processed:
+                        break
 
-                    utils.log("=")
-                    utils.log("Variable   : " + var)
-                    utils.log("Station    : " + stn)
-                    utils.log("RCP        : " + rcp)
-                    utils.log("Simulation : " + sim_name)
-                    utils.log("=")
+                    # Split work between threads.
+                    try:
+                        utils.log("Step #3-5 Production of climate scenarios.")
+                        utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
+                        pool = multiprocessing.Pool(processes=cfg.n_proc)
+                        func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, p_stn, d_raw,
+                                                 var, stn, rcp)
+                        pool.map(func, list(range(n_sim)))
+                        pool.close()
+                        pool.join()
+                        utils.log("Parallel processing ended.", True)
+                    except Exception as e:
+                        pass
 
-                    # Skip iteration if the variable 'var' is not available in the current directory.
-                    p_sim_ref_list = glob.glob(d_sim_ref + "/" + var + "/*.nc")
-                    p_sim_fut_list = glob.glob(d_sim_fut + "/" + var + "/*.nc")
-                    if (len(p_sim_ref_list) == 0) or (len(p_sim_fut_list) == 0):
-                        utils.log("Skipping iteration: data not available for simulation-variable.", True)
-                        continue
 
-                    # Files within CORDEX or CORDEX-NA.
-                    if "cordex" in d_sim_fut.lower():
-                        p_raw = d_raw + var + "_" + c[cfg.get_rank_inst()] + "_" +\
-                                c[cfg.get_rank_gcm()].replace("*", "_") + ".nc"
-                    elif len(d_sim_fut) == 3:
-                        p_raw = d_raw + var + "_Ouranos_" + d_sim_fut + ".nc"
-                    else:
-                        p_raw = None
+def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim_proc):
 
-                    # Skip iteration if the simulation or simulation-variable is in the exception list.
-                    is_sim_except = False
-                    for sim_except in cfg.sim_excepts:
-                        if sim_except in p_raw:
-                            is_sim_except = True
-                            utils.log("Skipping iteration: simulation-variable exception.", True)
-                            break
-                    is_var_sim_except = False
-                    for var_sim_except in cfg.var_sim_excepts:
-                        if var_sim_except in p_raw:
-                            is_var_sim_except = True
-                            utils.log("Skipping iteration: simulation exception.", True)
-                            break
-                    if is_sim_except or is_var_sim_except:
-                        continue
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Produce a single climate scenario.
 
-                    # Paths and NetCDF files.
-                    p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
-                    p_qqmap      = p_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
-                    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
-                    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
-                    p_obs        = cfg.get_p_obs(stn, var)
-                    if not cfg.opt_ra:
-                        p_stn = cfg.get_p_stn(var, stn)
+    Parameters
+    ----------
+    list_cordex_ref : [str]
 
-                    # Step #3: Spatial and temporal extraction.
-                    # Step #4: Grid transfer or interpolation.
-                    # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
-                    #              one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
-                    msg = "Step #3-4 Spatial & temporal extraction and grid transfer (or interpolation) is "
-                    if cfg.opt_scen_extract and (not(os.path.isfile(p_raw)) or not(os.path.isfile(p_regrid))):
-                        utils.log(msg + "running")
-                        extract(var, p_stn, d_sim_ref, d_sim_fut, p_raw, p_regrid)
-                    else:
-                        utils.log(msg + "not required")
+    list_cordex_fut : [str]
+    p_stn : str
+        Path of station fille.
+    d_raw : str
+        Directory containing raw NetCDF files.
+    var : str
+        Variable.
+    stn : str
+        Station.
+    rcp : str
+        RCP emission scenario.
+    i_sim_proc : int
+        Rank of simulation to process (in ascending order of raw NetCDF file names).
+    --------------------------------------------------------------------------------------------------------------------
+    """
 
-                    # Adjusting the datasets associated with observations and simulated conditions
-                    # (for the reference and future periods) to ensure that calendar is based on 365 days per year and
-                    # that values are within boundaries (0-100%).
-                    # This creates two .nc files in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
-                    utils.log("-")
-                    msg = "Step #4.5 Pre-processing is "
-                    if cfg.opt_scen_preprocess and \
-                       (not(os.path.isfile(p_obs)) or
-                        not(os.path.isfile(p_regrid_ref)) or
-                        not(os.path.isfile(p_regrid_fut))):
-                        utils.log(msg + "running")
-                        preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut)
-                    else:
-                        utils.log(msg + "not required")
+    # Directories containing simulations.
+    d_sim_ref = list_cordex_ref[i_sim_proc]
+    d_sim_fut = list_cordex_fut[i_sim_proc]
 
-                    # Step #5: Post-processing.
+    # Get simulation name.
+    c = d_sim_fut.split("/")
+    sim_name = c[cfg.get_rank_inst()] + "_" + c[cfg.get_rank_gcm()]
 
-                    # Step #5a: Calculate adjustment factors.
-                    utils.log("-")
-                    msg = "Step #5a  Calculating adjustment factors is "
-                    if cfg.opt_calib:
-                        utils.log(msg + "running")
-                        scenarios_calib.bias_correction(stn, var, sim_name)
-                    else:
-                        utils.log(msg + "not required")
-                    df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
-                                              (cfg.df_calib["stn"] == stn) &
-                                              (cfg.df_calib["var"] == var)]
-                    nq       = float(df_sel["nq"])
-                    up_qmf   = float(df_sel["up_qmf"])
-                    time_win = float(df_sel["time_win"])
-                    bias_err = float(df_sel["bias_err"])
+    utils.log("=")
+    utils.log("Variable   : " + var)
+    utils.log("Station    : " + stn)
+    utils.log("RCP        : " + rcp)
+    utils.log("Simulation : " + sim_name)
+    utils.log("=")
 
-                    # Display calibration parameters.
-                    msg = "Selected parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + \
-                          ", time_win=" + str(time_win) + ", bias_err=" + str(bias_err)
-                    utils.log(msg, True)
+    # Skip iteration if the variable 'var' is not available in the current directory.
+    p_sim_ref_list = glob.glob(d_sim_ref + "/" + var + "/*.nc")
+    p_sim_fut_list = glob.glob(d_sim_fut + "/" + var + "/*.nc")
+    if (len(p_sim_ref_list) == 0) or (len(p_sim_fut_list) == 0):
+        utils.log("Skipping iteration: data not available for simulation-variable.", True)
+        return
 
-                    # Step #5b: Statistical downscaling.
-                    # Step #5c: Bias correction.
-                    # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
-                    utils.log("-")
-                    msg = "Step #5bc Statistical downscaling and bias adjustment is "
-                    if cfg.opt_scen_postprocess and not(os.path.isfile(p_qqmap)):
-                        utils.log(msg + "running")
-                        postprocess(var, int(nq), up_qmf, int(time_win), p_stn, p_regrid_ref,
-                                    p_regrid_fut, p_qqmap)
-                    else:
-                        utils.log(msg + "not required")
+    # Files within CORDEX or CORDEX-NA.
+    if "cordex" in d_sim_fut.lower():
+        p_raw = d_raw + var + "_" + c[cfg.get_rank_inst()] + "_" +\
+                c[cfg.get_rank_gcm()].replace("*", "_") + ".nc"
+    elif len(d_sim_fut) == 3:
+        p_raw = d_raw + var + "_Ouranos_" + d_sim_fut + ".nc"
+    else:
+        p_raw = None
 
-                    # Generate plots.
-                    if cfg.opt_plot:
+    # Skip iteration if the simulation or simulation-variable is in the exception list.
+    is_sim_except = False
+    for sim_except in cfg.sim_excepts:
+        if sim_except in p_raw:
+            is_sim_except = True
+            utils.log("Skipping iteration: simulation-variable exception.", True)
+            break
+    is_var_sim_except = False
+    for var_sim_except in cfg.var_sim_excepts:
+        if var_sim_except in p_raw:
+            is_var_sim_except = True
+            utils.log("Skipping iteration: simulation exception.", True)
+            break
+    if is_sim_except or is_var_sim_except:
+        return
 
-                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
-                        fn_fig = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
-                        title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/postprocess", var) + fn_fig
-                        plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+    # Paths and NetCDF files.
+    p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
+    p_qqmap      = p_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
+    p_qmf        = p_raw.replace(cfg.cat_raw, cfg.cat_qmf)
+    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
+    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
+    p_obs        = cfg.get_p_obs(stn, var)
 
-                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
-                        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/workflow", var) +\
-                            p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
-                        plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+    # Step #3: Spatial and temporal extraction.
+    # Step #4: Grid transfer or interpolation.
+    # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
+    #              one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
+    msg = "Step #3-4 Spatial & temporal extraction and grid transfer (or interpolation) is "
+    if cfg.opt_scen_extract and (not(os.path.isfile(p_raw)) or not(os.path.isfile(p_regrid))):
+        utils.log(msg + "running")
+        extract(var, p_stn, d_sim_ref, d_sim_fut, p_raw, p_regrid)
+    else:
+        utils.log(msg + "not required")
+
+    # Adjusting the datasets associated with observations and simulated conditions
+    # (for the reference and future periods) to ensure that calendar is based on 365 days per year and
+    # that values are within boundaries (0-100%).
+    # This creates two .nc files in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
+    utils.log("-")
+    msg = "Step #4.5 Pre-processing is "
+    if cfg.opt_scen_preprocess and \
+       (not(os.path.isfile(p_obs)) or
+        not(os.path.isfile(p_regrid_ref)) or
+        not(os.path.isfile(p_regrid_fut))):
+        utils.log(msg + "running")
+        preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut)
+    else:
+        utils.log(msg + "not required")
+
+    # Step #5: Post-processing.
+
+    # Step #5a: Calculate adjustment factors.
+    utils.log("-")
+    msg = "Step #5a  Calculating adjustment factors is "
+    if cfg.opt_calib:
+        utils.log(msg + "running")
+        scenarios_calib.bias_correction(stn, var, sim_name)
+    else:
+        utils.log(msg + "not required")
+    df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                              (cfg.df_calib["stn"] == stn) &
+                              (cfg.df_calib["var"] == var)]
+    nq       = float(df_sel["nq"])
+    up_qmf   = float(df_sel["up_qmf"])
+    time_win = float(df_sel["time_win"])
+    bias_err = float(df_sel["bias_err"])
+
+    # Display calibration parameters.
+    msg = "Selected parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + \
+          ", time_win=" + str(time_win) + ", bias_err=" + str(bias_err)
+    utils.log(msg, True)
+
+    # Step #5b: Statistical downscaling.
+    # Step #5c: Bias correction.
+    # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
+    utils.log("-")
+    msg = "Step #5bc Statistical downscaling and bias adjustment is "
+    if cfg.opt_scen_postprocess or not(os.path.isfile(p_qqmap)) or not(os.path.isfile(p_qmf)):
+        utils.log(msg + "running")
+        postprocess(var, int(nq), up_qmf, int(time_win), p_stn, p_regrid_ref, p_regrid_fut,
+                    p_qqmap, p_qmf)
+    else:
+        utils.log(msg + "not required")
+
+    # Generate plots.
+    if cfg.opt_plot:
+
+        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
+        fn_fig = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_postprocess.png")
+        title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/postprocess", var) + fn_fig
+        plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+
+        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
+        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/workflow", var) +\
+            p_regrid_fut.split("/")[-1].replace("4qqmap.nc", "workflow.png")
+        plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
 
 def run():

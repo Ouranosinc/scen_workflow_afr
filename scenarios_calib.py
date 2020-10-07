@@ -89,7 +89,7 @@ def bias_correction(stn, var, sim_name=""):
                     p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/calibration", var) + comb + "/" + fn_fig
 
                     # Calculate QQ and generate calibration plots.
-                    scen.postprocess(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", title, p_fig)
+                    scen.postprocess(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", "", title, p_fig)
 
                     # Error --------------------------------------------------------------------------------------------
 

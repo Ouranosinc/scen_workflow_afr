@@ -34,7 +34,6 @@ import aggregate
 import ast
 import config as cfg
 import configparser
-import datetime
 import download
 import indices
 import os
@@ -217,6 +216,9 @@ def main():
     # Load parameters from INI file.
     load_params("config.ini")
 
+    # Process identifier.
+    cfg.pid = os.getpid()
+
     # Variables.
     cfg.priority_timestep = ["day"] * len(cfg.variables_cordex)
 
@@ -228,9 +230,7 @@ def main():
         cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
 
     # Log file.
-    dt = datetime.datetime.now()
-    cfg.p_log = cfg.d_sim + "log/" + str(dt.year) + str(dt.month).zfill(2) + str(dt.day).zfill(2) + "_" +\
-        str(dt.hour).zfill(2) + str(dt.minute).zfill(2) + str(dt.second).zfill(2) + ".log"
+    cfg.p_log = cfg.d_sim + "log/" + utils.get_datetime_str() + ".log"
 
     # Calibration file.
     cfg.p_calib = cfg.d_sim + cfg.p_calib
@@ -243,6 +243,7 @@ def main():
     utils.log("=")
     utils.log("PRODUCTION OF CLIMATE SCENARIOS & CALCULATION OF CLIMATE INDICES                ")
     utils.log("Python Script created by Ouranos, based on xclim and xarray libraries.          ")
+    utils.log("Script launched: " + utils.get_datetime_str())
 
     # Display configuration.
     utils.log("=")
@@ -356,7 +357,7 @@ def main():
     scen_calib.init_calib_params()
 
     # Calculation of scenarios.
-    Tscenarios.run()
+    scenarios.run()
 
     # DEBUG: This following statement is optional. It is useful to verify the generated NetCDF files.
     # DEBUG: import scenarios_verif as scen_verif
@@ -374,7 +375,7 @@ def main():
         stat.run()
 
     utils.log("=")
-    utils.log("Script completed successfully.")
+    utils.log("Script completed: " + utils.get_datetime_str())
 
 
 if __name__ == "__main__":

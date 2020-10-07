@@ -16,6 +16,7 @@ import functools
 import glob
 import multiprocessing
 import os
+import utils
 
 
 def download_from_copernicus(p_base, obs_src, area, var, year):
@@ -216,11 +217,13 @@ def run():
                         download_from_copernicus(d_prefix, cfg.obs_src, area, var, year)
                 else:
                     try:
+                        utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                         pool = multiprocessing.Pool(processes=cfg.n_proc)
                         func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
                         pool.map(func, years)
                         pool.close()
                         pool.join()
+                        utils.log("Parallel processing ended.", True)
                     except Exception as e:
                         pass
 

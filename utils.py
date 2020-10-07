@@ -10,6 +10,7 @@
 
 # Other packages.
 import config as cfg
+import datetime
 import glob
 import math
 import matplotlib.pyplot
@@ -673,6 +674,21 @@ def calc_error(values_obs, values_pred):
     return error
 
 
+def get_datetime_str():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get date and time.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    dt = datetime.datetime.now()
+    dt_str = str(dt.year) + str(dt.month).zfill(2) + str(dt.day).zfill(2) + "_" + \
+        str(dt.hour).zfill(2) + str(dt.minute).zfill(2) + str(dt.second).zfill(2)
+
+    return dt_str
+
+
 def log(msg, indent=False):
 
     """
@@ -690,6 +706,10 @@ def log(msg, indent=False):
 
     ln = ""
 
+    # Start line with a timestamp, unless this is a divide.
+    if (msg != "-") and (msg != "="):
+        ln = get_datetime_str()
+
     if indent:
         ln += " " * cfg.log_n_blank
     if (msg == "-") or (msg == "="):
@@ -698,10 +718,12 @@ def log(msg, indent=False):
         else:
             ln += msg * (cfg.log_sep_len + cfg.log_n_blank)
     else:
-        ln += msg
+        ln += " " + msg
 
     # Print to console.
-    print(ln)
+    pid_current = os.getpid()
+    if pid_current == cfg.pid:
+        print(ln)
 
     # Recursively create directories if the path does not exist.
     d = os.path.dirname(cfg.p_log)
@@ -709,8 +731,11 @@ def log(msg, indent=False):
         os.makedirs(d)
 
     # Print to file.
-    if cfg.p_log != "":
-        f = open(cfg.p_log, "a")
+    p_log = cfg.p_log
+    if pid_current != cfg.pid:
+        p_log = p_log.replace(".log", "_" + str(pid_current) + ".log")
+    if p_log != "":
+        f = open(p_log, "a")
         f.writelines(ln + "\n")
         f.close()
 

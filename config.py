@@ -89,6 +89,7 @@ cat_sim             = "sim"         # Simulation.
 cat_raw             = "raw"         # Raw.
 cat_regrid          = "regrid"      # Reggrided.
 cat_qqmap           = "qqmap"       # Adjusted simulation.
+cat_qmf             = "qmf"         # Quantile mapping function.
 # Scenarios vs. indices.
 cat_scen            = "scen"        # Scenarios.
 cat_idx             = "idx"         # Indices.
@@ -182,13 +183,14 @@ d_ra_day            = ""            # Reanalysis set (aggregated frequency, i.e.
 # Log file.
 p_log               = ""            # Log file (date and time).
 log_n_blank         = 10            # Number of blanks at the beginning of a message.
-log_sep_len         = 70            # Number of instances of the symbol "-" in a separator line.
+log_sep_len         = 110           # Number of instances of the symbol "-" in a separator line.
 
 # Calibration parameters file.
 p_calib             = "calib.csv"   # Calibration file (bias adjustment parameters).
 
 # Performance.
 n_proc              = 1             # Number of processes (for multiprocessing).
+pid                 = -1            # Process identifier (primary process)
 
 # Step 2 - Download and aggregation ------------------------------------------------------------------------------------
 
