@@ -804,15 +804,12 @@ def generate():
                 else:
 
                     # Loop until all simulations have been processed.
-                    n_sim_processed = 0
-                    while n_sim_processed < n_sim:
+                    while True:
 
-                        # Calculate the number of simulations that were processed.
+                        # Calculate the number of simulations processed (before generation).
                         # This quick verification is based on the QQMAP NetCDF file, but there are several other
                         # files that are generated. The 'completeness' verification is more complete in scalar mode.
-                        n_sim_processed = len(list(glob.glob(d_qqmap + "*.nc")))
-                        if n_sim == n_sim_processed:
-                            break
+                        n_sim_proc_before = len(list(glob.glob(d_qqmap + "*.nc")))
 
                         # Scalar processing mode.
                         if cfg.n_proc == 1:
@@ -826,14 +823,21 @@ def generate():
                                 utils.log("Step #3-5 Production of climate scenarios.")
                                 utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                                 pool = multiprocessing.Pool(processes=cfg.n_proc)
-                                func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, p_stn, d_raw,
-                                                         var, stn, rcp)
+                                func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, p_stn,
+                                                         d_raw, var, stn, rcp)
                                 pool.map(func, list(range(n_sim)))
                                 pool.close()
                                 pool.join()
                                 utils.log("Parallel processing ended.", True)
                             except Exception as e:
                                 pass
+
+                        # Calculate the number of simulations processed (after generation).
+                        n_sim_proc_after = len(list(glob.glob(d_qqmap + "*.nc")))
+
+                        # If no simulation has been processed during a loop iteration, this means that the work is done.
+                        if (cfg.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
+                            break
 
 
 def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim_proc):
