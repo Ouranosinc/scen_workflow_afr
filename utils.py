@@ -220,7 +220,7 @@ def regrid_cdo(ds, new_grid, d_tmp, method="cubic"):
     file.close()
 
     # Write the xarray dataset to a NetCDF.
-    save_dataset(ds, d_tmp + "old_data.nc")
+    save_netcdf(ds, d_tmp + "old_data.nc")
 
     # Remap to the new grid.
     # TODO: To be fixed. It is not working well.
@@ -234,7 +234,7 @@ def regrid_cdo(ds, new_grid, d_tmp, method="cubic"):
         "Invalid method!"
 
     # Load the new data.
-    ds2 = xr.open_dataset(d_tmp + "new_data.nc")
+    ds2 = open_netcdf(d_tmp + "new_data.nc")
 
     # Remove created files.
     os.system("rm " + d_tmp + "new_grid.txt")
@@ -512,10 +512,18 @@ def reset_calendar(ds, year_1=-1, year_n=-1, freq=cfg.freq_D):
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    val_1 = ds.time.values[0]
+    val_n = ds.time.values[len(ds.time.values) - 1]
     if year_1 == -1:
-        year_1 = ds.time.values[0].year
+        try:
+            year_1 = val_1.year
+        except:
+            year_1 = int(str(val_1)[0:4])
     if year_n == -1:
-        year_n = ds.time.values[len(ds.time.values) - 1].year
+        try:
+            year_n = val_n.year
+        except:
+            year_n = int(str(val_n)[0:4])
     mult = 1
     if freq == cfg.freq_D:
         mult = 365
@@ -597,8 +605,8 @@ def physical_coherence(stn, var):
     for i in range(len(p_qqmap_tasmin_list)):
 
         log(stn + "____________" + p_qqmap_tasmax_list[i], True)
-        ds_tasmax = xr.open_dataset(p_qqmap_tasmax_list[i])
-        ds_tasmin = xr.open_dataset(p_qqmap_tasmin_list[i])
+        ds_tasmax = open_netcdf(p_qqmap_tasmax_list[i])
+        ds_tasmin = open_netcdf(p_qqmap_tasmin_list[i])
 
         pos = ds_tasmax[var[1]] < ds_tasmin[var[0]]
 
@@ -610,8 +618,8 @@ def physical_coherence(stn, var):
 
         # os.remove(p_qqmap_tasmax_list[i])
         # os.remove(p_qqmap_tasmin_list[i])
-        # save_dataset(ds_tasmax, p_qqmap_tasmax_list[i])
-        # save_dataset(ds_tasmin, p_qqmap_tasmin_list[i])
+        # save_netcdf(ds_tasmax, p_qqmap_tasmax_list[i])
+        # save_netcdf(ds_tasmin, p_qqmap_tasmin_list[i])
 
 
 def create_multi_dict(n, data_type):
@@ -740,7 +748,40 @@ def log(msg, indent=False):
         f.close()
 
 
-def save_dataset(ds, p):
+def open_netcdf(p, drop_variables=None, chunks=None):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Open a NetCDF file.
+    The MF version is safer with multiple processes (different processes can open different files at the same time).
+    Files are open in read mode (no lock), which is also safer in parallel mode.
+
+    Parameters
+    ----------
+    p : str
+        Path of file to be created.
+    drop_variables : [str]
+        Drop variables.
+    chunks : dict
+        Chunks.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if not drop_variables:
+        if not chunks:
+            ds = xr.open_mfdataset(p, parallel=True, lock=False)
+        else:
+            ds = xr.open_mfdataset(p, parallel=True, lock=False, chunks=chunks)
+    else:
+        if not chunks:
+            ds = xr.open_mfdataset(p, parallel=True, lock=False, drop_variables=drop_variables)
+        else:
+            ds = xr.open_mfdataset(p, parallel=True, lock=False, drop_variables=drop_variables, chunks=chunks)
+
+    return ds
+
+
+def save_netcdf(ds, p):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -748,7 +789,7 @@ def save_dataset(ds, p):
 
     Parameters
     ----------
-    ds : xr.Dataset
+    ds : xr.Dataset|xr.DataArray
         Dataset.
     p : str
         Path of file to be created.
@@ -796,7 +837,7 @@ def save_plot(plot, p):
     plot.savefig(p)
 
 
-def subset_ctr_mass(ds):
+def subset_center(ds):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -813,19 +854,13 @@ def subset_ctr_mass(ds):
 
     if cfg.dim_rlon in ds.dims:
         if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
-            lon_mean = round(float(ds.rlon.mean()))
-            lat_mean = round(float(ds.rlat.mean()))
-            ds_ctr = ds.isel(rlon=lon_mean, rlat=lat_mean, drop=True)
+            ds_ctr = ds.isel(rlon=round(len(ds.rlon)/2.0), rlat=round(len(ds.rlat)/2.0), drop=True)
     elif cfg.dim_lon in ds.dims:
         if (len(ds.lat) > 1) or (len(ds.lon) > 1):
-            lon_mean = round(float(ds.lon.mean()))
-            lat_mean = round(float(ds.lat.mean()))
-            ds_ctr = ds.isel(lon=lon_mean, lat=lat_mean, drop=True)
+            ds_ctr = ds.isel(lon=round(len(ds.lon)/2.0), lat=round(len(ds.lat)/2.0), drop=True)
     elif cfg.dim_longitude in ds.dims:
         if (len(ds.latitude) > 1) or (len(ds.longitude) > 1):
-            lon_mean = round(float(ds.longitude.mean()))
-            lat_mean = round(float(ds.latitude.mean()))
-            ds_ctr = ds.isel(longitude=lon_mean, latitude=lat_mean, drop=True)
+            ds_ctr = ds.isel(longitude=round(len(ds.longitude)/2.0), latitude=round(len(ds.latitude)/2.0), drop=True)
 
     return ds_ctr
 

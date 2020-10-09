@@ -68,7 +68,7 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
         return None
 
     # List days.
-    ds = xr.open_dataset(p_sim_list[0])
+    ds = utils.open_netcdf(p_sim_list[0])
     lon = ds[cfg.dim_lon]
     lat = ds[cfg.dim_lat]
     if cfg.attrs_units in ds[var_or_idx].attrs:
@@ -90,7 +90,7 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
     for i_sim in range(n_sim):
 
         # Load dataset.
-        ds = xr.open_dataset(p_sim_list[i_sim])
+        ds = utils.open_netcdf(p_sim_list[i_sim])
         years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
 

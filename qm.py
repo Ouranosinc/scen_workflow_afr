@@ -15,7 +15,7 @@ import xarray as xr
 from scipy import stats
 
 
-def train(x, y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0, detrend_order=0):
+def train(da_x, da_y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0, detrend_order=0):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -23,9 +23,9 @@ def train(x, y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0, detre
 
     Parameters
     ----------
-    x : xr.DataArray
+    da_x : xr.DataArray
         Training data, usually a model output whose biases are to be corrected.
-    y : xr.DataArray
+    da_y : xr.DataArray
         Training target, usually an observed at-site time-series.
     nq : int
         Number of quantiles.
@@ -55,8 +55,8 @@ def train(x, y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0, detre
     cx = None
     cy = None
     if detrend_order is not None:
-        x, _, cx = detrend(x, dim=dim, deg=detrend_order)
-        y, _, cy = detrend(y, dim=dim, deg=detrend_order)
+        da_x, _, cx = detrend(da_x, dim=dim, deg=detrend_order)
+        da_y, _, cy = detrend(da_y, dim=dim, deg=detrend_order)
 
     # Define nodes. Here 'n' equally spaced points within [0, 1].
     # E.g. for nq=4 :  0---x------x------x------x---1
@@ -65,45 +65,45 @@ def train(x, y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0, detre
     q = sorted(np.append([0.0001, 0.9999], q))
 
     # Group values by time, then compute quantiles. The resulting array will have new time and quantile dimensions.
-    xq = None
-    yq = None
+    da_xq = None
+    da_yq = None
     if '.' in group:
         if prop == "dayofyear":
             if time_win == 0:
-                xq = x.groupby(group).quantile(q)
-                yq = y.groupby(group).quantile(q)
+                da_xq = da_x.groupby(group).quantile(q)
+                da_yq = da_y.groupby(group).quantile(q)
             else:
-                xq = x.rolling(time=time_win, center=True).construct(window_dim="values").groupby(group).\
+                da_xq = da_x.rolling(time=time_win, center=True).construct(window_dim="values").groupby(group).\
                     quantile(q, dim=["values", dim])
-                yq = y.rolling(time=time_win, center=True).construct(window_dim="values").groupby(group).\
+                da_yq = da_y.rolling(time=time_win, center=True).construct(window_dim="values").groupby(group).\
                     quantile(q, dim=["values", dim])
-        if prop == "month":
-            xq = x.groupby(group).quantile(q)
-            yq = y.groupby(group).quantile(q)
+        elif prop == "month":
+            da_xq = da_x.groupby(group).quantile(q)
+            da_yq = da_y.groupby(group).quantile(q)
     else:
-        xq = x.quantile(q, dim=dim)
-        yq = y.quantile(q, dim=dim)
+        da_xq = da_x.quantile(q, dim=dim)
+        da_yq = da_y.quantile(q, dim=dim)
 
     # Compute correction factor.
     if kind == cfg.kind_add:
-        out = yq - xq
+        da_train = xr.DataArray(da_yq - da_xq)
     elif kind == cfg.kind_mult:
-        out = yq / xq
+        da_train = xr.DataArray(da_yq / da_xq)
     else:
         raise ValueError("kind must be + or *.")
 
     # Save input parameters as attributes of output DataArray.
-    out.attrs["kind"] = kind
-    out.attrs["group"] = group
+    da_train.attrs[cfg.attrs_kind] = kind
+    da_train.attrs[cfg.attrs_group] = group
 
     if detrend_order is not None:
-        out.attrs["detrending_poly_coeffs_x"] = cx
-        out.attrs["detrending_poly_coeffs_y"] = cy
+        da_train.attrs["detrending_poly_coeffs_x"] = cx
+        da_train.attrs["detrending_poly_coeffs_y"] = cy
 
-    return out
+    return da_train
 
 
-def predict(x, qmf, interp=False, detrend_order=4):
+def predict(da_x, da_qmf, interp=False, detrend_order=4):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -111,9 +111,9 @@ def predict(x, qmf, interp=False, detrend_order=4):
 
     Parameters
     ----------
-    x : xr.DataArray
+    da_x : xr.DataArray
         Data to predict on.
-    qmf : xr.DataArray
+    da_qmf : xr.DataArray
         Quantile mapping factors computed by the `train` function.
     interp : bool
         Whether to interpolate between the groupings.
@@ -127,10 +127,10 @@ def predict(x, qmf, interp=False, detrend_order=4):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if "." in qmf.group:
-        dim, prop = qmf.group.split(".")
+    if "." in da_qmf.group:
+        dim, prop = da_qmf.group.split(".")
     else:
-        dim, prop = qmf.group, None
+        dim, prop = da_qmf.group, None
 
     if prop == "season" and interp:
         raise NotImplementedError
@@ -139,23 +139,23 @@ def predict(x, qmf, interp=False, detrend_order=4):
     trend = None
     coeffs = None
     if detrend_order is not None:
-        x, trend, coeffs = detrend(x, dim=dim, deg=detrend_order)
+        da_x, trend, coeffs = detrend(da_x, dim=dim, deg=detrend_order)
 
-    coord = x.coords[dim]
+    coord = da_x.coords[dim]
 
     # Add cyclical values to the scaling factors for interpolation.
     if interp:
-        qmf = add_cyclic(qmf, prop)
-        qmf = add_q_bounds(qmf)
+        da_qmf = add_cyclic(da_qmf, prop)
+        da_qmf = add_q_bounds(da_qmf)
 
     # Compute the percentile time series of the input array.
-    q = x.groupby(qmf.group).apply(xr.DataArray.rank, pct=True, dim=dim)
-    iq = xr.DataArray(q, dims=q.dims, coords=q.coords, name=cfg.stat_quantile + " index")
+    da_q = da_x.load().groupby(da_qmf.group).apply(xr.DataArray.rank, pct=True, dim=dim)
+    da_iq = xr.DataArray(da_q, dims=da_q.dims, coords=da_q.coords, name=cfg.stat_quantile + " index")
 
     # Create DataArrays for indexing
-    # TODO: Adjust for different calendars if necessary.
+    # TODO.MAB: Adjust for different calendars if necessary.
     if interp:
-        ind = q.indexes[dim]
+        ind = da_q.indexes[dim]
         if prop == "month":
             y = ind.month - 0.5 + ind.day / ind.daysinmonth
         elif prop == "dayofyear":
@@ -164,76 +164,90 @@ def predict(x, qmf, interp=False, detrend_order=4):
             raise NotImplementedError
 
     else:
-        y = getattr(q.indexes[dim], prop)
+        y = getattr(da_q.indexes[dim], prop)
 
-    it = xr.DataArray(y, dims=dim, coords={dim: coord}, name=dim + " group index")
+    da_it = xr.DataArray(y, dims=dim, coords={dim: coord}, name=dim + " group index")
 
     # Extract the correct quantile for each time step.
     # Interpolate both the time group and the quantile.
     if interp:
-        factor = qmf.interp({prop: it, cfg.stat_quantile: iq})
+        da_factor = da_qmf.interp({prop: da_it, cfg.stat_quantile: da_iq})
     # Find quantile for nearest time group and quantile.
     else:
-        factor = qmf.sel({prop: it, cfg.stat_quantile: iq}, method="nearest")
+        da_factor = da_qmf.sel({prop: da_it, cfg.stat_quantile: da_iq}, method="nearest")
 
     # Apply correction factors.
-    out = x.copy()
+    da_predict = da_x.copy()
 
-    if qmf.kind == cfg.kind_add:
-        out += factor
-    elif qmf.kind == cfg.kind_mult:
-        out *= factor
+    if da_qmf.kind == cfg.kind_add:
+        da_predict = da_predict + da_factor
+    elif da_qmf.kind == cfg.kind_mult:
+        da_predict = da_predict * da_factor
 
-    out.attrs[cfg.attrs_bias] = True
+    da_predict.attrs[cfg.attrs_bias] = True
     if detrend_order is not None:
-        out.attrs["detrending_poly_coeffs"] = coeffs
+        da_predict.attrs["detrending_poly_coeffs"] = coeffs
 
     # Add trend back.
     if detrend_order is not None:
-        out += trend
+        da_predict = da_predict + trend
 
     # Remove time grouping and quantile coordinates.
-    return out.drop([cfg.stat_quantile, prop])
+    da_predict = da_predict.drop_vars([cfg.stat_quantile, prop])
+
+    return da_predict
 
 
-def add_cyclic(qmf, att):
+def add_cyclic(da_qmf, att):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Reindex the scaling factors to include the last time grouping at the beginning and the first at the end.
     This is done to allow interpolation near the end-points.
-    TODO.MAB: Use pad.
+    TODO.MAB: Use pad?
+
+    Parameters
+    ----------
+    da_qmf : xr.DataArray
+        Quantile mapping factors computed by the `train` function.
+    att : str
+        Attribute.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    gc = qmf.coords[att]
+    gc = da_qmf.coords[att]
     i = np.concatenate(([-1], range(len(gc)), [0]))
-    qmf = qmf.reindex({att: gc[i]})
-    qmf.coords[att] = range(len(qmf))
+    da_qmf = da_qmf.reindex({att: gc[i]})
+    da_qmf.coords[att] = range(len(da_qmf))
 
-    return qmf
+    return da_qmf
 
 
-def add_q_bounds(qmf):
+def add_q_bounds(da_qmf):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Reindex the scaling factors to set the quantile at 0 and 1 to the first and last quantile respectively.
     This is a naive approach that won't work well for extremes.
     TODO.MAB: Use pad?
+
+    Parameters
+    ----------
+    da_qmf : xr.DataArray
+        Quantile mapping factors computed by the `train` function.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     att = cfg.stat_quantile
-    q = qmf.coords[att]
+    q = da_qmf.coords[att]
     i = np.concatenate(([0], range(len(q)), [-1]))
-    qmf = qmf.reindex({att: q[i]})
-    qmf.coords[att] = np.concatenate(([0], q, [1]))
+    da_qmf = da_qmf.reindex({att: q[i]})
+    da_qmf.coords[att] = np.concatenate(([0], q, [1]))
 
-    return qmf
+    return da_qmf
 
 
-def _calc_slope(x, y):
+def calc_slope(x, y):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -325,14 +339,14 @@ def detrend(obj, dim=cfg.dim_time, deg=1, kind=cfg.kind_add):
     """
 
     # Fit polynomial coefficients using Ordinary Least Squares.
-    coefs = polyfit(obj, dim=dim, deg=deg)
+    coefs = polyfit(obj, dim=dim, deg=deg)[0]
 
     # Set the 0th order coefficient to 0 to preserve.
     # Compute polynomial.
     trend = polyval(coefs, obj[dim])
 
     # Remove trend from original series while preserving means.
-    # TODO.MAB: Get the residuals directly from polyfit
+    # TODO.MAB: Get the residuals directly from polyfit.
     detrended = None
     if kind == cfg.kind_add:
         detrended = obj - trend - trend.mean() + obj.mean()
@@ -343,7 +357,6 @@ def detrend(obj, dim=cfg.dim_time, deg=1, kind=cfg.kind_add):
 
 
 def get_index(coord):
-
 
     """
     --------------------------------------------------------------------------------------------------------------------

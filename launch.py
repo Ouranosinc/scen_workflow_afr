@@ -137,8 +137,6 @@ def load_params(p_ini):
             # SCENARIOS:
             elif key == "opt_scen":
                 cfg.opt_scen = ast.literal_eval(value)
-            elif key == "opt_scen_regrid":
-                cfg.opt_scen_regrid = ast.literal_eval(value)
             elif key == "lon_bnds":
                 cfg.lon_bnds = convert_to_1d(value, float)
             elif key == "lat_bnds":

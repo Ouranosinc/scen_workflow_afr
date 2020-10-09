@@ -219,14 +219,16 @@ def run():
                 # Parallel processing mode.
                 else:
                     try:
+                        utils.log("Processing: '" + var + "'", True)
                         utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                         pool = multiprocessing.Pool(processes=cfg.n_proc)
                         func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
                         pool.map(func, years)
                         pool.close()
                         pool.join()
-                        utils.log("Parallel processing ended.", True)
+                        utils.log("Fork ended.", True)
                     except Exception as e:
+                        utils.log(str(e))
                         pass
 
                 # Verify if treatment is done. Files are sometimes forgotten.

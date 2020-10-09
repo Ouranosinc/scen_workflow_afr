@@ -110,7 +110,7 @@ def generate(idx_name, idx_threshs):
                 ds_scen = []
 
                 for var in range(0, len(vars)):
-                    ds = xr.open_dataset(p_sim[var][i_sim])
+                    ds = utils.open_netcdf(p_sim[var][i_sim])
                     ds_scen.append(ds)
 
                 # Adjust units.
@@ -191,7 +191,7 @@ def generate(idx_name, idx_threshs):
                 else:
                     p_idx = cfg.get_d_sim(stn, cfg.cat_idx, idx_name) +\
                             os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
-                utils.save_dataset(ds_idx, p_idx)
+                utils.save_netcdf(ds_idx, p_idx)
 
 
 def run():

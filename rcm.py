@@ -124,11 +124,11 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
         # (12 files), we extract the data and save it to a NetCDF.
         for y in np.arange(all_yr[0], all_yr[len(all_yr)-1], 10):
 
-            sub_files = [f for f in p_list if "/" + str(y) in f]
+            p_list_sub = [f for f in p_list if "/" + str(y) in f]
             for yy in range(y + 1, y + 10):
-                sub_files.extend([f for f in p_list if "/" + str(yy) in f])
+                p_list_sub.extend([f for f in p_list if "/" + str(yy) in f])
 
-            ds_tmp = xr.open_mfdataset(sub_files, chunks={cfg.dim_time: 31},
+            ds_tmp = xr.open_mfdataset(p_list_sub, chunks={cfg.dim_time: 31},
                                        drop_variables=["time_vectors", "ts", "time_bnds"])
 
             # Spatio-temporal averaging.
@@ -139,7 +139,7 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
             ds_subset_tmp["rotated_pole"] = ds_tmp.rotated_pole
 
             # Save each year as a temporary NetCDF.
-            utils.save_dataset(ds_subset_tmp, tmpdir + str(y) + ".nc")
+            utils.save_netcdf(ds_subset_tmp, tmpdir + str(y) + ".nc")
 
         p_list_new = sorted(glob.glob(tmpdir + ("[0-9]"*4) + ".nc"))
         ds_subset = xr.open_mfdataset(p_list_new, chunks={cfg.dim_time: 365})

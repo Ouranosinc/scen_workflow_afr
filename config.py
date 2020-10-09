@@ -34,6 +34,8 @@ attrs_gmapname      = "grid_mapping_name"
 attrs_bias          = "bias_corrected"
 attrs_comments      = "comments"
 attrs_stn           = "Station Name"
+attrs_group         = "group"
+attrs_kind          = "kind"
 
 # Dataset dimensions.
 dim_lon       = "lon"
@@ -96,6 +98,9 @@ cat_idx             = "idx"         # Indices.
 # Other.
 cat_stat            = "stat"        # Statistics.
 cat_fig             = "fig"         # Figures.
+cat_fig_calibration = "calibration" # Figures (calibration).
+cat_fig_postprocess = "postprocess" # Figures (postprocess).
+cat_fig_workflow    = "workflow"    # Figures (workflow).
 
 # Calendar types.
 cal_noleap          = "noleap"      # No-leap.
@@ -209,17 +214,10 @@ opt_ra                  = False      # If True, the analysis is based on reanaly
 
 # Scenarios.
 opt_scen                = True      # If True, produce climate scenarios.
-opt_scen_load_obs       = True      # If True, converts observations to NetCDF files.
-opt_scen_extract        = True      # If True, forces extraction.
-opt_scen_itp_time       = True      # If True, performs temporal interpolation during extraction.
-opt_scen_itp_space      = True      # If True, perform spatial interpolation during extraction.
-opt_scen_regrid         = False     # If True, relies on the regrid for interpolation. Otherwise, takes nearest point.
-opt_scen_preprocess     = True      # If True, forces pre-processing.
-opt_scen_postprocess    = True      # If True, forces post-processing.
 lon_bnds                = [0, 0]    # Longitude boundaries.
 lat_bnds                = [0, 0]    # Latitude boundaries.
 radius                  = 0.5       # Search radius (around any given location).
-detrend_order           = None      # TODO.MAB: Seems not to be working.
+detrend_order           = None      # TODO.MAB: Seems to be not working.
 
 # Patch.
 # Simulation excluded from the analysis.

@@ -101,8 +101,8 @@ def bias_correction(stn, var, sim_name=""):
                     if cfg.opt_calib_auto:
 
                         # Calculate the error between observations and simulation for the reference period.
-                        ds_obs        = xr.open_dataset(p_obs)
-                        ds_regrid_ref = xr.open_dataset(p_regrid_ref)
+                        ds_obs        = utils.open_netcdf(p_obs)
+                        ds_regrid_ref = utils.open_netcdf(p_regrid_ref)
                         bias_err_current = utils.calc_error(ds_obs[var].values.ravel(),
                                                             ds_regrid_ref[var].values.ravel())
 

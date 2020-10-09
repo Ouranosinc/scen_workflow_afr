@@ -47,7 +47,7 @@ def aggregate(p_hour, p_day, set_name, var):
     dbg_longitude = 0
 
     # Hourly data.
-    ds_hour = xr.open_dataset(p_hour)[var]
+    ds_hour = utils.open_netcdf(p_hour)[var]
 
     # Daily data.
     dir_day = os.path.dirname(p_day) + "/"
@@ -90,12 +90,12 @@ def aggregate(p_hour, p_day, set_name, var):
 
             # Save NetCDF file.
             if save:
-                utils.save_dataset(ds_day, p_day_stat)
+                utils.save_netcdf(ds_day, p_day_stat)
 
         # Numerical test and plot for a given day of year.
         if opt_debug and os.path.exists(p_day_stat):
 
-            ds_day = xr.open_dataset(p_day_stat)[var]
+            ds_day = utils.open_netcdf(p_day_stat)[var]
 
             # Plot #1: Time-series.
             # Hourly data.
@@ -120,7 +120,7 @@ def aggregate(p_hour, p_day, set_name, var):
             plot.plot_dayofyear(ds_day, set_name, var, dbg_date)
 
 
-def calc_vapour_pressure(temperature):
+def calc_vapour_pressure(ds_temperature):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -129,11 +129,12 @@ def calc_vapour_pressure(temperature):
 
     Parameters
     ----------
-    temperature : float
+    ds_temperature : xr.Dataset
         Temperature or dew temperature (C).
 
     Returns
     -------
+    returns: xr.Dataset
         Vapour pressure (hPa)
         If a temperature is passed, saturation vapour pressure is calculated.
         If a dew point temperature is passed, actual vapour pressure is calculated.
@@ -141,12 +142,12 @@ def calc_vapour_pressure(temperature):
     """
 
     # Calculate vapour pressure  (hPa).
-    vapour_pressure = 6.11 * 10.0 ** (7.5 * temperature / (237.7 + temperature))
+    ds_vp = 6.11 * 10.0 ** (7.5 * ds_temperature / (237.7 + ds_temperature))
 
-    return vapour_pressure
+    return ds_vp
 
 
-def calc_spec_humidity(temperature, pressure):
+def calc_spec_humidity(ds_temperature, ds_pressure):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -155,24 +156,25 @@ def calc_spec_humidity(temperature, pressure):
 
     Parameters
     ----------
-    temperature : float
+    ds_temperature : xr.Dataset
         Temperature or dew temperature (C).
-    pressure : float
+    ds_pressure : xr.Dataset
         Atmospheric pressure (hPa).
 
     Returns
     -------
+    returns: xr.Dataset
         Specific humidity (g/kg).
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Calculate vapour pressure (hPa).
-    vapour_pressure = calc_vapour_pressure(temperature)
+    ds_vp = calc_vapour_pressure(ds_temperature)[0]
 
     # Calculate specific humidity.
-    spec_humidity = (0.622 * vapour_pressure) / (pressure - 0.378 * vapour_pressure)
+    ds_sh = (0.622 * ds_vp) / (ds_pressure - 0.378 * ds_vp)
 
-    return spec_humidity
+    return xr.Dataset(ds_sh)
 
 
 def gen_dataset_sh(p_d2m, p_sp, p_sh, n_years):
@@ -195,26 +197,21 @@ def gen_dataset_sh(p_d2m, p_sp, p_sh, n_years):
     """
 
     # Load datasets.
-    ds_d2m = xr.open_mfdataset(p_d2m, chunks={cfg.dim_time: n_years})[cfg.var_era5_d2m]
-    ds_sp  = xr.open_dataset(p_sp, chunks={cfg.dim_time: n_years})[cfg.var_era5_sp]
-
-    # DEBUG: Specific day.
-    # date   = "1979-01-01"
-    # ds_d2m = ds_d2m.sel(time=date)
-    # ds_sp  = ds_sp.sel(time=date)
+    ds_d2m = utils.open_netcdf(p_d2m, chunks={cfg.dim_time: n_years})[cfg.var_era5_d2m]
+    ds_sp  = utils.open_netcdf(p_sp, chunks={cfg.dim_time: n_years})[cfg.var_era5_sp]
 
     # Calculate specific humidity values.
-    ds_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)
+    ds_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)[0]
 
     # Update meta information.
     ds_sh.name = cfg.var_era5_sh
-    ds_sh[cfg.attrs_lname] = "specific humidity"
-    ds_sh[cfg.attrs_units] = "1"
+    ds_sh.attrs[cfg.attrs_lname] = "specific humidity"
+    ds_sh.attrs[cfg.attrs_units] = "1"
     ds_sh.attrs[cfg.attrs_lname] = "specific humidity"
     ds_sh.attrs[cfg.attrs_units] = "1"
 
     # Save NetCDF file.
-    utils.save_dataset(ds_sh, p_sh)
+    utils.save_netcdf(ds_sh, p_sh)
 
 
 def run():
