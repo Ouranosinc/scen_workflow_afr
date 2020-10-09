@@ -776,9 +776,9 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
             for p_sim in p_sim_list:
                 if os.path.exists(p_sim) and (rcp in p_sim):
                     ds_sim = utils.open_netcdf(p_sim)
+                    ds_sim[cfg.dim_time] = utils.reset_calendar(ds_sim.time)
                     if ds_itp is None:
                         ds_itp = ds_sim
-                        ds_itp[cfg.dim_time] = utils.reset_calendar(ds_itp.time)
                         units = ds_sim[var_or_idx].attrs[cfg.attrs_units]
                     else:
                         ds_itp = ds_itp.load() + ds_sim.load()
