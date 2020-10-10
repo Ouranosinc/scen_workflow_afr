@@ -809,35 +809,13 @@ def open_netcdf(p, drop_variables=None, chunks=None, combine=None, std_open=True
     if cfg.opt_trace:
         log("Opening NetCDF file: " + desc, True)
 
-    ds = None
     if std_open:
-        # if not drop_variables:
-        #     if not chunks:
-        #         ds = xr.open_dataset(p)
-        #     else:
-        #         ds = xr.open_dataset(p, chunks=chunks)
-        # else:
-        #     if not chunks:
-        #         ds = xr.open_dataset(p, drop_variables=drop_variables)
-        #     else:
-        #         ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks)
         ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks)
 
     # This is not compatible with the qm::train function. There seems to be a conflict between parallelization and
     # chunking when using xr.open_mfdataset. This version appeared safer when using multiple processes (different
     # processes can open different files at the same time), but it's not always working.
     else:
-        # if not combine:
-        #     if not drop_variables:
-        #         if not chunks:
-        #             ds = xr.open_mfdataset(p, parallel=True)
-        #         else:
-        #             ds = xr.open_mfdataset(p, parallel=True, chunks=chunks)
-        #     else:
-        #         if not chunks:
-        #             ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables)
-        #         else:
-        #             ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables, chunks=chunks)
         ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables, chunks=chunks, combine=combine)
 
     if cfg.opt_trace:
