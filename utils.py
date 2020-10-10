@@ -554,6 +554,38 @@ def reset_calendar_list(years):
     return new_time
 
 
+def convert_to_365_calender(ds):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert calendar to a 365-day calendar.
+
+    Parameters
+    ----------
+    ds : xr.Dataset|xr.DataArray
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if isinstance(ds.time.values[0], np.datetime64):
+        ds_365 = ds
+    else:
+        cf = ds.time.values[0].calendar
+        if cf in [cfg.cal_noleap, cfg.cal_365day]:
+            ds_365 = ds
+        elif cf in [cfg.cal_360day]:
+            ds_365 = calendar(ds)
+        else:
+            ds_365 = None
+            log("Calendar type not recognized", True)
+
+    # DEBUG: Plot 365 versus 360 calendar.
+    # DEBUG: if cfg.opt_plt_365vs360:
+    # DEBUG:     plot.plot_360_vs_365(ds, ds_365, var)
+
+    return ds_365
+
+
 def list_files(p):
 
     """
@@ -769,14 +801,14 @@ def open_netcdf(p, drop_variables=None, chunks=None):
 
     if not drop_variables:
         if not chunks:
-            ds = xr.open_mfdataset(p, parallel=True, lock=False)
+            ds = xr.open_mfdataset(p, parallel=True)
         else:
-            ds = xr.open_mfdataset(p, parallel=True, lock=False, chunks=chunks)
+            ds = xr.open_mfdataset(p, parallel=True, chunks=chunks)
     else:
         if not chunks:
-            ds = xr.open_mfdataset(p, parallel=True, lock=False, drop_variables=drop_variables)
+            ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables)
         else:
-            ds = xr.open_mfdataset(p, parallel=True, lock=False, drop_variables=drop_variables, chunks=chunks)
+            ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables, chunks=chunks)
 
     return ds
 
@@ -809,7 +841,7 @@ def save_netcdf(ds, p):
     ds.to_netcdf(p)
 
 
-def save_plot(plot, p):
+def save_plot(plt, p):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -817,7 +849,7 @@ def save_plot(plot, p):
 
     Parameters
     ----------
-    plot : matplotlib.pyplot
+    plt : matplotlib.pyplot
         Plot.
     p : str
         Path of file to be created.
@@ -834,7 +866,7 @@ def save_plot(plot, p):
         os.remove(p)
 
     # Create PNG file.
-    plot.savefig(p)
+    plt.savefig(p)
 
 
 def subset_center(ds):

@@ -114,7 +114,7 @@ def plot_dayofyear(ds_day, set_name, var, date):
 # ======================================================================================================================
 
 
-def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
+def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -122,12 +122,12 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
 
     Parameters
     ----------
-    p_obs : str
-        Dataset of observed period.
+    p_stn : str
+        Path of NetCDF file containing station data.
     p_fut : str
-        Dataset of future period.
+        Path of NetCDF file containing simulation data (future period).
     p_qqmap : str
-        Dataset of adjusted simulation.
+        Path of NetCDF file containing adjusted simulation data.
     var : str
         Variable.
     title : str
@@ -138,16 +138,16 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
     """
 
     # Load datasets.
-    ds_obs = utils.open_netcdf(p_obs)[var]
-    if cfg.dim_longitude in ds_obs.dims:
-        ds_obs = ds_obs.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
+    ds_stn = utils.open_netcdf(p_stn)[var]
+    if cfg.dim_longitude in ds_stn.dims:
+        ds_stn = ds_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
     ds_fut = utils.open_netcdf(p_fut)[var]
     ds_qqmap = utils.open_netcdf(p_qqmap)[var]
 
     # Select the center cell.
-    if cfg.opt_ra and (len(ds_obs.rlat) > 1) or (len(ds_obs.rlon) > 1):
-        ds_obs = utils.subset_center(ds_obs)
-        ds_fut = utils.subset_center(ds_fut)
+    if cfg.opt_ra and (len(ds_stn.rlat) > 1) or (len(ds_stn.rlon) > 1):
+        ds_stn   = utils.subset_center(ds_stn)
+        ds_fut   = utils.subset_center(ds_fut)
         ds_qqmap = utils.subset_center(ds_qqmap)
 
     # Weather variable description and unit.
@@ -174,7 +174,7 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
         legend_items.insert(0, "Sim. ajustée")
         (ds_qqmap * coef + delta).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
     (ds_fut * coef + delta).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
-    (ds_obs * coef + delta).groupby(ds_obs.time.dt.year).mean().plot(color=cfg.col_obs)
+    (ds_stn * coef + delta).groupby(ds_stn.time.dt.year).mean().plot(color=cfg.col_obs)
 
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)

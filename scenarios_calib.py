@@ -63,33 +63,37 @@ def bias_correction(stn, var, sim_name=""):
                 for time_win in cfg.time_win_calib:
 
                     # NetCDF files.
-                    p_obs        = cfg.get_p_obs(stn, var)
+                    p_stn        = cfg.d_stn + var + "/" + var + "_" + stn + ".nc"
+                    # p_obs      = cfg.get_p_obs(stn, var)
                     p_regrid     = p_regrid_list[i]
                     p_regrid_ref = p_regrid.replace(".nc", "_ref_4qqmap.nc")
                     p_regrid_fut = p_regrid.replace(".nc", "_4qqmap.nc")
                     msg = "File missing: "
-                    if not(os.path.exists(p_obs)) or not(os.path.exists(p_regrid_ref)) or\
+                    if not(os.path.exists(p_stn)) or not(os.path.exists(p_regrid_ref)) or\
                        not(os.path.exists(p_regrid_fut)):
-                        if not(os.path.exists(p_obs)):
-                            utils.log(msg + p_obs, True)
+                        if not(os.path.exists(p_stn)):
+                            utils.log(msg + p_stn, True)
                         if not(os.path.exists(p_regrid_ref)):
                             utils.log(msg + p_regrid_ref, True)
                         if not(os.path.exists(p_regrid_fut)):
                             utils.log(msg + p_regrid_fut, True)
                         continue
 
+                    # Load station data.
+                    ds_stn = utils.open_netcdf(p_stn)
+
                     # Path and title of calibration figure.
-                    fn_fig = var + "_" + sim_name_i + "_calibration.png"
+                    fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + ".png"
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
-                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/calibration", var) + comb + "/" + fn_fig
+                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var) + comb + "/" + fn_fig
 
                     # Calculate QQ and generate calibration plots.
                     msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
                           ", time_win=" + str(time_win) + " is "
                     if not (os.path.exists(p_fig) and os.path.exists(p_fig.replace(".png", "_ts.png"))):
                         utils.log(msg + "running", True)
-                        scen.postprocess(var, nq, up_qmf, time_win, p_obs, p_regrid_ref, p_regrid_fut, "", "", title,
+                        scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, "", "", title,
                                          p_fig)
                     else:
                         utils.log(msg + "not required", True)
@@ -101,10 +105,10 @@ def bias_correction(stn, var, sim_name=""):
                     if cfg.opt_calib_auto:
 
                         # Calculate the error between observations and simulation for the reference period.
-                        ds_obs        = utils.open_netcdf(p_obs)
+                        # ds_obs = utils.open_netcdf(p_obs)
                         ds_regrid_ref = utils.open_netcdf(p_regrid_ref)
-                        bias_err_current = utils.calc_error(ds_obs[var].values.ravel(),
-                                                            ds_regrid_ref[var].values.ravel())
+                        bias_err_current =\
+                            utils.calc_error(ds_stn[var].values.ravel(), ds_regrid_ref[var].values.ravel())
 
                         if (bias_err_best < 0) or (bias_err_current < bias_err_best):
                             col_names = ["nq", "up_qmf", "time_win", "bias_err"]
@@ -156,14 +160,15 @@ def init_calib_params():
                     var_list.append(var)
 
     # Build pandas dataframe.
-    dict = {"sim_name": sim_name_list,
-            "stn": stn_list,
-            "var": var_list,
-            "nq": cfg.nq_default,
-            "up_qmf": cfg.up_qmf_default,
-            "time_win": cfg.time_win_default,
-            "bias_err": cfg.bias_err_default}
-    cfg.df_calib = pd.DataFrame(dict)
+    dict_pd = {
+        "sim_name": sim_name_list,
+        "stn": stn_list,
+        "var": var_list,
+        "nq": cfg.nq_default,
+        "up_qmf": cfg.up_qmf_default,
+        "time_win": cfg.time_win_default,
+        "bias_err": cfg.bias_err_default}
+    cfg.df_calib = pd.DataFrame(dict_pd)
 
     # Save calibration parameters to a CSV file.
     if cfg.p_calib != "":

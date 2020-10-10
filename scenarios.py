@@ -174,8 +174,8 @@ def load_observations(var):
         # ds.attrs["Institution"]        = "Environment and Climate Change Canada"
 
         # Save data.
-        p_obs = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + ".nc"
-        utils.save_netcdf(ds, p_obs)
+        p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + ".nc"
+        utils.save_netcdf(ds, p_stn)
         ds.close()
         da.close()
 
@@ -253,7 +253,7 @@ def load_reanalysis(var_ra):
         utils.save_netcdf(ds, p_stn)
 
 
-def extract(var, p_stn, d_ref, d_fut, p_raw, p_regrid):
+def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -265,12 +265,12 @@ def extract(var, p_stn, d_ref, d_fut, p_raw, p_regrid):
     ----------
     var : str
         Weather variable.
-    p_stn : str
-        Path of the file containing station data.
+    ds_stn : xr.Dataset
+        NetCDF file containing station data.
     d_ref : str
-        Directory of simulation files containing historical data.
+        Directory of NetCDF files containing simulations (reference period).
     d_fut : str
-        Directory of simulation files containing projected data.
+        Directory of NetCDF files containing simulations (future period).
     p_raw : str
         Path of the directory containing raw data.
     p_regrid : str
@@ -279,7 +279,6 @@ def extract(var, p_stn, d_ref, d_fut, p_raw, p_regrid):
     """
 
     # Load observations.
-    ds_stn = utils.open_netcdf(p_stn)
     ds_proj = None
     ds_raw = None
 
@@ -448,7 +447,7 @@ def extract(var, p_stn, d_ref, d_fut, p_raw, p_regrid):
     close_netcdf()
 
 
-def preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
+def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -458,20 +457,19 @@ def preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
     ----------
     var : str
         Variable.
-    p_stn : str
-        Path of file containing station data.
+    ds_stn : xr.Dataset
+        NetCDF file containing station data.
     p_obs : str
-        Path of file containing observation data.
+        Path of NetCDF file containing observations.
     p_regrid : str
-        Path of directory containing regrid data.
+        Path of regrid NetCDF simulation file.
     p_regrid_ref : str
-        Path of directory containing regrid data for the reference period.
+        Path of regrid NetCDF simulation file (reference period).
     p_regrid_fut : str
-        Path of directory containing regrid data for the future period.
+        Path of regrid NetCDF simulation file (future period).
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds_stn = utils.open_netcdf(p_stn)
     ds_ref = None
     ds_fut = utils.open_netcdf(p_regrid)
     ds_fut_365 = None
@@ -526,7 +524,7 @@ def preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
 
         # Adjust values that do not make sense.
         # TODO.YR: Verify if positive or negative values need to be considered for cfg.var_cordex_evapsbl and
-        #       cfg.var_cordex_evapsblpot.
+        #          cfg.var_cordex_evapsblpot.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot, cfg.var_cordex_clt]:
             ds_fut[var].values[ds_fut[var] < 0] = 0
             if var == cfg.var_cordex_clt:
@@ -537,24 +535,10 @@ def preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
             perturbate(ds_fut, var)
 
         # Convert to a 365-day calendar.
-        if isinstance(ds_fut.time.values[0], np.datetime64):
-            ds_fut_365 = ds_fut
-        else:
-            cf = ds_fut.time.values[0].calendar
-            if cf in [cfg.cal_noleap, cfg.cal_365day]:
-                ds_fut_365 = ds_fut
-            elif cf in [cfg.cal_360day]:
-                ds_fut_365 = utils.calendar(ds_fut)
-            else:
-                utils.log("Calendar type not recognized", True)
-                raise ValueError
+        ds_fut_365 = utils.convert_to_365_calender(ds_fut)
 
         # Save dataset.
         utils.save_netcdf(ds_fut_365, p_regrid_fut)
-
-    # DEBUG: Plot 365 versus 360 calendar.
-    # DEBUG: if cfg.opt_plt_365vs360:
-    # DEBUG:     plot.plot_360_vs_365(ds_fut, ds_fut_365, var)
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
 
@@ -576,7 +560,7 @@ def preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
     close_netcdf()
 
 
-def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, title="", p_fig=""):
+def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf, title="", p_fig=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -592,16 +576,16 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
         ...
     time_win : int
         ...
-    p_obs : str
-        Path of NetCDF file of observations.
+    ds_stn : xr.Dataset
+        NetCDF file containing station data.
     p_ref : str
-        Path of NetCDF file of simulation for the reference period.
+        Path of NetCDF file containing simulation data (reference period).
     p_fut : str
-        Path of NetCDF file of simulation for the future period.
+        Path of NetCDF file containing simulation data (future period).
     p_qqmap : str
-        Path of NetCDF file of adjusted simulation.
+        Path of NetCDF file containing adjusted simulation data.
     p_qmf : str
-        Path of NetCDF file of quantile map function.
+        Path of NetCDF file containing quantile map function.
     title : str, optional
         Title of figure.
     p_fig : str, optimal
@@ -612,18 +596,22 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
     # Load datasets.
     # Cannot open p_obs and p_ref in MF mode, because it's not compatible with the train function. There is a conflict
     # between parallelization and chunking.
-    da_obs = xr.open_dataset(p_obs)[var]
-    if cfg.dim_longitude in da_obs.dims:
-        da_obs = da_obs.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
-    da_ref = xr.open_dataset(p_ref)[var]
-    da_fut = utils.open_netcdf(p_fut)[var]
+    da_stn = ds_stn[var]
+    if cfg.dim_longitude in da_stn.dims:
+        da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
+    ds_ref = utils.open_netcdf(p_ref)
+    ds_fut = utils.open_netcdf(p_fut)
+    # ds_ref = ds_ref.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
+    # ds_fut = ds_fut.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
+    da_ref = ds_ref[var]
+    da_fut = ds_fut[var]
     ds_qmf = None
     ds_qqmap = None
 
     def close_netcdf():
 
-        if da_obs is not None:
-            xr.DataArray(da_obs).close()
+        if da_stn is not None:
+            xr.DataArray(da_stn).close()
         if da_ref is not None:
             xr.DataArray(da_ref).close()
         if da_fut is not None:
@@ -635,22 +623,8 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
 
     # Future -----------------------------------------------------------------------------------------------------------
 
-    # Interpolation of 360 calendar to no-leap calendar.
-    if isinstance(da_fut.time.values[0], np.datetime64):
-        da_fut_365 = da_fut
-    else:
-        cf = da_fut.time.values[0].calendar
-        if cf in [cfg.cal_noleap, cfg.cal_365day]:
-            da_fut_365 = da_fut
-        elif cf in [cfg.cal_360day]:
-            da_fut_365 = utils.calendar(da_fut)
-        else:
-            utils.log("Calendar type not recognized.", True)
-            raise ValueError
-
-    # DEBUG: Plot 365 versus 360 data.
-    # DEBUG: if cfg.opt_plt_365vs360:
-    # DEBUG:     plot.plot_360_vs_365(da_fut, da_fut_365)
+    # Convert to a 365-day calendar.
+    da_fut_365 = utils.convert_to_365_calender(ds_fut)[var]
 
     # Observation ------------------------------------------------------------------------------------------------------
 
@@ -658,14 +632,14 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
         kind = cfg.kind_mult
     elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
         if not cfg.opt_ra:
-            da_obs = da_obs + cfg.d_KC
+            da_stn = da_stn + cfg.d_KC
         kind = cfg.kind_add
     else:
         kind = cfg.kind_add
 
     # Interpolate.
     if not cfg.opt_ra:
-        da_obs = da_obs.interpolate_na(dim=cfg.dim_time)
+        da_stn = da_stn.interpolate_na(dim=cfg.dim_time)
 
     # Quantile Mapping Function ----------------------------------------------------------------------------------------
 
@@ -675,7 +649,7 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
 
     # Calculate transfer function.
     else:
-        da_qmf = xr.DataArray(train(da_ref.squeeze(), da_obs.squeeze(), nq, cfg.group, kind, time_win,
+        da_qmf = xr.DataArray(train(da_ref.squeeze(), da_stn.squeeze(), nq, cfg.group, kind, time_win,
                                     detrend_order=cfg.detrend_order))
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
             da_qmf.values[da_qmf > up_qmf] = up_qmf
@@ -695,15 +669,15 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
     # Apply transfer function.
     else:
         try:
-            interp = True if not cfg.opt_ra else False
+            interp = (True if not cfg.opt_ra else False)
             da_qqmap = xr.DataArray(predict(da_fut_365.squeeze(), ds_qmf[var].squeeze(),
                                             interp=interp, detrend_order=cfg.detrend_order))
             ds_qqmap = da_qqmap.to_dataset(name=var)
             del ds_qqmap[var].attrs[cfg.attrs_bias]
-            ds_qqmap[var].attrs[cfg.attrs_sname] = da_obs.attrs[cfg.attrs_sname]
-            ds_qqmap[var].attrs[cfg.attrs_lname] = da_obs.attrs[cfg.attrs_lname]
-            ds_qqmap[var].attrs[cfg.attrs_units] = da_obs.attrs[cfg.attrs_units]
-            ds_qqmap[var].attrs[cfg.attrs_gmap]  = da_obs.attrs[cfg.attrs_gmap]
+            ds_qqmap[var].attrs[cfg.attrs_sname] = da_stn.attrs[cfg.attrs_sname]
+            ds_qqmap[var].attrs[cfg.attrs_lname] = da_stn.attrs[cfg.attrs_lname]
+            ds_qqmap[var].attrs[cfg.attrs_units] = da_stn.attrs[cfg.attrs_units]
+            ds_qqmap[var].attrs[cfg.attrs_gmap]  = da_stn.attrs[cfg.attrs_gmap]
             if p_qqmap != "":
                 utils.save_netcdf(ds_qqmap, p_qqmap)
                 ds_qqmap = utils.open_netcdf(p_qqmap)
@@ -735,7 +709,7 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
         elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
             coef_1 = cfg.spd
             coef_2 = 365
-        da_obs       = da_obs * coef_1 + delta
+        da_stn       = da_stn * coef_1 + delta
         da_ref       = da_ref * coef_1 + delta
         da_fut       = da_fut * coef_1 + delta
         da_qqmap     = da_qqmap * coef_1 + delta
@@ -746,14 +720,14 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
             da_qmf = da_qmf * coef_2
 
         # Select center coordinates.
-        da_obs_xy       = da_obs
+        da_stn_xy       = da_stn
         da_ref_xy       = da_ref
         da_fut_xy       = da_fut
         da_qqmap_ref_xy = da_qqmap_ref
         da_qqmap_xy     = da_qqmap
         da_qmf_xy       = da_qmf
         if cfg.opt_ra:
-            da_obs_xy       = utils.subset_center(da_obs_xy)
+            da_stn_xy       = utils.subset_center(da_stn_xy)
             da_ref_xy       = utils.subset_center(da_ref_xy)
             da_fut_xy       = utils.subset_center(da_fut_xy)
             da_qqmap_xy     = utils.subset_center(da_qqmap_xy)
@@ -762,12 +736,12 @@ def postprocess(var, nq, up_qmf, time_win, p_obs, p_ref, p_fut, p_qqmap, p_qmf, 
 
         # Generate summary plot.
         if cfg.opt_plot:
-            plot.plot_calib(da_qmf_xy, da_qqmap_ref_xy, da_obs_xy, da_ref_xy, da_fut_xy, da_qqmap_xy,
+            plot.plot_calib(da_qmf_xy, da_qqmap_ref_xy, da_stn_xy, da_ref_xy, da_fut_xy, da_qqmap_xy,
                             var, title, p_fig)
 
         # Generate time series only.
         if cfg.opt_plot:
-            plot.plot_calib_ts(da_obs_xy, da_fut_xy, da_qqmap_xy, var, title, p_fig.replace(".png", "_ts.png"))
+            plot.plot_calib_ts(da_stn_xy, da_fut_xy, da_qqmap_xy, var, title, p_fig.replace(".png", "_ts.png"))
 
     close_netcdf()
 
@@ -849,10 +823,12 @@ def generate():
             d_fig_postprocess = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var)
             d_fig_workflow    = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var)
 
-            # TODO: Load dataset.
-            # TODO: At this point, we only want to load the dataset that is needed by all processes (in parallel mode).
+            # Load station data.
+            # This needs to be done to avoid competing processes (in parallel mode).
             p_stn = p_stn_list[i_stn]
-            # ds_stn = utils.open_netcdf(p_stn)
+            ds_stn = utils.open_netcdf(p_stn)
+            # p_obs = cfg.get_p_obs(stn, var)
+            # ds_obs = utils.open_netcdf(p_obs)
 
             # Create directories (required because of parallel processing).
             if not (os.path.isdir(d_obs)):
@@ -882,14 +858,11 @@ def generate():
                 list_cordex_fut.sort()
                 n_sim = len(list_cordex_ref)
 
-                if not cfg.opt_ra:
-                    p_stn = cfg.get_p_stn(var, stn)
-
                 # Scalar processing mode.
                 if cfg.n_proc == 1:
 
                     for i_sim in range(n_sim):
-                        generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim)
+                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, i_sim)
 
                 # Parallel processing mode.
                 else:
@@ -905,7 +878,7 @@ def generate():
                         # Scalar processing mode.
                         if cfg.n_proc == 1:
                             for i_sim in range(n_sim):
-                                generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim)
+                                generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, i_sim)
 
                         # Parallel processing mode.
                         else:
@@ -932,7 +905,7 @@ def generate():
                             break
 
 
-def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rcp, i_sim_proc):
+def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, i_sim_proc):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -944,8 +917,8 @@ def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rc
         List of CORDEX files for the reference period.
     list_cordex_fut : [str]
         List of CORDEX files for the future period.
-    p_stn : str
-        Path of station fille.
+    ds_stn : xr.Dataset
+        Station file.
     d_raw : str
         Directory containing raw NetCDF files.
     var : str
@@ -1021,7 +994,7 @@ def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rc
     msg = "Step #3-4 Spatial & temporal extraction and grid transfer (or interpolation) is "
     if not(os.path.isfile(p_raw)) or not(os.path.isfile(p_regrid)):
         utils.log(msg + "running")
-        extract(var, p_stn, d_sim_ref, d_sim_fut, p_raw, p_regrid)
+        extract(var, ds_stn, d_sim_ref, d_sim_fut, p_raw, p_regrid)
     else:
         utils.log(msg + "not required")
 
@@ -1033,7 +1006,7 @@ def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rc
     msg = "Step #4.5 Pre-processing is "
     if not(os.path.isfile(p_obs)) or not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut)):
         utils.log(msg + "running")
-        preprocess(var, p_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut)
+        preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut)
     else:
         utils.log(msg + "not required")
 
@@ -1067,24 +1040,10 @@ def generate_single(list_cordex_ref, list_cordex_fut, p_stn, d_raw, var, stn, rc
     msg = "Step #5bc Statistical downscaling and bias adjustment is "
     if not(os.path.isfile(p_qqmap) or os.path.isfile(p_qmf)):
         utils.log(msg + "running")
-        postprocess(var, int(nq), up_qmf, int(time_win), p_stn, p_regrid_ref, p_regrid_fut,
+        postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut,
                     p_qqmap, p_qmf)
     else:
         utils.log(msg + "not required")
-
-    # Generate plots.
-    if cfg.opt_plot:
-
-        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
-        fn_fig = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_" + cfg.cat_fig_postprocess + ".png")
-        title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
-        plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
-
-        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
-        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) +\
-            p_regrid_fut.split("/")[-1].replace("4qqmap.nc", cfg.cat_fig_workflow + ".png")
-        plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
 
 def run():
@@ -1113,11 +1072,62 @@ def run():
     # Generate time series.
     if cfg.opt_plot:
 
+        # --------------------------------------------------------------------------------------------------------------
+
+        utils.log("=")
+        utils.log("Generating post-process and workflow diagrams.", True)
+
+        # Loop through variables.
+        for var in cfg.variables_cordex:
+
+            # Loop through stations.
+            stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
+            for stn in stns:
+
+                # Path ofo NetCDF file containing station data.
+                p_stn = cfg.d_stn + var + "/" + var + "_" + stn + ".nc"
+
+                # Loop through raw NetCDF files.
+                p_raw_list = list(glob.glob(cfg.get_d_sim(stn, cfg.cat_raw, var) + "*.nc"))
+                for p_raw in p_raw_list:
+
+                    # Path of NetCDF files.
+                    p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
+                    p_qqmap      = p_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
+                    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
+                    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
+
+                    # Extract simulations name.
+                    sim_name = os.path.basename(p_raw).replace(var + "_", "").replace(".nc", "")
+
+                    # Calibration parameters.
+                    df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                                              (cfg.df_calib["stn"] == stn) &
+                                              (cfg.df_calib["var"] == var)]
+                    nq = float(df_sel["nq"])
+                    up_qmf = float(df_sel["up_qmf"])
+                    time_win = float(df_sel["time_win"])
+
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
+                    fn_fig = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_" + cfg.cat_fig_postprocess + ".png")
+                    title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
+                    plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
+                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
+                        p_regrid_fut.split("/")[-1].replace("4qqmap.nc", cfg.cat_fig_workflow + ".png")
+                    plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+
+        # --------------------------------------------------------------------------------------------------------------
+
         utils.log("=")
         utils.log("Generating time series.", True)
 
         for var in cfg.variables_cordex:
             plot.plot_ts(var)
+
+        # --------------------------------------------------------------------------------------------------------------
 
         # Perform interpolation (requires multiples stations).
         # Heat maps are not generated:
