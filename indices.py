@@ -48,13 +48,8 @@ def generate(idx_name, idx_threshs):
     # TODO.CUSTOMIZATION.END
     # ==========================================================
 
-    # List stations.
-    if cfg.opt_ra:
-        stns = [cfg.obs_src]
-    else:
-        stns = cfg.stns
-
     # Loop through stations.
+    stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
 
         # Verify if this variable is available for the current station.

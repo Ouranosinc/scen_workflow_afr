@@ -371,8 +371,7 @@ def main():
     # Step #7: Statistics ----------------------------------------------------------------------------------------------
 
     # Calculation of statistics.
-    if not cfg.opt_ra:
-        stat.run()
+    stat.run()
 
     utils.log("=")
     utils.log("Script completed: " + utils.get_datetime_str())

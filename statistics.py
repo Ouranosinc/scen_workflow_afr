@@ -69,8 +69,15 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
 
     # List days.
     ds = utils.open_netcdf(p_sim_list[0])
-    lon = ds[cfg.dim_lon]
-    lat = ds[cfg.dim_lat]
+    if cfg.dim_lon in ds.dims:
+        lon = ds[cfg.dim_lon]
+        lat = ds[cfg.dim_lat]
+    elif cfg.dim_rlon in ds.dims:
+        lon = ds[cfg.dim_rlon]
+        lat = ds[cfg.dim_rlat]
+    else:
+        lon = ds[cfg.dim_longitude]
+        lat = ds[cfg.dim_latitude]
     if cfg.attrs_units in ds[var_or_idx].attrs:
         units = ds[var_or_idx].attrs[cfg.attrs_units]
     else:
@@ -93,6 +100,10 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
         ds = utils.open_netcdf(p_sim_list[i_sim])
         years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
+
+        # Select specific location.
+        if cfg.opt_ra:
+            ds = utils.subset_center(ds)
 
         # Records values.
         # Simulation data is assumed to be complete.
@@ -211,7 +222,8 @@ def calc_stats(cat):
         utils.log("Step #7b  Calculation of statistics for climate indices.")
 
     # Loop through stations.
-    for stn in cfg.stns:
+    stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
+    for stn in stns:
 
         # Loop through variables (or indices).
         vars_or_idxs = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names

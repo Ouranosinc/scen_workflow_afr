@@ -537,7 +537,7 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
 
         # Save dataset.
         desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid_fut)
-        utils.save_netcdf(ds_regrid_fut, p_regrid_fut, "regrid_fut")
+        utils.save_netcdf(ds_regrid_fut, p_regrid_fut, desc=desc)
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
 
