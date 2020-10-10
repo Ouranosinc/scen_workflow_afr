@@ -813,7 +813,7 @@ def open_netcdf(p, drop_variables=None, chunks=None):
     return ds
 
 
-def save_netcdf(ds, p):
+def save_netcdf(ds, p, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -825,8 +825,13 @@ def save_netcdf(ds, p):
         Dataset.
     p : str
         Path of file to be created.
+    desc : str
+        Description.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    desc = (" (" + desc + ")") if desc != "" else ""
+    log("Saving NetCDF file" + desc, True)
 
     # Recursively create directories if the path does not exist.
     d = os.path.dirname(p)
@@ -838,7 +843,12 @@ def save_netcdf(ds, p):
         os.remove(p)
 
     # Create NetCDF file.
-    ds.to_netcdf(p)
+    if cfg.n_proc == 1:
+        ds.to_netcdf(p)
+    else:
+        xr.save_mfdataset(datasets=[ds], paths=[p], compute=False).compute()
+
+    log("Saved NetCDF file" + desc, True)
 
 
 def save_plot(plt, p):

@@ -175,7 +175,7 @@ def load_observations(var):
 
         # Save data.
         p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + ".nc"
-        utils.save_netcdf(ds, p_stn)
+        utils.save_netcdf(ds, p_stn, "stn")
         ds.close()
         da.close()
 
@@ -250,7 +250,8 @@ def load_reanalysis(var_ra):
             ds[var].attrs[cfg.attrs_units] = "1"
 
         # Save data.
-        utils.save_netcdf(ds, p_stn)
+        utils.save_netcdf(ds, p_stn, "stn")
+        ds.close()
 
 
 def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
@@ -373,8 +374,7 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
             utils.log(msg, True)
 
         # Save NetCDF file (raw).
-        utils.log("Writing NetCDF file (raw)", True)
-        utils.save_netcdf(ds_raw, p_raw)
+        utils.save_netcdf(ds_raw, p_raw, "raw")
         ds_raw = utils.open_netcdf(p_raw)
         p_raw_generated = True
 
@@ -437,8 +437,7 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
             ds_regrid = ds_raw.sel(rlat=lat_stn, rlon=lon_stn, method="nearest", tolerance=1)
 
         # Save NetCDF file (regrid).
-        utils.log("Writing NetCDF file (regrid)", True)
-        utils.save_netcdf(ds_regrid, p_regrid)
+        utils.save_netcdf(ds_regrid, p_regrid, "regrid")
 
     else:
 
@@ -473,7 +472,8 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
 
     ds_ref = None
     ds_fut = utils.open_netcdf(p_regrid)
-    ds_fut_365 = None
+    ds_regrid_ref = None
+    ds_regrid_fut = None
 
     def close_netcdf():
 
@@ -483,8 +483,8 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
             xr.Dataset(ds_ref).close()
         if ds_fut is not None:
             xr.Dataset(ds_fut).close()
-        if ds_fut_365 is not None:
-            xr.Dataset(ds_fut_365).close()
+        if ds_regrid_fut is not None:
+            xr.Dataset(ds_regrid_fut).close()
 
     # Add small perturbation.
     def perturbate(ds, var_inner, d_val=1e-12):
@@ -501,62 +501,58 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
     if not os.path.exists(p_obs):
 
         # Interpolate temporally by dropping February 29th and by sub-selecting between reference years.
-        ds_stn = ds_stn.sel(time=~((ds_stn.time.dt.month == 2) & (ds_stn.time.dt.day == 29)))
-        ds_stn = ds_stn.where(
-            (ds_stn.time.dt.year >= cfg.per_ref[0]) & (ds_stn.time.dt.year <= cfg.per_ref[1]), drop=True)
+        ds_obs = ds_stn.sel(time=~((ds_stn.time.dt.month == 2) & (ds_stn.time.dt.day == 29)))
+        ds_obs = ds_obs.where(
+            (ds_obs.time.dt.year >= cfg.per_ref[0]) & (ds_obs.time.dt.year <= cfg.per_ref[1]), drop=True)
 
         # Add small perturbation.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            perturbate(ds_stn, var)
+            perturbate(ds_obs, var)
 
         # Save NetCDF file.
-        utils.save_netcdf(ds_stn, p_obs)
+        utils.save_netcdf(ds_obs, p_obs, "obs")
 
     # Simulated climate (future period) --------------------------------------------------------------------------------
 
     if os.path.exists(p_regrid_fut):
 
-        ds_fut_365 = utils.open_netcdf(p_regrid_fut)
+        ds_regrid_fut = utils.open_netcdf(p_regrid_fut)
 
     else:
 
         # Drop February 29th.
-        ds_fut = ds_fut.sel(time=~((ds_fut.time.dt.month == 2) & (ds_fut.time.dt.day == 29)))
+        ds_regrid_fut = ds_fut.sel(time=~((ds_fut.time.dt.month == 2) & (ds_fut.time.dt.day == 29)))
 
         # Adjust values that do not make sense.
         # TODO.YR: Verify if positive or negative values need to be considered for cfg.var_cordex_evapsbl and
         #          cfg.var_cordex_evapsblpot.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot, cfg.var_cordex_clt]:
-            ds_fut[var].values[ds_fut[var] < 0] = 0
+            ds_regrid_fut[var].values[ds_regrid_fut[var] < 0] = 0
             if var == cfg.var_cordex_clt:
-                ds_fut[var].values[ds_fut[var] > 100] = 100
+                ds_regrid_fut[var].values[ds_regrid_fut[var] > 100] = 100
 
         # Add small perturbation.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            perturbate(ds_fut, var)
+            perturbate(ds_regrid_fut, var)
 
         # Convert to a 365-day calendar.
-        ds_fut_365 = utils.convert_to_365_calender(ds_fut)
+        ds_regrid_fut = utils.convert_to_365_calender(ds_regrid_fut)
 
         # Save dataset.
-        utils.save_netcdf(ds_fut_365, p_regrid_fut)
+        utils.save_netcdf(ds_regrid_fut, p_regrid_fut, "regrid_fut")
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
 
-    if os.path.exists(p_regrid_ref):
+    if not os.path.exists(p_regrid_ref):
 
-        ds_ref = utils.open_netcdf(p_regrid_ref)
-
-    else:
-
-        ds_ref = ds_fut_365.sel(time=slice(str(cfg.per_ref[0]), str(cfg.per_ref[1])))
+        ds_regrid_ref = ds_regrid_fut.sel(time=slice(str(cfg.per_ref[0]), str(cfg.per_ref[1])))
 
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot, cfg.var_cordex_clt]:
-            pos = np.where(np.squeeze(ds_ref[var].values) > 0.01)[0]
-            ds_ref[var][pos] = 1e-12
+            pos = np.where(np.squeeze(ds_regrid_ref[var].values) > 0.01)[0]
+            ds_regrid_ref[var][pos] = 1e-12
 
         # Save dataset.
-        utils.save_netcdf(ds_ref, p_regrid_ref)
+        utils.save_netcdf(ds_regrid_ref, p_regrid_ref, "regrid_ref")
 
     close_netcdf()
 
@@ -658,7 +654,7 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
         ds_qmf[var].attrs[cfg.attrs_group] = da_qmf.attrs[cfg.attrs_group]
         ds_qmf[var].attrs[cfg.attrs_kind] = da_qmf.attrs[cfg.attrs_kind]
         if p_qmf != "":
-            utils.save_netcdf(ds_qmf, p_qmf)
+            utils.save_netcdf(ds_qmf, p_qmf, "qmf")
             ds_qmf = utils.open_netcdf(p_qmf)
 
     # Quantile Mapping -------------------------------------------------------------------------------------------------
@@ -680,7 +676,7 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
             ds_qqmap[var].attrs[cfg.attrs_units] = da_stn.attrs[cfg.attrs_units]
             ds_qqmap[var].attrs[cfg.attrs_gmap]  = da_stn.attrs[cfg.attrs_gmap]
             if p_qqmap != "":
-                utils.save_netcdf(ds_qqmap, p_qqmap)
+                utils.save_netcdf(ds_qqmap, p_qqmap, "qqmap")
                 ds_qqmap = utils.open_netcdf(p_qqmap)
 
         except ValueError as err:

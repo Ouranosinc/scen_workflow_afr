@@ -304,9 +304,9 @@ def calc_stats(cat):
             if len(stn_list) > 0:
 
                 # Build pandas dataframe.
-                dict = {"stn": stn_list, ("var" if cat == cfg.cat_scen else "idx"): var_or_idx_list, "rcp": rcp_list,
-                        "hor": hor_list, "stat": stat_list, "q": q_list, "val": val_list}
-                df = pd.DataFrame(dict)
+                dict_pd = {"stn": stn_list, ("var" if cat == cfg.cat_scen else "idx"): var_or_idx_list, "rcp": rcp_list,
+                           "hor": hor_list, "stat": stat_list, "q": q_list, "val": val_list}
+                df = pd.DataFrame(dict_pd)
 
                 # Save file.
                 fn = var_or_idx + "_" + stn + ".csv"

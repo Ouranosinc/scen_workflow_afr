@@ -191,7 +191,7 @@ def generate(idx_name, idx_threshs):
                 else:
                     p_idx = cfg.get_d_sim(stn, cfg.cat_idx, idx_name) +\
                             os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
-                utils.save_netcdf(ds_idx, p_idx)
+                utils.save_netcdf(ds_idx, p_idx, "idx")
 
 
 def run():
