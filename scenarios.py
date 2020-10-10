@@ -313,12 +313,13 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
     else:
 
         # Projections.
+        # Must use xr.open_dataset here, otherwise there is a problem in parallel mode.
         p_proj = list(glob.glob(d_ref + var + "/*.nc"))[0]
         try:
-            ds_proj = utils.open_netcdf(p_proj)
+            ds_proj = xr.open_dataset(p_proj)
         except Exception as e:
             utils.log(str(e))
-            ds_proj = utils.open_netcdf(p_proj, ["time_bnds"])
+            ds_proj = xr.open_dataset(p_proj, drop_variables=["time_bnds"])
         res_proj_lat = abs(ds_proj.rlat.values[1] - ds_proj.rlat.values[0])
         res_proj_lon = abs(ds_proj.rlon.values[1] - ds_proj.rlon.values[0])
 
@@ -826,7 +827,7 @@ def generate():
             # Load station data.
             # This needs to be done to avoid competing processes (in parallel mode).
             p_stn = p_stn_list[i_stn]
-            ds_stn = utils.open_netcdf(p_stn)
+            ds_stn = xr.open_dataset(p_stn)
             # p_obs = cfg.get_p_obs(stn, var)
             # ds_obs = utils.open_netcdf(p_obs)
 
@@ -887,7 +888,7 @@ def generate():
                                 utils.log("Processing: '" + var + "', '" + stn + "', '" + rcp + "'", True)
                                 utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                                 pool = multiprocessing.Pool(processes=cfg.n_proc)
-                                func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, p_stn,
+                                func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, ds_stn,
                                                          d_raw, var, stn, rcp)
                                 pool.map(func, list(range(n_sim)))
                                 pool.close()
@@ -948,8 +949,9 @@ def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, r
     utils.log("=")
 
     # Skip iteration if the variable 'var' is not available in the current directory.
-    p_sim_ref_list = glob.glob(d_sim_ref + "/" + var + "/*.nc")
-    p_sim_fut_list = glob.glob(d_sim_fut + "/" + var + "/*.nc")
+    p_sim_ref_list = list(glob.glob(d_sim_ref + "/" + var + "/*.nc"))
+    p_sim_fut_list = list(glob.glob(d_sim_fut + "/" + var + "/*.nc"))
+
     if (len(p_sim_ref_list) == 0) or (len(p_sim_fut_list) == 0):
         utils.log("Skipping iteration: data not available for simulation-variable.", True)
         return
