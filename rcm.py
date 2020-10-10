@@ -14,8 +14,6 @@ import logging
 import numpy as np
 import os
 import utils
-import xarray as xr
-from xclim import subset
 
 
 def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=None, tmpdir=None):
@@ -88,11 +86,11 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
                     p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
                         cfg.cat_raw + "/" + var + "/*.nc"
                     p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
-                index_ts = index_ts+1
+                index_ts = index_ts + 1
 
         # Extract the files with xarray.
-        ds = xr.open_mfdataset(p_list, chunks={cfg.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
-                               combine="by_coords")
+        ds = utils.open_netcdf(p_list, chunks={cfg.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
+                               combine="by_coords", std_open=False)
         ds_subset = ds.sel(rlat=slice(min(lat_bnds), max(lat_bnds)), rlon=slice(min(lon_bnds), max(lon_bnds))).\
             sel(time=slice(str(min(all_yr)), str(max(all_yr))))
         try:
@@ -128,12 +126,14 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
             for yy in range(y + 1, y + 10):
                 p_list_sub.extend([f for f in p_list if "/" + str(yy) in f])
 
-            ds_tmp = xr.open_mfdataset(p_list_sub, chunks={cfg.dim_time: 31},
+            ds_tmp = utils.open_netcdf(p_list_sub, chunks={cfg.dim_time: 31},
                                        drop_variables=["time_vectors", "ts", "time_bnds"])
 
             # Spatio-temporal averaging.
             ds_tmp_dly = ds_tmp
-            ds_subset_tmp = subset.subset_bbox(ds_tmp_dly, lat_bnds=lat_bnds, lon_bnds=lon_bnds)
+            # ds_subset_tmp = subset.subset_bbox(ds_tmp_dly, lat_bnds=lat_bnds, lon_bnds=lon_bnds)
+            ds_subset_tmp = ds_tmp_dly.sel(rlon=slice(min(lon_bnds), max(lon_bnds)),
+                                           rlat=slice(min(lat_bnds), max(lat_bnds)))
 
             # Rotated_pole gets dropped when we do the resample.
             ds_subset_tmp["rotated_pole"] = ds_tmp.rotated_pole
@@ -142,7 +142,7 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
             utils.save_netcdf(ds_subset_tmp, tmpdir + str(y) + ".nc")
 
         p_list_new = sorted(glob.glob(tmpdir + ("[0-9]"*4) + ".nc"))
-        ds_subset = xr.open_mfdataset(p_list_new, chunks={cfg.dim_time: 365})
+        ds_subset = utils.open_netcdf(p_list_new, chunks={cfg.dim_time: 365})
 
         # Remove temporary files.
         for f in p_list_new:

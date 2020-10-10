@@ -175,9 +175,10 @@ def load_observations(var):
 
         # Save data.
         p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + ".nc"
-        utils.save_netcdf(ds, p_stn, "stn")
-        ds.close()
-        da.close()
+        desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
+        utils.save_netcdf(ds, p_stn, desc=desc)
+        utils.close_netcdf(ds)
+        utils.close_netcdf(da)
 
 
 def load_reanalysis(var_ra):
@@ -250,8 +251,9 @@ def load_reanalysis(var_ra):
             ds[var].attrs[cfg.attrs_units] = "1"
 
         # Save data.
-        utils.save_netcdf(ds, p_stn, "stn")
-        ds.close()
+        desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
+        utils.save_netcdf(ds, p_stn, desc=desc)
+        utils.close_netcdf(ds)
 
 
 def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
@@ -285,12 +287,9 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
 
     def close_netcdf():
 
-        if ds_stn is not None:
-            xr.Dataset(ds_stn).close()
-        if ds_proj is not None:
-            xr.Dataset(ds_proj).close()
-        if ds_raw is not None:
-            xr.Dataset(ds_raw).close()
+        utils.close_netcdf(ds_stn)
+        utils.close_netcdf(ds_proj)
+        utils.close_netcdf(ds_raw)
 
     # Directories.
     d_raw = cfg.get_d_sim("", cfg.cat_raw, var)
@@ -374,7 +373,8 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
             utils.log(msg, True)
 
         # Save NetCDF file (raw).
-        utils.save_netcdf(ds_raw, p_raw, "raw")
+        desc = "/" + cfg.cat_raw + "/" + os.path.basename(p_raw)
+        utils.save_netcdf(ds_raw, p_raw, desc=desc, std_save=True)
         ds_raw = utils.open_netcdf(p_raw)
         p_raw_generated = True
 
@@ -437,7 +437,8 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
             ds_regrid = ds_raw.sel(rlat=lat_stn, rlon=lon_stn, method="nearest", tolerance=1)
 
         # Save NetCDF file (regrid).
-        utils.save_netcdf(ds_regrid, p_regrid, "regrid")
+        desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid)
+        utils.save_netcdf(ds_regrid, p_regrid, desc=desc)
 
     else:
 
@@ -470,21 +471,16 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds_ref = None
     ds_fut = utils.open_netcdf(p_regrid)
     ds_regrid_ref = None
     ds_regrid_fut = None
 
     def close_netcdf():
 
-        if ds_stn is not None:
-            xr.Dataset(ds_stn).close()
-        if ds_ref is not None:
-            xr.Dataset(ds_ref).close()
-        if ds_fut is not None:
-            xr.Dataset(ds_fut).close()
-        if ds_regrid_fut is not None:
-            xr.Dataset(ds_regrid_fut).close()
+        utils.close_netcdf(ds_stn)
+        utils.close_netcdf(ds_fut)
+        utils.close_netcdf(ds_regrid_ref)
+        utils.close_netcdf(ds_regrid_fut)
 
     # Add small perturbation.
     def perturbate(ds, var_inner, d_val=1e-12):
@@ -510,7 +506,8 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
             perturbate(ds_obs, var)
 
         # Save NetCDF file.
-        utils.save_netcdf(ds_obs, p_obs, "obs")
+        desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_obs)
+        utils.save_netcdf(ds_obs, p_obs, desc=desc)
 
     # Simulated climate (future period) --------------------------------------------------------------------------------
 
@@ -539,6 +536,7 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
         ds_regrid_fut = utils.convert_to_365_calender(ds_regrid_fut)
 
         # Save dataset.
+        desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid_fut)
         utils.save_netcdf(ds_regrid_fut, p_regrid_fut, "regrid_fut")
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
@@ -552,7 +550,8 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
             ds_regrid_ref[var][pos] = 1e-12
 
         # Save dataset.
-        utils.save_netcdf(ds_regrid_ref, p_regrid_ref, "regrid_ref")
+        desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid_ref)
+        utils.save_netcdf(ds_regrid_ref, p_regrid_ref, desc=desc)
 
     close_netcdf()
 
@@ -591,32 +590,28 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
     """
 
     # Load datasets.
-    # Cannot open p_obs and p_ref in MF mode, because it's not compatible with the train function. There is a conflict
-    # between parallelization and chunking.
+    # The files p_stn and p_ref cannot be opened using xr.open_mfdataset.
     da_stn = ds_stn[var]
     if cfg.dim_longitude in da_stn.dims:
         da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
-    ds_ref = utils.open_netcdf(p_ref)
+    ds_ref = utils.open_netcdf(p_ref, std_open=True)
     ds_fut = utils.open_netcdf(p_fut)
-    # ds_ref = ds_ref.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
-    # ds_fut = ds_fut.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
     da_ref = ds_ref[var]
     da_fut = ds_fut[var]
     ds_qmf = None
     ds_qqmap = None
 
+    # The following two commented statements are similar to those in the initial code version They seem to have not
+    # effect as a boundary box selection was already made earlier.
+    # ds_ref = ds_ref.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
+    # ds_fut = ds_fut.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
+
     def close_netcdf():
 
-        if da_stn is not None:
-            xr.DataArray(da_stn).close()
-        if da_ref is not None:
-            xr.DataArray(da_ref).close()
-        if da_fut is not None:
-            xr.DataArray(da_fut).close()
-        if ds_qmf is not None:
-            xr.Dataset(ds_qmf).close()
-        if ds_qqmap is not None:
-            xr.Dataset(ds_qqmap).close()
+        utils.close_netcdf(da_ref)
+        utils.close_netcdf(da_fut)
+        utils.close_netcdf(ds_qmf)
+        utils.close_netcdf(ds_qqmap)
 
     # Future -----------------------------------------------------------------------------------------------------------
 
@@ -654,7 +649,8 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
         ds_qmf[var].attrs[cfg.attrs_group] = da_qmf.attrs[cfg.attrs_group]
         ds_qmf[var].attrs[cfg.attrs_kind] = da_qmf.attrs[cfg.attrs_kind]
         if p_qmf != "":
-            utils.save_netcdf(ds_qmf, p_qmf, "qmf")
+            desc = "/" + cfg.cat_qmf + "/" + os.path.basename(p_qmf)
+            utils.save_netcdf(ds_qmf, p_qmf, desc=desc)
             ds_qmf = utils.open_netcdf(p_qmf)
 
     # Quantile Mapping -------------------------------------------------------------------------------------------------
@@ -676,7 +672,8 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
             ds_qqmap[var].attrs[cfg.attrs_units] = da_stn.attrs[cfg.attrs_units]
             ds_qqmap[var].attrs[cfg.attrs_gmap]  = da_stn.attrs[cfg.attrs_gmap]
             if p_qqmap != "":
-                utils.save_netcdf(ds_qqmap, p_qqmap, "qqmap")
+                desc = "/" + cfg.cat_qqmap + "/" + os.path.basename(p_qqmap)
+                utils.save_netcdf(ds_qqmap, p_qqmap, desc=desc)
                 ds_qqmap = utils.open_netcdf(p_qqmap)
 
         except ValueError as err:
@@ -823,7 +820,7 @@ def generate():
             # Load station data.
             # This needs to be done to avoid competing processes (in parallel mode).
             p_stn = p_stn_list[i_stn]
-            ds_stn = xr.open_dataset(p_stn)
+            ds_stn = utils.open_netcdf(p_stn, std_open=True)
             # p_obs = cfg.get_p_obs(stn, var)
             # ds_obs = utils.open_netcdf(p_obs)
 
@@ -1036,7 +1033,7 @@ def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, r
     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
     utils.log("-")
     msg = "Step #5bc Statistical downscaling and bias adjustment is "
-    if not(os.path.isfile(p_qqmap) or os.path.isfile(p_qmf)):
+    if not(os.path.isfile(p_qqmap)) or not(os.path.isfile(p_qmf)):
         utils.log(msg + "running")
         postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut,
                     p_qqmap, p_qmf)

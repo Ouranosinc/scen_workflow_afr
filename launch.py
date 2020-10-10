@@ -119,8 +119,8 @@ def load_params(p_ini):
                 cfg.per_hors = convert_to_2d(value, int)
             elif key == "variables_cordex":
                 cfg.variables_cordex = convert_to_1d(value, str)
-            elif key == "variables_ra":
-                cfg.variables_ra = convert_to_1d(value, str)
+                for var in cfg.variables_cordex:
+                    cfg.variables_ra.append(cfg.convert_var_name(var))
 
             # DATA:
             elif key == "opt_download":
@@ -199,6 +199,8 @@ def load_params(p_ini):
                 cfg.d_ra_raw = ast.literal_eval(value)
             elif key == "d_ra_day":
                 cfg.d_ra_day = ast.literal_eval(value)
+            elif key == "opt_trace":
+                cfg.opt_trace = ast.literal_eval(value)
 
 
 def main():

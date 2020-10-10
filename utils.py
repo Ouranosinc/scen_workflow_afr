@@ -780,58 +780,97 @@ def log(msg, indent=False):
         f.close()
 
 
-def open_netcdf(p, drop_variables=None, chunks=None):
+def open_netcdf(p, drop_variables=None, chunks=None, combine=None, std_open=True, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Open a NetCDF file.
-    The MF version is safer with multiple processes (different processes can open different files at the same time).
-    Files are open in read mode (no lock), which is also safer in parallel mode.
 
     Parameters
     ----------
-    p : str
+    p : str or [str]
         Path of file to be created.
     drop_variables : [str]
-        Drop variables.
+        Drop-variables parameter.
     chunks : dict
-        Chunks.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if not drop_variables:
-        if not chunks:
-            ds = xr.open_mfdataset(p, parallel=True)
-        else:
-            ds = xr.open_mfdataset(p, parallel=True, chunks=chunks)
-    else:
-        if not chunks:
-            ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables)
-        else:
-            ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables, chunks=chunks)
-
-    return ds
-
-
-def save_netcdf(ds, p, desc=""):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Save an xarray dataset to a NetCDF file.
-
-    Parameters
-    ----------
-    ds : xr.Dataset|xr.DataArray
-        Dataset.
-    p : str
-        Path of file to be created.
+        Chunks parameter
+    combine : str
+        Combine parameter.
+    std_open : bool
+        If true, it forces opening the NetCDF using xr.open_dataset. This is required in parallel mode.
     desc : str
         Description.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    desc = (" (" + desc + ")") if desc != "" else ""
-    log("Saving NetCDF file" + desc, True)
+    if desc == "":
+        desc = (os.path.basename(p) if isinstance(p, str) else os.path.basename(p[0]))
+
+    if cfg.opt_trace:
+        log("Opening NetCDF file: " + desc, True)
+
+    ds = None
+    if std_open:
+        # if not drop_variables:
+        #     if not chunks:
+        #         ds = xr.open_dataset(p)
+        #     else:
+        #         ds = xr.open_dataset(p, chunks=chunks)
+        # else:
+        #     if not chunks:
+        #         ds = xr.open_dataset(p, drop_variables=drop_variables)
+        #     else:
+        #         ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks)
+        ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks)
+
+    # This is not compatible with the qm::train function. There seems to be a conflict between parallelization and
+    # chunking when using xr.open_mfdataset. This version appeared safer when using multiple processes (different
+    # processes can open different files at the same time), but it's not always working.
+    else:
+        # if not combine:
+        #     if not drop_variables:
+        #         if not chunks:
+        #             ds = xr.open_mfdataset(p, parallel=True)
+        #         else:
+        #             ds = xr.open_mfdataset(p, parallel=True, chunks=chunks)
+        #     else:
+        #         if not chunks:
+        #             ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables)
+        #         else:
+        #             ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables, chunks=chunks)
+        ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables, chunks=chunks, combine=combine)
+
+    if cfg.opt_trace:
+        log("Opened NetCDF file", True)
+
+    return ds
+
+
+def save_netcdf(ds, p, desc="", std_save=False):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Save a dataset or a data array to a NetCDF file.
+
+    Parameters
+    ----------
+    ds : xr.Dataset or xr.DataArray
+        Dataset.
+    p : str
+        Path of file to be created.
+    desc : str
+        Description.
+    std_save : bool
+        If true, it forces saving the NetCDF using xr.to_netcdf.
+        False is required when multiple processes are running.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if desc == "":
+        desc = os.path.basename(p)
+
+    if cfg.opt_trace:
+        log("Saving NetCDF file: " + desc, True)
 
     # Recursively create directories if the path does not exist.
     d = os.path.dirname(p)
@@ -843,15 +882,33 @@ def save_netcdf(ds, p, desc=""):
         os.remove(p)
 
     # Create NetCDF file.
-    if cfg.n_proc == 1:
-        ds.to_netcdf(p)
-    else:
+    if (cfg.pid != os.getpid()) and not std_save:
         xr.save_mfdataset(datasets=[ds], paths=[p], compute=False).compute()
+    else:
+        ds.to_netcdf(p, compute=False).compute()
 
-    log("Saved NetCDF file" + desc, True)
+    if cfg.opt_trace:
+        log("Saved NetCDF file", True)
 
 
-def save_plot(plt, p):
+def close_netcdf(ds):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Close a NetCDF file.
+
+    Parameters
+    ----------
+    ds : xr.Dataset or xr.DataArray
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if ds is not None:
+        ds.close()
+
+
+def save_plot(plt, p, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -863,8 +920,16 @@ def save_plot(plt, p):
         Plot.
     p : str
         Path of file to be created.
+    desc : str
+        Description.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    if desc == "":
+        desc = os.path.basename(p)
+
+    if cfg.opt_trace:
+        log("Saving plot: " + desc, True)
 
     # Recursively create directories if the path does not exist.
     d = os.path.dirname(p)
@@ -877,6 +942,9 @@ def save_plot(plt, p):
 
     # Create PNG file.
     plt.savefig(p)
+
+    if cfg.opt_trace:
+        log("Saving plot", True)
 
 
 def subset_center(ds):
