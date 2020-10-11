@@ -64,10 +64,19 @@ def bias_correction(stn, var, sim_name=""):
 
                     # NetCDF files.
                     p_stn        = cfg.d_stn + var + "/" + var + "_" + stn + ".nc"
-                    # p_obs      = cfg.get_p_obs(stn, var)
                     p_regrid     = p_regrid_list[i]
                     p_regrid_ref = p_regrid.replace(".nc", "_ref_4qqmap.nc")
                     p_regrid_fut = p_regrid.replace(".nc", "_4qqmap.nc")
+
+                    # If there is a single combination of calibration parameters, NetCDF files can be saved, so that
+                    # they don't have to be created during post-process.
+                    p_qqmap = ""
+                    p_qmf   = ""
+                    if (len(cfg.nq_calib) == 1) and (len(cfg.up_qmf_calib) == 1) and (len(cfg.time_win_calib) == 1):
+                        p_qqmap = p_regrid.replace(cfg.cat_regrid, cfg.cat_qqmap)
+                        p_qmf   = p_regrid.replace(cfg.cat_regrid, cfg.cat_qmf)
+
+                    # Verify if required files exist.
                     msg = "File missing: "
                     if not(os.path.exists(p_stn)) or not(os.path.exists(p_regrid_ref)) or\
                        not(os.path.exists(p_regrid_fut)):
@@ -93,8 +102,8 @@ def bias_correction(stn, var, sim_name=""):
                           ", time_win=" + str(time_win) + " is "
                     if not (os.path.exists(p_fig) and os.path.exists(p_fig.replace(".png", "_ts.png"))):
                         utils.log(msg + "running", True)
-                        scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, "", "", title,
-                                         p_fig)
+                        scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf,
+                                         title, p_fig)
                     else:
                         utils.log(msg + "not required", True)
 
