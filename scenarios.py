@@ -25,6 +25,7 @@ import rcm
 import scenarios_calib
 import utils
 import xarray as xr
+import xarray.core.variable as xcv
 from qm import train, predict
 from scipy.interpolate import griddata
 
@@ -186,6 +187,8 @@ def load_reanalysis(var_ra):
     """
     --------------------------------------------------------------------------------------------------------------------
     Combine NetCDF files into a single file.
+    Caution: This function is only compatible with scalar processing (n_proc=1) owing to the call to the function
+    utils.open_netcdf with a list of NetCDF files.
 
     Parameters
     ----------
@@ -197,13 +200,14 @@ def load_reanalysis(var_ra):
     var = cfg.convert_var_name(var_ra)
 
     # Paths.
-    p_stn_format = cfg.d_ra_day + var_ra + "/*.nc"
+    p_stn_list = list(glob.glob(cfg.d_ra_day + var_ra + "/*.nc"))
     p_stn = cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + ".nc"
 
     if not os.path.exists(p_stn):
 
         # Combine datasets.
-        ds = xr.open_mfdataset(p_stn_format, combine='by_coords', concat_dim=cfg.dim_time)
+        ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time).copy()
+        utils.close_netcdf(ds)
 
         # Rename variables.
         if var_ra == cfg.var_era5_t2mmin:
@@ -253,16 +257,15 @@ def load_reanalysis(var_ra):
         # Save data.
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
         utils.save_netcdf(ds, p_stn, desc=desc)
-        utils.close_netcdf(ds)
 
 
-def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
+def extract(var, ds_stn, d_ref, d_fut, p_raw):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Extracts data.
-    TODO.MAB: Something could be done to define the search radius as a function of the occurrence (or not) of a pixel
-              storm (data anomaly).
+    Extract data from NetCDF files.
+    Caution: This function is only compatible with scalar processing (n_proc=1) owing to the (indirect) call to the
+    function utils.open_netcdf with a list of NetCDF files.
 
     Parameters
     ----------
@@ -276,20 +279,8 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
         Directory of NetCDF files containing simulations (future period).
     p_raw : str
         Path of the directory containing raw data.
-    p_regrid : str
-        Path of the file containing regrid data.
     --------------------------------------------------------------------------------------------------------------------
     """
-
-    # Load observations.
-    ds_proj = None
-    ds_raw = None
-
-    def close_netcdf():
-
-        utils.close_netcdf(ds_stn)
-        utils.close_netcdf(ds_proj)
-        utils.close_netcdf(ds_raw)
 
     # Directories.
     d_raw = cfg.get_d_sim("", cfg.cat_raw, var)
@@ -297,8 +288,6 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
     # Zone of interest -------------------------------------------------------------------------------------------------
 
     # Observations.
-    lat_stn = None
-    lon_stn = None
     if not cfg.opt_ra:
 
         # Assume a square around the location.
@@ -317,8 +306,7 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
         p_proj = list(glob.glob(d_ref + var + "/*.nc"))[0]
         try:
             ds_proj = xr.open_dataset(p_proj)
-        except Exception as e:
-            utils.log(str(e))
+        except xcv.MissingDimensionsError:
             ds_proj = xr.open_dataset(p_proj, drop_variables=["time_bnds"])
         res_proj_lat = abs(ds_proj.rlat.values[1] - ds_proj.rlat.values[0])
         res_proj_lon = abs(ds_proj.rlon.values[1] - ds_proj.rlon.values[0])
@@ -335,54 +323,76 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
         lat_bnds = [cfg.lat_bnds[0] - n_lat_ext * res_ra_lat, cfg.lat_bnds[1] + n_lat_ext * res_ra_lat]
         lon_bnds = [cfg.lon_bnds[0] - n_lon_ext * res_ra_lon, cfg.lon_bnds[1] + n_lon_ext * res_ra_lon]
 
-    # Data extraction and temporal interpolation -----------------------------------------------------------------------
+    # Data extraction --------------------------------------------------------------------------------------------------
 
-    p_raw_generated = False
-    if os.path.exists(p_raw):
+    utils.log("Extracting data from NetCDF file", True)
 
-        utils.log("Loading data from NetCDF file (raw)", True)
+    # The idea is to extract historical and projected data based on a range of longitude, latitude, years.
+    ds_raw = rcm.extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds,
+                                  priority_timestep=cfg.priority_timestep[cfg.variables_cordex.index(var)],
+                                  tmpdir=d_raw)
 
-        ds_raw = utils.open_netcdf(p_raw)
+    # Save NetCDF file (raw).
+    desc = "/" + cfg.cat_raw + "/" + os.path.basename(p_raw)
+    utils.save_netcdf(ds_raw, p_raw, desc=desc)
 
-    else:
 
-        utils.log("Extracting data from NetCDF file (raw)", True)
+def interpolate(var, ds_stn, p_raw, p_regrid):
 
-        # The idea is to extract historical and projected data based on a range of longitude, latitude, years.
-        ds_raw = rcm.extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds,
-                                      priority_timestep=cfg.priority_timestep[cfg.variables_cordex.index(var)],
-                                      tmpdir=d_raw)
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Extract data from NetCDF files.
+    Caution: This function is only compatible with scalar processing (n_proc=1) owing to the (indirect) call to the
+    function utils.open_netcdf with a list of NetCDF files.
+    TODO.MAB: Something could be done to define the search radius as a function of the occurrence (or not) of a pixel
+              storm (data anomaly).
 
-        msg = "Temporal interpolation is "
+    Parameters
+    ----------
+    var : str
+        Weather variable.
+    ds_stn : xr.Dataset
+        NetCDF file containing station data.
+    p_raw : str
+        Path of the directory containing raw data.
+    p_regrid : str
+        Path of the file containing regrid data.
+    --------------------------------------------------------------------------------------------------------------------
+    """
 
-        if not(os.path.exists(p_raw)):
+    # Temporal interpolation -------------------------------------------------------------------------------------------
 
-            # This checks if the data is daily. If it is sub-daily, resample to daily. This can take a while, but should
-            # save us computation time later.
-            if ds_raw.time.isel(time=[0, 1]).diff(dim=cfg.dim_time).values[0] <\
-                    np.array([datetime.timedelta(1)], dtype="timedelta64[ms]")[0]:
-                msg = msg + "running"
-                utils.log(msg, True)
-                ds_raw = ds_raw.resample(time="1D").mean(dim=cfg.dim_time, keep_attrs=True)
-            else:
-                msg = msg + "not required (data is daily)"
-                utils.log(msg, True)
+    utils.log("Loading data from NetCDF file (raw, w/o interpolation)", True)
 
-        else:
-            msg = msg + "not required"
-            utils.log(msg, True)
+    # Load dataset.
+    ds_raw = utils.open_netcdf(p_raw).copy()
+    utils.close_netcdf(ds_raw)
+
+    msg = "Temporal interpolation is "
+
+    # This checks if the data is daily. If it is sub-daily, resample to daily. This can take a while, but should
+    # save us computation time later.
+    if ds_raw.time.isel(time=[0, 1]).diff(dim=cfg.dim_time).values[0] <\
+            np.array([datetime.timedelta(1)], dtype="timedelta64[ms]")[0]:
+
+        # Interpolate.
+        msg = msg + "running"
+        utils.log(msg, True)
+        ds_raw = ds_raw.resample(time="1D").mean(dim=cfg.dim_time, keep_attrs=True)
 
         # Save NetCDF file (raw).
         desc = "/" + cfg.cat_raw + "/" + os.path.basename(p_raw)
         utils.save_netcdf(ds_raw, p_raw, desc=desc, std_save=True)
         ds_raw = utils.open_netcdf(p_raw)
-        p_raw_generated = True
+    else:
+        msg = msg + "not required (data is daily)"
+        utils.log(msg, True)
 
     # Spatial interpolation --------------------------------------------------------------------------------------------
 
     msg = "Spatial interpolation is "
 
-    if (not os.path.exists(p_regrid)) or p_raw_generated:
+    if not os.path.exists(p_regrid):
 
         msg = msg + "running"
         utils.log(msg, True)
@@ -434,6 +444,11 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
         # Method 2: Take nearest information.
         else:
 
+            # Assume a square around the location.
+            lat_stn = round(float(ds_stn.lat.values), 1)
+            lon_stn = round(float(ds_stn.lon.values), 1)
+
+            # Determine nearest points.
             ds_regrid = ds_raw.sel(rlat=lat_stn, rlon=lon_stn, method="nearest", tolerance=1)
 
         # Save NetCDF file (regrid).
@@ -444,8 +459,6 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw, p_regrid):
 
         msg = msg + "not required"
         utils.log(msg, True)
-
-    close_netcdf()
 
 
 def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
@@ -594,7 +607,7 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
     da_stn = ds_stn[var]
     if cfg.dim_longitude in da_stn.dims:
         da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
-    ds_ref = utils.open_netcdf(p_ref, std_open=True)
+    ds_ref = utils.open_netcdf(p_ref)
     ds_fut = utils.open_netcdf(p_fut)
     da_ref = ds_ref[var]
     da_fut = ds_fut[var]
@@ -820,9 +833,7 @@ def generate():
             # Load station data.
             # This needs to be done to avoid competing processes (in parallel mode).
             p_stn = p_stn_list[i_stn]
-            ds_stn = utils.open_netcdf(p_stn, std_open=True)
-            # p_obs = cfg.get_p_obs(stn, var)
-            # ds_obs = utils.open_netcdf(p_obs)
+            ds_stn = utils.open_netcdf(p_stn)
 
             # Create directories (required because of parallel processing).
             if not (os.path.isdir(d_obs)):
@@ -852,11 +863,17 @@ def generate():
                 list_cordex_fut.sort()
                 n_sim = len(list_cordex_ref)
 
-                # Scalar processing mode.
-                if cfg.n_proc == 1:
-
+                # Perform extraction.
+                # A first call to generate_single is required for the extraction to be done in scalar mode (before
+                # forking) because of the incompatibility of xr.open_mfdataset with parallel processing.
+                if cfg.n_proc > 1:
                     for i_sim in range(n_sim):
-                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, i_sim)
+                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, True, i_sim)
+
+                # Scalar mode.
+                if cfg.n_proc == 1:
+                    for i_sim in range(n_sim):
+                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, False, i_sim)
 
                 # Parallel processing mode.
                 else:
@@ -872,7 +889,8 @@ def generate():
                         # Scalar processing mode.
                         if cfg.n_proc == 1:
                             for i_sim in range(n_sim):
-                                generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, i_sim)
+                                generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, False,
+                                                i_sim)
 
                         # Parallel processing mode.
                         else:
@@ -882,7 +900,7 @@ def generate():
                                 utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                                 pool = multiprocessing.Pool(processes=cfg.n_proc)
                                 func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, ds_stn,
-                                                         d_raw, var, stn, rcp)
+                                                         d_raw, var, stn, rcp, False)
                                 pool.map(func, list(range(n_sim)))
                                 pool.close()
                                 pool.join()
@@ -899,11 +917,13 @@ def generate():
                             break
 
 
-def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, i_sim_proc):
+def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, extract_only, i_sim_proc):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Produce a single climate scenario.
+    Caution: This function is only compatible with scalar processing (n_proc=1) when extract_only is False owing to the
+    (indirect) call to the function utils.open_netcdf with a list of NetCDF files.
 
     Parameters
     ----------
@@ -921,6 +941,8 @@ def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, r
         Station.
     rcp : str
         RCP emission scenario.
+    extract_only:
+        If True, only extract.
     i_sim_proc : int
         Rank of simulation to process (in ascending order of raw NetCDF file names).
     --------------------------------------------------------------------------------------------------------------------
@@ -982,14 +1004,27 @@ def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, r
     p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
     p_obs        = cfg.get_p_obs(stn, var)
 
-    # Step #3: Spatial and temporal extraction.
-    # Step #4: Grid transfer or interpolation.
-    # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
-    #              one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
-    msg = "Step #3-4 Spatial & temporal extraction and grid transfer (or interpolation) is "
-    if not(os.path.isfile(p_raw)) or not(os.path.isfile(p_regrid)):
+    # Step #3: Extraction.
+    # This step only works in scalar mode.
+    # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/
+    msg = "Step #3   Extraction is "
+    if not os.path.isfile(p_raw):
         utils.log(msg + "running")
-        extract(var, ds_stn, d_sim_ref, d_sim_fut, p_raw, p_regrid)
+        extract(var, ds_stn, d_sim_ref, d_sim_fut, p_raw)
+    else:
+        utils.log(msg + "not required")
+
+    # When running in parallel mode and only performing extraction, the remaining steps will be done in a second pass.
+    if extract_only:
+        return()
+
+    # Step #4: Spatial and temporal interpolation.
+    # This modifies one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
+    #      creates  one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
+    msg = "Step #4   Spatial and temporal interpolation is "
+    if not os.path.isfile(p_regrid):
+        utils.log(msg + "running")
+        interpolate(var, ds_stn, p_raw, p_regrid)
     else:
         utils.log(msg + "not required")
 

@@ -14,7 +14,7 @@ import os
 import plot as plot
 import utils
 import xarray as xr
-import xclim.subset as subset
+import clisops.core.subset as subset
 
 
 def aggregate(p_hour, p_day, set_name, var):

@@ -21,7 +21,7 @@ import statistics
 import utils
 import warnings
 import xarray as xr
-import xclim.subset as subset
+import clisops.core.subset as subset
 from matplotlib.lines import Line2D
 from scipy import signal
 from scipy.interpolate import griddata

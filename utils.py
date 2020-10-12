@@ -780,7 +780,7 @@ def log(msg, indent=False):
         f.close()
 
 
-def open_netcdf(p, drop_variables=None, chunks=None, combine=None, std_open=True, desc=""):
+def open_netcdf(p, drop_variables=None, chunks=None, combine=None, concat_dim=None, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -796,8 +796,8 @@ def open_netcdf(p, drop_variables=None, chunks=None, combine=None, std_open=True
         Chunks parameter
     combine : str
         Combine parameter.
-    std_open : bool
-        If true, it forces opening the NetCDF using xr.open_dataset. This is required in parallel mode.
+    concat_dim : str
+        Concatenate dimension.
     desc : str
         Description.
     --------------------------------------------------------------------------------------------------------------------
@@ -809,14 +809,10 @@ def open_netcdf(p, drop_variables=None, chunks=None, combine=None, std_open=True
     if cfg.opt_trace:
         log("Opening NetCDF file: " + desc, True)
 
-    if std_open:
+    if isinstance(p, str):
         ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks)
-
-    # This is not compatible with the qm::train function. There seems to be a conflict between parallelization and
-    # chunking when using xr.open_mfdataset. This version appeared safer when using multiple processes (different
-    # processes can open different files at the same time), but it's not always working.
     else:
-        ds = xr.open_mfdataset(p, parallel=True, drop_variables=drop_variables, chunks=chunks, combine=combine)
+        ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim)
 
     if cfg.opt_trace:
         log("Opened NetCDF file", True)
@@ -859,11 +855,8 @@ def save_netcdf(ds, p, desc="", std_save=False):
     if os.path.exists(p):
         os.remove(p)
 
-    # Create NetCDF file.
-    if (cfg.pid != os.getpid()) and not std_save:
-        xr.save_mfdataset(datasets=[ds], paths=[p], compute=False).compute()
-    else:
-        ds.to_netcdf(p, compute=False).compute()
+    # Save NetCDF file.
+    ds.to_netcdf(p)
 
     if cfg.opt_trace:
         log("Saved NetCDF file", True)
