@@ -810,7 +810,8 @@ def open_netcdf(p, drop_variables=None, chunks=None, combine=None, concat_dim=No
         log("Opening NetCDF file: " + desc, True)
 
     if isinstance(p, str):
-        ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks)
+        ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks).copy()
+        close_netcdf(ds)
     else:
         ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim)
 

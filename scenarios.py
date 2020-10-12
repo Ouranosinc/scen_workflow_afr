@@ -202,6 +202,9 @@ def load_reanalysis(var_ra):
     # Paths.
     p_stn_list = list(glob.glob(cfg.d_ra_day + var_ra + "/*.nc"))
     p_stn = cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + ".nc"
+    d_stn = os.path.dirname(p_stn)
+    if not (os.path.isdir(d_stn)):
+        os.makedirs(d_stn)
 
     if not os.path.exists(p_stn):
 
