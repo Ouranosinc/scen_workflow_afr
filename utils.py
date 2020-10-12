@@ -856,7 +856,7 @@ def save_netcdf(ds, p, desc="", std_save=False):
         os.remove(p)
 
     # Save NetCDF file.
-    ds.to_netcdf(p)
+    ds.to_netcdf(p, "w")
 
     if cfg.opt_trace:
         log("Saved NetCDF file", True)
