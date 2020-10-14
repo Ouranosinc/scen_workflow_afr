@@ -117,6 +117,10 @@ def load_params(p_ini):
                 cfg.per_fut = convert_to_1d(value, int)
             elif key == "per_hors":
                 cfg.per_hors = convert_to_2d(value, int)
+            elif key == "lon_bnds":
+                cfg.lon_bnds = convert_to_1d(value, float)
+            elif key == "lat_bnds":
+                cfg.lat_bnds = convert_to_1d(value, float)
             elif key == "variables_cordex":
                 cfg.variables_cordex = convert_to_1d(value, str)
                 for var in cfg.variables_cordex:
@@ -137,10 +141,6 @@ def load_params(p_ini):
             # SCENARIOS:
             elif key == "opt_scen":
                 cfg.opt_scen = ast.literal_eval(value)
-            elif key == "lon_bnds":
-                cfg.lon_bnds = convert_to_1d(value, float)
-            elif key == "lat_bnds":
-                cfg.lat_bnds = convert_to_1d(value, float)
             elif key == "radius":
                 cfg.radius = float(value)
             elif key == "sim_excepts":

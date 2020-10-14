@@ -157,6 +157,10 @@ per_ref             = [1981, 2010]                                  # Reference 
 per_fut             = [1981, 2100]                                  # Future period.
 per_hors            = [[2021, 2040], [2041, 2060], [2061, 2080]]    # Horizons.
 
+# Boundary box.
+lon_bnds                = [0, 0]    # Longitude boundaries.
+lat_bnds                = [0, 0]    # Latitude boundaries.
+
 # Stations.
 # Observations are located in directories /exec/<user_name>/<country>/<project>/obs/<obs_provider>/<var>/*.csv
 stns                = []            # Station names.
@@ -215,8 +219,6 @@ opt_ra                  = False      # If True, the analysis is based on reanaly
 
 # Scenarios.
 opt_scen                = True      # If True, produce climate scenarios.
-lon_bnds                = [0, 0]    # Longitude boundaries.
-lat_bnds                = [0, 0]    # Latitude boundaries.
 radius                  = 0.5       # Search radius (around any given location).
 detrend_order           = None      # TODO.MAB: Seems to be not working.
 
