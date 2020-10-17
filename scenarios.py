@@ -711,14 +711,6 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
         da_qqmap     = ds_qqmap[var]
         da_qmf       = ds_qmf[var]
 
-        # Patch when the unit is wrong for temperature values.
-        # if (var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
-        #    (ds_stn[var].units != "C") and (ds_stn[var].units != "K"):
-        #     if max(ds_stn[var].values[:, 0, 0]) > 100.0:
-        #         ds_stn[var].attrs[cfg.attrs_units] = "K"
-        #     else:
-        #         ds_stn[var].attrs[cfg.attrs_units] = "C"
-
         # Convert units.
         # TODO: It would be better to convert units in plot functions.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
