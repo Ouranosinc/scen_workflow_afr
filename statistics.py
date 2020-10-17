@@ -10,7 +10,6 @@
 import config as cfg
 import functools
 import glob
-import logging
 import multiprocessing
 import numpy as np
 import os
@@ -71,10 +70,10 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
 
     # List days.
     ds = utils.open_netcdf(p_sim_list[0])
-    if cfg.dim_lon in ds.variables:
+    if (cfg.dim_lon in ds.variables) or (cfg.dim_lon in ds.dims):
         lon = ds[cfg.dim_lon]
         lat = ds[cfg.dim_lat]
-    elif cfg.dim_rlon in ds.variables:
+    elif (cfg.dim_rlon in ds.variables) or (cfg.dim_rlon in ds.dims):
         lon = ds[cfg.dim_rlon]
         lat = ds[cfg.dim_rlat]
     else:
@@ -217,7 +216,7 @@ def calc_stats(cat):
     freq = cfg.freq_D if cat == cfg.cat_scen else cfg.freq_YS
 
     # Scenarios.
-    utils.log("=")
+    utils.log("-")
     if cat == cfg.cat_scen:
         utils.log("Step #7a  Calculation of statistics for climate scenarios.")
     else:
@@ -470,14 +469,14 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    msg = "Step #7a  Calculation of statistics is "
+    msg = "Step #7   Calculation of statistics is "
     if cfg.opt_stat:
 
         msg = msg + "running"
         utils.log(msg)
 
         # Scenarios.
-        calc_stats(cfg.cat_scen)
+        # TODO.remove.comment: calc_stats(cfg.cat_scen)
 
         # Indices.
         calc_stats(cfg.cat_idx)
@@ -488,7 +487,8 @@ def run():
         msg = msg + "not required"
         utils.log(msg)
 
-    msg = "Step #7b  Conversion of NetCDF to CSV files is "
+    utils.log("-")
+    msg = "Step #7c  Conversion of NetCDF to CSV files is "
     if cfg.opt_conv_nc_csv:
 
         msg = msg + "running"
