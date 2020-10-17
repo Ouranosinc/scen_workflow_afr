@@ -665,10 +665,7 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
     """
 
     # Determine category.
-    if var_or_idx in cfg.variables_cordex:
-        cat = cfg.cat_scen
-    else:
-        cat = cfg.cat_idx
+    cat = cfg.cat_scen if var_or_idx in cfg.variables_cordex else cfg.cat_idx
 
     utils.log("-")
     if cat == cfg.cat_scen:
@@ -685,10 +682,7 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
         n_year = cfg.per_fut[1] - cfg.per_ref[1] + 1
 
     # List stations.
-    if not cfg.opt_ra:
-        stns = cfg.stns
-    else:
-        stns = [cfg.obs_src]
+    stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
 
     # Observations -----------------------------------------------------------------------------------------------------
 
@@ -844,7 +838,6 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
     # Clip -------------------------------------------------------------------------------------------------------------
 
     # Clip to country boundaries.
-    # TODO.YR: Clipping is not working when launching the script from a terminal.
     if cfg.d_bounds != "":
         try:
             ds_itp = subset.subset_shape(ds_itp, cfg.d_bounds)
@@ -981,17 +974,14 @@ def plot_ts(var_or_idx, threshs=[]):
     # Determine category.
     cat = cfg.cat_scen if var_or_idx in cfg.variables_cordex else cfg.cat_idx
 
-    # minimum and maximum values along the y-axis
+    # Minimum and maximum values along the y-axis
     ylim = []
 
-    # Select stations.
-    if not cfg.opt_ra:
-        stns = cfg.stns
-    else:
-        stns = [cfg.obs_src]
-
     # Loop through stations.
+    stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
+
+        utils.log("Processing: '" + var_or_idx + "', '" + stn + "'", True)
 
         # Loop through emission scenarios.
         ds_ref = None
@@ -1019,7 +1009,7 @@ def plot_ts(var_or_idx, threshs=[]):
             for i_sim in range(len(p_sim_list)):
 
                 # Load dataset.
-                ds = utils.open_netcdf(p_sim_list[i_sim])
+                ds = utils.open_netcdf(p_sim_list[i_sim]).squeeze()
 
                 # Select the center cell.
                 if cfg.opt_ra:
@@ -1094,9 +1084,6 @@ def plot_ts(var_or_idx, threshs=[]):
 
         # Generate plots.
         if cfg.opt_plot and (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
-
-            msg = "scenarios" if cat == cfg.cat_scen else "indices"
-            utils.log("Generating time series of " + msg + ".", True)
 
             # Time series with simulations grouped by RCP scenario.
             p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cat, "") + var_or_idx + "_" + stn + "_rcp.png"
@@ -1338,7 +1325,7 @@ def plot_ts_single(stn, var):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("Processing (single): variable = " + var + "; station = " + stn, True)
+    utils.log("Processing (single): '" + stn + "', '" + var + "'", True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -1413,7 +1400,7 @@ def plot_ts_mosaic(stn, var):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("Processing (mosaic): variable = " + var + "; station = " + stn, True)
+    utils.log("Processing (mosaic): '" + stn + "', '" + var + "'", True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)

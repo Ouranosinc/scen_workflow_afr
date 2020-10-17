@@ -71,10 +71,10 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
 
     # List days.
     ds = utils.open_netcdf(p_sim_list[0])
-    if cfg.dim_lon in ds.dims:
+    if cfg.dim_lon in ds.variables:
         lon = ds[cfg.dim_lon]
         lat = ds[cfg.dim_lat]
-    elif cfg.dim_rlon in ds.dims:
+    elif cfg.dim_rlon in ds.variables:
         lon = ds[cfg.dim_rlon]
         lat = ds[cfg.dim_rlat]
     else:
@@ -110,8 +110,8 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
         # Records values.
         # Simulation data is assumed to be complete.
         if ds[var_or_idx].size == n_time:
-            if cfg.dim_lon in str(ds.dims):
-                vals = ds.squeeze([cfg.dim_lat, cfg.dim_lon])[var_or_idx].values.tolist()
+            if (cfg.dim_lon in ds.dims) or (cfg.dim_rlon in ds.dims) or (cfg.dim_longitude in ds.dims):
+                vals = ds.squeeze()[var_or_idx].values.tolist()
             else:
                 vals = ds[var_or_idx].values.tolist()
             arr_vals.append(vals)
@@ -131,8 +131,8 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
                                 day_of_year = ds_i[var_or_idx].time.dt.dayofyear.values[0]
                                 val = ds_i[var_or_idx].values[0][0][0]
                                 vals[(i_year - year_1) * 365 + day_of_year - 1] = val
-                        except Exception as e:
-                            logging.exception(e)
+                        except:
+                            pass
             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                 vals = [i * cfg.spd for i in vals]
             arr_vals.append(vals)
@@ -240,10 +240,6 @@ def calc_stats(cat):
             q_list          = []
             val_list        = []
 
-            msg = "Processing: station = " + stn + "; " + ("variable" if cat  == cfg.cat_scen else "index") + \
-                  " = " + var_or_idx
-            utils.log(msg, True)
-
             # Loop through emission scenarios.
             for rcp in rcps:
 
@@ -262,8 +258,9 @@ def calc_stats(cat):
                         d = cfg.get_d_sim(stn, cfg.cat_idx, var_or_idx)
 
                 if not os.path.isdir(d):
-                    utils.log("This combination does not exist.", True)
                     continue
+
+                utils.log("Processing: '" + stn + "', '" + var_or_idx + "', '" + rcp + "'", True)
 
                 # Loop through statistics.
                 stats = [cfg.stat_mean]
@@ -326,8 +323,6 @@ def calc_stats(cat):
                 fn = var_or_idx + "_" + stn + ".csv"
                 p  = cfg.get_d_sim(stn, cfg.cat_stat, var_or_idx) + fn
                 utils.save_csv(df, p)
-                if os.path.exists(p):
-                    utils.log("Statistics file created/updated: " + fn, True)
 
 
 def conv_nc_csv():

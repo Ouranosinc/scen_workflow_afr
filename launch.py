@@ -216,7 +216,7 @@ def main():
     # Step #1: Parameters ----------------------------------------------------------------------------------------------
 
     # Load parameters from INI file.
-    load_params("config.ini")
+    load_params("config_bf.ini")
 
     # Process identifier.
     cfg.pid = os.getpid()

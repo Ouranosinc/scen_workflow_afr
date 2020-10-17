@@ -1114,6 +1114,8 @@ def run():
             stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
             for stn in stns:
 
+                utils.log("Processing: '" + var + "', '" + stn + "'", True)
+
                 # Path ofo NetCDF file containing station data.
                 p_stn = cfg.d_stn + var + "/" + var + "_" + stn + ".nc"
 
