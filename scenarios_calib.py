@@ -159,14 +159,17 @@ def init_calib_params():
     var_list = []
     for idx_rcp in range(len(cfg.rcps)):
         rcp = cfg.rcps[idx_rcp]
-        for i_sim in range(0, len(list_cordex[rcp])):
+        sim_list = list_cordex[rcp]
+        sim_list.sort()
+        for i_sim in range(0, len(sim_list)):
             list_i = list_cordex[rcp][i_sim].split("/")
             sim_name = list_i[cfg.get_rank_inst()] + "_" + list_i[cfg.get_rank_inst() + 1]
-            for stn in stns:
-                for var in cfg.variables_cordex:
-                    sim_name_list.append(sim_name)
-                    stn_list.append(stn)
-                    var_list.append(var)
+            if sim_name not in sim_name_list:
+                for stn in stns:
+                    for var in cfg.variables_cordex:
+                        sim_name_list.append(sim_name)
+                        stn_list.append(stn)
+                        var_list.append(var)
 
     # Build pandas dataframe.
     dict_pd = {

@@ -919,6 +919,45 @@ def save_plot(plt, p, desc=""):
         log("Saving plot", True)
 
 
+def save_csv(df, p, desc=""):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Save a dataset or a data array to a CSV file.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe.
+    p : str
+        Path of file to be created.
+    desc : str
+        Description.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if desc == "":
+        desc = os.path.basename(p)
+
+    if cfg.opt_trace:
+        log("Saving CSV file: " + desc, True)
+
+    # Recursively create directories if the path does not exist.
+    d = os.path.dirname(p)
+    if not (os.path.isdir(d)):
+        os.makedirs(d)
+
+    # Discard file if it already exists.
+    if os.path.exists(p):
+        os.remove(p)
+
+    # Save CSV file.
+    df.to_csv(p)
+
+    if cfg.opt_trace:
+        log("Saved CSV file", True)
+
+
 def subset_center(ds):
 
     """

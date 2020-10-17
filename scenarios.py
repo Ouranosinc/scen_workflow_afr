@@ -607,7 +607,10 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
 
     # Load datasets.
     # The files p_stn and p_ref cannot be opened using xr.open_mfdataset.
-    da_stn = ds_stn[var]
+    if not cfg.opt_ra:
+        ds_stn[var] = ds_stn[var] + cfg.d_KC
+        ds_stn[var].attrs[cfg.attrs_units] = "K"
+    da_stn = ds_stn[var][:, 0, 0]
     if cfg.dim_longitude in da_stn.dims:
         da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
     ds_ref = utils.open_netcdf(p_ref)
@@ -639,8 +642,6 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         kind = cfg.kind_mult
     elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        if not cfg.opt_ra:
-            da_stn = da_stn + cfg.d_KC
         kind = cfg.kind_add
     else:
         kind = cfg.kind_add
@@ -710,24 +711,29 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
         da_qqmap     = ds_qqmap[var]
         da_qmf       = ds_qmf[var]
 
+        # Patch when the unit is wrong for temperature values.
+        # if (var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
+        #    (ds_stn[var].units != "C") and (ds_stn[var].units != "K"):
+        #     if max(ds_stn[var].values[:, 0, 0]) > 100.0:
+        #         ds_stn[var].attrs[cfg.attrs_units] = "K"
+        #     else:
+        #         ds_stn[var].attrs[cfg.attrs_units] = "C"
+
         # Convert units.
-        coef_1 = 1
-        coef_2 = 1
-        delta = 0
-        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-            delta = -cfg.d_KC
-        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            coef_1 = cfg.spd
-            coef_2 = 365
-        da_stn       = da_stn * coef_1 + delta
-        da_ref       = da_ref * coef_1 + delta
-        da_fut       = da_fut * coef_1 + delta
-        da_qqmap     = da_qqmap * coef_1 + delta
-        da_qqmap_ref = da_qqmap_ref * coef_1 + delta
-        if not cfg.opt_ra:
-            da_qmf = da_qmf + delta
-        else:
-            da_qmf = da_qmf * coef_2
+        # TODO: It would be better to convert units in plot functions.
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+            da_qmf = da_qmf * (1 if not cfg.opt_ra else 365)
+        elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+            if ds_stn[var].units == "K":
+                da_stn = da_stn - cfg.d_KC
+            if ds_ref[var].units == "K":
+                da_ref = da_ref - cfg.d_KC
+            if ds_fut[var].units == "K":
+                da_fut = da_fut - cfg.d_KC
+            if ds_qqmap[var].units == "K":
+                da_qqmap = da_qqmap - cfg.d_KC
+            if ds_qqmap_ref[var].units == "K":
+                da_qqmap_ref = da_qqmap_ref - cfg.d_KC
 
         # Select center coordinates.
         da_stn_xy       = da_stn
@@ -746,7 +752,7 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
 
         # Generate summary plot.
         if cfg.opt_plot:
-            plot.plot_calib(da_qmf_xy, da_qqmap_ref_xy, da_stn_xy, da_ref_xy, da_fut_xy, da_qqmap_xy,
+            plot.plot_calib(da_stn_xy, da_ref_xy, da_fut_xy, da_qqmap_xy, da_qqmap_ref_xy, da_qmf_xy,
                             var, title, p_fig)
 
         # Generate time series only.
@@ -803,19 +809,18 @@ def generate():
         var = cfg.variables_cordex[i_var]
 
         # Select file names for observation (or reanalysis).
-        p_stn = ""
         if not cfg.opt_ra:
             d_stn = cfg.get_d_stn(var)
             p_stn_list = glob.glob(d_stn + "*.nc")
             p_stn_list.sort()
         else:
-            p_stn = cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + ".nc"
-            p_stn_list = [p_stn]
+            p_stn_list = [cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + ".nc"]
 
         # Loop through stations.
         for i_stn in range(0, len(p_stn_list)):
 
             # Station name.
+            p_stn = p_stn_list[i_stn]
             if not cfg.opt_ra:
                 stn = os.path.basename(p_stn).replace(".nc", "").replace(var + "_", "")
                 if not (stn in cfg.stns):
@@ -835,7 +840,6 @@ def generate():
 
             # Load station data.
             # This needs to be done to avoid competing processes (in parallel mode).
-            p_stn = p_stn_list[i_stn]
             ds_stn = utils.open_netcdf(p_stn)
 
             # Create directories (required because of parallel processing).
@@ -865,6 +869,8 @@ def generate():
                 list_cordex_ref.sort()
                 list_cordex_fut.sort()
                 n_sim = len(list_cordex_ref)
+
+                utils.log("Processing: '" + var + "', '" + stn + "', '" + rcp + "'", True)
 
                 # Perform extraction.
                 # A first call to generate_single is required for the extraction to be done in scalar mode (before
@@ -899,7 +905,6 @@ def generate():
                         else:
 
                             try:
-                                utils.log("Processing: '" + var + "', '" + stn + "', '" + rcp + "'", True)
                                 utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                                 pool = multiprocessing.Pool(processes=cfg.n_proc)
                                 func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, ds_stn,

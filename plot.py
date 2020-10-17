@@ -145,10 +145,18 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     ds_qqmap = utils.open_netcdf(p_qqmap)[var]
 
     # Select the center cell.
-    if cfg.opt_ra and (len(ds_stn.rlat) > 1) or (len(ds_stn.rlon) > 1):
-        ds_stn   = utils.subset_center(ds_stn)
-        ds_fut   = utils.subset_center(ds_fut)
-        ds_qqmap = utils.subset_center(ds_qqmap)
+    if cfg.opt_ra:
+        subset_center = False
+        if cfg.dim_rlon in ds_stn.dims:
+            subset_center = (len(ds_stn.rlon) > 1) or (len(ds_stn.rlat) > 1)
+        elif cfg.dim_lon in ds_stn.dims:
+            subset_center = (len(ds_stn.lon) > 1) or (len(ds_stn.lat) > 1)
+        elif cfg.dim_longitude in ds_stn.dims:
+            subset_center = (len(ds_stn.longitude) > 1) or (len(ds_stn.latitude) > 1)
+        if subset_center:
+            ds_stn   = utils.subset_center(ds_stn)
+            ds_fut   = utils.subset_center(ds_fut)
+            ds_qqmap = utils.subset_center(ds_qqmap)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -156,11 +164,18 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
 
     # Conversion coefficient.
     coef = 1
-    delta = 0
+    delta_stn   = 0
+    delta_fut   = 0
+    delta_qqmap = 0
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd * 365
-    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax] and cfg.opt_ra:
-        delta = -cfg.d_KC
+    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        if ds_stn.units == "K":
+            delta_stn = -cfg.d_KC
+        if ds_fut.units == "K":
+            delta_fut = -cfg.d_KC
+        if ds_qqmap.units == "K":
+            delta_qqmap = -cfg.d_KC
 
     # Plot.
     f = plt.figure(figsize=(15, 3))
@@ -172,9 +187,9 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     legend_items = ["Simulation", "Observation"]
     if ds_qqmap is not None:
         legend_items.insert(0, "Sim. ajustée")
-        (ds_qqmap * coef + delta).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
-    (ds_fut * coef + delta).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
-    (ds_stn * coef + delta).groupby(ds_stn.time.dt.year).mean().plot(color=cfg.col_obs)
+        (ds_qqmap * coef + delta_qqmap).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
+    (ds_fut * coef + delta_fut).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
+    (ds_stn * coef + delta_stn).groupby(ds_stn.time.dt.year).mean().plot(color=cfg.col_obs)
 
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
@@ -227,21 +242,33 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     ds_fut = utils.open_netcdf(p_regrid_fut)[var]
 
     # Select the cells to plot.
-    if cfg.opt_ra and (len(ds_ref.rlat) > 1) or (len(ds_ref.rlon) > 1):
-        ds_ref = utils.subset_center(ds_ref)
-        ds_fut = utils.subset_center(ds_fut)
+    if cfg.opt_ra:
+        subset_center = False
+        if cfg.dim_rlon in ds_ref.dims:
+            subset_center = (len(ds_ref.rlon) > 1) or (len(ds_ref.rlat) > 1)
+        elif cfg.dim_lon in ds_ref.dims:
+            subset_center = (len(ds_ref.lon) > 1) or (len(ds_ref.lat) > 1)
+        elif cfg.dim_longitude in ds_ref.dims:
+            subset_center = (len(ds_ref.longitude) > 1) or (len(ds_ref.latitude) > 1)
+        if subset_center:
+            ds_ref = utils.subset_center(ds_ref)
+            ds_fut = utils.subset_center(ds_fut)
 
     # Conversion coefficients.
     coef = 1
-    delta = 0
+    delta_ref = 0
+    delta_fut = 0
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd
     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        delta = -cfg.d_KC
+        if ds_ref.units == "K":
+            delta_ref = -cfg.d_KC
+        if ds_fut.units == "K":
+            delta_fut = -cfg.d_KC
 
     # Fit.
     x     = [*range(len(ds_ref.time))]
-    y     = (ds_ref * coef + delta).values
+    y     = (ds_ref * coef + delta_ref).values
     coefs = poly.polyfit(x, y, 4)
     ffit  = poly.polyval(x, coefs)
 
@@ -274,7 +301,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 
     # Lower plot: Complete simulation.
     f.add_subplot(212)
-    arr_y_detrend = signal.detrend(ds_fut * coef + delta)
+    arr_y_detrend = signal.detrend(ds_fut * coef + delta_fut)
     arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
     arr_y_error  = (y - ffit)
     arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
@@ -301,7 +328,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 # ======================================================================================================================
 
 
-def plot_calib(da_qmf, da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, var, sup_title, p_fig):
+def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_title, p_fig):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -309,10 +336,6 @@ def plot_calib(da_qmf, da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, var, sup_
 
     Parameters
     ----------
-    da_qmf : xr.DataArray
-        Quantile mapping function.
-    da_qqmap_ref : xr.DataArray
-        Adjusted simulation for the reference period.
     da_obs : xr.DataArray
         Observations.
     da_ref : xr.DataArray
@@ -321,6 +344,10 @@ def plot_calib(da_qmf, da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, var, sup_
         Simulation for the future period.
     da_qqmap : xr.DataArray
         Adjusted simulation.
+    da_qqmap_ref : xr.DataArray
+        Adjusted simulation for the reference period.
+    da_qmf : xr.DataArray
+        Quantile mapping function.
     var : str
         Variable.
     sup_title : str
@@ -342,14 +369,22 @@ def plot_calib(da_qmf, da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, var, sup_
     fs_axes      = 7
 
     f = plt.figure(figsize=(9, 9))
-    f.add_subplot(431)
-    plt.subplots_adjust(top=0.930, bottom=0.065, left=0.070, right=0.973, hspace=0.750, wspace=0.250)
+    ax = f.add_subplot(431)
+    plt.subplots_adjust(top=0.930, bottom=0.065, left=0.070, right=0.973, hspace=0.90, wspace=0.250)
 
-    da_qmf.plot()
+    # Quantile mapping function.
+    img1 = ax.imshow(da_qmf, extent=[0, 1, 365, 1], cmap="coolwarm")
+    cb = f.colorbar(img1, ax=ax)
+    cb.set_label("Ajustement [" + var_unit + "]", fontsize=fs_axes)
+    cb.ax.set_yticklabels(cb.ax.get_yticks(), fontsize=fs_axes)
+    ax.set_aspect("auto")
+    plt.title("QMF", fontsize=fs_title)
     plt.xlabel("Quantile", fontsize=fs_axes)
     plt.ylabel("Jour de l'année", fontsize=fs_axes)
     plt.tick_params(axis="x", labelsize=fs_axes)
     plt.tick_params(axis="y", labelsize=fs_axes)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(1, 365)
 
     legend_items = ["Sim. ajustée (pér. réf.)", "Sim. (pér. réf.)", "Observations", "Sim. ajustée", "Sim."]
 
@@ -378,7 +413,7 @@ def plot_calib(da_qmf, da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, var, sup_
 
         stat     = "quantile"
         quantile = cfg.stat_quantiles[i-1]
-        title    = "Q_" + str(quantile)
+        title    = "Q_" + "{0:.2f}".format(quantile)
         if quantile == 0:
             stat = cfg.stat_min
         elif quantile == 1:
@@ -451,12 +486,12 @@ def plot_calib_ts(da_obs, da_fut, da_qqmap, var, title, p_fig):
     """
 
     # Convert date format if the need is.
-    if da_qqmap.time.dtype == cfg.dtype_obj:
-        da_qqmap[cfg.dim_time] = utils.reset_calendar(da_qqmap)
-    if da_fut.time.dtype == cfg.dtype_obj:
-        da_fut[cfg.dim_time] = utils.reset_calendar(da_fut)
     if da_obs.time.dtype == cfg.dtype_obj:
         da_obs[cfg.dim_time] = utils.reset_calendar(da_obs)
+    if da_fut.time.dtype == cfg.dtype_obj:
+        da_fut[cfg.dim_time] = utils.reset_calendar(da_fut)
+    if da_qqmap.time.dtype == cfg.dtype_obj:
+        da_qqmap[cfg.dim_time] = utils.reset_calendar(da_qqmap)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)

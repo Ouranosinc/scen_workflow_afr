@@ -8,8 +8,10 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
+import functools
 import glob
 import logging
+import multiprocessing
 import numpy as np
 import os
 import pandas as pd
@@ -322,13 +324,147 @@ def calc_stats(cat):
 
                 # Save file.
                 fn = var_or_idx + "_" + stn + ".csv"
-                d  = cfg.get_d_sim(stn, cfg.cat_stat, var_or_idx)
-                if not(os.path.isdir(d)):
-                    os.makedirs(d)
-                p = d + fn
-                df.to_csv(p)
+                p  = cfg.get_d_sim(stn, cfg.cat_stat, var_or_idx) + fn
+                utils.save_csv(df, p)
                 if os.path.exists(p):
                     utils.log("Statistics file created/updated: " + fn, True)
+
+
+def conv_nc_csv():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert NetCDF to CSV files.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Loop through stations.
+    stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
+    for stn in stns:
+
+        # Loop through categories.
+        cat_list = [cfg.cat_obs, cfg.cat_raw, cfg.cat_regrid, cfg.cat_qmf, cfg.cat_qqmap, cfg.cat_idx]
+        for cat in cat_list:
+
+            # Loop through variables or indices.
+            var_or_idx_list = cfg.variables_cordex if cat != cfg.cat_idx else cfg.idx_names
+            for var_or_idx in var_or_idx_list:
+
+                # List NetCDF files.
+                p_list = list(glob.glob(cfg.get_d_sim(stn, cat, var_or_idx) + "*.nc"))
+                n_files = len(p_list)
+                if n_files == 0:
+                    continue
+                p_list.sort()
+
+                utils.log("Processing: '" + stn + "', '" + cat + "', '" + var_or_idx + "'", True)
+
+                # Scalar processing mode.
+                if cfg.n_proc == 1:
+                    for i_file in range(n_files):
+                        conv_nc_csv_single(p_list, var_or_idx, i_file)
+
+                # Parallel processing mode.
+                else:
+
+                    # Loop until all files have been converted.
+                    while True:
+
+                        # Calculate the number of files processed (before conversion).
+                        n_files_proc_before = len(list(glob.glob(cfg.get_d_sim(stn, cat, var_or_idx) + "*.csv")))
+
+                        try:
+                            utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
+                            pool = multiprocessing.Pool(processes=cfg.n_proc)
+                            func = functools.partial(conv_nc_csv_single, p_list, var_or_idx)
+                            pool.map(func, list(range(n_files)))
+                            pool.close()
+                            pool.join()
+                            utils.log("Fork ended.", True)
+                        except Exception as e:
+                            utils.log(str(e))
+                            pass
+
+                        # Calculate the number of files processed (after conversion).
+                        n_files_proc_after = len(list(glob.glob(cfg.get_d_sim(stn, cat, var_or_idx) + "*.csv")))
+
+                        # If no simulation has been processed during a loop iteration, this means that the work is done.
+                        if (cfg.n_proc == 1) or (n_files_proc_before == n_files_proc_after):
+                            break
+
+
+def conv_nc_csv_single(p_list, var_or_idx, i_file):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert a single NetCDF to CSV file.
+
+    Parameters
+    ----------
+    p_list : [str]
+        List of paths.
+    var_or_idx : str
+        Variable or index.
+    i_file : int
+        Rank of file in 'p_list'.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Paths.
+    p = p_list[i_file]
+    p_csv = p.replace("/" + var_or_idx + "/", "/" + var_or_idx + "_csv/").replace(".nc", ".csv")
+    if os.path.exists(p_csv):
+        return()
+
+    # Open dataset.
+    ds = xr.open_dataset(p)
+
+    # Extract time.
+    time_list = list(ds.time.values)
+    n_time = len(time_list)
+    for i in range(n_time):
+        if not var_or_idx in cfg.idx_names:
+            time_list[i] = str(time_list[i])[0:10]
+        else:
+            time_list[i] = str(time_list[i])[0:4]
+
+    # Extract longitude and latitude.
+    # Calculate average values (only if the analysis is based on observations at a station).
+    lon_list = None
+    lat_list = None
+    if cfg.opt_ra:
+        lon_list = ds.lon.values
+        lat_list = ds.lat.values
+
+    # Extract values.
+    # Calculate average values (only if the analysis is based on observations at a station).
+    val_list = list(ds[var_or_idx].values)
+    if not cfg.opt_ra:
+        if var_or_idx not in cfg.idx_names:
+            for i in range(n_time):
+                val_list[i] = val_list[i].mean()
+        else:
+            val_list = list(val_list[0][0])
+
+    # Convert values to more practical units (if required).
+    if (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and\
+       (ds[var_or_idx].attrs[cfg.attrs_units] == "kg m-2 s-1"):
+        for i in range(n_time):
+            val_list[i] = val_list[i] * cfg.spd
+    elif (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
+         (ds[var_or_idx].attrs[cfg.attrs_units] == "K"):
+        for i in range(n_time):
+            val_list[i] = val_list[i] - cfg.d_KC
+
+    # Build pandas dataframe.
+    if not cfg.opt_ra:
+        dict_pd = {cfg.dim_time: time_list, var_or_idx: val_list}
+    else:
+        dict_pd = {cfg.dim_time: time_list, cfg.dim_lon: lon_list, cfg.dim_lat: lat_list, var_or_idx: val_list}
+    df = pd.DataFrame(dict_pd)
+
+    # Save CSV file.
+    utils.save_csv(df, p_csv)
 
 
 def run():
@@ -339,7 +475,7 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    msg = "Step #7   Calculation of statistics is "
+    msg = "Step #7a  Calculation of statistics is "
     if cfg.opt_stat:
 
         msg = msg + "running"
@@ -350,6 +486,19 @@ def run():
 
         # Indices.
         calc_stats(cfg.cat_idx)
+
+    else:
+
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
+
+    msg = "Step #7b  Conversion of NetCDF to CSV files is "
+    if cfg.opt_conv_nc_csv:
+
+        msg = msg + "running"
+        utils.log(msg)
+        conv_nc_csv()
 
     else:
 
