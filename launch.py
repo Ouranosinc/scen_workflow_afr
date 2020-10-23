@@ -2,9 +2,9 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Script launcher.
 #
-# Authors:
+# Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos, Canada
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 # Notes:
 # 1. When using reanalysis data (instead of observations), the script requires a value of 1 in the following file:
@@ -43,7 +43,7 @@ import statistics as stat
 import utils
 
 
-def load_params(p_ini):
+def load_params(p_ini: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -161,10 +161,13 @@ def load_params(p_ini):
                 cfg.opt_calib_qqmap = ast.literal_eval(value)
             elif key == "nq_default":
                 cfg.nq_default = int(value)
+                cfg.nq_calib = [cfg.nq_default]
             elif key == "up_qmf_default":
                 cfg.up_qmf_default = float(value)
+                cfg.up_qmf_calib = [cfg.up_qmf_default]
             elif key == "time_win_default":
                 cfg.time_win_default = int(value)
+                cfg.time_win_calib = [cfg.time_win_default]
 
             # INDICES:
             elif key == "opt_idx":
@@ -344,16 +347,6 @@ def main():
     #    cfg.opt_calib      = True
     #    cfg.opt_calib_auto = True
     # c. Run the script.
-
-    # Default values.
-    cfg.nq_default       = 50
-    cfg.up_qmf_default   = 3
-    cfg.time_win_default = 30
-
-    # List of parameters to be tested.
-    cfg.nq_calib       = [cfg.nq_default]
-    cfg.up_qmf_calib   = [cfg.up_qmf_default]
-    cfg.time_win_calib = [cfg.time_win_default]
 
     # Initialization.
     scen_calib.init_calib_params()

@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 # ----------------------------------------------------------------------------------------------------------------------
-# Workflow functions.
+# Production of climate scenarios.
 #
 # TODO.MAB: Build a function that verifies the amount of data that is available in a dataset using:
 #           ds.notnull().groupby('time.year').sum('time') or
 #           xclim.core.checks.missing_[pct|any|wmo]
-# Authors:
-# 1. rousseau.yannick@ouranos.ca
-# 2. bourgault.marcandre@ouranos.ca (original)
-# (C) 2020 Ouranos, Canada
+
+# Contributors:
+# 1. rousseau.yannick@ouranos.ca (current)
+# 2. marc-andre.bourgault@ggr.ulaval.ca (second)
+# 3. rondeau-genesse.gabriel@ouranos.ca (original)
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -30,7 +32,7 @@ from qm import train, predict
 from scipy.interpolate import griddata
 
 
-def load_observations(var):
+def load_observations(var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -182,7 +184,7 @@ def load_observations(var):
         utils.close_netcdf(da)
 
 
-def load_reanalysis(var_ra):
+def load_reanalysis(var_ra: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -262,7 +264,7 @@ def load_reanalysis(var_ra):
         utils.save_netcdf(ds, p_stn, desc=desc)
 
 
-def extract(var, ds_stn, d_ref, d_fut, p_raw):
+def extract(var: str, ds_stn: xr.Dataset, d_ref: str, d_fut: str, p_raw: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -340,7 +342,7 @@ def extract(var, ds_stn, d_ref, d_fut, p_raw):
     utils.save_netcdf(ds_raw, p_raw, desc=desc)
 
 
-def interpolate(var, ds_stn, p_raw, p_regrid):
+def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -464,7 +466,7 @@ def interpolate(var, ds_stn, p_raw, p_regrid):
         utils.log(msg, True)
 
 
-def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
+def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid_ref: str, p_regrid_fut: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -572,7 +574,8 @@ def preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut):
     close_netcdf()
 
 
-def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf, title="", p_fig=""):
+def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Dataset, p_ref: str, p_fut: str,
+                p_qqmap: str, p_qmf: str, title="", p_fig=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -617,20 +620,12 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
     ds_fut = utils.open_netcdf(p_fut)
     da_ref = ds_ref[var]
     da_fut = ds_fut[var]
-    ds_qmf = None
     ds_qqmap = None
 
     # The following two commented statements are similar to those in the initial code version They seem to have not
     # effect as a boundary box selection was already made earlier.
     # ds_ref = ds_ref.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
     # ds_fut = ds_fut.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
-
-    def close_netcdf():
-
-        utils.close_netcdf(da_ref)
-        utils.close_netcdf(da_fut)
-        utils.close_netcdf(ds_qmf)
-        utils.close_netcdf(ds_qqmap)
 
     # Future -----------------------------------------------------------------------------------------------------------
 
@@ -751,7 +746,10 @@ def postprocess(var, nq, up_qmf, time_win, ds_stn, p_ref, p_fut, p_qqmap, p_qmf,
         if cfg.opt_plot:
             plot.plot_calib_ts(da_stn_xy, da_fut_xy, da_qqmap_xy, var, title, p_fig.replace(".png", "_ts.png"))
 
-    close_netcdf()
+    utils.close_netcdf(da_ref)
+    utils.close_netcdf(da_fut)
+    utils.close_netcdf(ds_qmf)
+    utils.close_netcdf(ds_qqmap)
 
     return ds_qqmap if (p_fig == "") else None
 
@@ -898,7 +896,7 @@ def generate():
 
                             try:
                                 utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
-                                pool = multiprocessing.Pool(processes=cfg.n_proc)
+                                pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(list_cordex_ref)))
                                 func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, ds_stn,
                                                          d_raw, var, stn, rcp, False)
                                 pool.map(func, list(range(n_sim)))
@@ -917,7 +915,8 @@ def generate():
                             break
 
 
-def generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, extract_only, i_sim_proc):
+def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.Dataset, d_raw: str, var: str, stn: str,
+                    rcp: str, extract_only: bool, i_sim_proc: int):
 
     """
     --------------------------------------------------------------------------------------------------------------------

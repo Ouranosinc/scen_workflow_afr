@@ -2,9 +2,10 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Basic univariate quantile mapping post-processing algorithms.
 #
-# Author:
-# 1. marc-andre.bourgault@ggr.ulaval.ca (original)
-# (C) 2020 Ouranos, Canada
+# Contributors:
+# 1. rousseau.yannick@ouranos.ca
+# 2. marc-andre.bourgault@ggr.ulaval.ca (original)
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -15,7 +16,8 @@ import xarray as xr
 from scipy import stats
 
 
-def train(da_x, da_y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0, detrend_order=0):
+def train(da_x: xr.DataArray, da_y: xr.DataArray, nq: int, group="time.dayofyear", kind=cfg.kind_add, time_win=0,
+          detrend_order=0):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -103,7 +105,7 @@ def train(da_x, da_y, nq, group="time.dayofyear", kind=cfg.kind_add, time_win=0,
     return da_train
 
 
-def predict(da_x, da_qmf, interp=False, detrend_order=4):
+def predict(da_x: xr.DataArray, da_qmf: xr.DataArray, interp=False, detrend_order=4):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -198,7 +200,7 @@ def predict(da_x, da_qmf, interp=False, detrend_order=4):
     return da_predict
 
 
-def add_cyclic(da_qmf, att):
+def add_cyclic(da_qmf: xr.DataArray, att: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -223,7 +225,7 @@ def add_cyclic(da_qmf, att):
     return da_qmf
 
 
-def add_q_bounds(da_qmf):
+def add_q_bounds(da_qmf: xr.DataArray):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -247,11 +249,18 @@ def add_q_bounds(da_qmf):
     return da_qmf
 
 
-def calc_slope(x, y):
+def calc_slope(x: [float], y: [float]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Wrapper that returns the slope from a linear regression fit of x and y.
+    Wrapper that returns the slope from a linear regression fit of x and y values.
+
+    Parameters
+    ----------
+    x : [float]
+        X-values.
+    y : [float]
+        Y-values.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -260,7 +269,7 @@ def calc_slope(x, y):
     return slope
 
 
-def polyfit(da, deg=1, dim=cfg.dim_time):
+def polyfit(da: xr.DataArray, deg=1, dim=cfg.dim_time):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -270,7 +279,7 @@ def polyfit(da, deg=1, dim=cfg.dim_time):
 
     Parameters
     ----------
-    da : xarray.DataArray
+    da : xr.DataArray
         The array to fit
     deg : int, optional
         Degree of the fitting polynomial, Default is 1.
@@ -279,7 +288,7 @@ def polyfit(da, deg=1, dim=cfg.dim_time):
 
     Returns
     -------
-    output : xarray.DataArray
+    output : xr.DataArray
         Polynomial coefficients with a new dimension to sort the polynomial
         coefficients by degree
     --------------------------------------------------------------------------------------------------------------------
@@ -308,7 +317,7 @@ def polyfit(da, deg=1, dim=cfg.dim_time):
     return out
 
 
-def polyval(coefs, coord):
+def polyval(coefs: xr.DataArray, coord: xr.Coordinate):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -316,10 +325,10 @@ def polyval(coefs, coord):
 
     Parameters
     ----------
-    coord : xr.Coordinate
-        Coordinate (e.g. time) used as the independent variable to compute polynomial.
     coefs : xr.DataArray
         Polynomial coefficients as returned by polyfit.
+    coord : xr.Coordinate
+        Coordinate (e.g. time) used as the independent variable to compute polynomial.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -335,6 +344,8 @@ def detrend(obj, dim=cfg.dim_time, deg=1, kind=cfg.kind_add):
     --------------------------------------------------------------------------------------------------------------------
     Detrend a series with a polynomial.
     The detrended object should have the same mean as the original.
+    obs : ?
+        ?
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -356,11 +367,16 @@ def detrend(obj, dim=cfg.dim_time, deg=1, kind=cfg.kind_add):
     return detrended, trend, coefs
 
 
-def get_index(coord):
+def get_index(coord: xr.Coordinate):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Return x coordinate for polynomial fit.
+
+    Parameters
+    ----------
+    coord : xr.Coordinate
+        Coordinate (e.g. time) used as the independent variable to compute polynomial.
     --------------------------------------------------------------------------------------------------------------------
     """
 

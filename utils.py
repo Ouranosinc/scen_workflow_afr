@@ -8,7 +8,6 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-# Other packages.
 import config as cfg
 import datetime
 import glob
@@ -28,223 +27,10 @@ from itertools import compress
 from math import radians, degrees, sqrt
 from sklearn.cluster import KMeans
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from typing import Union
 
 
-def scen_cluster(data, max_clusters=None, rsq_cutoff=None, n_clusters=None, variable_weights=None, sample_weights=None,
-                 model_weights=None, make_graph=True):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Selects a subset of models located near the centroid of the K groups found by clustering.
-    TODO: Support other formats, such as pandas dataframes.
-
-    Parameters
-    ----------
-    data : numpy array NxP
-        These are the values used for clustering. N is the number of models and P the number of variables/indicators.
-    max_clusters : int, optional
-        Maximum number of desired clusters (integer).
-        MUTUALLY EXCLUSIVE TO N_CLUSTERS!
-    rsq_cutoff : float (between 0 and 1), optional
-        If a maximum number of clusters has been defined, this controls how many clusters are to be used.
-    n_clusters : int, optional
-        Number of desired clusters (integer).
-        MUTUALLY EXCLUSIVE TO MAX_CLUSTERS!
-        If neither of these parameters are set, default values are a max_cluster = N and rsq_cutoff = 0.90.
-    variable_weights : numpy array of size P, optional
-        This weighting can be used to influence of weight of the climate indices on the clustering itself.
-    sample_weights : numpy array of size N, optional
-        This weighting can be used to influence of weight of simulations on the clustering itself.
-        For example, putting a weight of 0 on a simulation will completely exclude it from the clustering).
-    model_weights : numpy array of size N, optional
-        This weighting can be used to influence which model is selected within each cluster.
-        This parameter has no influence whatsoever on the clustering itself!
-    make_graph : boolean, optional
-        Displays a plot of the R^2 vs. the number of clusters.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Number of simulations.
-    n_sim = np.shape(data)[0]
-
-    # Number of indicators.
-    n_idx = np.shape(data)[1]
-
-    if sample_weights is None:
-        sample_weights = np.ones(n_sim)
-    if model_weights is None:
-        model_weights = np.ones(n_sim)
-    if variable_weights is None:
-        variable_weights = np.ones(shape=(1, n_idx))
-
-    # Perform verifications.
-    if max_clusters is not None and n_clusters is not None:
-        log("Both max_clusters and n_clusters have been defined! Giving priority to n_clusters.", True)
-        sel_method = "n_clusters"
-    elif max_clusters is None and n_clusters is None:
-        log("Neither max_clusters or n_clusters has been defined! Assuming that selection method = max_clusters", True)
-        sel_method = "max_clusters"
-        max_clusters = n_sim
-    elif n_clusters is not None:
-        sel_method = "n_clusters"
-    else:
-        sel_method = "max_clusters"
-
-    if sel_method == "max_clusters" and rsq_cutoff is None:
-        log("rsq_cutoff has not been defined! Using a default value of 0.90.", True)
-        rsq_cutoff = 0.90
-
-    if (rsq_cutoff is not None and rsq_cutoff >= 1) or (rsq_cutoff is not None and rsq_cutoff <= 0):
-        log("rsq_cutoff must be between 0 and 1! Using a default value of 0.90.", True)
-        rsq_cutoff = 0.90
-
-    # Normalize the data matrix.
-    # ddof=1 to be the same as Matlab's zscore.
-    z = scipy.stats.zscore(data, axis=0, ddof=1)
-
-    # Normalize weights.
-    # Note: I don't know if this is really useful; this was in the MATLAB code.
-    sample_weights = sample_weights / np.sum(sample_weights)
-    model_weights = model_weights / np.sum(model_weights)
-    variable_weights = variable_weights / np.sum(variable_weights)
-
-    # Apply the variable weights to the Z matrix.
-    variable_weights = numpy.matlib.repmat(variable_weights, n_sim, 1)
-    z = z * variable_weights
-
-    if sel_method == "max_clusters" or make_graph is True:
-        sumd = np.empty(shape=n_sim)
-        for nclust in range(n_sim):
-
-            # This is k-means with only 10 iterations, to limit the computation times
-            kmeans = KMeans(n_clusters=nclust + 1, n_init=10).fit(z, sample_weight=sample_weights)
-            kmeans.fit(z)
-
-            # Sum of the squared distance between each simulation and the
-            # nearest cluster centroid.
-            sumd[nclust] = kmeans.inertia_
-
-        # R² of the groups vs. the full ensemble.
-        rsq = (sumd[0] - sumd) / sumd[0]
-
-        # Plot of rsq.
-        plot.plot_rsq(rsq, n_sim)
-
-        # If we actually need to find the optimal number of clusters, this is
-        # where it is done.
-        if sel_method == "max_clusters":
-            # 'argmax' finds the first occurrence of rsq > rsq_cutoff but we need
-            # to add 1 b/c of python indexing.
-            n_clusters = np.argmax(rsq > rsq_cutoff) + 1
-
-            if n_clusters <= max_clusters:
-                log("Using " + str(n_clusters) +
-                    " clusters has been found to be the optimal number of clusters.", True)
-            else:
-                n_clusters = max_clusters
-                log("Using " + str(n_clusters) +
-                    " clusters has been found to be the optimal number of clusters, but limiting to " +
-                    str(max_clusters) + " as required by max_clusters.", True)
-
-    # k-means clustering with 1000 iterations to avoid instabilities in the
-    # choice of final scenarios.
-    kmeans = KMeans(n_clusters=n_clusters, n_init=1000)
-
-    # We use 'fit_' only once, otherwise it computes everything again.
-    clusters = kmeans.fit_predict(z, sample_weight=sample_weights)
-
-    # Squared distance between each point and each centroid.
-    d = np.square(kmeans.transform(z))
-
-    # Prepare an empty array in which to store the results.
-    out = np.empty(shape=n_clusters)
-    r = np.arange(n_sim)
-
-    # In each cluster, find the closest (weighted) simulation and select it.
-    for i in range(n_clusters):
-        # Distance to the centroid for all simulations within the cluster 'i'.
-        d_i = d[clusters == i, i]
-        if d_i.shape[0] > 2:
-            sig = np.std(d_i, ddof=1)
-            # Standard deviation of those distances (ddof = 1 gives the same as Matlab's std function).
-            # Weighted likelihood.
-            like = scipy.stats.norm.pdf(d_i, 0, sig) * model_weights[clusters == i]
-            # Index of maximum likelihood.
-            argmax = np.argmax(like)
-        elif d_i.shape[0] == 2:
-            # Standard deviation would be 0 for a 2-simulation cluster, meaning
-            # that model_weights would be ignored.
-            sig = 1
-            # Weighted likelihood.
-            like = scipy.stats.norm.pdf(d_i, 0, sig) * model_weights[clusters == i]
-            # Index of the maximum likelihood.
-            argmax = np.argmax(like)
-        else:
-            argmax = 0
-        # Index of the cluster simulations within the full ensemble.
-        r_clust = r[clusters == i]
-        out[i] = r_clust[argmax]
-
-    out = out.astype(int)
-
-    return out, clusters
-
-
-def regrid_cdo(ds, new_grid, d_tmp, method="cubic"):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Regrids a dataset using CDO.
-    TODO: Right now, this assumes that longitude and latitude are 1D.
-
-    Parameters
-    ----------
-    ds : xr.Dataset
-        Dataset.
-    new_grid : xarray dataset
-        Dataset that was regridded.
-    d_tmp : str
-        Directory.
-    method : [str]
-        {"cubic"}
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Write a txt file with the mapping information.
-    file = open(d_tmp + "new_grid.txt", "w")
-    file.write("gridtype = lonlat\n")
-    file.write("xsize = " + str(len(new_grid.lon.values.tolist())) + "\n")
-    file.write("xvals = " + ",".join(str(num) for num in new_grid.lon.values) + "\n")
-    file.write("ysize = " + str(len(new_grid.lat.values.tolist())) + "\n")
-    file.write("yvals = " + ",".join(str(num) for num in new_grid.lat.values) + "\n")
-    file.close()
-
-    # Write the xarray dataset to a NetCDF.
-    save_netcdf(ds, d_tmp + "old_data.nc")
-
-    # Remap to the new grid.
-    # TODO: To be fixed. It is not working well.
-    if method == "cubic":
-        os.system("cdo remapbic," + d_tmp + "new_grid.txt " + d_tmp + "old_data.nc " + d_tmp + "new_data.nc")
-        # import subprocess
-        # subprocess.call()
-    elif method == "linear":
-        os.system("cdo remapbil," + d_tmp + "new_grid.txt " + d_tmp + "old_data.nc " + d_tmp + "new_data.nc")
-    else:
-        "Invalid method!"
-
-    # Load the new data.
-    ds2 = open_netcdf(d_tmp + "new_data.nc")
-
-    # Remove created files.
-    os.system("rm " + d_tmp + "new_grid.txt")
-    os.system("rm " + d_tmp + "old_data.nc")
-    os.system("rm " + d_tmp + "new_data.nc")
-
-    return ds2
-
-
-def natural_sort(values):
+def natural_sort(values: Union[float, int]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -265,7 +51,7 @@ def natural_sort(values):
     return sorted(values, key=alphanum_key)
 
 
-def uas_vas_2_sfc(uas, vas):
+def uas_vas_2_sfc(uas: xr.DataArray, vas: xr.DataArray):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -274,8 +60,10 @@ def uas_vas_2_sfc(uas, vas):
 
     Parameters
     ----------
-    uas : Wind component (x-axis; xr.DataArray).
-    vas : Wind component (y-axis; xr.DataArray).
+    uas : xr.DataArray
+        Wind component (x-axis).
+    vas : xr.DataArray
+        Wind component (y-axis).
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -293,7 +81,7 @@ def uas_vas_2_sfc(uas, vas):
     return sfcwind, sfcwind_dirmet
 
 
-def sfcwind_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
+def sfcwind_2_uas_vas(sfcwind: xr.DataArray, winddir: np.array, resample=None, nb_per_day=None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -304,7 +92,7 @@ def sfcwind_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
     ----------
     sfcwind : xr.DataArray
         Wind speed.
-    winddir : numpy array
+    winddir : np.array
         Direction from which the wind blows (using the meteorological standard).
     resample : str
         Whether or not the data needs to be resampled.
@@ -336,7 +124,7 @@ def sfcwind_2_uas_vas(sfcwind, winddir, resample=None, nb_per_day=None):
     return uas, vas
 
 
-def list_cordex(p_ds, rcps):
+def list_cordex(p_ds: str, rcps: [str]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -379,7 +167,7 @@ def list_cordex(p_ds, rcps):
     return list_f
 
 
-def info_cordex(d_ds):
+def info_cordex(d_ds: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -434,7 +222,7 @@ def info_cordex(d_ds):
     return sets
 
 
-def calendar(x, n_days_old=360, n_days_new=365):
+def calendar(x: Union[xr.Dataset, xr.DataArray], n_days_old=360, n_days_new=365):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -442,7 +230,7 @@ def calendar(x, n_days_old=360, n_days_new=365):
 
     Parameters
     ----------
-    x : xarray.Dataset
+    x : xr.Dataset
         Dataset.
     n_days_old: int
         Number of days in the old calendar.
@@ -493,7 +281,7 @@ def calendar(x, n_days_old=360, n_days_new=365):
     return ref_365
 
 
-def reset_calendar(ds, year_1=-1, year_n=-1, freq=cfg.freq_D):
+def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, freq=cfg.freq_D):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -501,7 +289,7 @@ def reset_calendar(ds, year_1=-1, year_n=-1, freq=cfg.freq_D):
 
     Parameters
     ----------
-    ds : xr.Dataset
+    ds : Union[xr.Dataset, xr.DataArray]
         Dataset.
     year_1 : int
         First year.
@@ -532,7 +320,7 @@ def reset_calendar(ds, year_1=-1, year_n=-1, freq=cfg.freq_D):
     return new_time
 
 
-def reset_calendar_list(years):
+def reset_calendar_list(years: [int]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -554,7 +342,7 @@ def reset_calendar_list(years):
     return new_time
 
 
-def convert_to_365_calender(ds):
+def convert_to_365_calender(ds: Union[xr.Dataset, xr.DataArray]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -562,8 +350,8 @@ def convert_to_365_calender(ds):
 
     Parameters
     ----------
-    ds : xr.Dataset|xr.DataArray
-        Dataset.
+    ds : Union[xr.Dataset, xr.DataArray]
+        Dataset or data array
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -586,7 +374,7 @@ def convert_to_365_calender(ds):
     return ds_365
 
 
-def list_files(p):
+def list_files(p: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -613,48 +401,7 @@ def list_files(p):
     return p_list
 
 
-def physical_coherence(stn, var):
-
-    """
-    # ------------------------------------------------------------------------------------------------------------------
-    Verifies physical coherence.
-    TODO.YR: Figure out what this function is doing. Not sure why files are being modified. File update was disabled.
-
-    Parameters
-    ----------
-    stn: str
-        Station name.
-    var : [str]
-        List of variables.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    d_qqmap      = cfg.get_d_sim(stn, cfg.cat_qqmap, var[0])
-    p_qqmap_list = list_files(d_qqmap)
-    p_qqmap_tasmin_list = p_qqmap_list
-    p_qqmap_tasmax_list = [i.replace(cfg.var_cordex_tasmin, cfg.var_cordex_tasmax) for i in p_qqmap_list]
-
-    for i in range(len(p_qqmap_tasmin_list)):
-
-        log(stn + "____________" + p_qqmap_tasmax_list[i], True)
-        ds_tasmax = open_netcdf(p_qqmap_tasmax_list[i])
-        ds_tasmin = open_netcdf(p_qqmap_tasmin_list[i])
-
-        pos = ds_tasmax[var[1]] < ds_tasmin[var[0]]
-
-        val_max = ds_tasmax[var[1]].values[pos]
-        val_min = ds_tasmin[var[0]].values[pos]
-
-        ds_tasmax[var[1]].values[pos] = val_min
-        ds_tasmin[var[0]].values[pos] = val_max
-
-        # os.remove(p_qqmap_tasmax_list[i])
-        # os.remove(p_qqmap_tasmin_list[i])
-        # save_netcdf(ds_tasmax, p_qqmap_tasmax_list[i])
-        # save_netcdf(ds_tasmin, p_qqmap_tasmin_list[i])
-
-
-def create_multi_dict(n, data_type):
+def create_multi_dict(n: int, data_type: type):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -675,7 +422,7 @@ def create_multi_dict(n, data_type):
         return defaultdict(lambda: create_multi_dict(n - 1, data_type))
 
 
-def calc_error(values_obs, values_pred):
+def calc_error(values_obs: [float], values_pred: [float]):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -729,7 +476,7 @@ def get_datetime_str():
     return dt_str
 
 
-def log(msg, indent=False):
+def log(msg: str, indent=False):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -780,7 +527,7 @@ def log(msg, indent=False):
         f.close()
 
 
-def open_netcdf(p, drop_variables=None, chunks=None, combine=None, concat_dim=None, desc=""):
+def open_netcdf(p: str, drop_variables=None, chunks=None, combine=None, concat_dim=None, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -788,7 +535,7 @@ def open_netcdf(p, drop_variables=None, chunks=None, combine=None, concat_dim=No
 
     Parameters
     ----------
-    p : str or [str]
+    p : Union[str, [str]]
         Path of file to be created.
     drop_variables : [str]
         Drop-variables parameter.
@@ -821,7 +568,7 @@ def open_netcdf(p, drop_variables=None, chunks=None, combine=None, concat_dim=No
     return ds
 
 
-def save_netcdf(ds, p, desc="", std_save=False):
+def save_netcdf(ds: Union[xr.Dataset, xr.DataArray], p, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -829,15 +576,12 @@ def save_netcdf(ds, p, desc="", std_save=False):
 
     Parameters
     ----------
-    ds : xr.Dataset or xr.DataArray
+    ds : Union[xr.Dataset, xr.DataArray]
         Dataset.
     p : str
         Path of file to be created.
     desc : str
         Description.
-    std_save : bool
-        If true, it forces saving the NetCDF using xr.to_netcdf.
-        False is required when multiple processes are running.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -863,7 +607,7 @@ def save_netcdf(ds, p, desc="", std_save=False):
         log("Saved NetCDF file", True)
 
 
-def close_netcdf(ds):
+def close_netcdf(ds: Union[xr.Dataset, xr.DataArray]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -871,7 +615,7 @@ def close_netcdf(ds):
 
     Parameters
     ----------
-    ds : xr.Dataset or xr.DataArray
+    ds : Union[xr.Dataset, xr.DataArray]
         Dataset.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -880,7 +624,7 @@ def close_netcdf(ds):
         ds.close()
 
 
-def save_plot(plt, p, desc=""):
+def save_plot(plt: matplotlib.pyplot, p: str, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -919,7 +663,7 @@ def save_plot(plt, p, desc=""):
         log("Saving plot", True)
 
 
-def save_csv(df, p, desc=""):
+def save_csv(df: pd.DataFrame, p: str, desc=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -958,7 +702,7 @@ def save_csv(df, p, desc=""):
         log("Saved CSV file", True)
 
 
-def subset_center(ds):
+def subset_center(ds: xr.Dataset):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -966,7 +710,7 @@ def subset_center(ds):
 
     Parameters
     ----------
-    ds : xarray.Dataset
+    ds : xr.Dataset
         Dataset.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -986,7 +730,7 @@ def subset_center(ds):
     return ds_ctr
 
 
-def subset_lon_lat(ds, lon_bnds=None, lat_bnds=None):
+def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -996,7 +740,7 @@ def subset_lon_lat(ds, lon_bnds=None, lat_bnds=None):
 
     Parameters
     ----------
-    ds : xarray.Dataset
+    ds : xr.Dataset
         Dataset.
     lon_bnds : [float], optional
         Longitude boundaries.

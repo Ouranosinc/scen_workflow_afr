@@ -4,10 +4,11 @@
 # This requires installing package SciTools (when xr.DataArray.time.dtype=cfg.dtype_obj).
 # TODO: Functions in this class should probably be included in scenarios.py to avoid a circular relationship.
 #
-# Authors:
-# 1. rousseau.yannick@ouranos.ca
-# 2. bourgault.marcandre@ouranos.ca (original)
-# (C) 2020 Ouranos, Canada
+# Contributors:
+# 1. rousseau.yannick@ouranos.ca (current)
+# 2. marc-andre.bourgault@ggr.ulaval.ca (second)
+# 3. rondeau-genesse.gabriel@ouranos.ca (original)
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -19,7 +20,7 @@ import utils
 import xarray as xr
 
 
-def bias_correction(stn, var, sim_name=""):
+def bias_correction(stn: str, var: str, sim_name=""):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -189,7 +190,7 @@ def init_calib_params():
             utils.log("Calibration file created.", True)
 
 
-def adjust_date_format(ds):
+def adjust_date_format(ds: xr.Dataset):
 
     """
     --------------------------------------------------------------------------------------------------------------------

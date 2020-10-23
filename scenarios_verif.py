@@ -2,10 +2,11 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Functions that allow to verify generated NetCDF files.
 #
-# Authors:
-# 1. rousseau.yannick@ouranos.ca
-# 2. bourgault.marcandre@ouranos.ca (original)
-# (C) 2020 Ouranos, Canada
+# Contributors:
+# 1. rousseau.yannick@ouranos.ca (current)
+# 2. marc-andre.bourgault@ggr.ulaval.ca (second)
+# 3. rondeau-genesse.gabriel@ouranos.ca (original)
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Current package.

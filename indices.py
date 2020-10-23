@@ -2,9 +2,9 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Functions related to climate indices.
 #
-# Authors:
+# Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos, Canada
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -16,7 +16,7 @@ import xarray as xr
 import xclim.indices as indices
 
 
-def generate(idx_name, idx_threshs):
+def generate(idx_name: str, idx_threshs: [float]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -120,9 +120,9 @@ def generate(idx_name, idx_threshs):
 
                 # Indices ----------------------------------------------------------------------------------------------
 
-                # TODO: Below, unit conversion should not be required. The unit in the file produced by the scenario
-                #       workflow is "degree_C", but it should be "C". This can be fixed eventually, but it's not a
-                #       priority.
+                # TODO.YR: Below, unit conversion should not be required. The unit in the file produced by the scenario
+                #          workflow is "degree_C", but it should be "C". This can be fixed eventually, but it's not a
+                #          priority.
 
                 idx_units = None
                 arr_idx = None

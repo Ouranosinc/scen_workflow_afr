@@ -2,10 +2,11 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Functions linked to Ouranos RCM.
 #
-# Authors:
-# 1. rousseau.yannick@ouranos.ca
-# 2. bourgault.marcandre@ouranos.ca (original)
-# (C) 2020 Ouranos, Canada
+# Contributors:
+# 1. rousseau.yannick@ouranos.ca (current)
+# 2. bourgault.marcandre@ouranos.ca (second)
+# 3. rondeau-genesse.gabriel@ouranos.ca (original)
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -17,7 +18,8 @@ import utils
 import clisops.core.subset as subset
 
 
-def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=None, tmpdir=None):
+def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bnds: [float], priority_timestep=None,
+                     tmpdir=None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -37,9 +39,9 @@ def extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds, priority_timestep=No
     d_fut : str
         For CORDEX, directory where the future dataset is located.
         For CRCM5, the 3 letters are used internally.
-    lat_bnds : float[]
+    lat_bnds : [float]
         Latitude boundaries.
-    lon_bnds : float[]
+    lon_bnds : [float]
         Longitude boundaries
     var : str
         Weather variable.

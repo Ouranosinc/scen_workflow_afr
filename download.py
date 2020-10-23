@@ -5,9 +5,9 @@
 # Create a configuration file, as explained here:
 # https://pypi.org/project/cdsapi/
 #
-# Authors:
+# Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos, Canada
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import cdsapi
@@ -19,7 +19,7 @@ import os
 import utils
 
 
-def download_from_copernicus(p_base, obs_src, area, var, year):
+def download_from_copernicus(p_base: str, obs_src: str, area: [float], var: str, year: int):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -29,9 +29,9 @@ def download_from_copernicus(p_base, obs_src, area, var, year):
     ----------
     p_base : str
         Path of directory where data is saved.
-    obs_src : {cfg.obs_src_era5, cfg.obs_src_era5_land}
-        Set code.
-    area : float[]
+    obs_src : str
+        Set code: {cfg.obs_src_era5, cfg.obs_src_era5_land}
+    area : [float]
         Bounding box defining the 4 limits of the area of interest (in decimal degrees):
         [North, West, South, East].
     var : str
@@ -110,7 +110,7 @@ def download_from_copernicus(p_base, obs_src, area, var, year):
         fn)
 
 
-def download_merra2(p_base, set_version):
+def download_merra2(p_base: str, set_version: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -125,8 +125,8 @@ def download_merra2(p_base, set_version):
     ----------
     p_base : str
         Path of directory where data is saved.
-    set_version : {"M2SDNXSLV.5.12.4"}
-        Data set version.
+    set_version : str
+        Data set version: {"M2SDNXSLV.5.12.4"}
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -221,7 +221,7 @@ def run():
                     try:
                         utils.log("Processing: '" + var + "'", True)
                         utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
-                        pool = multiprocessing.Pool(processes=cfg.n_proc)
+                        pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(years)))
                         func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
                         pool.map(func, years)
                         pool.close()

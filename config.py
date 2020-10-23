@@ -5,9 +5,9 @@
 # TODO.YR: Determine why exception lists are required (sim_excepts, var_sim_excepts). This seems to be due to calendar
 #          format.
 
-# Authors:
+# Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos, Canada
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -85,22 +85,22 @@ var_era5_sh         = "sh"          # Specific humidity.
 
 # Directory names.
 # Observations vs. simulations.
-cat_obs             = "obs"         # Observation.
-cat_sim             = "sim"         # Simulation.
+cat_obs             = "obs"          # Observation.
+cat_sim             = "sim"          # Simulation.
 # Scenario files (in order of generation).
-cat_raw             = "raw"         # Raw.
-cat_regrid          = "regrid"      # Reggrided.
-cat_qqmap           = "qqmap"       # Adjusted simulation.
-cat_qmf             = "qmf"         # Quantile mapping function.
+cat_raw             = "raw"          # Raw.
+cat_regrid          = "regrid"       # Reggrided.
+cat_qqmap           = "qqmap"        # Adjusted simulation.
+cat_qmf             = "qmf"          # Quantile mapping function.
 # Scenarios vs. indices.
-cat_scen            = "scen"        # Scenarios.
-cat_idx             = "idx"         # Indices.
+cat_scen            = "scen"         # Scenarios.
+cat_idx             = "idx"          # Indices.
 # Other.
-cat_stat            = "stat"        # Statistics.
-cat_fig             = "fig"         # Figures.
-cat_fig_calibration = "calibration" # Figures (calibration).
-cat_fig_postprocess = "postprocess" # Figures (postprocess).
-cat_fig_workflow    = "workflow"    # Figures (workflow).
+cat_stat            = "stat"         # Statistics.
+cat_fig             = "fig"          # Figures.
+cat_fig_calibration = "calibration"  # Figures (calibration).
+cat_fig_postprocess = "postprocess"  # Figures (postprocess).
+cat_fig_workflow    = "workflow"     # Figures (workflow).
 
 # Calendar types.
 cal_noleap          = "noleap"      # No-leap.
@@ -318,7 +318,7 @@ def get_rank_gcm():
     return get_rank_inst() + 1
 
 
-def get_var_desc(var, set_name="cordex"):
+def get_var_desc(var: str, set_name="cordex"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -380,7 +380,7 @@ def get_var_desc(var, set_name="cordex"):
     return var_desc
 
 
-def get_idx_desc(idx_name, idx_threshs_loc):
+def get_idx_desc(idx_name: str, idx_threshs_loc: [[float]]):
 
     """
     ----------------------------------------------------------------------------------------------------------------
@@ -414,7 +414,7 @@ def get_idx_desc(idx_name, idx_threshs_loc):
     return idx_desc
 
 
-def convert_var_name(var):
+def convert_var_name(var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -447,7 +447,7 @@ def convert_var_name(var):
     return None
 
 
-def get_var_unit(var, set_name="cordex"):
+def get_var_unit(var: str, set_name="cordex"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -493,7 +493,7 @@ def get_var_unit(var, set_name="cordex"):
     return var_unit
 
 
-def get_rcp_desc(rcp):
+def get_rcp_desc(rcp: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -515,7 +515,7 @@ def get_rcp_desc(rcp):
     return rcp_desc
 
 
-def get_d_sim(stn, category, var=""):
+def get_d_sim(stn: str, category: str, var=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -546,7 +546,7 @@ def get_d_sim(stn, category, var=""):
     return d
 
 
-def get_d_stn(var):
+def get_d_stn(var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -566,7 +566,7 @@ def get_d_stn(var):
     return d
 
 
-def get_p_stn(var, stn):
+def get_p_stn(var: str, stn: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -586,7 +586,7 @@ def get_p_stn(var, stn):
     return p
 
 
-def get_p_obs(stn_name, var, category=""):
+def get_p_obs(stn_name: str, var: str, category=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------

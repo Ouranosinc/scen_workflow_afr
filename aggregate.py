@@ -3,9 +3,9 @@
 # Aggregation of a dataset (hourly to daily).
 # The algorithm is only compatible with cfg.obs_src_era5 and cfg.obs_src_era5_land datasets.
 #
-# Authors:
+# Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos, Canada
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -17,7 +17,7 @@ import xarray as xr
 import clisops.core.subset as subset
 
 
-def aggregate(p_hour, p_day, set_name, var):
+def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -106,11 +106,11 @@ def aggregate(p_hour, p_day, set_name, var):
 
             # Verify values.
             # Hourly data.
-            ds_hour_sel = ds_hour.sel(time=dbg_date, latitude=dbg_latitude, longitude=dbg_longitude)
-            val_hour = ds_hour_sel.data.mean()
+            # DEBUG: ds_hour_sel = ds_hour.sel(time=dbg_date, latitude=dbg_latitude, longitude=dbg_longitude)
+            # DEBUG: val_hour = ds_hour_sel.data.mean()
             # Daily data.
-            ds_day_sel = ds_day.sel(time=dbg_date, latitude=dbg_latitude, longitude=dbg_longitude)
-            val_day    = ds_day_sel.data.mean()
+            # DEBUG: ds_day_sel = ds_day.sel(time=dbg_date, latitude=dbg_latitude, longitude=dbg_longitude)
+            # DEBUG: val_day    = ds_day_sel.data.mean()
 
             # Clip to country boundaries.
             if cfg.d_bounds != "":
@@ -120,7 +120,7 @@ def aggregate(p_hour, p_day, set_name, var):
             plot.plot_dayofyear(ds_day, set_name, var, dbg_date)
 
 
-def calc_vapour_pressure(ds_temperature):
+def calc_vapour_pressure(ds_temperature: xr.Dataset):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -147,7 +147,7 @@ def calc_vapour_pressure(ds_temperature):
     return ds_vp
 
 
-def calc_spec_humidity(ds_temperature, ds_pressure):
+def calc_spec_humidity(ds_temperature: xr.Dataset, ds_pressure: xr.Dataset):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ def calc_spec_humidity(ds_temperature, ds_pressure):
     return xr.Dataset(ds_sh)
 
 
-def gen_dataset_sh(p_d2m, p_sp, p_sh, n_years):
+def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
 
     """
     --------------------------------------------------------------------------------------------------------------------

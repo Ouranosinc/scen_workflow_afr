@@ -2,9 +2,9 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Statistics functions.
 #
-# Authors:
+# Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos, Canada
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -18,7 +18,8 @@ import utils
 import xarray as xr
 
 
-def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-1):
+def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx: str, rcp: str, hor: [int], stat: str,
+              q=-1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -48,7 +49,7 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
 
     Returns
     -------
-    ds_q : xr.DataSet
+    ds_stat : xr.Dataset
         Dataset containing quantiles.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -196,7 +197,7 @@ def calc_stat(data_type, freq_in, freq_out, stn, var_or_idx, rcp, hor, stat, q=-
     return ds_stat
 
 
-def calc_stats(cat):
+def calc_stats(cat: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -369,7 +370,7 @@ def conv_nc_csv():
 
                         try:
                             utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
-                            pool = multiprocessing.Pool(processes=cfg.n_proc)
+                            pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(p_list)))
                             func = functools.partial(conv_nc_csv_single, p_list, var_or_idx)
                             pool.map(func, list(range(n_files)))
                             pool.close()
@@ -387,7 +388,7 @@ def conv_nc_csv():
                             break
 
 
-def conv_nc_csv_single(p_list, var_or_idx, i_file):
+def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -417,7 +418,7 @@ def conv_nc_csv_single(p_list, var_or_idx, i_file):
     time_list = list(ds.time.values)
     n_time = len(time_list)
     for i in range(n_time):
-        if not var_or_idx in cfg.idx_names:
+        if var_or_idx not in cfg.idx_names:
             time_list[i] = str(time_list[i])[0:10]
         else:
             time_list[i] = str(time_list[i])[0:4]

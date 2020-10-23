@@ -2,10 +2,10 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Plot functions.
 #
-# Authors:
+# Contributors:
 # 1. rousseau.yannick@ouranos.ca
 # 2. marc-andre.bourgault@ggr.ulaval.ca (original)
-# (C) 2020 Ouranos, Canada
+# (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -31,7 +31,7 @@ from scipy.interpolate import griddata
 # Aggregation
 # ======================================================================================================================
 
-def plot_year(ds_hour, ds_day, set_name, var):
+def plot_year(ds_hour: xr.Dataset, ds_day: xr.Dataset, set_name: str, var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -462,7 +462,7 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     plt.close()
 
 
-def plot_calib_ts(da_obs, da_fut, da_qqmap, var, title, p_fig):
+def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataArray, var: str, title: str, p_fig: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -474,7 +474,7 @@ def plot_calib_ts(da_obs, da_fut, da_qqmap, var, title, p_fig):
         Observations.
     da_fut : xr.DataArray
         Simulation for the future period.
-    da_qqmap : xr.Dataset
+    da_qqmap : xr.DataArray
         Adjusted simulation.
     var : str
         Variable.
@@ -526,7 +526,8 @@ def plot_calib_ts(da_obs, da_fut, da_qqmap, var, title, p_fig):
     plt.close()
 
 
-def draw_curves(da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, stat, quantile=-1.0):
+def draw_curves(da_qqmap_ref: xr.DataArray, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.DataArray,
+                da_qqmap: xr.DataArray, stat: str, quantile=-1.0):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -544,8 +545,8 @@ def draw_curves(da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, stat, quantile=-
         Simulation for the future period.
     da_qqmap : xr.DataArray
         Adjusted simulation.
-    stat : {cfg.stat_max, cfg.stat_quantile, cfg.stat_mean, cfg.stat_sum}
-        Statistic.
+    stat : str
+        Statistic: {cfg.stat_max, cfg.stat_quantile, cfg.stat_mean, cfg.stat_sum}
     quantile : float, optional
         Quantile.
     --------------------------------------------------------------------------------------------------------------------
@@ -586,7 +587,7 @@ def draw_curves(da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, stat, quantile=-
         (da_fut.groupby(da_fut.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_fut)
 
 
-def plot_360_vs_365(ds_360, ds_365, var=""):
+def plot_360_vs_365(ds_360: xr.Dataset, ds_365: xr.Dataset, var=""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -612,7 +613,7 @@ def plot_360_vs_365(ds_360, ds_365, var=""):
     plt.close()
 
 
-def plot_rsq(rsq, n_sim):
+def plot_rsq(rsq: np.array, n_sim: int):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -620,7 +621,7 @@ def plot_rsq(rsq, n_sim):
 
     Parameters
     ----------
-    rsq : np
+    rsq : np.array
         Numpy array.
     n_sim : int
         Number of simulations
@@ -645,7 +646,7 @@ def plot_rsq(rsq, n_sim):
 # ======================================================================================================================
 
 
-def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
+def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -773,7 +774,8 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
                     arr_y.append(data_stn[i_stn][1][i_year])
                     arr_z.append(data_stn[i_stn][2][i_year])
             new_grid_data[i_year, :, :] =\
-                griddata((arr_x, arr_y), arr_z, (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
+                griddata((arr_x, arr_y), np.array(arr_z), (new_grid[0], new_grid[1]), fill_value=np.nan,
+                         method="linear")
         da_itp = xr.DataArray(new_grid_data,
                               coords={cfg.dim_time: grid_time, cfg.dim_lat: grid_y, cfg.dim_lon: grid_x},
                               dims=[cfg.dim_time, cfg.dim_lat, cfg.dim_lon])
@@ -871,7 +873,8 @@ def plot_heatmap(var_or_idx, threshs, rcp, per_hors):
             plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
 
-def plot_heatmap_spec(ds, var_or_idx, threshs, grid_x, grid_y, per, p_fig, map_package):
+def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
+                      per: [int,int], p_fig: str, map_package: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -884,7 +887,7 @@ def plot_heatmap_spec(ds, var_or_idx, threshs, grid_x, grid_y, per, p_fig, map_p
         Dataset (with 2 dimensions: longitude and latitude).
     var_or_idx : str
         Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
-    threshs : float[]
+    threshs : [float]
         Threshold value associated a climate index.
     grid_x: [float]
         X-coordinates.
@@ -953,7 +956,7 @@ def plot_heatmap_spec(ds, var_or_idx, threshs, grid_x, grid_y, per, p_fig, map_p
     plt.close()
 
 
-def plot_ts(var_or_idx, threshs=[]):
+def plot_ts(var_or_idx: str, threshs=[]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1096,7 +1099,7 @@ def plot_ts(var_or_idx, threshs=[]):
                          rcps, ylim, p_fig, 2)
 
 
-def calc_stat_mean_min_max(ds_list, var_or_idx):
+def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1159,7 +1162,8 @@ def calc_stat_mean_min_max(ds_list, var_or_idx):
     return ds_mean_min_max
 
 
-def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, threshs, rcps, ylim, p_fig, mode=1):
+def plot_ts_spec(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
+                 stn: str, var_or_idx: str, threshs: [float], rcps: [str], ylim: [int], p_fig: str, mode=1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1179,7 +1183,7 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
         Station name.
     var_or_idx : str
         Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
-    threshs : float[]
+    threshs : [float]
         Threshold values associated with a climate index.
     rcps : [str]
         Emission scenarios.
@@ -1310,7 +1314,7 @@ def plot_ts_spec(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn, var_or_idx, thres
 # ======================================================================================================================
 
 
-def plot_ts_single(stn, var):
+def plot_ts_single(stn: str, var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1385,7 +1389,7 @@ def plot_ts_single(stn, var):
         plt.close()
 
 
-def plot_ts_mosaic(stn, var):
+def plot_ts_mosaic(stn: str, var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1468,7 +1472,7 @@ def plot_ts_mosaic(stn, var):
     plt.close()
 
 
-def plot_monthly(stn, var):
+def plot_monthly(stn: str, var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
