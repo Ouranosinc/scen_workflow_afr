@@ -12,7 +12,7 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 
 The current version of the script (v1.0.4) performs these tasks at a station.
 
-The technical documentation can be found [here](https://teams.microsoft.com/_#/my/file-personal?context=scen_workflow_afr&rootfolder=%252Fpersonal%252Fyanrou1_ouranos_ca%252FDocuments%252Fscen_workflow_afr).
+The technical documentation can be found [here](https://ouranos-my.sharepoint.com/:b:/g/personal/yanrou1_ouranos_ca/EXC6LgPzxDRBn1z1MD7rrZsBZ5odyvnHcgtfbxFM-nZCZw?e=orFQGm).
 
 ## Releases
 ### v1.0.0
@@ -48,7 +48,9 @@ The following features were added:
 
 The following features are currently being implemented:
 - compatibility with gridded data (not only at a station);
-- generation of maps for climate variables (interpolation).
+- generation of maps for climate variables (interpolation);
+- implementation of parallel processing for computationally expensive steps;
+- conversion of NetCDF to .csv and .geotiff files.
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
