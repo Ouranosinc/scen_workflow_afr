@@ -20,7 +20,7 @@ import utils
 import xarray as xr
 
 
-def bias_correction(stn: str, var: str, sim_name=""):
+def bias_correction(stn: str, var: str, sim_name: str = ""):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -91,17 +91,24 @@ def bias_correction(stn: str, var: str, sim_name=""):
 
                     # Load station data.
                     ds_stn = utils.open_netcdf(p_stn)
+                    # Drop February 29th and select reference period.
+                    ds_stn = utils.remove_feb29(ds_stn)
+                    ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
+                    # Add small perturbation.
+                    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                        ds_stn = scen.perturbate(ds_stn, var)
 
                     # Path and title of calibration figure.
                     fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + ".png"
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
                     p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var) + comb + "/" + fn_fig
+                    p_fig_ts = p_fig.replace(".png", "_ts.png")
 
                     # Calculate QQ and generate calibration plots.
                     msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
                           ", time_win=" + str(time_win) + " is "
-                    if not (os.path.exists(p_fig) and os.path.exists(p_fig.replace(".png", "_ts.png"))):
+                    if not (os.path.exists(p_fig) and os.path.exists(p_fig_ts)):
                         utils.log(msg + "running", True)
                         scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf,
                                          title, p_fig)
@@ -115,7 +122,6 @@ def bias_correction(stn: str, var: str, sim_name=""):
                     if cfg.opt_calib_auto:
 
                         # Calculate the error between observations and simulation for the reference period.
-                        # ds_obs = utils.open_netcdf(p_obs)
                         ds_regrid_ref = utils.open_netcdf(p_regrid_ref)
                         bias_err_current =\
                             utils.calc_error(ds_stn[var].values.ravel(), ds_regrid_ref[var].values.ravel())
@@ -228,7 +234,3 @@ def run():
 
             # Perform bias correction.
             bias_correction(stn, var)
-
-
-if __name__ == "__main__":
-    run()

@@ -29,7 +29,6 @@
 #      $ sudo free -h
 # ----------------------------------------------------------------------------------------------------------------------
 
-# Current package.
 import aggregate
 import ast
 import config as cfg

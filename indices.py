@@ -217,7 +217,7 @@ def run():
     if cfg.opt_plot:
 
         utils.log("=")
-        utils.log("Generating time series.", True)
+        utils.log("Step #8b  Generating time series.", True)
 
         for i in range(len(cfg.idx_names)):
             plot.plot_ts(cfg.idx_names[i], cfg.idx_threshs[i])
@@ -229,7 +229,7 @@ def run():
         if cfg.opt_plot_heat and (len(cfg.stns) > 1):
 
             utils.log("=")
-            utils.log("Generating heat maps.", True)
+            utils.log("Step #8c  Generating heat maps.", True)
 
             for i in range(len(cfg.idx_names)):
 

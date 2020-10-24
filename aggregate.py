@@ -120,7 +120,7 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             plot.plot_dayofyear(ds_day, set_name, var, dbg_date)
 
 
-def calc_vapour_pressure(ds_temperature: xr.Dataset):
+def calc_vapour_pressure(ds_t: xr.Dataset) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -129,7 +129,7 @@ def calc_vapour_pressure(ds_temperature: xr.Dataset):
 
     Parameters
     ----------
-    ds_temperature : xr.Dataset
+    ds_t : xr.Dataset
         Temperature or dew temperature (C).
 
     Returns
@@ -142,12 +142,12 @@ def calc_vapour_pressure(ds_temperature: xr.Dataset):
     """
 
     # Calculate vapour pressure  (hPa).
-    ds_vp = 6.11 * 10.0 ** (7.5 * ds_temperature / (237.7 + ds_temperature))
+    ds_vp = 6.11 * 10.0 ** (7.5 * ds_t / (237.7 + ds_t))
 
     return ds_vp
 
 
-def calc_spec_humidity(ds_temperature: xr.Dataset, ds_pressure: xr.Dataset):
+def calc_spec_humidity(ds_temperature: xr.Dataset, ds_pressure: xr.Dataset) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------

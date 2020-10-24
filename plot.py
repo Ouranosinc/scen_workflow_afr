@@ -527,7 +527,7 @@ def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataA
 
 
 def draw_curves(da_qqmap_ref: xr.DataArray, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.DataArray,
-                da_qqmap: xr.DataArray, stat: str, quantile=-1.0):
+                da_qqmap: xr.DataArray, stat: str, quantile: float = -1.0):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -587,7 +587,7 @@ def draw_curves(da_qqmap_ref: xr.DataArray, da_obs: xr.DataArray, da_ref: xr.Dat
         (da_fut.groupby(da_fut.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_fut)
 
 
-def plot_360_vs_365(ds_360: xr.Dataset, ds_365: xr.Dataset, var=""):
+def plot_360_vs_365(ds_360: xr.Dataset, ds_365: xr.Dataset, var: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -874,7 +874,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
 
 
 def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
-                      per: [int,int], p_fig: str, map_package: str):
+                      per: [int, int], p_fig: str, map_package: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -956,7 +956,7 @@ def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x:
     plt.close()
 
 
-def plot_ts(var_or_idx: str, threshs=[]):
+def plot_ts(var_or_idx: str, threshs: [float] = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1137,8 +1137,8 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
         for ds in ds_list:
             vals.append(float(ds[var_or_idx][i_time].values))
         arr_vals_mean.append(np.array(vals).mean())
-        arr_vals_min.append(np.array(vals).min())
-        arr_vals_max.append(np.array(vals).max())
+        arr_vals_min.append(min(np.array(vals)))
+        arr_vals_max.append(max(np.array(vals)))
 
     # Build datasets.
     for i in range(1, 4):
@@ -1163,7 +1163,7 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
 
 
 def plot_ts_spec(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
-                 stn: str, var_or_idx: str, threshs: [float], rcps: [str], ylim: [int], p_fig: str, mode=1):
+                 stn: str, var_or_idx: str, threshs: [float], rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
 
     """
     --------------------------------------------------------------------------------------------------------------------

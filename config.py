@@ -318,7 +318,7 @@ def get_rank_gcm():
     return get_rank_inst() + 1
 
 
-def get_var_desc(var: str, set_name="cordex"):
+def get_var_desc(var: str, set_name: str = "cordex"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -447,7 +447,7 @@ def convert_var_name(var: str):
     return None
 
 
-def get_var_unit(var: str, set_name="cordex"):
+def get_var_unit(var: str, set_name: str = "cordex"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -515,7 +515,7 @@ def get_rcp_desc(rcp: str):
     return rcp_desc
 
 
-def get_d_sim(stn: str, category: str, var=""):
+def get_d_sim(stn: str, category: str, var: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -586,7 +586,7 @@ def get_p_stn(var: str, stn: str):
     return p
 
 
-def get_p_obs(stn_name: str, var: str, category=""):
+def get_p_obs(stn_name: str, var: str, category: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------

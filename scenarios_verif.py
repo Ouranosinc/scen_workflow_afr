@@ -37,7 +37,3 @@ def run():
             except FileExistsError:
                 utils.log("Unable to locate the required files!", True)
                 pass
-
-
-if __name__ == "__main__":
-    run()

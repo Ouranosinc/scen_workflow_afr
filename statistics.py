@@ -16,10 +16,11 @@ import os
 import pandas as pd
 import utils
 import xarray as xr
+from typing import Union
 
 
 def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx: str, rcp: str, hor: [int], stat: str,
-              q=-1):
+              q: float = -1) -> Union[xr.Dataset, None]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -46,11 +47,6 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         Statistic: {cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantil"}
     q : float, optional
         Quantile: value between 0 and 1.
-
-    Returns
-    -------
-    ds_stat : xr.Dataset
-        Dataset containing quantiles.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -118,9 +114,9 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         # Observation data can be incomplete. This explains the day-by-day copy performed below. There is probably a
         # nicer and more efficient way to do this.
         else:
-            vals = np.empty(n_time)
-            vals[:] = np.nan
-            vals = vals.tolist()
+            np_vals = np.empty(n_time)
+            np_vals[:] = np.nan
+            vals = np_vals.tolist()
             for i_year in range(year_1, year_n + 1):
                 for i_month in range(1, 13):
                     for i_day in range(1, 32):

@@ -14,20 +14,16 @@ import glob
 import math
 import matplotlib.pyplot
 import numpy as np
-import numpy.matlib
 import os
 import pandas as pd
-import plot
 import re
-import scipy.stats
 import xarray as xr
 from cmath import rect, phase
 from collections import defaultdict
 from itertools import compress
 from math import radians, degrees, sqrt
-from sklearn.cluster import KMeans
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from typing import Union
+from typing import Union, List
 
 
 def natural_sort(values: Union[float, int]):
@@ -342,7 +338,7 @@ def reset_calendar_list(years: [int]):
     return new_time
 
 
-def convert_to_365_calender(ds: Union[xr.Dataset, xr.DataArray]):
+def convert_to_365_calender(ds: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -374,7 +370,7 @@ def convert_to_365_calender(ds: Union[xr.Dataset, xr.DataArray]):
     return ds_365
 
 
-def list_files(p: str):
+def list_files(p: str) -> [str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -401,7 +397,7 @@ def list_files(p: str):
     return p_list
 
 
-def create_multi_dict(n: int, data_type: type):
+def create_multi_dict(n: int, data_type: type) -> dict:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -422,7 +418,7 @@ def create_multi_dict(n: int, data_type: type):
         return defaultdict(lambda: create_multi_dict(n - 1, data_type))
 
 
-def calc_error(values_obs: [float], values_pred: [float]):
+def calc_error(values_obs: [float], values_pred: [float]) -> float:
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -461,7 +457,7 @@ def calc_error(values_obs: [float], values_pred: [float]):
     return error
 
 
-def get_datetime_str():
+def get_datetime_str() -> str:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -527,7 +523,8 @@ def log(msg: str, indent=False):
         f.close()
 
 
-def open_netcdf(p: str, drop_variables=None, chunks=None, combine=None, concat_dim=None, desc=""):
+def open_netcdf(p: Union[str, List[str]], drop_variables: [str] = None, chunks: dict = None, combine: str = None,
+                concat_dim: str = None, desc: str = "") -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -702,7 +699,7 @@ def save_csv(df: pd.DataFrame, p: str, desc=""):
         log("Saved CSV file", True)
 
 
-def subset_center(ds: xr.Dataset):
+def subset_center(ds: xr.Dataset) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -730,7 +727,7 @@ def subset_center(ds: xr.Dataset):
     return ds_ctr
 
 
-def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None):
+def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -793,5 +790,43 @@ def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None):
         ds = ds.isel(latitude=slice(i_lat_min, i_lat_max), longitude=slice(i_lon_min, i_lon_max))
     else:
         ds = ds.isel(rlat=slice(i_lat_min, i_lat_max), rlon=slice(i_lon_min, i_lon_max))
+
+    return ds
+
+
+def remove_feb29(ds: xr.Dataset) -> xr.Dataset:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Remove February 29th from a dataset.
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    ds = ds.sel(time=~((ds.time.dt.month == 2) & (ds.time.dt.day == 29)))
+
+    return ds
+
+
+def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Select a period.
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+        Dataset.
+    per: [float]
+        Selected period, ex: [1981, 2010]
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    ds = ds.where((ds.time.dt.year >= per[0]) & (ds.time.dt.year <= per[1]), drop=True)
 
     return ds

@@ -18,8 +18,8 @@ import utils
 import clisops.core.subset as subset
 
 
-def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bnds: [float], priority_timestep=None,
-                     tmpdir=None):
+def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bnds: [float],
+                     priority_timestep: str = None, tmpdir: str = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -46,9 +46,10 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
     var : str
         Weather variable.
         All other inputs are lists formatted as [min, max].
-    priority_timestep : {"ann", "mon", "day", "6h", "3h", "1h"}
+    priority_timestep : str
         Used for CORDEX and NA-CORDEX
         If a variable doesn't exist at the requested time step, it will return the closest one.
+        {"ann", "mon", "day", "6h", "3h", "1h"}
     tmpdir : str
         Temporary directory using during processing.
     --------------------------------------------------------------------------------------------------------------------

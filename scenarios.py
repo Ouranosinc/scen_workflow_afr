@@ -68,9 +68,55 @@ def load_observations(var: str):
         lon = float(lon_lat_data[lon_lat_data["station"] == stn][cfg.dim_lon])
         lat = float(lon_lat_data[lon_lat_data["station"] == stn][cfg.dim_lat])
 
+        # Temperature --------------------------------------------------------------------------------------------------
+
+        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmax, cfg.var_cordex_tasmin]:
+
+            obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
+
+            data = obs[stn].values
+            data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
+            da = xr.DataArray(data_xarray,
+                              coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+
+            # Create DataArray.
+            da.name = var
+            da.attrs[cfg.attrs_sname] = "temperature"
+            da.attrs[cfg.attrs_lname] = "temperature"
+            da.attrs[cfg.attrs_units] = "C"
+            da.attrs[cfg.attrs_gmap] = "regular_lon_lat"
+            da.attrs[cfg.attrs_comments] = "station data converted from degree C"
+
+            # Create dataset.
+            ds = da.to_dataset()
+
+        # Precipitation ------------------------------------------------------------------------------------------------
+
+        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+
+            obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
+
+            # Conversion from mm to kg m-2 s-1.
+            data = obs[stn].values / cfg.spd
+            data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
+            da = xr.DataArray(data_xarray,
+                              coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+
+            # Create DataArray.
+            da.name = var
+            da.attrs[cfg.attrs_sname] = "precipitation_flux"
+            da.attrs[cfg.attrs_lname] = "Precipitation"
+            da.attrs[cfg.attrs_units] = "kg m-2 s-1"
+            da.attrs[cfg.attrs_gmap] = "regular_lon_lat"
+            da.attrs[cfg.attrs_comments] = \
+                "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
+
+            # Create dataset.
+            ds = da.to_dataset()
+
         # Wind ---------------------------------------------------------------------------------------------------------
 
-        if var in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
+        elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
 
             obs_dd = pd.DataFrame(data=np.array(obs.iloc[:, 3:].drop("vv", axis=1)), index=time, columns=[stn])
             obs_vv = pd.DataFrame(data=np.array(obs.iloc[:, 3:].drop("dd", axis=1)), index=time, columns=[stn])
@@ -109,46 +155,6 @@ def load_observations(var: str):
             # Create dataset.
             ds = da.to_dataset()
 
-        # Temperature or precipitation ---------------------------------------------------------------------------------
-
-        elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmax, cfg.var_cordex_tasmin, cfg.var_cordex_pr]:
-
-            obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
-
-            # Precipitation (involves converting from mm to kg m-2 s-1.
-            if var == cfg.var_cordex_pr:
-
-                data        = obs[stn].values / cfg.spd
-                data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
-                da          = xr.DataArray(data_xarray,
-                                           coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
-
-                da.name = var
-                da.attrs[cfg.attrs_sname] = "precipitation_flux"
-                da.attrs[cfg.attrs_lname] = "Precipitation"
-                da.attrs[cfg.attrs_units] = "kg m-2 s-1"
-                da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
-                da.attrs[cfg.attrs_comments] =\
-                    "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
-
-            # Temperature.
-            else:
-
-                data        = obs[stn].values
-                data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
-                da          = xr.DataArray(data_xarray,
-                                           coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
-
-                da.name = var
-                da.attrs[cfg.attrs_sname] = "temperature"
-                da.attrs[cfg.attrs_lname] = "temperature"
-                da.attrs[cfg.attrs_units] = "degree_C"
-                da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
-                da.attrs[cfg.attrs_comments] = "station data converted from degree C"
-
-            # Create dataset.
-            ds = da.to_dataset()
-
         else:
             ds = None
 
@@ -170,11 +176,6 @@ def load_observations(var: str):
         ds.lat.attrs[cfg.attrs_units] = "degrees_north"
         ds.lat.attrs[cfg.attrs_axis]  = "Y"
         ds.attrs[cfg.attrs_stn] = stn
-        # ds.attrs["Province"]           = station["province"]
-        # ds.attrs["Climate Identifier"] = station["ID"]
-        # ds.attrs["WMO Identifier"]     = station["WMO_ID"]
-        # ds.attrs["TC Identifier"]      = station["TC_ID"]
-        # ds.attrs["Institution"]        = "Environment and Climate Change Canada"
 
         # Save data.
         p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + ".nc"
@@ -232,6 +233,8 @@ def load_reanalysis(var_ra: str):
             ds[var].attrs[cfg.attrs_lname] = "Temperature"
             ds[var].attrs[cfg.attrs_units] = "K"
         elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+            if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
+                ds[var] = ds[var] * 1000 / cfg.spd
             if var == cfg.var_cordex_pr:
                 ds[var].attrs[cfg.attrs_sname] = "precipitation_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Precipitation"
@@ -387,7 +390,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
 
         # Save NetCDF file (raw).
         desc = "/" + cfg.cat_raw + "/" + os.path.basename(p_raw)
-        utils.save_netcdf(ds_raw, p_raw, desc=desc, std_save=True)
+        utils.save_netcdf(ds_raw, p_raw, desc=desc)
         ds_raw = utils.open_netcdf(p_raw)
     else:
         msg = msg + "not required (data is daily)"
@@ -466,6 +469,36 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
         utils.log(msg, True)
 
 
+def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Add small perturbation.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset.
+    var: str
+        Variable.
+    d_val: float
+        Perturbation.
+
+    Returns
+    -------
+    xr.Dataset
+        Perturbed dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if not cfg.opt_ra:
+        ds[var].values = ds[var].values + np.random.rand(ds[var].values.shape[0]) * d_val
+    else:
+        ds[var].values = ds[var].values + np.random.rand(ds[var].values.shape[0], 1, 1) * d_val
+
+    return ds
+
+
 def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid_ref: str, p_regrid_fut: str):
 
     """
@@ -491,37 +524,18 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
 
     ds_fut = utils.open_netcdf(p_regrid)
     ds_regrid_ref = None
-    ds_regrid_fut = None
-
-    def close_netcdf():
-
-        utils.close_netcdf(ds_stn)
-        utils.close_netcdf(ds_fut)
-        utils.close_netcdf(ds_regrid_ref)
-        utils.close_netcdf(ds_regrid_fut)
-
-    # Add small perturbation.
-    def perturbate(ds, var_inner, d_val=1e-12):
-
-        if not cfg.opt_ra:
-            ds[var_inner].values = ds[var_inner].values + np.random.rand(ds[var_inner].values.shape[0]) * d_val
-        else:
-            ds[var_inner].values = ds[var_inner].values + np.random.rand(ds[var_inner].values.shape[0], 1, 1) * d_val
-
-        return ds
 
     # Observations -----------------------------------------------------------------------------------------------------
 
     if not os.path.exists(p_obs):
 
-        # Interpolate temporally by dropping February 29th and by sub-selecting between reference years.
-        ds_obs = ds_stn.sel(time=~((ds_stn.time.dt.month == 2) & (ds_stn.time.dt.day == 29)))
-        ds_obs = ds_obs.where(
-            (ds_obs.time.dt.year >= cfg.per_ref[0]) & (ds_obs.time.dt.year <= cfg.per_ref[1]), drop=True)
+        # Drop February 29th and keep reference period.
+        ds_obs = utils.remove_feb29(ds_stn)
+        ds_obs = utils.sel_period(ds_obs, cfg.per_ref)
 
         # Add small perturbation.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            perturbate(ds_obs, var)
+            ds_obs = perturbate(ds_obs, var)
 
         # Save NetCDF file.
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_obs)
@@ -536,7 +550,7 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
     else:
 
         # Drop February 29th.
-        ds_regrid_fut = ds_fut.sel(time=~((ds_fut.time.dt.month == 2) & (ds_fut.time.dt.day == 29)))
+        ds_regrid_fut = utils.remove_feb29(ds_fut)
 
         # Adjust values that do not make sense.
         # TODO.YR: Verify if positive or negative values need to be considered for cfg.var_cordex_evapsbl and
@@ -561,7 +575,8 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
 
     if not os.path.exists(p_regrid_ref):
 
-        ds_regrid_ref = ds_regrid_fut.sel(time=slice(str(cfg.per_ref[0]), str(cfg.per_ref[1])))
+        # Select reference period.
+        ds_regrid_ref = utils.sel_period(ds_regrid_fut, cfg.per_ref)
 
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot, cfg.var_cordex_clt]:
             pos = np.where(np.squeeze(ds_regrid_ref[var].values) > 0.01)[0]
@@ -571,11 +586,14 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
         desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid_ref)
         utils.save_netcdf(ds_regrid_ref, p_regrid_ref, desc=desc)
 
-    close_netcdf()
+    utils.close_netcdf(ds_stn)
+    utils.close_netcdf(ds_fut)
+    utils.close_netcdf(ds_regrid_ref)
+    utils.close_netcdf(ds_regrid_fut)
 
 
 def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Dataset, p_ref: str, p_fut: str,
-                p_qqmap: str, p_qmf: str, title="", p_fig=""):
+                p_qqmap: str, p_qmf: str, title: str = "", p_fig: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -613,7 +631,10 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
     if not cfg.opt_ra:
         ds_stn[var] = ds_stn[var] + cfg.d_KC
         ds_stn[var].attrs[cfg.attrs_units] = "K"
-    da_stn = ds_stn[var][:, 0, 0]
+    if not cfg.opt_ra:
+        da_stn = ds_stn[var][:, 0, 0]
+    else:
+        da_stn = ds_stn[var]
     if cfg.dim_longitude in da_stn.dims:
         da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
     ds_ref = utils.open_netcdf(p_ref)
@@ -828,9 +849,14 @@ def generate():
             d_fig_postprocess = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var)
             d_fig_workflow    = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var)
 
-            # Load station data.
-            # This needs to be done to avoid competing processes (in parallel mode).
+            # Load station data now to avoid competing processes (in parallel mode).
             ds_stn = utils.open_netcdf(p_stn)
+            # Drop February 29th and select reference period.
+            ds_stn = utils.remove_feb29(ds_stn)
+            ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
+            # Add small perturbation.
+            if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                ds_stn = perturbate(ds_stn, var)
 
             # Create directories (required because of parallel processing).
             if not (os.path.isdir(d_obs)):
@@ -1104,7 +1130,7 @@ def run():
         # --------------------------------------------------------------------------------------------------------------
 
         utils.log("=")
-        utils.log("Generating post-process and workflow diagrams.", True)
+        utils.log("Step #8a  Generating post-process and workflow diagrams.", True)
 
         # Loop through variables.
         for var in cfg.variables_cordex:
@@ -1153,7 +1179,7 @@ def run():
         # --------------------------------------------------------------------------------------------------------------
 
         utils.log("=")
-        utils.log("Generating time series.", True)
+        utils.log("Step #8b  Generating time series.", True)
 
         for var in cfg.variables_cordex:
             plot.plot_ts(var)
@@ -1167,7 +1193,7 @@ def run():
         if cfg.opt_plot_heat and ((len(cfg.stns) > 1) or cfg.opt_ra):
 
             utils.log("=")
-            utils.log("Generating heat maps.", True)
+            utils.log("Step #8c  Generating heat maps.", True)
 
             for i in range(len(cfg.variables_cordex)):
 
