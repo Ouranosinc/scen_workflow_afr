@@ -69,7 +69,7 @@ def train(da_x: xr.DataArray, da_y: xr.DataArray, nq: int, group="time.dayofyear
     # Group values by time, then compute quantiles. The resulting array will have new time and quantile dimensions.
     da_xq = None
     da_yq = None
-    if '.' in group:
+    if "." in group:
         if prop == "dayofyear":
             if time_win == 0:
                 da_xq = da_x.groupby(group).quantile(q)

@@ -629,9 +629,9 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
     # Load datasets.
     # The files p_stn and p_ref cannot be opened using xr.open_mfdataset.
     if not cfg.opt_ra:
-        ds_stn[var] = ds_stn[var] + cfg.d_KC
-        ds_stn[var].attrs[cfg.attrs_units] = "K"
-    if not cfg.opt_ra:
+        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+            ds_stn[var] = ds_stn[var] + cfg.d_KC
+            ds_stn[var].attrs[cfg.attrs_units] = "K"
         da_stn = ds_stn[var][:, 0, 0]
     else:
         da_stn = ds_stn[var]
@@ -678,6 +678,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
                                     detrend_order=cfg.detrend_order))
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
             da_qmf.values[da_qmf > up_qmf] = up_qmf
+            da_qmf.values[da_qmf < -up_qmf] = -up_qmf
         ds_qmf = da_qmf.to_dataset(name=var)
         ds_qmf[var].attrs[cfg.attrs_group] = da_qmf.attrs[cfg.attrs_group]
         ds_qmf[var].attrs[cfg.attrs_kind] = da_qmf.attrs[cfg.attrs_kind]
@@ -703,7 +704,8 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
             ds_qqmap[var].attrs[cfg.attrs_sname] = da_stn.attrs[cfg.attrs_sname]
             ds_qqmap[var].attrs[cfg.attrs_lname] = da_stn.attrs[cfg.attrs_lname]
             ds_qqmap[var].attrs[cfg.attrs_units] = da_stn.attrs[cfg.attrs_units]
-            ds_qqmap[var].attrs[cfg.attrs_gmap]  = da_stn.attrs[cfg.attrs_gmap]
+            if cfg.attrs_gmap in da_stn.attrs:
+                ds_qqmap[var].attrs[cfg.attrs_gmap]  = da_stn.attrs[cfg.attrs_gmap]
             if p_qqmap != "":
                 desc = "/" + cfg.cat_qqmap + "/" + os.path.basename(p_qqmap)
                 utils.save_netcdf(ds_qqmap, p_qqmap, desc=desc)
@@ -718,30 +720,39 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
 
     if p_fig != "":
 
-        # Extract QQMap for the reference period.
-        ds_qqmap_ref = ds_qqmap.where((ds_qqmap.time.dt.year >= cfg.per_ref[0]) &
-                                      (ds_qqmap.time.dt.year <= cfg.per_ref[1]), drop=True)
+        # Select reference period.
+        ds_qqmap_ref = utils.sel_period(ds_qqmap, cfg.per_ref)
 
         # Convert to data arrays.
         da_qqmap_ref = ds_qqmap_ref[var]
         da_qqmap     = ds_qqmap[var]
         da_qmf       = ds_qmf[var]
 
+        def convert_units(da: xr.DataArray, units: str) -> xr.DataArray:
+            if (da.units == "kg m-2 s-1") and (units == "mm"):
+                da = da * cfg.spd
+                da.attrs[cfg.attrs_units] = units
+            elif (da.units == "K") and (units == "C"):
+                da = da - cfg.d_KC
+                da[cfg.attrs_units] = units
+            return da
+
         # Convert units.
         # TODO: It would be better to convert units in plot functions.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
             da_qmf = da_qmf * (1 if not cfg.opt_ra else 365)
+            if cfg.opt_ra:
+                da_stn = convert_units(da_stn, "mm")
+                da_ref = convert_units(da_ref, "mm")
+                da_fut = convert_units(da_fut, "mm")
+                da_qqmap = convert_units(da_qqmap, "mm")
+                da_qqmap_ref = convert_units(da_qqmap_ref, "mm")
         elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-            if ds_stn[var].units == "K":
-                da_stn = da_stn - cfg.d_KC
-            if ds_ref[var].units == "K":
-                da_ref = da_ref - cfg.d_KC
-            if ds_fut[var].units == "K":
-                da_fut = da_fut - cfg.d_KC
-            if ds_qqmap[var].units == "K":
-                da_qqmap = da_qqmap - cfg.d_KC
-            if ds_qqmap_ref[var].units == "K":
-                da_qqmap_ref = da_qqmap_ref - cfg.d_KC
+            da_stn = convert_units(da_stn, "C")
+            da_ref = convert_units(da_ref, "C")
+            da_fut = convert_units(da_fut, "C")
+            da_qqmap = convert_units(da_qqmap, "C")
+            da_qqmap_ref = convert_units(da_qqmap_ref, "C")
 
         # Select center coordinates.
         da_stn_xy       = da_stn

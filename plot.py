@@ -11,6 +11,7 @@
 import config as cfg
 import glob
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import math
 import numpy as np
 import numpy.polynomial.polynomial as poly
@@ -292,7 +293,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     f.add_subplot(211)
     plt.plot(ds_ref.time, y, color=cfg.col_sim_ref)
     plt.plot(ds_ref.time, ffit, color="black")
-    plt.legend(["Simulation (pér. référence)", "Tendance"], fontsize=fs_legend, frameon=False)
+    plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.tick_params(axis="x", labelsize=fs_axes)
@@ -307,8 +308,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
     plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=cfg.col_sim_fut)
     plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=cfg.col_sim_ref)
-    plt.legend(["Simulation", "Simulation (prédiction), pér. référence)"],
-               fontsize=fs_legend, frameon=False)
+    plt.legend(["Simulation", "Simulation (réf.)"], fontsize=fs_legend, frameon=False)
     plt.xlabel("Jours", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.tick_params(axis="x", labelsize=fs_axes)
@@ -365,19 +365,19 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
 
     fs_sup_title = 8
     fs_title     = 6
-    fs_legend    = 4
+    fs_legend    = 5
     fs_axes      = 7
 
-    f = plt.figure(figsize=(9, 9))
+    f = plt.figure(figsize=(12, 8))
     ax = f.add_subplot(431)
     plt.subplots_adjust(top=0.930, bottom=0.065, left=0.070, right=0.973, hspace=0.90, wspace=0.250)
 
     # Quantile mapping function.
     img1 = ax.imshow(da_qmf, extent=[0, 1, 365, 1], cmap="coolwarm")
     cb = f.colorbar(img1, ax=ax)
-    cb.set_label("Ajustement [" + var_unit + "]", fontsize=fs_axes)
+    # cb.set_label("Ajustement", fontsize=fs_axes)
     cb.ax.set_yticklabels(cb.ax.get_yticks(), fontsize=fs_axes)
-    ax.set_aspect("auto")
+    cb.ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.2e"))
     plt.title("QMF", fontsize=fs_title)
     plt.xlabel("Quantile", fontsize=fs_axes)
     plt.ylabel("Jour de l'année", fontsize=fs_axes)
@@ -385,17 +385,15 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     plt.tick_params(axis="y", labelsize=fs_axes)
     ax.set_xlim(0, 1)
     ax.set_ylim(1, 365)
+    ax.set_aspect("auto")
 
-    legend_items = ["Sim. ajustée (pér. réf.)", "Sim. (pér. réf.)", "Observations", "Sim. ajustée", "Sim."]
+    legend_items = ["Observations", "Sim. (réf.)", "Sim.", "Sim. ajustée", "Sim. ajustée (réf.)"]
 
     # Mean values ------------------------------------------------------------------------------------------------------
 
     # Plot.
     f.add_subplot(432)
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-        draw_curves(da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, cfg.stat_sum)
-    else:
-        draw_curves(da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, cfg.stat_mean)
+    draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, cfg.stat_mean)
     plt.title("Moyenne", fontsize=fs_title)
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlim([1, 12])
@@ -419,7 +417,7 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
         elif quantile == 1:
             stat = cfg.stat_max
 
-        draw_curves(da_qqmap_ref, da_obs, da_ref, da_fut, da_qqmap, stat, quantile)
+        draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, stat, quantile)
 
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
@@ -444,7 +442,7 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     da_obs.plot.line(alpha=0.5, color=cfg.col_obs)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.legend(["Sim. ajustée", "Sim. (pér. référence)", "Observations"], fontsize=fs_legend, frameon=False)
+    plt.legend(["Sim. ajustée", "Sim. (réf.)", "Observations"], fontsize=fs_legend, frameon=False)
     plt.title("")
 
     f.suptitle(var + "_" + sup_title, fontsize=fs_sup_title)
@@ -510,7 +508,7 @@ def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataA
     da_obs.plot.line(alpha=0.5, color=cfg.col_obs)
 
     # Customize.
-    plt.legend(["Sim. ajustée", "Sim. (pér. référence)", "Observations"], fontsize=fs_legend, frameon=False)
+    plt.legend(["Sim. ajustée", "Sim. (réf.)", "Observations"], fontsize=fs_legend, frameon=False)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.title("")
@@ -526,8 +524,8 @@ def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataA
     plt.close()
 
 
-def draw_curves(da_qqmap_ref: xr.DataArray, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.DataArray,
-                da_qqmap: xr.DataArray, stat: str, quantile: float = -1.0):
+def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataArray,
+                da_qqmap_ref: xr.DataArray, stat: str, quantile: float = -1.0):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -535,8 +533,8 @@ def draw_curves(da_qqmap_ref: xr.DataArray, da_obs: xr.DataArray, da_ref: xr.Dat
 
     Parameters
     ----------
-    da_qqmap_ref : xr.DataArray
-        Adjusted simulation for the reference period.
+    var : str
+        Variable.
     da_obs : xr.DataArray
         Observations.
     da_ref : xr.DataArray
@@ -545,6 +543,8 @@ def draw_curves(da_qqmap_ref: xr.DataArray, da_obs: xr.DataArray, da_ref: xr.Dat
         Simulation for the future period.
     da_qqmap : xr.DataArray
         Adjusted simulation.
+    da_qqmap_ref : xr.DataArray
+        Adjusted simulation for the reference period.
     stat : str
         Statistic: {cfg.stat_max, cfg.stat_quantile, cfg.stat_mean, cfg.stat_sum}
     quantile : float, optional
@@ -552,39 +552,69 @@ def draw_curves(da_qqmap_ref: xr.DataArray, da_obs: xr.DataArray, da_ref: xr.Dat
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Draw curves.
+    # Calculate statistics.
+    def da_groupby(da: xr.DataArray, stat_inner: str, quantile_inner: float = -1.0) -> xr.DataArray:
+        da_group = da.groupby(da.time.dt.month)
+        da_group_stat = None
+        if stat_inner == cfg.stat_min:
+            da_group_stat = da_group.min(dim=cfg.dim_time)
+        elif stat_inner == cfg.stat_max:
+            da_group_stat = da_group.max(dim=cfg.dim_time)
+        elif stat_inner == cfg.stat_mean:
+            da_group_stat = da_group.mean(dim=cfg.dim_time)
+        elif stat_inner == cfg.stat_quantile:
+            da_group_stat = da_group.quantile(quantile_inner, dim=cfg.dim_time)
+        elif stat_inner == cfg.stat_sum:
+            n_years = da[cfg.dim_time].size / 365
+            da_group_stat = da_group.sum(dim=cfg.dim_time) / n_years
+        return da_group_stat
+
+    # Determine if sum is needed.
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+        da_obs       = da_obs.resample(time="1M").sum()
+        da_ref       = da_ref.resample(time="1M").sum()
+        da_fut       = da_fut.resample(time="1M").sum()
+        da_qqmap     = da_qqmap.resample(time="1M").sum()
+        da_qqmap_ref = da_qqmap_ref.resample(time="1M").sum()
+
+    # Calculate statistics
     if stat == cfg.stat_min:
-        da_qqmap_ref.groupby(da_qqmap_ref.time.dt.month).min().plot.line(color=cfg.col_sim_adj_ref)
-        da_ref.groupby(da_ref.time.dt.month).min().plot.line(color=cfg.col_sim_ref)
-        da_obs.groupby(da_obs.time.dt.month).min().plot.line(color=cfg.col_obs)
-        da_qqmap.groupby(da_qqmap.time.dt.month).min().plot.line(color=cfg.col_sim_adj)
-        da_fut.groupby(da_fut.time.dt.month).min().plot.line(color=cfg.col_sim_fut)
+        da_obs       = da_groupby(da_obs, cfg.stat_min)
+        da_ref       = da_groupby(da_ref, cfg.stat_min)
+        da_fut       = da_groupby(da_fut, cfg.stat_min)
+        da_qqmap     = da_groupby(da_qqmap, cfg.stat_min)
+        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_min)
     elif stat == cfg.stat_max:
-        da_qqmap_ref.groupby(da_qqmap_ref.time.dt.month).max().plot.line(color=cfg.col_sim_adj_ref)
-        da_ref.groupby(da_ref.time.dt.month).max().plot.line(color=cfg.col_sim_ref)
-        da_obs.groupby(da_obs.time.dt.month).max().plot.line(color=cfg.col_obs)
-        da_qqmap.groupby(da_qqmap.time.dt.month).max().plot.line(color=cfg.col_sim_adj)
-        da_fut.groupby(da_fut.time.dt.month).max().plot.line(color=cfg.col_sim_fut)
-    elif stat == cfg.stat_quantile:
-        da_qqmap_ref.groupby(da_qqmap_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj_ref)
-        da_ref.groupby(da_ref.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_ref)
-        da_obs.groupby(da_obs.time.dt.month).quantile(quantile).plot.line(color=cfg.col_obs)
-        da_qqmap.groupby(da_qqmap.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_adj)
-        da_fut.groupby(da_fut.time.dt.month).quantile(quantile).plot.line(color=cfg.col_sim_fut)
+        da_obs       = da_groupby(da_obs, cfg.stat_max)
+        da_ref       = da_groupby(da_ref, cfg.stat_max)
+        da_fut       = da_groupby(da_fut, cfg.stat_max)
+        da_qqmap     = da_groupby(da_qqmap, cfg.stat_max)
+        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_max)
     elif stat == cfg.stat_mean:
-        da_qqmap_ref.groupby(da_qqmap_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_adj_ref)
-        da_ref.groupby(da_ref.time.dt.month).mean().plot.line(color=cfg.col_sim_ref)
-        da_obs.groupby(da_obs.time.dt.month).mean().plot.line(color=cfg.col_obs)
-        da_qqmap.groupby(da_qqmap.time.dt.month).mean().plot.line(color=cfg.col_sim_adj)
-        da_fut.groupby(da_fut.time.dt.month).mean().plot.line(color=cfg.col_sim_fut)
+        da_obs       = da_groupby(da_obs, cfg.stat_mean)
+        da_ref       = da_groupby(da_ref, cfg.stat_mean)
+        da_fut       = da_groupby(da_fut, cfg.stat_mean)
+        da_qqmap     = da_groupby(da_qqmap, cfg.stat_mean)
+        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_mean)
     elif stat == cfg.stat_sum:
-        n_years_obs = da_obs[cfg.dim_time].size / 365
-        n_years_sim = da_fut[cfg.dim_time].size / 365
-        (da_qqmap_ref.groupby(da_qqmap_ref.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_adj_ref)
-        (da_ref.groupby(da_ref.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_ref)
-        (da_obs.groupby(da_obs.time.dt.month).sum() / n_years_obs).plot.line(color=cfg.col_obs)
-        (da_qqmap.groupby(da_qqmap.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_adj)
-        (da_fut.groupby(da_fut.time.dt.month).sum() / n_years_sim).plot.line(color=cfg.col_sim_fut)
+        da_obs       = da_groupby(da_obs, cfg.stat_sum)
+        da_ref       = da_groupby(da_ref, cfg.stat_sum)
+        da_fut       = da_groupby(da_fut, cfg.stat_sum)
+        da_qqmap     = da_groupby(da_qqmap, cfg.stat_sum)
+        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_sum)
+    elif stat == cfg.stat_quantile:
+        da_obs       = da_groupby(da_obs, cfg.stat_quantile, quantile)
+        da_ref       = da_groupby(da_ref, cfg.stat_quantile, quantile)
+        da_fut       = da_groupby(da_fut, cfg.stat_quantile, quantile)
+        da_qqmap     = da_groupby(da_qqmap, cfg.stat_quantile, quantile)
+        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_quantile, quantile)
+
+    # Draw curves.
+    da_obs.plot.line(color=cfg.col_obs)
+    da_ref.plot.line(color=cfg.col_sim_ref)
+    da_fut.plot.line(color=cfg.col_sim_fut)
+    da_qqmap.plot.line(color=cfg.col_sim_adj)
+    da_qqmap_ref.plot.line(color=cfg.col_sim_adj_ref)
 
 
 def plot_360_vs_365(ds_360: xr.Dataset, ds_365: xr.Dataset, var: str = ""):
@@ -824,6 +854,10 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
            (ds_itp[var_or_idx].attrs[cfg.attrs_units] == "K"):
             ds_itp = ds_itp - cfg.d_KC
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = "C"
+        elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
+             (ds_itp[var_or_idx].attrs[cfg.attrs_units] == "kg m-2 s-1"):
+            ds_itp = ds_itp * 365
+            ds_itp[var_or_idx].attrs[cfg.attrs_units] = "mm"
 
         # Adjust coordinate names.
         # TODO.YR: Ideally, this should be done elsewhere.
