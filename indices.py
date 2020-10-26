@@ -55,7 +55,7 @@ def generate(idx_name: str, idx_threshs: [float]):
         # Verify if this variable is available for the current station.
         vars_avail = True
         for var in vars:
-            if not(os.path.isdir(cfg.get_d_sim(stn, cfg.cat_qqmap, var))):
+            if not(os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, var))):
                 vars_avail = False
                 break
         if not vars_avail:
@@ -80,11 +80,11 @@ def generate(idx_name: str, idx_threshs: [float]):
             p_sim = []
             for var in vars:
                 if rcp == cfg.rcp_ref:
-                    p_sim_i = cfg.get_d_sim(stn, cfg.cat_obs, "") + var + "/" + var + "_" + stn + ".nc"
+                    p_sim_i = cfg.get_d_scen(stn, cfg.cat_obs, "") + var + "/" + var + "_" + stn + ".nc"
                     if os.path.exists(p_sim_i) and (type(p_sim_i) is str):
                         p_sim_i = [p_sim_i]
                 else:
-                    p_format = cfg.get_d_sim(stn, cfg.cat_qqmap, "") + var + "/*_" + rcp + ".nc"
+                    p_format = cfg.get_d_scen(stn, cfg.cat_qqmap, "") + var + "/*_" + rcp + ".nc"
                     p_sim_i = glob.glob(p_format)
                 if not p_sim_i:
                     p_sim = []
@@ -184,7 +184,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                 if rcp == cfg.rcp_ref:
                     p_idx = cfg.get_p_obs(stn, idx_name)
                 else:
-                    p_idx = cfg.get_d_sim(stn, cfg.cat_idx, idx_name) +\
+                    p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
                             os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
                 desc = "/" + idx_name + "/" + os.path.basename(p_idx)
                 utils.save_netcdf(ds_idx, p_idx, desc=desc)
@@ -199,6 +199,7 @@ def run():
     """
 
     # Calculate indices.
+    utils.log("=")
     msg = "Step #6   Calculation of climate indices is "
     if cfg.opt_idx:
 

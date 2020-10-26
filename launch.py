@@ -228,7 +228,7 @@ def main():
 
     # The following variables are determined automatically.
     d_base = cfg.d_exec + cfg.country + "/" + cfg.project + "/"
-    cfg.d_stn = d_base + cfg.cat_obs + "/" + cfg.obs_src + "/"
+    cfg.d_stn = d_base + cfg.cat_stn + "/" + cfg.obs_src + "/"
     cfg.d_sim = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
     if cfg.d_bounds != "":
         cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
@@ -321,7 +321,7 @@ def main():
     # d. Run the script.
     #    This will adjust bias for each combination of three parameter values.
     # e. Examine the plots that were generated under the following directory:
-    #    cfg.get_d_sim(<station_name>, "fig")/calib/
+    #    cfg.get_d_scen(<station_name>, "fig")/calib/
     #    and select the parameter values that produce the best fit between simulations and observations.
     #    There is one parameter value per simulation, per station, per variable.
     # f. Set values for the following parameters:

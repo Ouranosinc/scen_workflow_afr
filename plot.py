@@ -827,7 +827,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
         else:
 
             # List simulations files for the current RCP.
-            d = cfg.get_d_sim(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
+            d = cfg.get_d_scen(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
             p_sim_list = glob.glob(d + "*.nc")
 
             # Combine datasets.
@@ -902,7 +902,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
                 coef = cfg.spd
 
             # Plot.
-            p_fig = cfg.get_d_sim("", cfg.cat_fig + "/" + cat, "") +\
+            p_fig = cfg.get_d_scen("", cfg.cat_fig + "/" + cat, "") +\
                 var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
             plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
@@ -1032,9 +1032,9 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
                 p_sim_list = [cfg.get_p_obs(stn, var_or_idx)]
             else:
                 if var_or_idx in cfg.variables_cordex:
-                    d = cfg.get_d_sim(stn, cfg.cat_qqmap, var_or_idx)
+                    d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
                 else:
-                    d = cfg.get_d_sim(stn, cfg.cat_idx, var_or_idx)
+                    d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
                 p_sim_list = glob.glob(d + "*_" + rcp + ".nc")
 
             # Exit if there is not file corresponding to the criteria.
@@ -1123,7 +1123,7 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
         if cfg.opt_plot and (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
 
             # Time series with simulations grouped by RCP scenario.
-            p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cat, "") + var_or_idx + "_" + stn + "_rcp.png"
+            p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat, "") + var_or_idx + "_" + stn + "_rcp.png"
             plot_ts_spec(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx, threshs,
                          rcps, ylim, p_fig, 1)
 
@@ -1370,7 +1370,7 @@ def plot_ts_single(stn: str, var: str):
     var_unit = cfg.get_var_unit(var)
 
     # Paths and NetCDF files.
-    d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
     p_list   = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
@@ -1416,7 +1416,7 @@ def plot_ts_single(stn: str, var: str):
         plt.tick_params(axis="y", labelsize=fs_axes)
 
         # Save plot.
-        p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_single", var) + title + ".png"
+        p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_single", var) + title + ".png"
         utils.save_plot(plt, p_fig)
 
         # Close plot.
@@ -1450,7 +1450,7 @@ def plot_ts_mosaic(stn: str, var: str):
         coef = cfg.spd
 
     # Paths and NetCDF files.
-    d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
     p_list   = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
@@ -1499,7 +1499,7 @@ def plot_ts_mosaic(stn: str, var: str):
             plt.suptitle(sup_title, fontsize=fs_title)
 
     # Save plot.
-    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + ".png"
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + ".png"
     utils.save_plot(plt, p_fig)
 
     # Close plot.
@@ -1528,7 +1528,7 @@ def plot_monthly(stn: str, var: str):
     var_unit = cfg.get_var_unit(var)
 
     # NetCDF files.
-    d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
     p_list   = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
     ds_obs   = utils.open_netcdf(p_obs)
@@ -1577,7 +1577,7 @@ def plot_monthly(stn: str, var: str):
     plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
 
     # Save plot.
-    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + ".png"
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + ".png"
     utils.save_plot(plt, p_fig)
 
     # Close plot.

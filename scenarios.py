@@ -291,7 +291,7 @@ def extract(var: str, ds_stn: xr.Dataset, d_ref: str, d_fut: str, p_raw: str):
     """
 
     # Directories.
-    d_raw = cfg.get_d_sim("", cfg.cat_raw, var)
+    d_raw = cfg.get_d_scen("", cfg.cat_raw, var)
 
     # Zone of interest -------------------------------------------------------------------------------------------------
 
@@ -682,6 +682,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         ds_qmf = da_qmf.to_dataset(name=var)
         ds_qmf[var].attrs[cfg.attrs_group] = da_qmf.attrs[cfg.attrs_group]
         ds_qmf[var].attrs[cfg.attrs_kind] = da_qmf.attrs[cfg.attrs_kind]
+        ds_qmf[var].attrs[cfg.attrs_units] = da_ref.attrs[cfg.attrs_units]
         if p_qmf != "":
             desc = "/" + cfg.cat_qmf + "/" + os.path.basename(p_qmf)
             utils.save_netcdf(ds_qmf, p_qmf, desc=desc)
@@ -738,20 +739,19 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
             return da
 
         # Convert units.
-        # TODO: It would be better to convert units in plot functions.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            da_qmf = da_qmf * (1 if not cfg.opt_ra else 365)
             if cfg.opt_ra:
-                da_stn = convert_units(da_stn, "mm")
-                da_ref = convert_units(da_ref, "mm")
-                da_fut = convert_units(da_fut, "mm")
-                da_qqmap = convert_units(da_qqmap, "mm")
+                da_stn       = convert_units(da_stn, "mm")
+                da_ref       = convert_units(da_ref, "mm")
+                da_fut       = convert_units(da_fut, "mm")
+                da_qqmap     = convert_units(da_qqmap, "mm")
                 da_qqmap_ref = convert_units(da_qqmap_ref, "mm")
+                da_qmf       = convert_units(da_qmf, "mm")
         elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-            da_stn = convert_units(da_stn, "C")
-            da_ref = convert_units(da_ref, "C")
-            da_fut = convert_units(da_fut, "C")
-            da_qqmap = convert_units(da_qqmap, "C")
+            da_stn       = convert_units(da_stn, "C")
+            da_ref       = convert_units(da_ref, "C")
+            da_fut       = convert_units(da_fut, "C")
+            da_qqmap     = convert_units(da_qqmap, "C")
             da_qqmap_ref = convert_units(da_qqmap_ref, "C")
 
         # Select center coordinates.
@@ -800,7 +800,7 @@ def generate():
     """
 
     # Create directory.
-    d_exec = cfg.get_d_sim("", "", "")
+    d_exec = cfg.get_d_scen("", "", "")
     if not(os.path.isdir(d_exec)):
         os.makedirs(d_exec)
 
@@ -851,14 +851,15 @@ def generate():
                 stn = cfg.obs_src
 
             # Directories.
-            d_obs    = cfg.get_d_sim(stn, cfg.cat_obs, var)
-            d_raw    = cfg.get_d_sim(stn, cfg.cat_scen + "/" + cfg.cat_raw, var)
-            d_regrid = cfg.get_d_sim(stn, cfg.cat_scen + "/" + cfg.cat_regrid, var)
-            d_qqmap  = cfg.get_d_sim(stn, cfg.cat_scen + "/" + cfg.cat_qqmap, var)
-            d_qmf    = cfg.get_d_sim(stn, cfg.cat_scen + "/" + cfg.cat_qmf, var)
-            d_fig_calibration = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var)
-            d_fig_postprocess = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var)
-            d_fig_workflow    = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var)
+            d_stn    = cfg.get_d_stn(var)
+            d_obs    = cfg.get_d_scen(stn, cfg.cat_obs, var)
+            d_raw    = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_raw, var)
+            d_regrid = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_regrid, var)
+            d_qqmap  = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_qqmap, var)
+            d_qmf    = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_qmf, var)
+            d_fig_calibration = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var)
+            d_fig_postprocess = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var)
+            d_fig_workflow    = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var)
 
             # Load station data now to avoid competing processes (in parallel mode).
             ds_stn = utils.open_netcdf(p_stn)
@@ -870,6 +871,8 @@ def generate():
                 ds_stn = perturbate(ds_stn, var)
 
             # Create directories (required because of parallel processing).
+            if not (os.path.isdir(d_stn)):
+                os.makedirs(d_stn)
             if not (os.path.isdir(d_obs)):
                 os.makedirs(d_obs)
             if not (os.path.isdir(d_raw)):
@@ -1156,7 +1159,7 @@ def run():
                 p_stn = cfg.d_stn + var + "/" + var + "_" + stn + ".nc"
 
                 # Loop through raw NetCDF files.
-                p_raw_list = list(glob.glob(cfg.get_d_sim(stn, cfg.cat_raw, var) + "*.nc"))
+                p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*.nc"))
                 for p_raw in p_raw_list:
 
                     # Path of NetCDF files.
@@ -1179,11 +1182,11 @@ def run():
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
                     fn_fig = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_" + cfg.cat_fig_postprocess + ".png")
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
+                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
                     plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
-                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
+                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
                         p_regrid_fut.split("/")[-1].replace("4qqmap.nc", cfg.cat_fig_workflow + ".png")
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 

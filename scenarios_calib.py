@@ -38,7 +38,7 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
     """
 
     # List regrid files.
-    d_regrid = cfg.get_d_sim(stn, cfg.cat_regrid, var)
+    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
     p_regrid_list = utils.list_files(d_regrid)
     if p_regrid_list is None:
         utils.log("The required files are not available.", True)
@@ -64,7 +64,7 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                 for time_win in cfg.time_win_calib:
 
                     # NetCDF files.
-                    p_stn        = cfg.d_stn + var + "/" + var + "_" + stn + ".nc"
+                    p_stn        = cfg.get_p_stn(var, stn)
                     p_regrid     = p_regrid_list[i]
                     p_regrid_ref = p_regrid.replace(".nc", "_ref_4qqmap.nc")
                     p_regrid_fut = p_regrid.replace(".nc", "_4qqmap.nc")
@@ -102,13 +102,13 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                     fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + ".png"
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
-                    p_fig = cfg.get_d_sim(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var) + comb + "/" + fn_fig
+                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var) + comb + "/" + fn_fig
                     p_fig_ts = p_fig.replace(".png", "_ts.png")
 
                     # Calculate QQ and generate calibration plots.
                     msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
                           ", time_win=" + str(time_win) + " is "
-                    if not (os.path.exists(p_fig) and os.path.exists(p_fig_ts)):
+                    if not (os.path.exists(p_fig) or os.path.exists(p_fig_ts)):
                         utils.log(msg + "running", True)
                         scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf,
                                          title, p_fig)

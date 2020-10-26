@@ -55,9 +55,9 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         p_sim_list = [cfg.get_p_obs(stn, var_or_idx)]
     else:
         if var_or_idx in cfg.variables_cordex:
-            d = cfg.get_d_sim(stn, cfg.cat_qqmap, var_or_idx)
+            d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
         else:
-            d = cfg.get_d_sim(stn, cfg.cat_idx, var_or_idx)
+            d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
         p_sim_list = glob.glob(d + "*_" + rcp + ".nc")
 
     # Exit if there is not file corresponding to the criteria.
@@ -248,10 +248,10 @@ def calc_stats(cat: str):
                     hors = cfg.per_hors
                     if cat == cfg.cat_scen:
                         cat_rcp = cfg.cat_scen
-                        d = cfg.get_d_sim(stn, cfg.cat_qqmap, var_or_idx)
+                        d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
                     else:
                         cat_rcp = cfg.cat_idx
-                        d = cfg.get_d_sim(stn, cfg.cat_idx, var_or_idx)
+                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
 
                 if not os.path.isdir(d):
                     continue
@@ -317,7 +317,7 @@ def calc_stats(cat: str):
 
                 # Save file.
                 fn = var_or_idx + "_" + stn + ".csv"
-                p  = cfg.get_d_sim(stn, cfg.cat_stat, var_or_idx) + fn
+                p  = cfg.get_d_scen(stn, cfg.cat_stat, var_or_idx) + fn
                 utils.save_csv(df, p)
 
 
@@ -342,7 +342,7 @@ def conv_nc_csv():
             for var_or_idx in var_or_idx_list:
 
                 # List NetCDF files.
-                p_list = list(glob.glob(cfg.get_d_sim(stn, cat, var_or_idx) + "*.nc"))
+                p_list = list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*.nc"))
                 n_files = len(p_list)
                 if n_files == 0:
                     continue
@@ -362,7 +362,7 @@ def conv_nc_csv():
                     while True:
 
                         # Calculate the number of files processed (before conversion).
-                        n_files_proc_before = len(list(glob.glob(cfg.get_d_sim(stn, cat, var_or_idx) + "*.csv")))
+                        n_files_proc_before = len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*.csv")))
 
                         try:
                             utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
@@ -377,7 +377,7 @@ def conv_nc_csv():
                             pass
 
                         # Calculate the number of files processed (after conversion).
-                        n_files_proc_after = len(list(glob.glob(cfg.get_d_sim(stn, cat, var_or_idx) + "*.csv")))
+                        n_files_proc_after = len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*.csv")))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cfg.n_proc == 1) or (n_files_proc_before == n_files_proc_after):
@@ -466,6 +466,7 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    utils.log("=")
     msg = "Step #7   Calculation of statistics is "
     if cfg.opt_stat:
 
@@ -473,7 +474,7 @@ def run():
         utils.log(msg)
 
         # Scenarios.
-        # TODO.remove.comment: calc_stats(cfg.cat_scen)
+        calc_stats(cfg.cat_scen)
 
         # Indices.
         calc_stats(cfg.cat_idx)

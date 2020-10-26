@@ -85,6 +85,7 @@ var_era5_sh         = "sh"          # Specific humidity.
 
 # Directory names.
 # Observations vs. simulations.
+cat_stn             = "stn"          # Station data.
 cat_obs             = "obs"          # Observation.
 cat_sim             = "sim"          # Simulation.
 # Scenario files (in order of generation).
@@ -515,42 +516,11 @@ def get_rcp_desc(rcp: str):
     return rcp_desc
 
 
-def get_d_sim(stn: str, category: str, var: str = ""):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Get directory of simulations.
-
-    Parameters
-    ----------
-    stn : str
-        Station.
-    category : str
-        Category.
-    var : str, optional
-        Variable.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    d = d_sim
-    if stn != "":
-        d = d + "stn/" + stn + "/"
-    if category != "":
-        d = d
-        if (category == cat_raw) or (category == cat_regrid) or (category == cat_qqmap):
-            d = d + "scen/"
-        d = d + category + "/"
-    if var != "":
-        d = d + var + "/"
-
-    return d
-
-
 def get_d_stn(var: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Get directory of stations.
+    Get directory of station data.
 
     Parameters
     ----------
@@ -570,7 +540,7 @@ def get_p_stn(var: str, stn: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Get path of stations.
+    Get path of station data.
 
     Parameters
     ----------
@@ -586,11 +556,43 @@ def get_p_stn(var: str, stn: str):
     return p
 
 
+def get_d_scen(stn: str, category: str, var: str = ""):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get scenario directory.
+
+    Parameters
+    ----------
+    stn : str
+        Station.
+    category : str
+        Category.
+    var : str, optional
+        Variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    d = d_sim
+    if stn != "":
+        d = d + "stn/" + stn + "/"
+    if category != "":
+        d = d
+        if (category == cat_obs) or (category == cat_raw) or (category == cat_regrid) or (category == cat_qqmap) or\
+           (category == cat_qmf):
+            d = d + "scen/"
+        d = d + category + "/"
+    if var != "":
+        d = d + var + "/"
+
+    return d
+
+
 def get_p_obs(stn_name: str, var: str, category: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Get direction of observations.
+    Get observation path (under scenario directory).
 
     Parameters
     ----------
@@ -603,7 +605,7 @@ def get_p_obs(stn_name: str, var: str, category: str = ""):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    p = get_d_sim(stn_name, "obs") + var + "/" + var + "_" + stn_name
+    p = get_d_scen(stn_name, cat_obs) + var + "/" + var + "_" + stn_name
     if category != "":
         p = p + "_4qqmap"
     p = p + ".nc"
