@@ -810,11 +810,13 @@ def generate():
     #           Combine all years in a single NetCDF file (for reanalysis).
     # This creates one .nc file per variable-station in ~/<country>/<project>/<stn>/obs/<source>/<var>/.
     utils.log("=")
-    utils.log("Step #2c  Converting observations from CSV to NetCDF files")
+
     if not cfg.opt_ra:
+        utils.log("Step #2c  Converting observations from CSV to NetCDF files")
         for var in cfg.variables_cordex:
             load_observations(var)
     else:
+        utils.log("Step #2c  Merging reanalysis NetCDF files.")
         for var_ra in cfg.variables_ra:
             load_reanalysis(var_ra)
 

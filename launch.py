@@ -96,7 +96,7 @@ def load_params(p_ini: str):
             elif key == "obs_src":
                 cfg.obs_src = ast.literal_eval(value)
                 cfg.opt_ra = (cfg.obs_src == cfg.obs_src_era5) or \
-                             (cfg.obs_src == cfg.obs_src_era5_land) and \
+                             (cfg.obs_src == cfg.obs_src_era5_land) or \
                              (cfg.obs_src == cfg.obs_src_merra2)
             elif key == "obs_src_username":
                 cfg.obs_src_username = ast.literal_eval(value)
