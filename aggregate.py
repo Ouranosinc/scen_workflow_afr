@@ -70,16 +70,17 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             ds_day = None
             save = False
             if stat == cfg.stat_mean:
-                if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_t2m) or\
-                   (var == cfg.var_era5_sh) or (var == cfg.var_era5_u10) or (var == cfg.var_era5_v10):
+                if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_sh) or\
+                   ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tas in cfg.variables_cordex)) or\
+                   (var == cfg.var_era5_u10) or (var == cfg.var_era5_v10):
                     ds_day = ds_hour.resample(time=cfg.freq_D).mean()
                     save = True
             elif stat == cfg.stat_min:
-                if var == cfg.var_era5_t2m:
+                if (var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmin in cfg.variables_cordex):
                     ds_day = ds_hour.resample(time=cfg.freq_D).min()
                     save = True
             elif stat == cfg.stat_max:
-                if var == cfg.var_era5_t2m:
+                if (var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmax in cfg.variables_cordex):
                     ds_day = ds_hour.resample(time=cfg.freq_D).max()
                     save = True
             elif stat == cfg.stat_sum:
@@ -120,7 +121,7 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             plot.plot_dayofyear(ds_day, set_name, var, dbg_date)
 
 
-def calc_vapour_pressure(ds_t: xr.Dataset) -> xr.Dataset:
+def calc_vapour_pressure(da_temperature: xr.DataArray) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -129,12 +130,12 @@ def calc_vapour_pressure(ds_t: xr.Dataset) -> xr.Dataset:
 
     Parameters
     ----------
-    ds_t : xr.Dataset
+    da_temperature : xr.DataArray
         Temperature or dew temperature (C).
 
     Returns
     -------
-    returns: xr.Dataset
+    xr.DataArray
         Vapour pressure (hPa)
         If a temperature is passed, saturation vapour pressure is calculated.
         If a dew point temperature is passed, actual vapour pressure is calculated.
@@ -142,12 +143,12 @@ def calc_vapour_pressure(ds_t: xr.Dataset) -> xr.Dataset:
     """
 
     # Calculate vapour pressure  (hPa).
-    ds_vp = 6.11 * 10.0 ** (7.5 * ds_t / (237.7 + ds_t))
+    da_vp = 6.11 * 10.0 ** (7.5 * da_temperature / (237.7 + da_temperature))
 
-    return ds_vp
+    return da_vp
 
 
-def calc_spec_humidity(ds_temperature: xr.Dataset, ds_pressure: xr.Dataset) -> xr.Dataset:
+def calc_spec_humidity(ds_temperature: xr.DataArray, ds_pressure: xr.DataArray) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -156,25 +157,25 @@ def calc_spec_humidity(ds_temperature: xr.Dataset, ds_pressure: xr.Dataset) -> x
 
     Parameters
     ----------
-    ds_temperature : xr.Dataset
+    da_temperature : xr.DataArray
         Temperature or dew temperature (C).
-    ds_pressure : xr.Dataset
+    da_pressure : xr.DataArray
         Atmospheric pressure (hPa).
 
     Returns
     -------
-    returns: xr.Dataset
+    xr.DataArray
         Specific humidity (g/kg).
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Calculate vapour pressure (hPa).
-    ds_vp = calc_vapour_pressure(ds_temperature)[0]
+    da_vp = calc_vapour_pressure(ds_temperature)[0]
 
     # Calculate specific humidity.
-    ds_sh = (0.622 * ds_vp) / (ds_pressure - 0.378 * ds_vp)
+    da_sh = (0.622 * da_vp) / (ds_pressure - 0.378 * da_vp)
 
-    return xr.Dataset(ds_sh)
+    return da_sh
 
 
 def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
@@ -201,17 +202,17 @@ def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
     ds_sp  = utils.open_netcdf(p_sp, chunks={cfg.dim_time: n_years})[cfg.var_era5_sp]
 
     # Calculate specific humidity values.
-    ds_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)[0]
+    da_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)[0]
 
     # Update meta information.
-    ds_sh.name = cfg.var_era5_sh
-    ds_sh.attrs[cfg.attrs_lname] = "specific humidity"
-    ds_sh.attrs[cfg.attrs_units] = "1"
-    ds_sh.attrs[cfg.attrs_lname] = "specific humidity"
-    ds_sh.attrs[cfg.attrs_units] = "1"
+    da_sh.name = cfg.var_era5_sh
+    da_sh.attrs[cfg.attrs_lname] = "specific humidity"
+    da_sh.attrs[cfg.attrs_units] = "1"
+    da_sh.attrs[cfg.attrs_lname] = "specific humidity"
+    da_sh.attrs[cfg.attrs_units] = "1"
 
     # Save NetCDF file.
-    utils.save_netcdf(ds_sh, p_sh)
+    utils.save_netcdf(da_sh, p_sh)
 
 
 def run():
@@ -223,10 +224,17 @@ def run():
     """
 
     # List variables.
-    vars = os.listdir(cfg.d_ra_raw)
-    vars.sort()
-    if not(cfg.var_era5_sh in vars):
-        vars.append(cfg.var_era5_sh)
+    vars = []
+    for var in cfg.variables_cordex:
+        if var == cfg.var_cordex_huss:
+            vars.append(cfg.var_era5_d2m)
+            vars.append(cfg.var_era5_sp)
+            vars.append(cfg.var_era5_sh)
+        elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+            vars.append(cfg.var_era5_t2m)
+        else:
+            vars.append(cfg.convert_var_name(var))
+    vars = list(set(vars))
 
     # Loop through variables.
     for var in vars:
@@ -235,21 +243,25 @@ def run():
         p_raw_lst = glob.glob(cfg.d_ra_raw + var + "/*.nc")
         p_raw_lst.sort()
         n_years = len(p_raw_lst)
-        for p_raw in p_raw_lst:
+        for i_raw in range(len(p_raw_lst)):
+            p_raw = p_raw_lst[i_raw]
+
+            utils.log("Processing: '" + p_raw + "'", True)
 
             # Create an hourly dataset for specific humidity.
             # This requires cfg.var_era5_t2m and cfg.var_era5_sp.
-            if var == cfg.var_era5_d2m:
-                p_raw_d2m = p_raw
-                p_raw_sp  = p_raw_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sp)
-                p_raw_sh  = p_raw_d2m.replace(cfg.var_era5_d2m, cfg.var_era5_sh)
+            if var == cfg.var_era5_sh:
+                p_raw_sh  = p_raw
+                p_raw_d2m = p_raw_sh.replace(cfg.var_era5_sh, cfg.var_era5_d2m)
+                p_raw_sp  = p_raw_sh.replace(cfg.var_era5_sh, cfg.var_era5_sp)
                 if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and not os.path.exists(p_raw_sh):
                     gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
 
             # Perform aggregation.
-            if var != cfg.var_era5_d2m:
+            else:
                 p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
-                aggregate(p_raw, p_day, cfg.obs_src, var)
+                if not os.path.exists(p_day):
+                    aggregate(p_raw, p_day, cfg.obs_src, var)
 
 
 if __name__ == "__main__":
