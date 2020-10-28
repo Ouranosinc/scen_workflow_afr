@@ -64,11 +64,11 @@ def generate(idx_name: str, idx_threshs: [float]):
         # Loop through emissions scenarios.
         for rcp in rcps:
 
-            utils.log("-", True)
+            utils.log("-")
             utils.log("Index             : " + idx_name, True)
             utils.log("Station           : " + stn, True)
             utils.log("Emission scenario : " + cfg.get_rcp_desc(rcp), True)
-            utils.log("-", True)
+            utils.log("-")
 
             # Analysis of simulation files -----------------------------------------------------------------------------
 
@@ -101,11 +101,27 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Scenarios --------------------------------------------------------------------------------------------
 
+                # Skip iteration if the file already exists.
+                if rcp == cfg.rcp_ref:
+                    p_idx = cfg.get_d_idx(stn, idx_name) + idx_name + "_ref.nc"
+                else:
+                    p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
+                            os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
+                if os.path.exists(p_idx):
+                    continue
+
                 # Load datasets (one per variable).
                 ds_scen = []
-
-                for var in range(0, len(vars)):
-                    ds = utils.open_netcdf(p_sim[var][i_sim])
+                for i_var in range(0, len(vars)):
+                    var = vars[i_var]
+                    ds = utils.open_netcdf(p_sim[i_var][i_sim])
+                    if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+                        if ds[var].attrs[cfg.attrs_units] == "K":
+                            ds[var] = ds[var] - cfg.d_KC
+                            ds[var].attrs[cfg.attrs_units] = "C"
+                        elif rcp == cfg.rcp_ref:
+                            ds[var][cfg.attrs_units] = "C"
+                            ds[var].attrs[cfg.attrs_units] = "C"
                     ds_scen.append(ds)
 
                 # Adjust units.
@@ -136,40 +152,33 @@ def generate(idx_name: str, idx_threshs: [float]):
                 # Number of days where daily maximum temperature exceeds a threshold value.
                 if idx_name == cfg.idx_tx_days_above:
                     ds_scen_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
-                    if rcp == cfg.rcp_ref:
-                        ds_scen_tasmax[cfg.attrs_units] = "C"
-                        ds_scen_tasmax.attrs[cfg.attrs_units] = "C"
                     idx_thresh_str_tasmax = idx_threshs_str[0]
                     arr_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax).values
-                    idx_units = 1
+                    idx_units = "1"
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.END
                 # ==========================================================
 
-                # Create dataset.
+                # Create data array.
                 da_idx = xr.DataArray(arr_idx)
                 da_idx.name = idx_name
+
+                # Create dataset.
+                # For unknown reason, we cannot assign units to the data array (the saved NetCDF file will not open).
                 ds_idx = da_idx.to_dataset()
-                ds_idx.attrs[cfg.attrs_units] = idx_units
+                ds_idx[cfg.attrs_units] = idx_units
                 if "dim_0" in list(ds_idx.dims):
                     ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
                 if "dim_1" in list(ds_idx.dims):
-                    ds_idx = ds_idx.rename_dims({"dim_1": cfg.dim_lon, "dim_2": cfg.dim_lat})
+                    ds_idx = ds_idx.rename_dims({"dim_1": cfg.dim_lat, "dim_2": cfg.dim_lon})
                 else:
                     ds_idx = ds_idx.expand_dims(lon=1)
                     ds_idx = ds_idx.expand_dims(lat=1)
                 ds_idx.attrs[cfg.attrs_sname] = idx_name
                 ds_idx.attrs[cfg.attrs_lname] = idx_name
-                if cfg.dim_longitude in list(ds_scen[0].dims):
-                    ds_idx.assign_attrs({cfg.dim_longitude: ds_scen[0][cfg.dim_longitude]})
-                    ds_idx.assign_attrs({cfg.dim_latitude: ds_scen[0][cfg.dim_latitude]})
-                elif cfg.dim_rlon in list(ds_scen[0].dims):
-                    ds_idx.assign_attrs({cfg.dim_rlon: ds_scen[0][cfg.dim_rlon]})
-                    ds_idx.assign_attrs({cfg.dim_rlat: ds_scen[0][cfg.dim_rlat]})
-                elif cfg.dim_lon in list(ds_scen[0].dims):
-                    ds_idx.assign_attrs({cfg.dim_lon: ds_scen[0][cfg.dim_lon]})
-                    ds_idx.assign_attrs({cfg.dim_lat: ds_scen[0][cfg.dim_lat]})
+                ds_idx = utils.copy_coordinates(ds_scen[0], ds_idx)
+                ds_idx[idx_name] = utils.copy_coordinates(ds_scen[0], ds_idx[idx_name])
 
                 # Adjust calendar.
                 year_1 = cfg.per_fut[0]
@@ -181,11 +190,6 @@ def generate(idx_name: str, idx_threshs: [float]):
                 ds_idx[cfg.dim_time] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
 
                 # Save result to NetCDF file.
-                if rcp == cfg.rcp_ref:
-                    p_idx = cfg.get_p_obs(stn, idx_name)
-                else:
-                    p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
-                            os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
                 desc = "/" + idx_name + "/" + os.path.basename(p_idx)
                 utils.save_netcdf(ds_idx, p_idx, desc=desc)
 
@@ -218,28 +222,28 @@ def run():
     if cfg.opt_plot:
 
         utils.log("=")
-        utils.log("Step #8b  Generating time series.", True)
+        utils.log("Step #8b  Generating time series.")
 
         for i in range(len(cfg.idx_names)):
             plot.plot_ts(cfg.idx_names[i], cfg.idx_threshs[i])
 
-        # Perform interpolation (requires multiples stations).
-        # Heat maps are not generated:
-        # - the result is not good with a limited number of stations;
-        # - calculation is very slow (something is wrong).
-        if cfg.opt_plot_heat and (len(cfg.stns) > 1):
+    # Perform interpolation (requires multiples stations).
+    # Heat maps are not generated:
+    # - the result is not good with a limited number of stations;
+    # - calculation is very slow (something is wrong).
+    if cfg.opt_plot_heat and ((len(cfg.stns) > 1) or cfg.opt_ra):
 
-            utils.log("=")
-            utils.log("Step #8c  Generating heat maps.", True)
+        utils.log("=")
+        utils.log("Step #8c  Generating heat maps.")
 
-            for i in range(len(cfg.idx_names)):
+        for i in range(len(cfg.idx_names)):
 
-                # Reference period.
-                plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], cfg.rcp_ref, [cfg.per_ref])
+            # Reference period.
+            plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], cfg.rcp_ref, [cfg.per_ref])
 
-                # Future period.
-                for rcp in cfg.rcps:
-                    plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors)
+            # Future period.
+            for rcp in cfg.rcps:
+                plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors)
 
 
 if __name__ == "__main__":

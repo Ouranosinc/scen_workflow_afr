@@ -1146,7 +1146,7 @@ def run():
         # --------------------------------------------------------------------------------------------------------------
 
         utils.log("=")
-        utils.log("Step #8a  Generating post-process and workflow diagrams.", True)
+        utils.log("Step #8a  Generating post-process and workflow diagrams.")
 
         # Loop through variables.
         for var in cfg.variables_cordex:
@@ -1195,30 +1195,30 @@ def run():
         # --------------------------------------------------------------------------------------------------------------
 
         utils.log("=")
-        utils.log("Step #8b  Generating time series.", True)
+        utils.log("Step #8b  Generating time series.")
 
         for var in cfg.variables_cordex:
             plot.plot_ts(var)
 
-        # --------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
 
-        # Perform interpolation (requires multiples stations).
-        # Heat maps are not generated:
-        # - the result is not good with a limited number of stations;
-        # - calculation is very slow (something is wrong).
-        if cfg.opt_plot_heat and ((len(cfg.stns) > 1) or cfg.opt_ra):
+    # Perform interpolation (requires multiples stations).
+    # Heat maps are not generated:
+    # - the result is not good with a limited number of stations;
+    # - calculation is very slow (something is wrong).
+    if cfg.opt_plot_heat and ((len(cfg.stns) > 1) or cfg.opt_ra):
 
-            utils.log("=")
-            utils.log("Step #8c  Generating heat maps.", True)
+        utils.log("=")
+        utils.log("Step #8c  Generating heat maps.")
 
-            for i in range(len(cfg.variables_cordex)):
+        for i in range(len(cfg.variables_cordex)):
 
-                # Reference period.
-                plot.plot_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref])
+            # Reference period.
+            plot.plot_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref])
 
-                # Future period.
-                for rcp in cfg.rcps:
-                    plot.plot_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors)
+            # Future period.
+            for rcp in cfg.rcps:
+                plot.plot_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors)
 
 
 if __name__ == "__main__":

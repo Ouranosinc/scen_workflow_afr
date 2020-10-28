@@ -29,7 +29,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     Parameters
     ----------
     data_type : str
-        Dataset type: {cfg.obs, cfg.cat_sim}
+        Dataset type: {cfg.obs, cfg.cat_scen}
     freq_in : str
         Frequency (input): cfg.freq_D=daily; cfg.freq_YS=annual
     freq_out : str, optional
@@ -52,7 +52,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
 
     # List files.
     if data_type == cfg.cat_obs:
-        p_sim_list = [cfg.get_p_obs(stn, var_or_idx)]
+        p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref.nc"]
     else:
         if var_or_idx in cfg.variables_cordex:
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)

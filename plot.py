@@ -740,7 +740,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
                 ds_stat = statistics.calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
                                                cfg.stat_mean)
             else:
-                ds_stat = statistics.calc_stat(cfg.cat_sim, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
+                ds_stat = statistics.calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
                                                cfg.stat_mean)
             if ds_stat is None:
                 continue
@@ -817,8 +817,9 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
     else:
 
         # Reference period.
+        p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"
         if rcp == cfg.rcp_ref:
-            p_itp = cfg.get_p_obs(cfg.obs_src, var_or_idx, "")
+            p_itp = p_itp_ref
             if not os.path.exists(p_itp):
                 return
             ds_itp = utils.open_netcdf(p_itp)
@@ -826,9 +827,12 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
         # Future period.
         else:
 
-            # List simulations files for the current RCP.
-            d = cfg.get_d_scen(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
-            p_sim_list = glob.glob(d + "*.nc")
+            # List scenarios or indices for the current RCP.
+            if cat == cfg.cat_scen:
+                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
+            else:
+                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_idx, var_or_idx)
+            p_sim_list = [i for i in glob.glob(d + "*.nc") if i != p_itp_ref]
 
             # Combine datasets.
             ds_itp = None
@@ -837,16 +841,23 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             for p_sim in p_sim_list:
                 if os.path.exists(p_sim) and (rcp in p_sim):
                     ds_sim = utils.open_netcdf(p_sim)
-                    ds_sim[cfg.dim_time] = utils.reset_calendar(ds_sim.time)
+                    if cat == cfg.cat_scen:
+                        ds_sim[cfg.dim_time] = utils.reset_calendar(ds_sim.time)
                     if ds_itp is None:
                         ds_itp = ds_sim
-                        units = ds_sim[var_or_idx].attrs[cfg.attrs_units]
+                        if cfg.attrs_units in ds_sim[var_or_idx].attrs:
+                            units = ds_sim[var_or_idx].attrs[cfg.attrs_units]
+                        elif cfg.attrs_units in ds_sim.data_vars:
+                            units = ds_sim[cfg.attrs_units]
+                        else:
+                            units = 1
                     else:
-                        ds_itp = ds_itp.load() + ds_sim.load()
+                        # ds_itp = ds_itp.load() + ds_sim.load()
+                        ds_itp[var_or_idx] = ds_itp[var_or_idx] + ds_sim[var_or_idx]
                     n_sim = n_sim + 1
             if ds_itp is None:
                 return
-            ds_itp = ds_itp / float(n_sim)
+            ds_itp[var_or_idx] = ds_itp[var_or_idx] / float(n_sim)
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
 
         # Adjust units.
@@ -859,14 +870,21 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             ds_itp = ds_itp * 365
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = "mm"
 
-        # Adjust coordinate names.
+        # Adjust coordinate names (required for clipping).
         # TODO.YR: Ideally, this should be done elsewhere.
         if cfg.dim_longitude not in list(ds_itp.dims):
-            ds_itp = ds_itp.rename_dims({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-            ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_rlon]
-            del ds_itp[cfg.dim_rlon]
-            ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_rlat]
-            del ds_itp[cfg.dim_rlat]
+            if cfg.dim_rlon in ds_itp.dims:
+                ds_itp = ds_itp.rename_dims({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+                ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_rlon]
+                del ds_itp[cfg.dim_rlon]
+                ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_rlat]
+                del ds_itp[cfg.dim_rlat]
+            else:
+                ds_itp = ds_itp.rename_dims({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
+                ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_lon]
+                del ds_itp[cfg.dim_lon]
+                ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_lat]
+                del ds_itp[cfg.dim_lat]
 
         grid_x = None
         grid_y = None
@@ -881,30 +899,29 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             utils.log("Unable to use a mask.", True)
 
     # Loop through horizons.
-    if cfg.opt_plot:
-        utils.log("Generating maps.", True)
-        for per_hor in per_hors:
+    utils.log("Generating maps.", True)
+    for per_hor in per_hors:
 
-            # Select years.
-            if rcp == cfg.rcp_ref:
-                year_1 = 0
-                year_n = cfg.per_ref[1] - cfg.per_ref[0]
-            else:
-                year_1 = per_hor[0] - cfg.per_ref[1]
-                year_n = per_hor[1] - cfg.per_ref[1]
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                ds_hor = ds_itp[var_or_idx][year_1:(year_n+1)][:][:].mean(cfg.dim_time, skipna=True)
+        # Select years.
+        if rcp == cfg.rcp_ref:
+            year_1 = 0
+            year_n = cfg.per_ref[1] - cfg.per_ref[0]
+        else:
+            year_1 = per_hor[0] - cfg.per_ref[1]
+            year_n = per_hor[1] - cfg.per_ref[1]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            ds_hor = ds_itp[var_or_idx][year_1:(year_n+1)][:][:].mean(cfg.dim_time, skipna=True)
 
-            # Conversion coefficient.
-            coef = 1
-            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                coef = cfg.spd
+        # Conversion coefficient.
+        coef = 1
+        if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+            coef = cfg.spd
 
-            # Plot.
-            p_fig = cfg.get_d_scen("", cfg.cat_fig + "/" + cat, "") +\
-                var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
-            plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
+        # Plot.
+        p_fig = cfg.get_d_scen("", cfg.cat_fig + "/" + cat, "") +\
+            var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
+        plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
 
 def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
@@ -1029,7 +1046,7 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
 
             # List files.
             if rcp == cfg.rcp_ref:
-                p_sim_list = [cfg.get_p_obs(stn, var_or_idx)]
+                p_sim_list = [cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"]
             else:
                 if var_or_idx in cfg.variables_cordex:
                     d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
@@ -1065,7 +1082,9 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
                 # Select years.
                 years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
                 ds = ds.sel(time=slice(years_str[0], years_str[1]))
-                units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds.attrs[cfg.attrs_units]
+
+                # Remember units.
+                units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds[cfg.attrs_units]
                 if units == "degree_C":
                     units = "C"
 

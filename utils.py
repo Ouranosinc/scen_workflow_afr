@@ -830,3 +830,44 @@ def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
     ds = ds.where((ds.time.dt.year >= per[0]) & (ds.time.dt.year <= per[1]), drop=True)
 
     return ds
+
+
+def copy_coordinates(ds_from: Union[xr.Dataset, xr.DataArray], ds_to: Union[xr.Dataset, xr.DataArray]) ->\
+        Union[xr.Dataset, xr.DataArray]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Copy coordinates from one dataset to another one.
+
+    Parameters
+    ----------
+    ds_from: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray to copy coordinates from.
+    ds_to: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray to copy coordinates to.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Obtain longitude and latitude values.
+    if cfg.dim_longitude in list(ds_from.dims):
+        lon_vals = ds_from[cfg.dim_longitude].values
+        lat_vals = ds_from[cfg.dim_latitude].values
+    elif cfg.dim_lon in list(ds_from.dims):
+        lon_vals = ds_from[cfg.dim_lon].values
+        lat_vals = ds_from[cfg.dim_lat].values
+    else:
+        lon_vals = ds_from[cfg.dim_rlon].values
+        lat_vals = ds_from[cfg.dim_rlat].values
+
+    # Assign coordinates.
+    if cfg.dim_longitude in list(ds_to.dims):
+        ds_to[cfg.dim_longitude] = lon_vals
+        ds_to[cfg.dim_latitude] = lat_vals
+    elif cfg.dim_rlon in list(ds_to.dims):
+        ds_to[cfg.dim_rlon] = lon_vals
+        ds_to[cfg.dim_rlat] = lat_vals
+    else:
+        ds_to[cfg.dim_lon] = lon_vals
+        ds_to[cfg.dim_lat] = lat_vals
+
+    return ds_to

@@ -84,11 +84,10 @@ var_era5_sh         = "sh"          # Specific humidity.
 # ==========================================================
 
 # Directory names.
-# Observations vs. simulations.
-cat_stn             = "stn"          # Station data.
-cat_obs             = "obs"          # Observation.
-cat_sim             = "sim"          # Simulation.
+# Reference data.
+cat_stn             = "stn"          # At-a-station or reanalysis data.
 # Scenario files (in order of generation).
+cat_obs             = "obs"          # Observation.
 cat_raw             = "raw"          # Raw.
 cat_regrid          = "regrid"       # Reggrided.
 cat_qqmap           = "qqmap"        # Adjusted simulation.
@@ -184,8 +183,8 @@ d_ra_raw            = ""            # Reanalysis set (default frequency, usually
 d_bounds            = ""            # geog.json file comprising political boundaries.
 d_bounds_shp        = ""            # Shapefile comprising political boundaries.
 # Output-only files and directories.
-d_sim               = ""            # Climate projections.
 d_stn               = ""            # Observations or reanalysis.
+d_res              = ""             # Results.
 # Input and output files and directories.
 d_exec              = ""            # Base directory #3 (stations and output).
 d_ra_day            = ""            # Reanalysis set (aggregated frequency, i.e. daily).
@@ -573,15 +572,40 @@ def get_d_scen(stn: str, category: str, var: str = ""):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    d = d_sim
+    d = d_res
     if stn != "":
-        d = d + "stn/" + stn + "/"
+        d = d + cat_stn + "/" + stn + "/"
     if category != "":
         d = d
         if (category == cat_obs) or (category == cat_raw) or (category == cat_regrid) or (category == cat_qqmap) or\
            (category == cat_qmf):
-            d = d + "scen/"
+            d = d + cat_scen + "/"
         d = d + category + "/"
+    if var != "":
+        d = d + var + "/"
+
+    return d
+
+
+def get_d_idx(stn: str, var: str = ""):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get index directory.
+
+    Parameters
+    ----------
+    stn : str
+        Station.
+    var : str, optional
+        Variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    d = d_res
+    if stn != "":
+        d = d + cat_stn + "/" + stn + "/"
+    d = d + cat_idx + "/"
     if var != "":
         d = d + var + "/"
 
