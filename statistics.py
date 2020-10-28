@@ -52,7 +52,10 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
 
     # List files.
     if data_type == cfg.cat_obs:
-        p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref.nc"]
+        if var_or_idx in cfg.variables_cordex:
+            p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + cfg.obs_src + ".nc"]
+        else:
+            p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref.nc"]
     else:
         if var_or_idx in cfg.variables_cordex:
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
@@ -96,8 +99,12 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
 
         # Load dataset.
         ds = utils.open_netcdf(p_sim_list[i_sim])
+
+        # Select years and adjust units.
         years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
+        if units == cfg.unit_K:
+            ds = ds - cfg.d_KC
 
         # Select control point.
         if cfg.opt_ra:
