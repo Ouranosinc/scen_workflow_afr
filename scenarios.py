@@ -212,8 +212,7 @@ def load_reanalysis(var_ra: str):
     if not os.path.exists(p_stn):
 
         # Combine datasets.
-        ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time).copy()
-        utils.close_netcdf(ds)
+        ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time)
 
         # Rename variables.
         if var_ra == cfg.var_era5_t2mmin:
