@@ -28,6 +28,7 @@ import scenarios_calib
 import utils
 import xarray as xr
 import xarray.core.variable as xcv
+import clisops.core.subset as subset
 from qm import train, predict
 from scipy.interpolate import griddata
 
@@ -83,7 +84,7 @@ def load_observations(var: str):
             da.name = var
             da.attrs[cfg.attrs_sname] = "temperature"
             da.attrs[cfg.attrs_lname] = "temperature"
-            da.attrs[cfg.attrs_units] = "C"
+            da.attrs[cfg.attrs_units] = cfg.unit_C
             da.attrs[cfg.attrs_gmap] = "regular_lon_lat"
             da.attrs[cfg.attrs_comments] = "station data converted from degree C"
 
@@ -106,7 +107,7 @@ def load_observations(var: str):
             da.name = var
             da.attrs[cfg.attrs_sname] = "precipitation_flux"
             da.attrs[cfg.attrs_lname] = "Precipitation"
-            da.attrs[cfg.attrs_units] = "kg m-2 s-1"
+            da.attrs[cfg.attrs_units] = cfg.unit_kgm2s1
             da.attrs[cfg.attrs_gmap] = "regular_lon_lat"
             da.attrs[cfg.attrs_comments] = \
                 "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
@@ -132,7 +133,7 @@ def load_observations(var: str):
             data_xarray_vv = np.expand_dims(np.expand_dims(data_vv, axis=1), axis=2)
             wind           = xr.DataArray(data_xarray_vv,
                                           coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
-            wind.attrs[cfg.attrs_units] = "m s-1"
+            wind.attrs[cfg.attrs_units] = cfg.unit_ms1
 
             # Calculate wind components.
             uas, vas = utils.sfcwind_2_uas_vas(wind, windfromdir)
@@ -149,7 +150,7 @@ def load_observations(var: str):
             else:
                 da.attrs[cfg.attrs_sname] = "northward_wind"
                 da.attrs[cfg.attrs_lname] = "Northward near-surface wind"
-            da.attrs[cfg.attrs_units] = "m s-1"
+            da.attrs[cfg.attrs_units] = cfg.unit_ms1
             da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
 
             # Create dataset.
@@ -230,7 +231,7 @@ def load_reanalysis(var_ra: str):
         if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
             ds[var].attrs[cfg.attrs_sname] = "temperature"
             ds[var].attrs[cfg.attrs_lname] = "Temperature"
-            ds[var].attrs[cfg.attrs_units] = "K"
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_K
         elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
             if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
                 ds[var] = ds[var] * 1000 / cfg.spd
@@ -243,7 +244,7 @@ def load_reanalysis(var_ra: str):
             elif var == cfg.var_cordex_evapsblpot:
                 ds[var].attrs[cfg.attrs_sname] = "evapotranspiration_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Evapotranspiration"
-            ds[var].attrs[cfg.attrs_units] = "kg m-2 s-1"
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_kgm2s1
         elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
             if var == cfg.var_cordex_uas:
                 ds[var].attrs[cfg.attrs_sname] = "eastward_wind"
@@ -251,15 +252,15 @@ def load_reanalysis(var_ra: str):
             else:
                 ds[var].attrs[cfg.attrs_sname] = "northward_wind"
                 ds[var].attrs[cfg.attrs_lname] = "Northward near-surface wind"
-            ds[var].attrs[cfg.attrs_units] = "m s-1"
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_ms1
         elif var == cfg.var_cordex_rsds:
             ds[var].attrs[cfg.attrs_sname] = "surface_solar_radiation_downwards"
             ds[var].attrs[cfg.attrs_lname] = "Surface solar radiation downwards"
-            ds[var].attrs[cfg.attrs_units] = "J m-2"
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_Jm2
         elif var == cfg.var_cordex_huss:
             ds[var].attrs[cfg.attrs_sname] = "specific_humidity"
             ds[var].attrs[cfg.attrs_lname] = "Specific humidity"
-            ds[var].attrs[cfg.attrs_units] = "1"
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_1
 
         # Save data.
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
@@ -448,6 +449,19 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
             ds_regrid = da_regrid.to_dataset(name=var)
             ds_regrid[var].attrs[cfg.attrs_units] = ds_raw[var].attrs[cfg.attrs_units]
 
+            # Clip to geographic boundaries.
+            if cfg.d_bounds != "":
+                try:
+                    reset_rlon_rlat = False
+                    if cfg.dim_lon not in list(ds_regrid.dims):
+                        ds_regrid = ds_regrid.rename({cfg.dim_rlon: cfg.dim_lon, cfg.dim_rlat: cfg.dim_lat})
+                        reset_rlon_rlat = True
+                    ds_regrid = subset.subset_shape(ds_regrid, cfg.d_bounds)
+                    if reset_rlon_rlat:
+                        ds_regrid = ds_regrid.rename({cfg.dim_lon: cfg.dim_rlon, cfg.dim_lat: cfg.dim_rlat})
+                except TypeError:
+                    utils.log("Unable to use a mask.", True)
+
         # Method 2: Take nearest information.
         else:
 
@@ -630,7 +644,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
     if not cfg.opt_ra:
         if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
             ds_stn[var] = ds_stn[var] + cfg.d_KC
-            ds_stn[var].attrs[cfg.attrs_units] = "K"
+            ds_stn[var].attrs[cfg.attrs_units] = cfg.unit_K
         da_stn = ds_stn[var][:, 0, 0]
     else:
         da_stn = ds_stn[var]
@@ -729,10 +743,10 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         da_qmf       = ds_qmf[var]
 
         def convert_units(da: xr.DataArray, units: str) -> xr.DataArray:
-            if (da.units == "kg m-2 s-1") and (units == "mm"):
+            if (da.units == cfg.unit_kgm2s1) and (units == cfg.unit_mm):
                 da = da * cfg.spd
                 da.attrs[cfg.attrs_units] = units
-            elif (da.units == "K") and (units == "C"):
+            elif (da.units == cfg.unit_K) and (units == cfg.unit_C):
                 da = da - cfg.d_KC
                 da[cfg.attrs_units] = units
             return da
@@ -740,18 +754,18 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         # Convert units.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
             if cfg.opt_ra:
-                da_stn       = convert_units(da_stn, "mm")
-                da_ref       = convert_units(da_ref, "mm")
-                da_fut       = convert_units(da_fut, "mm")
-                da_qqmap     = convert_units(da_qqmap, "mm")
-                da_qqmap_ref = convert_units(da_qqmap_ref, "mm")
-                da_qmf       = convert_units(da_qmf, "mm")
+                da_stn       = convert_units(da_stn, cfg.unit_mm)
+                da_ref       = convert_units(da_ref, cfg.unit_mm)
+                da_fut       = convert_units(da_fut, cfg.unit_mm)
+                da_qqmap     = convert_units(da_qqmap, cfg.unit_mm)
+                da_qqmap_ref = convert_units(da_qqmap_ref, cfg.unit_mm)
+                da_qmf       = convert_units(da_qmf, cfg.unit_mm)
         elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-            da_stn       = convert_units(da_stn, "C")
-            da_ref       = convert_units(da_ref, "C")
-            da_fut       = convert_units(da_fut, "C")
-            da_qqmap     = convert_units(da_qqmap, "C")
-            da_qqmap_ref = convert_units(da_qqmap_ref, "C")
+            da_stn       = convert_units(da_stn, cfg.unit_C)
+            da_ref       = convert_units(da_ref, cfg.unit_C)
+            da_fut       = convert_units(da_fut, cfg.unit_C)
+            da_qqmap     = convert_units(da_qqmap, cfg.unit_C)
+            da_qqmap_ref = convert_units(da_qqmap_ref, cfg.unit_C)
 
         # Select center coordinates.
         da_stn_xy       = da_stn

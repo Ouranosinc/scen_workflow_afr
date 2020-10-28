@@ -439,11 +439,11 @@ def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
 
     # Convert values to more practical units (if required).
     if (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and\
-       (ds[var_or_idx].attrs[cfg.attrs_units] == "kg m-2 s-1"):
+       (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1):
         for i in range(n_time):
             val_list[i] = val_list[i] * cfg.spd
     elif (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
-         (ds[var_or_idx].attrs[cfg.attrs_units] == "K"):
+         (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
         for i in range(n_time):
             val_list[i] = val_list[i] - cfg.d_KC
 

@@ -207,9 +207,9 @@ def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
     # Update meta information.
     da_sh.name = cfg.var_era5_sh
     da_sh.attrs[cfg.attrs_lname] = "specific humidity"
-    da_sh.attrs[cfg.attrs_units] = "1"
+    da_sh.attrs[cfg.attrs_units] = cfg.unit_1
     da_sh.attrs[cfg.attrs_lname] = "specific humidity"
-    da_sh.attrs[cfg.attrs_units] = "1"
+    da_sh.attrs[cfg.attrs_units] = cfg.unit_1
 
     # Save NetCDF file.
     utils.save_netcdf(da_sh, p_sh)

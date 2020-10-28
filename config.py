@@ -37,6 +37,19 @@ attrs_stn           = "Station Name"
 attrs_group         = "group"
 attrs_kind          = "kind"
 
+# Units.
+unit_C              = "C"
+unit_K              = "K"
+unit_kgm2s1         = "kg m-2 s-1"
+unit_m              = "m"
+unit_mm             = "mm"
+unit_ms1            = "m s-1"
+unit_1              = "1"
+unit_Jm2            = "J m-2"
+unit_Pa             = "Pa"
+unit_deg            = "°"
+unit_pct            = "%"
+
 # Dataset dimensions.
 dim_lon       = "lon"
 dim_lat       = "lat"
@@ -465,30 +478,30 @@ def get_var_unit(var: str, set_name: str = "cordex"):
     var_unit = ""
     if set_name == "cordex":
         if (var == var_cordex_tas) or (var == var_cordex_tasmin) or (var == var_cordex_tasmax):
-            var_unit = "°C"
+            var_unit = unit_deg + unit_C
         elif var == var_cordex_rsds:
-            var_unit = "Pa"
+            var_unit = unit_Pa
         elif var == var_cordex_pr:
-            var_unit = "mm"
+            var_unit = unit_mm
         elif (var == var_cordex_uas) or (var == var_cordex_vas):
-            var_unit = "m s-1"
+            var_unit = unit_ms1
         elif var == var_cordex_clt:
-            var_unit = "%"
+            var_unit = unit_pct
         elif var == var_cordex_huss:
-            var_unit = "1"
+            var_unit = unit_1
     elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
         if (var == var_era5_d2m) or (var == var_era5_t2m):
-            var_unit = "°"
+            var_unit = unit_deg
         elif var == var_era5_sp:
-            var_unit = "Pa"
+            var_unit = unit_Pa
         elif (var == var_era5_u10) or (var == var_era5_v10):
-            var_unit = "m s-1"
+            var_unit = unit_ms1
         elif var == var_era5_ssrd:
-            var_unit = "J m-2"
+            var_unit = unit_Jm2
         elif (var == var_era5_tp) or (var == var_era5_e) or (var == var_era5_pev):
-            var_unit = "m"
+            var_unit = unit_m
         elif var == var_era5_sh:
-            var_unit = "1"
+            var_unit = unit_1
 
     return var_unit
 

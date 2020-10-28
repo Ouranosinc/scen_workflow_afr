@@ -116,12 +116,12 @@ def generate(idx_name: str, idx_threshs: [float]):
                     var = vars[i_var]
                     ds = utils.open_netcdf(p_sim[i_var][i_sim])
                     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-                        if ds[var].attrs[cfg.attrs_units] == "K":
+                        if ds[var].attrs[cfg.attrs_units] == cfg.unit_K:
                             ds[var] = ds[var] - cfg.d_KC
-                            ds[var].attrs[cfg.attrs_units] = "C"
+                            ds[var].attrs[cfg.attrs_units] = cfg.unit_C
                         elif rcp == cfg.rcp_ref:
-                            ds[var][cfg.attrs_units] = "C"
-                            ds[var].attrs[cfg.attrs_units] = "C"
+                            ds[var][cfg.attrs_units] = cfg.unit_C
+                            ds[var].attrs[cfg.attrs_units] = cfg.unit_C
                     ds_scen.append(ds)
 
                 # Adjust units.
@@ -129,10 +129,10 @@ def generate(idx_name: str, idx_threshs: [float]):
                 for _ in range(0, len(ds_scen)):
                     if rcp == cfg.rcp_ref:
                         for idx_thresh in idx_threshs:
-                            idx_threshs_str.append(str(idx_thresh) + " C")
+                            idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_C)
                     else:
                         for idx_thresh in idx_threshs:
-                            idx_threshs_str.append(str(idx_thresh + cfg.d_KC) + " K")
+                            idx_threshs_str.append(str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K)
 
                 # Indices ----------------------------------------------------------------------------------------------
 
@@ -154,7 +154,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     ds_scen_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     idx_thresh_str_tasmax = idx_threshs_str[0]
                     arr_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax).values
-                    idx_units = "1"
+                    idx_units = cfg.unit_1
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.END
@@ -177,8 +177,6 @@ def generate(idx_name: str, idx_threshs: [float]):
                     ds_idx = ds_idx.expand_dims(lat=1)
                 ds_idx.attrs[cfg.attrs_sname] = idx_name
                 ds_idx.attrs[cfg.attrs_lname] = idx_name
-                ds_idx = utils.copy_coordinates(ds_scen[0], ds_idx)
-                ds_idx[idx_name] = utils.copy_coordinates(ds_scen[0], ds_idx[idx_name])
 
                 # Adjust calendar.
                 year_1 = cfg.per_fut[0]

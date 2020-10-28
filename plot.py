@@ -22,7 +22,6 @@ import statistics
 import utils
 import warnings
 import xarray as xr
-import clisops.core.subset as subset
 from matplotlib.lines import Line2D
 from scipy import signal
 from scipy.interpolate import griddata
@@ -262,9 +261,9 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd
     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        if ds_ref.units == "K":
+        if ds_ref.units == cfg.unit_K:
             delta_ref = -cfg.d_KC
-        if ds_fut.units == "K":
+        if ds_fut.units == cfg.unit_K:
             delta_fut = -cfg.d_KC
 
     # Fit.
@@ -862,13 +861,13 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
 
         # Adjust units.
         if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
-           (ds_itp[var_or_idx].attrs[cfg.attrs_units] == "K"):
+           (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
             ds_itp = ds_itp - cfg.d_KC
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = "C"
+            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
         elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
-             (ds_itp[var_or_idx].attrs[cfg.attrs_units] == "kg m-2 s-1"):
+             (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1):
             ds_itp = ds_itp * 365
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = "mm"
+            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
 
         # Adjust coordinate names (required for clipping).
         # TODO.YR: Ideally, this should be done elsewhere.
@@ -889,14 +888,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
         grid_x = None
         grid_y = None
 
-    # Clip -------------------------------------------------------------------------------------------------------------
-
-    # Clip to country boundaries.
-    if cfg.d_bounds != "":
-        try:
-            ds_itp = subset.subset_shape(ds_itp, cfg.d_bounds)
-        except TypeError:
-            utils.log("Unable to use a mask.", True)
+    # Maps -------------------------------------------------------------------------------------------------------------
 
     # Loop through horizons.
     utils.log("Generating maps.", True)
@@ -1086,7 +1078,7 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
                 # Remember units.
                 units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds[cfg.attrs_units]
                 if units == "degree_C":
-                    units = "C"
+                    units = cfg.unit_C
 
                 # Calculate statistics.
                 # TODO: Include coordinates in the generated dataset.
@@ -1104,13 +1096,13 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
 
                 # Convert units.
                 if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-                    if ds[var_or_idx].attrs[cfg.attrs_units] == "K":
+                    if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K:
                         ds = ds - cfg.d_KC
-                        ds[var_or_idx].attrs[cfg.attrs_units] = "C"
+                        ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
                 elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                    if ds[var_or_idx].attrs[cfg.attrs_units] == "kg m-2 s-1":
+                    if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1:
                         ds = ds * cfg.spd
-                        ds[var_or_idx].attrs[cfg.attrs_units] = "mm"
+                        ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
 
                 # Calculate minimum and maximum values along the y-axis.
                 if not ylim:
@@ -1258,7 +1250,7 @@ def plot_ts_spec(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dat
 
     if var_or_idx == cfg.idx_tx_days_above:
         title = cfg.get_idx_desc(var_or_idx, threshs) + cfg.get_var_unit(cfg.var_cordex_tasmax)
-        label = "Nombre de jours"
+        label = "Nbr. jours"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END

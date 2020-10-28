@@ -23,7 +23,7 @@ from collections import defaultdict
 from itertools import compress
 from math import radians, degrees, sqrt
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from typing import Union, List
+from typing import Union, List, Tuple
 
 
 def natural_sort(values: Union[float, int]):
@@ -832,6 +832,41 @@ def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
     return ds
 
 
+def get_coordinates(ds: Union[xr.Dataset, xr.DataArray]) -> Tuple[List[float], List[float]]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Extract coordinates from a dataset.
+
+    Parameters
+    ----------
+    ds: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray to copy coordinates from.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Extract longitude and latitude.
+    if cfg.dim_longitude in list(ds.dims):
+        nd_lon_vals = ds[cfg.dim_longitude].values
+        nd_lat_vals = ds[cfg.dim_latitude].values
+    elif cfg.dim_lon in list(ds.dims):
+        nd_lon_vals = ds[cfg.dim_lon].values
+        nd_lat_vals = ds[cfg.dim_lat].values
+    else:
+        nd_lon_vals = ds[cfg.dim_rlon].values
+        nd_lat_vals = ds[cfg.dim_rlat].values
+
+    # Convert to a float array.
+    lon_vals = []
+    for i in range(len(nd_lon_vals)):
+        lon_vals.append(float(nd_lon_vals[i]))
+    lat_vals = []
+    for i in range(len(nd_lat_vals)):
+        lat_vals.append(float(nd_lat_vals[i]))
+
+    return lon_vals, lat_vals
+
+
 def copy_coordinates(ds_from: Union[xr.Dataset, xr.DataArray], ds_to: Union[xr.Dataset, xr.DataArray]) ->\
         Union[xr.Dataset, xr.DataArray]:
 
@@ -848,16 +883,8 @@ def copy_coordinates(ds_from: Union[xr.Dataset, xr.DataArray], ds_to: Union[xr.D
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Obtain longitude and latitude values.
-    if cfg.dim_longitude in list(ds_from.dims):
-        lon_vals = ds_from[cfg.dim_longitude].values
-        lat_vals = ds_from[cfg.dim_latitude].values
-    elif cfg.dim_lon in list(ds_from.dims):
-        lon_vals = ds_from[cfg.dim_lon].values
-        lat_vals = ds_from[cfg.dim_lat].values
-    else:
-        lon_vals = ds_from[cfg.dim_rlon].values
-        lat_vals = ds_from[cfg.dim_rlat].values
+    # Extract longitude and latitude values.
+    lon_vals, lat_vals = get_coordinates(ds_from)
 
     # Assign coordinates.
     if cfg.dim_longitude in list(ds_to.dims):
