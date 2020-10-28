@@ -775,12 +775,20 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         da_qqmap_xy     = da_qqmap
         da_qmf_xy       = da_qmf
         if cfg.opt_ra:
-            da_stn_xy       = utils.subset_center(da_stn_xy)
-            da_ref_xy       = utils.subset_center(da_ref_xy)
-            da_fut_xy       = utils.subset_center(da_fut_xy)
-            da_qqmap_xy     = utils.subset_center(da_qqmap_xy)
-            da_qqmap_ref_xy = utils.subset_center(da_qqmap_ref_xy)
-            da_qmf_xy       = utils.subset_center(da_qmf_xy)
+            if cfg.d_bounds == "":
+                da_stn_xy       = utils.subset_ctrl_pt(da_stn_xy)
+                da_ref_xy       = utils.subset_ctrl_pt(da_ref_xy)
+                da_fut_xy       = utils.subset_ctrl_pt(da_fut_xy)
+                da_qqmap_xy     = utils.subset_ctrl_pt(da_qqmap_xy)
+                da_qqmap_ref_xy = utils.subset_ctrl_pt(da_qqmap_ref_xy)
+                da_qmf_xy       = utils.subset_ctrl_pt(da_qmf_xy)
+            else:
+                da_stn_xy       = utils.squeeze_lon_lat(da_stn_xy)
+                da_ref_xy       = utils.squeeze_lon_lat(da_ref_xy)
+                da_fut_xy       = utils.squeeze_lon_lat(da_fut_xy)
+                da_qqmap_xy     = utils.squeeze_lon_lat(da_qqmap_xy)
+                da_qqmap_ref_xy = utils.squeeze_lon_lat(da_qqmap_ref_xy)
+                da_qmf_xy       = utils.squeeze_lon_lat(da_qmf_xy)
 
         # Generate summary plot.
         if cfg.opt_plot:

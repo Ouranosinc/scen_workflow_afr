@@ -699,7 +699,31 @@ def save_csv(df: pd.DataFrame, p: str, desc=""):
         log("Saved CSV file", True)
 
 
-def subset_center(ds: xr.Dataset) -> xr.Dataset:
+def squeeze_lon_lat(ds: xr.Dataset) -> xr.Dataset:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Squeeze a 3D Dataset to remove longitude and latitude. This will calculate the mean value (all coordinates) for
+    each time step.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if cfg.dim_lon in ds.dims:
+        ds = ds.mean([cfg.dim_lon, cfg.dim_lat])
+    elif cfg.dim_rlon in ds.dims:
+        ds = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
+    elif cfg.dim_longitude in ds.dims:
+        ds = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
+
+    return ds
+
+
+def subset_ctrl_pt(ds: xr.Dataset) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -714,15 +738,36 @@ def subset_center(ds: xr.Dataset) -> xr.Dataset:
 
     ds_ctr = None
 
+    # Determine control point.
+    lon = cfg.lon_bnds.mean()
+    lat = cfg.lat_bnds.mean()
+    if cfg.ctrl_pt is not None:
+        lon = cfg.ctrl_pt[0]
+        lat = cfg.ctrl_pt[1]
+    else:
+        if cfg.dim_rlon in ds.dims:
+            if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
+                lon = round(len(ds.rlon) / 2.0)
+                lat = round(len(ds.rlat) / 2.0)
+        elif cfg.dim_lon in ds.dims:
+            if (len(ds.lat) > 1) or (len(ds.lon) > 1):
+                lon = round(len(ds.lon) / 2.0)
+                lat = round(len(ds.lat) / 2.0)
+        else:
+            if (len(ds.latitude) > 1) or (len(ds.longitude) > 1):
+                lon = round(len(ds.longitude) / 2.0)
+                lat = round(len(ds.latitude) / 2.0)
+
+    # Perform subset.
     if cfg.dim_rlon in ds.dims:
         if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
-            ds_ctr = ds.isel(rlon=round(len(ds.rlon)/2.0), rlat=round(len(ds.rlat)/2.0), drop=True)
+            ds_ctr = ds.isel(rlon=lon, rlat=lat, drop=True)
     elif cfg.dim_lon in ds.dims:
         if (len(ds.lat) > 1) or (len(ds.lon) > 1):
-            ds_ctr = ds.isel(lon=round(len(ds.lon)/2.0), lat=round(len(ds.lat)/2.0), drop=True)
-    elif cfg.dim_longitude in ds.dims:
+            ds_ctr = ds.isel(lon=lon, lat=lat, drop=True)
+    else:
         if (len(ds.latitude) > 1) or (len(ds.longitude) > 1):
-            ds_ctr = ds.isel(longitude=round(len(ds.longitude)/2.0), latitude=round(len(ds.latitude)/2.0), drop=True)
+            ds_ctr = ds.isel(longitude=lon, latitude=lat, drop=True)
 
     return ds_ctr
 

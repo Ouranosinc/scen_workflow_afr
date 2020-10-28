@@ -51,13 +51,13 @@ unit_deg            = "°"
 unit_pct            = "%"
 
 # Dataset dimensions.
-dim_lon       = "lon"
-dim_lat       = "lat"
-dim_rlon      = "rlon"
-dim_rlat      = "rlat"
-dim_longitude = "longitude"
-dim_latitude  = "latitude"
-dim_time      = "time"
+dim_lon             = "lon"
+dim_lat             = "lat"
+dim_rlon            = "rlon"
+dim_rlat            = "rlat"
+dim_longitude       = "longitude"
+dim_latitude        = "latitude"
+dim_time            = "time"
 
 # ==========================================================
 # TODO.CUSTOMIZATION.BEGIN
@@ -171,8 +171,9 @@ per_fut             = [1981, 2100]                                  # Future per
 per_hors            = [[2021, 2040], [2041, 2060], [2061, 2080]]    # Horizons.
 
 # Boundary box.
-lon_bnds                = [0, 0]    # Longitude boundaries.
-lat_bnds                = [0, 0]    # Latitude boundaries.
+lon_bnds            = [0, 0]        # Longitude boundaries.
+lat_bnds            = [0, 0]        # Latitude boundaries.
+ctrl_pt             = None          # Control point: [longitude, latitude] (this is for statistics.
 
 # Stations.
 # Observations are located in directories /exec/<user_name>/<country>/<project>/obs/<obs_provider>/<var>/*.csv

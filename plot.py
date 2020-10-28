@@ -144,19 +144,24 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     ds_fut = utils.open_netcdf(p_fut)[var]
     ds_qqmap = utils.open_netcdf(p_qqmap)[var]
 
-    # Select the center cell.
+    # Select control point.
     if cfg.opt_ra:
-        subset_center = False
+        subset_ctrl_pt = False
         if cfg.dim_rlon in ds_stn.dims:
-            subset_center = (len(ds_stn.rlon) > 1) or (len(ds_stn.rlat) > 1)
+            subset_ctrl_pt = (len(ds_stn.rlon) > 1) or (len(ds_stn.rlat) > 1)
         elif cfg.dim_lon in ds_stn.dims:
-            subset_center = (len(ds_stn.lon) > 1) or (len(ds_stn.lat) > 1)
+            subset_ctrl_pt = (len(ds_stn.lon) > 1) or (len(ds_stn.lat) > 1)
         elif cfg.dim_longitude in ds_stn.dims:
-            subset_center = (len(ds_stn.longitude) > 1) or (len(ds_stn.latitude) > 1)
-        if subset_center:
-            ds_stn   = utils.subset_center(ds_stn)
-            ds_fut   = utils.subset_center(ds_fut)
-            ds_qqmap = utils.subset_center(ds_qqmap)
+            subset_ctrl_pt = (len(ds_stn.longitude) > 1) or (len(ds_stn.latitude) > 1)
+        if subset_ctrl_pt:
+            if cfg.d_bounds == "":
+                ds_stn   = utils.subset_ctrl_pt(ds_stn)
+                ds_fut   = utils.subset_ctrl_pt(ds_fut)
+                ds_qqmap = utils.subset_ctrl_pt(ds_qqmap)
+            else:
+                ds_stn   = utils.squeeze_lon_lat(ds_stn)
+                ds_fut   = utils.squeeze_lon_lat(ds_fut)
+                ds_qqmap = utils.squeeze_lon_lat(ds_qqmap)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -241,18 +246,22 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     ds_ref = utils.open_netcdf(p_regrid_ref)[var]
     ds_fut = utils.open_netcdf(p_regrid_fut)[var]
 
-    # Select the cells to plot.
+    # Select control point.
     if cfg.opt_ra:
-        subset_center = False
+        subset_ctrl_pt = False
         if cfg.dim_rlon in ds_ref.dims:
-            subset_center = (len(ds_ref.rlon) > 1) or (len(ds_ref.rlat) > 1)
+            subset_ctrl_pt = (len(ds_ref.rlon) > 1) or (len(ds_ref.rlat) > 1)
         elif cfg.dim_lon in ds_ref.dims:
-            subset_center = (len(ds_ref.lon) > 1) or (len(ds_ref.lat) > 1)
+            subset_ctrl_pt = (len(ds_ref.lon) > 1) or (len(ds_ref.lat) > 1)
         elif cfg.dim_longitude in ds_ref.dims:
-            subset_center = (len(ds_ref.longitude) > 1) or (len(ds_ref.latitude) > 1)
-        if subset_center:
-            ds_ref = utils.subset_center(ds_ref)
-            ds_fut = utils.subset_center(ds_fut)
+            subset_ctrl_pt = (len(ds_ref.longitude) > 1) or (len(ds_ref.latitude) > 1)
+        if subset_ctrl_pt:
+            if cfg.d_bounds == "":
+                ds_ref = utils.subset_ctrl_pt(ds_ref)
+                ds_fut = utils.subset_ctrl_pt(ds_fut)
+            else:
+                ds_ref = utils.squeeze_lon_lat(ds_ref)
+                ds_fut = utils.squeeze_lon_lat(ds_fut)
 
     # Conversion coefficients.
     coef = 1
@@ -1057,9 +1066,12 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
                 # Load dataset.
                 ds = utils.open_netcdf(p_sim_list[i_sim]).squeeze()
 
-                # Select the center cell.
+                # Select control point.
                 if cfg.opt_ra:
-                    ds = utils.subset_center(ds)
+                    if cfg.d_bounds == "":
+                        ds = utils.subset_ctrl_pt(ds)
+                    else:
+                        ds = utils.squeeze_lon_lat(ds)
 
                 # First and last years.
                 year_1 = int(str(ds.time.values[0])[0:4])

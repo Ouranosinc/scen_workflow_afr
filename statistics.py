@@ -99,9 +99,12 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
 
-        # Select specific location.
+        # Select control point.
         if cfg.opt_ra:
-            ds = utils.subset_center(ds)
+            if cfg.d_bounds == "":
+                ds = utils.subset_ctrl_pt(ds)
+            else:
+                ds = utils.squeeze_lon_lat(ds)
 
         # Records values.
         # Simulation data is assumed to be complete.
