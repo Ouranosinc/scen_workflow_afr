@@ -103,8 +103,13 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         # Select years and adjust units.
         years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
-        if units == cfg.unit_K:
-            ds = ds - cfg.d_KC
+        if cfg.attrs_units in ds[var_or_idx].attrs:
+            if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
+               (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
+                    ds = ds - cfg.d_KC
+                    ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
+            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                ds = ds * cfg.spd
 
         # Select control point.
         if cfg.opt_ra:
@@ -253,7 +258,10 @@ def calc_stats(cat: str):
                 if rcp == cfg.rcp_ref:
                     hors = [cfg.per_ref]
                     cat_rcp = cfg.cat_obs
-                    d = os.path.dirname(cfg.get_p_obs(stn, var_or_idx))
+                    if cat == cfg.cat_scen:
+                        d = os.path.dirname(cfg.get_p_obs(stn, var_or_idx))
+                    else:
+                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
                 else:
                     hors = cfg.per_hors
                     if cat == cfg.cat_scen:
@@ -298,13 +306,6 @@ def calc_stats(cat: str):
                                       (year_n - year_1 + 1)
                             else:
                                 val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var_or_idx].mean())
-
-                            # Convert units.
-                            if (cat == cfg.cat_scen) and (rcp != cfg.rcp_ref) and \
-                               (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
-                                val = val - cfg.d_KC
-                            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                                val = val * cfg.spd
 
                             # Add row.
                             stn_list.append(stn)
