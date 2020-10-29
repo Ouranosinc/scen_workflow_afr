@@ -836,8 +836,6 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             if not os.path.exists(p_itp):
                 return
             ds_itp = utils.open_netcdf(p_itp)
-            if cfg.d_bounds != "":
-                ds_itp = utils.subset_shape(ds_itp)
 
         # Future period.
         else:
@@ -874,6 +872,10 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             ds_itp[var_or_idx] = ds_itp[var_or_idx] / float(n_sim)
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
 
+        # Clip.
+        if cfg.d_bounds != "":
+            ds_itp = utils.subset_shape(ds_itp, var_or_idx)
+
         # Adjust units.
         if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
            (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
@@ -899,10 +901,6 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
                 del ds_itp[cfg.dim_lon]
                 ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_lat]
                 del ds_itp[cfg.dim_lat]
-
-        # Clip.
-        if cfg.d_bounds != "":
-            ds_itp = utils.subset_shape(ds_itp)
 
         grid_x = None
         grid_y = None
@@ -930,7 +928,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             coef = cfg.spd
 
         # Plot.
-        cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + "/" + cat + "/"
+        cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + "/" + cat
         p_fig = cfg.get_d_scen("", cat_fig, "") +\
             var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")

@@ -982,7 +982,7 @@ def copy_attributes(ds_from: Union[xr.Dataset, xr.Dataset], ds_to: Union[xr.Data
     return ds_to
 
 
-def subset_shape(ds: xr.Dataset) -> xr.Dataset:
+def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -992,6 +992,8 @@ def subset_shape(ds: xr.Dataset) -> xr.Dataset:
     ----------
     ds_from: xr.Dataset
         Dataset.
+    var : str
+        Variable.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1001,6 +1003,9 @@ def subset_shape(ds: xr.Dataset) -> xr.Dataset:
             if (cfg.dim_lon not in list(ds.dims)) and (cfg.dim_rlon in list(ds.dims)):
                 ds = ds.rename({cfg.dim_rlon: cfg.dim_lon, cfg.dim_rlat: cfg.dim_lat})
                 reset_rlon_rlat = True
+            if var != "":
+                if cfg.attrs_gmap not in ds[var].attrs:
+                    ds[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
             ds = subset.subset_shape(ds, cfg.d_bounds)
             if reset_rlon_rlat:
                 ds = ds.rename({cfg.dim_lon: cfg.dim_rlon, cfg.dim_lat: cfg.dim_rlat})
