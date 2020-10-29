@@ -40,6 +40,7 @@ import scenarios
 import scenarios_calib as scen_calib
 import statistics as stat
 import utils
+import warnings
 
 
 def load_params(p_ini: str):
@@ -352,21 +353,15 @@ def main():
     # Initialization.
     scen_calib.init_calib_params()
 
-    # Calculation of scenarios.
-    scenarios.run()
+    # Steps #2-5,8: Production of scenarios.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        scenarios.run()
 
-    # DEBUG: This following statement is optional. It is useful to verify the generated NetCDF files.
-    # DEBUG: import scenarios_verif as scen_verif
-    # DEBUG: scen_verif.run()
-
-    # Step #6: Indices -------------------------------------------------------------------------------------------------
-
-    # Calculation of indices.
+    # Steps #6,8: Calculation of indices.
     indices.run()
 
-    # Step #7: Statistics ----------------------------------------------------------------------------------------------
-
-    # Calculation of statistics.
+    # Step #7: Calculation of statistics
     stat.run()
 
     utils.log("=")
