@@ -19,6 +19,7 @@ import os
 import pandas as pd
 import re
 import xarray as xr
+import warnings
 from cmath import rect, phase
 from collections import defaultdict
 from itertools import compress
@@ -655,7 +656,9 @@ def save_plot(plt: matplotlib.pyplot, p: str, desc=""):
         os.remove(p)
 
     # Create PNG file.
-    plt.savefig(p)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UserWarning)
+        plt.savefig(p)
 
     if cfg.opt_trace:
         log("Saving plot", True)
