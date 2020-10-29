@@ -50,6 +50,8 @@ The following features are currently being implemented:
 - compatibility with gridded data (not only at a station);
 - generation of maps for climate variables (interpolation);
 - implementation of parallel processing for computationally expensive steps;
+- clipping of scenario and index results if region boundaries are specified (in a .geojson file);
+- calculation of statistics based on region boundaries (.geojson file) if reanalysis data is provided;
 - conversion of NetCDF to .csv and .geotiff files.
 
 ## Contributing
