@@ -699,7 +699,7 @@ def save_csv(df: pd.DataFrame, p: str, desc=""):
         log("Saved CSV file", True)
 
 
-def squeeze_lon_lat(ds: xr.Dataset) -> xr.Dataset:
+def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var: str = "") -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -708,22 +708,37 @@ def squeeze_lon_lat(ds: xr.Dataset) -> xr.Dataset:
 
     Parameters
     ----------
-    ds : xr.Dataset
-        Dataset.
+    ds : Union[xr.Dataset, xr.Dataset]
+        Dataset or DataArray.
+    var : str
+        Variable.
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    ds_squeeze = ds
+
+    # Squeeze data.
     if cfg.dim_lon in ds.dims:
-        ds = ds.mean([cfg.dim_lon, cfg.dim_lat])
+        ds_squeeze = ds.mean([cfg.dim_lon, cfg.dim_lat])
     elif cfg.dim_rlon in ds.dims:
-        ds = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
+        ds_squeeze = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
     elif cfg.dim_longitude in ds.dims:
-        ds = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
+        ds_squeeze = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
 
-    return ds
+    # Transfer units.
+    # TODO: This should be put in a separate function. Other attributes could be transferred.
+    if cfg.attrs_units in ds.attrs:
+        if isinstance(ds, xr.Dataset):
+            ds_squeeze[cfg.attrs_units] = ds[cfg.attrs_units]
+        else:
+            ds_squeeze.attrs[cfg.attrs_units] = ds.attrs[cfg.attrs_units]
+    if isinstance(ds, xr.Dataset) and (cfg.attrs_units in ds.attrs) and (var != ""):
+        ds_squeeze[var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
+
+    return ds_squeeze
 
 
-def subset_ctrl_pt(ds: xr.Dataset) -> xr.Dataset:
+def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -731,8 +746,8 @@ def subset_ctrl_pt(ds: xr.Dataset) -> xr.Dataset:
 
     Parameters
     ----------
-    ds : xr.Dataset
-        Dataset.
+    ds : Union[xr.Dataset, xr.Dataset]
+        Dataset or DataArray.
     --------------------------------------------------------------------------------------------------------------------
     """
 

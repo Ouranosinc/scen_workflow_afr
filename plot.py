@@ -138,30 +138,30 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     """
 
     # Load datasets.
-    ds_stn = utils.open_netcdf(p_stn)[var]
-    if cfg.dim_longitude in ds_stn.dims:
-        ds_stn = ds_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
-    ds_fut = utils.open_netcdf(p_fut)[var]
-    ds_qqmap = utils.open_netcdf(p_qqmap)[var]
+    da_stn = utils.open_netcdf(p_stn)[var]
+    if cfg.dim_longitude in da_stn.dims:
+        da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
+    da_fut = utils.open_netcdf(p_fut)[var]
+    da_qqmap = utils.open_netcdf(p_qqmap)[var]
 
     # Select control point.
     if cfg.opt_ra:
         subset_ctrl_pt = False
-        if cfg.dim_rlon in ds_stn.dims:
-            subset_ctrl_pt = (len(ds_stn.rlon) > 1) or (len(ds_stn.rlat) > 1)
-        elif cfg.dim_lon in ds_stn.dims:
-            subset_ctrl_pt = (len(ds_stn.lon) > 1) or (len(ds_stn.lat) > 1)
-        elif cfg.dim_longitude in ds_stn.dims:
-            subset_ctrl_pt = (len(ds_stn.longitude) > 1) or (len(ds_stn.latitude) > 1)
+        if cfg.dim_rlon in da_stn.dims:
+            subset_ctrl_pt = (len(da_stn.rlon) > 1) or (len(da_stn.rlat) > 1)
+        elif cfg.dim_lon in da_stn.dims:
+            subset_ctrl_pt = (len(da_stn.lon) > 1) or (len(da_stn.lat) > 1)
+        elif cfg.dim_longitude in da_stn.dims:
+            subset_ctrl_pt = (len(da_stn.longitude) > 1) or (len(da_stn.latitude) > 1)
         if subset_ctrl_pt:
             if cfg.d_bounds == "":
-                ds_stn   = utils.subset_ctrl_pt(ds_stn)
-                ds_fut   = utils.subset_ctrl_pt(ds_fut)
-                ds_qqmap = utils.subset_ctrl_pt(ds_qqmap)
+                da_stn   = utils.subset_ctrl_pt(da_stn)
+                da_fut   = utils.subset_ctrl_pt(da_fut)
+                da_qqmap = utils.subset_ctrl_pt(da_qqmap)
             else:
-                ds_stn   = utils.squeeze_lon_lat(ds_stn)
-                ds_fut   = utils.squeeze_lon_lat(ds_fut)
-                ds_qqmap = utils.squeeze_lon_lat(ds_qqmap)
+                da_stn   = utils.squeeze_lon_lat(da_stn)
+                da_fut   = utils.squeeze_lon_lat(da_fut)
+                da_qqmap = utils.squeeze_lon_lat(da_qqmap)
 
     # Weather variable description and unit.
     var_desc = cfg.get_var_desc(var)
@@ -175,11 +175,11 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd * 365
     elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        if ds_stn.units == "K":
+        if da_stn.units == cfg.unit_K:
             delta_stn = -cfg.d_KC
-        if ds_fut.units == "K":
+        if da_fut.units == cfg.unit_K:
             delta_fut = -cfg.d_KC
-        if ds_qqmap.units == "K":
+        if da_qqmap.units == cfg.unit_K:
             delta_qqmap = -cfg.d_KC
 
     # Plot.
@@ -190,11 +190,11 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     fs_legend = 8
     fs_axes = 8
     legend_items = ["Simulation", "Observation"]
-    if ds_qqmap is not None:
+    if da_qqmap is not None:
         legend_items.insert(0, "Sim. ajustée")
-        (ds_qqmap * coef + delta_qqmap).groupby(ds_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
-    (ds_fut * coef + delta_fut).groupby(ds_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
-    (ds_stn * coef + delta_stn).groupby(ds_stn.time.dt.year).mean().plot(color=cfg.col_obs)
+        (da_qqmap * coef + delta_qqmap).groupby(da_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
+    (da_fut * coef + delta_fut).groupby(da_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
+    (da_stn * coef + delta_stn).groupby(da_stn.time.dt.year).mean().plot(color=cfg.col_obs)
 
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
