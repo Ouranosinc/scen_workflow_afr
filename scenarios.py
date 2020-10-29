@@ -28,7 +28,6 @@ import scenarios_calib
 import utils
 import xarray as xr
 import xarray.core.variable as xcv
-import clisops.core.subset as subset
 from qm import train, predict
 from scipy.interpolate import griddata
 
@@ -451,16 +450,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
 
             # Clip to geographic boundaries.
             if cfg.d_bounds != "":
-                try:
-                    reset_rlon_rlat = False
-                    if cfg.dim_lon not in list(ds_regrid.dims):
-                        ds_regrid = ds_regrid.rename({cfg.dim_rlon: cfg.dim_lon, cfg.dim_rlat: cfg.dim_lat})
-                        reset_rlon_rlat = True
-                    ds_regrid = subset.subset_shape(ds_regrid, cfg.d_bounds)
-                    if reset_rlon_rlat:
-                        ds_regrid = ds_regrid.rename({cfg.dim_lon: cfg.dim_rlon, cfg.dim_lat: cfg.dim_rlat})
-                except TypeError:
-                    utils.log("Unable to use a mask.", True)
+                ds_regrid = utils.subset_shape(ds_regrid)
 
         # Method 2: Take nearest information.
         else:

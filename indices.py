@@ -167,7 +167,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                 # Create dataset.
                 # For unknown reason, we cannot assign units to the data array (the saved NetCDF file will not open).
                 ds_idx = da_idx.to_dataset()
-                ds_idx[cfg.attrs_units] = idx_units
+                ds_idx.attrs[cfg.attrs_units] = idx_units
                 if "dim_0" in list(ds_idx.dims):
                     ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
                 if "dim_1" in list(ds_idx.dims):
@@ -177,6 +177,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                     ds_idx = ds_idx.expand_dims(lat=1)
                 ds_idx.attrs[cfg.attrs_sname] = idx_name
                 ds_idx.attrs[cfg.attrs_lname] = idx_name
+                ds_idx = utils.copy_coordinates(ds_scen[0], ds_idx)
+                ds_idx[idx_name] = utils.copy_coordinates(ds_scen[0][vars[0]], ds_idx[idx_name])
 
                 # Adjust calendar.
                 year_1 = cfg.per_fut[0]

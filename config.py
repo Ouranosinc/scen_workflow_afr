@@ -418,7 +418,7 @@ def get_idx_desc(idx_name: str, idx_threshs_loc: [[float]]):
     # ==========================================================
 
     if idx_name == idx_tx_days_above:
-        idx_desc = "Nombre de jours avec " + get_var_desc(var_cordex_tasmax).lower() + " > " +\
+        idx_desc = "Nbr. jours où " + get_var_desc(var_cordex_tasmax).lower() + " > " +\
             str(idx_threshs_loc[0])
 
     # ==========================================================

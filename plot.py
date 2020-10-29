@@ -243,25 +243,25 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     var_unit = cfg.get_var_unit(var)
 
     # Load datasets.
-    ds_ref = utils.open_netcdf(p_regrid_ref)[var]
-    ds_fut = utils.open_netcdf(p_regrid_fut)[var]
+    da_ref = utils.open_netcdf(p_regrid_ref)[var]
+    da_fut = utils.open_netcdf(p_regrid_fut)[var]
 
     # Select control point.
     if cfg.opt_ra:
         subset_ctrl_pt = False
-        if cfg.dim_rlon in ds_ref.dims:
-            subset_ctrl_pt = (len(ds_ref.rlon) > 1) or (len(ds_ref.rlat) > 1)
-        elif cfg.dim_lon in ds_ref.dims:
-            subset_ctrl_pt = (len(ds_ref.lon) > 1) or (len(ds_ref.lat) > 1)
-        elif cfg.dim_longitude in ds_ref.dims:
-            subset_ctrl_pt = (len(ds_ref.longitude) > 1) or (len(ds_ref.latitude) > 1)
+        if cfg.dim_rlon in da_ref.dims:
+            subset_ctrl_pt = (len(da_ref.rlon) > 1) or (len(da_ref.rlat) > 1)
+        elif cfg.dim_lon in da_ref.dims:
+            subset_ctrl_pt = (len(da_ref.lon) > 1) or (len(da_ref.lat) > 1)
+        elif cfg.dim_longitude in da_ref.dims:
+            subset_ctrl_pt = (len(da_ref.longitude) > 1) or (len(da_ref.latitude) > 1)
         if subset_ctrl_pt:
             if cfg.d_bounds == "":
-                ds_ref = utils.subset_ctrl_pt(ds_ref)
-                ds_fut = utils.subset_ctrl_pt(ds_fut)
+                da_ref = utils.subset_ctrl_pt(da_ref)
+                da_fut = utils.subset_ctrl_pt(da_fut)
             else:
-                ds_ref = utils.squeeze_lon_lat(ds_ref)
-                ds_fut = utils.squeeze_lon_lat(ds_fut)
+                da_ref = utils.squeeze_lon_lat(da_ref)
+                da_fut = utils.squeeze_lon_lat(da_fut)
 
     # Conversion coefficients.
     coef = 1
@@ -270,14 +270,14 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd
     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        if ds_ref.units == cfg.unit_K:
+        if da_ref.units == cfg.unit_K:
             delta_ref = -cfg.d_KC
-        if ds_fut.units == cfg.unit_K:
+        if da_fut.units == cfg.unit_K:
             delta_fut = -cfg.d_KC
 
     # Fit.
-    x     = [*range(len(ds_ref.time))]
-    y     = (ds_ref * coef + delta_ref).values
+    x     = [*range(len(da_ref.time))]
+    y     = (da_ref * coef + delta_ref).values
     coefs = poly.polyfit(x, y, 4)
     ffit  = poly.polyval(x, coefs)
 
@@ -294,13 +294,13 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     # Convert date format if the need is.
-    if ds_ref.time.dtype == cfg.dtype_obj:
-        ds_ref[cfg.dim_time] = utils.reset_calendar(ds_ref)
+    if da_ref.time.dtype == cfg.dtype_obj:
+        da_ref[cfg.dim_time] = utils.reset_calendar(da_ref)
 
     # Upper plot: Reference period.
     f.add_subplot(211)
-    plt.plot(ds_ref.time, y, color=cfg.col_sim_ref)
-    plt.plot(ds_ref.time, ffit, color="black")
+    plt.plot(da_ref.time, y, color=cfg.col_sim_ref)
+    plt.plot(da_ref.time, ffit, color="black")
     plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
@@ -310,7 +310,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 
     # Lower plot: Complete simulation.
     f.add_subplot(212)
-    arr_y_detrend = signal.detrend(ds_fut * coef + delta_fut)
+    arr_y_detrend = signal.detrend(da_fut * coef + delta_fut)
     arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
     arr_y_error  = (y - ffit)
     arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
@@ -827,12 +827,17 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
     else:
 
         # Reference period.
-        p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"
+        if var_or_idx in cfg.variables_cordex:
+            p_itp_ref = cfg.get_d_scen(cfg.obs_src, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + cfg.obs_src + ".nc"
+        else:
+            p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"
         if rcp == cfg.rcp_ref:
             p_itp = p_itp_ref
             if not os.path.exists(p_itp):
                 return
             ds_itp = utils.open_netcdf(p_itp)
+            if cfg.d_bounds != "":
+                ds_itp = utils.subset_shape(ds_itp)
 
         # Future period.
         else:
@@ -862,7 +867,6 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
                         else:
                             units = 1
                     else:
-                        # ds_itp = ds_itp.load() + ds_sim.load()
                         ds_itp[var_or_idx] = ds_itp[var_or_idx] + ds_sim[var_or_idx]
                     n_sim = n_sim + 1
             if ds_itp is None:
@@ -895,6 +899,10 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
                 del ds_itp[cfg.dim_lon]
                 ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_lat]
                 del ds_itp[cfg.dim_lat]
+
+        # Clip.
+        if cfg.d_bounds != "":
+            ds_itp = utils.subset_shape(ds_itp)
 
         grid_x = None
         grid_y = None
@@ -965,7 +973,7 @@ def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x:
 
     if var_or_idx == cfg.idx_tx_days_above:
         title = cfg.get_idx_desc(var_or_idx, threshs) + cfg.get_var_unit(cfg.var_cordex_tasmax)
-        label = "Nombre de jours"
+        label = "Nbr. jours"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END
@@ -1027,7 +1035,7 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
     """
 
     # Emission scenarios.
-    rcps = cfg.rcps + [cfg.rcp_ref]
+    rcps = [cfg.rcp_ref] + cfg.rcps
 
     # Determine category.
     cat = cfg.cat_scen if var_or_idx in cfg.variables_cordex else cfg.cat_idx
@@ -1050,7 +1058,10 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
 
             # List files.
             if rcp == cfg.rcp_ref:
-                p_sim_list = [cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"]
+                if var_or_idx in cfg.variables_cordex:
+                    p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + cfg.obs_src + ".nc"]
+                else:
+                    p_sim_list = [cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"]
             else:
                 if var_or_idx in cfg.variables_cordex:
                     d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
@@ -1074,7 +1085,7 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
                     if cfg.d_bounds == "":
                         ds = utils.subset_ctrl_pt(ds)
                     else:
-                        ds = utils.squeeze_lon_lat(ds)
+                        ds = utils.squeeze_lon_lat(ds, var_or_idx)
 
                 # First and last years.
                 year_1 = int(str(ds.time.values[0])[0:4])
@@ -1091,7 +1102,7 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
                 ds = ds.sel(time=slice(years_str[0], years_str[1]))
 
                 # Remember units.
-                units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds[cfg.attrs_units]
+                units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds.attrs[cfg.attrs_units]
                 if units == "degree_C":
                     units = cfg.unit_C
 

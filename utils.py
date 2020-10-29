@@ -8,6 +8,7 @@
 # (C) 2020 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+import clisops.core.subset as subset
 import config as cfg
 import datetime
 import glob
@@ -726,14 +727,7 @@ def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var: str = "") -> Union[x
         ds_squeeze = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
 
     # Transfer units.
-    # TODO: This should be put in a separate function. Other attributes could be transferred.
-    if cfg.attrs_units in ds.attrs:
-        if isinstance(ds, xr.Dataset):
-            ds_squeeze[cfg.attrs_units] = ds[cfg.attrs_units]
-        else:
-            ds_squeeze.attrs[cfg.attrs_units] = ds.attrs[cfg.attrs_units]
-    if isinstance(ds, xr.Dataset) and (cfg.attrs_units in ds.attrs) and (var != ""):
-        ds_squeeze[var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
+    ds_squeeze = copy_attributes(ds, ds_squeeze, var)
 
     return ds_squeeze
 
@@ -958,3 +952,59 @@ def copy_coordinates(ds_from: Union[xr.Dataset, xr.DataArray], ds_to: Union[xr.D
         ds_to[cfg.dim_lat] = lat_vals
 
     return ds_to
+
+
+def copy_attributes(ds_from: Union[xr.Dataset, xr.Dataset], ds_to: Union[xr.Dataset, xr.Dataset], var: str = "") -> \
+        Union[xr.Dataset, xr.Dataset]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Copy attributes.
+    TODO: Other attributes should be transferred as well.
+
+    Parameters
+    ----------
+    ds_from: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray to copy coordinates from.
+    ds_to: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray to copy coordinates to.
+    var : str
+        Variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if cfg.attrs_units in ds_from.attrs:
+        ds_to.attrs[cfg.attrs_units] = ds_from.attrs[cfg.attrs_units]
+    if isinstance(ds_from, xr.Dataset) and (var in ds_from.data_vars):
+        if cfg.attrs_units in ds_from[var].attrs:
+            ds_to[var].attrs[cfg.attrs_units] = ds_from[var].attrs[cfg.attrs_units]
+
+    return ds_to
+
+
+def subset_shape(ds: xr.Dataset) -> xr.Dataset:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Subset based on a shape.
+
+    Parameters
+    ----------
+    ds_from: xr.Dataset
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if cfg.d_bounds != "":
+        try:
+            reset_rlon_rlat = False
+            if (cfg.dim_lon not in list(ds.dims)) and (cfg.dim_rlon in list(ds.dims)):
+                ds = ds.rename({cfg.dim_rlon: cfg.dim_lon, cfg.dim_rlat: cfg.dim_lat})
+                reset_rlon_rlat = True
+            ds = subset.subset_shape(ds, cfg.d_bounds)
+            if reset_rlon_rlat:
+                ds = ds.rename({cfg.dim_lon: cfg.dim_rlon, cfg.dim_lat: cfg.dim_rlat})
+        except TypeError:
+            log("Unable to use a mask.", True)
+
+    return ds
