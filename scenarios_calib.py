@@ -18,6 +18,7 @@ import pandas as pd
 import scenarios as scen
 import utils
 import xarray as xr
+import warnings
 
 
 def bias_correction(stn: str, var: str, sim_name: str = ""):
@@ -110,8 +111,10 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                           ", time_win=" + str(time_win) + " is "
                     if not (os.path.exists(p_fig) or os.path.exists(p_fig_ts)):
                         utils.log(msg + "running", True)
-                        scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf,
-                                         title, p_fig)
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", category=RuntimeWarning)
+                            scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap,
+                                             p_qmf, title, p_fig)
                     else:
                         utils.log(msg + "not required", True)
 

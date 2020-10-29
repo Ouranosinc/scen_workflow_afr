@@ -28,6 +28,7 @@ import scenarios_calib
 import utils
 import xarray as xr
 import xarray.core.variable as xcv
+import warnings
 from qm import train, predict
 from scipy.interpolate import griddata
 
@@ -1122,8 +1123,9 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     msg = "Step #5bc Statistical downscaling and bias adjustment is "
     if not(os.path.isfile(p_qqmap)) or not(os.path.isfile(p_qmf)):
         utils.log(msg + "running")
-        postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut,
-                    p_qqmap, p_qmf)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf)
     else:
         utils.log(msg + "not required")
 

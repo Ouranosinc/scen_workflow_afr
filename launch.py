@@ -40,7 +40,6 @@ import scenarios
 import scenarios_calib as scen_calib
 import statistics as stat
 import utils
-import warnings
 
 
 def load_params(p_ini: str):
@@ -354,9 +353,7 @@ def main():
     scen_calib.init_calib_params()
 
     # Steps #2-5,8: Production of scenarios.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        scenarios.run()
+    scenarios.run()
 
     # Steps #6,8: Calculation of indices.
     indices.run()
