@@ -384,7 +384,9 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     img1 = ax.imshow(da_qmf, extent=[0, 1, 365, 1], cmap="coolwarm")
     cb = f.colorbar(img1, ax=ax)
     # cb.set_label("Ajustement", fontsize=fs_axes)
-    cb.ax.set_yticklabels(cb.ax.get_yticks(), fontsize=fs_axes)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UserWarning)
+        cb.ax.set_yticklabels(cb.ax.get_yticks(), fontsize=fs_axes)
     cb.ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.2e"))
     plt.title("QMF", fontsize=fs_title)
     plt.xlabel("Quantile", fontsize=fs_axes)
