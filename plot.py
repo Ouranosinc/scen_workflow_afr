@@ -1160,7 +1160,8 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
         if cfg.opt_plot and (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
 
             # Time series with simulations grouped by RCP scenario.
-            p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/", "") + var_or_idx + "_" + stn + "_rcp.png"
+            cat_fig = cfg.cat_fig + "/" + cat + "/" + var_or_idx + "/"
+            p_fig = cfg.get_d_scen(stn, cat_fig, "") + var_or_idx + "_" + stn + "_rcp.png"
             plot_ts_spec(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx, threshs,
                          rcps, ylim, p_fig, 1)
 
