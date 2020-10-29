@@ -920,7 +920,8 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             coef = cfg.spd
 
         # Plot.
-        p_fig = cfg.get_d_scen("", cfg.cat_fig + "/" + cat, "") +\
+        cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + "/" + cat + "/"
+        p_fig = cfg.get_d_scen("", cat_fig, "") +\
             var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
@@ -1146,7 +1147,7 @@ def plot_ts(var_or_idx: str, threshs: [float] = None):
         if cfg.opt_plot and (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
 
             # Time series with simulations grouped by RCP scenario.
-            p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat, "") + var_or_idx + "_" + stn + "_rcp.png"
+            p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/", "") + var_or_idx + "_" + stn + "_rcp.png"
             plot_ts_spec(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx, threshs,
                          rcps, ylim, p_fig, 1)
 
