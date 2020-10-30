@@ -203,6 +203,9 @@ d_res              = ""             # Results.
 d_exec              = ""            # Base directory #3 (stations and output).
 d_ra_day            = ""            # Reanalysis set (aggregated frequency, i.e. daily).
 
+# File option.
+opt_force_overwrite = False         # If True, all NetCDF files and calibration diagrams will be overwritten.
+
 # Log file.
 p_log               = ""            # Log file (date and time).
 log_n_blank         = 10            # Number of blanks at the beginning of a message.

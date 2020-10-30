@@ -64,7 +64,7 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             p_day_stat = dir_day + var + "/" + fn_day
 
         # Aggregate only if output file does not exist.
-        if not(os.path.exists(p_day_stat)):
+        if (not os.path.exists(p_day_stat)) or cfg.opt_force_overwrite:
 
             # Aggregation.
             ds_day = None
@@ -254,13 +254,14 @@ def run():
                 p_raw_sh  = p_raw
                 p_raw_d2m = p_raw_sh.replace(cfg.var_era5_sh, cfg.var_era5_d2m)
                 p_raw_sp  = p_raw_sh.replace(cfg.var_era5_sh, cfg.var_era5_sp)
-                if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and not os.path.exists(p_raw_sh):
+                if (os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and not os.path.exists(p_raw_sh)) or\
+                   cfg.opt_force_overwrite:
                     gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
 
             # Perform aggregation.
             else:
                 p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
-                if not os.path.exists(p_day):
+                if (not os.path.exists(p_day)) or cfg.opt_force_overwrite:
                     aggregate(p_raw, p_day, cfg.obs_src, var)
 
 

@@ -210,7 +210,7 @@ def load_reanalysis(var_ra: str):
     if not (os.path.isdir(d_stn)):
         os.makedirs(d_stn)
 
-    if not os.path.exists(p_stn):
+    if (not os.path.exists(p_stn)) or cfg.opt_force_overwrite:
 
         # Combine datasets.
         ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time)
@@ -373,8 +373,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
     utils.log("Loading data from NetCDF file (raw, w/o interpolation)", True)
 
     # Load dataset.
-    ds_raw = utils.open_netcdf(p_raw).copy()
-    utils.close_netcdf(ds_raw)
+    ds_raw = utils.open_netcdf(p_raw)
 
     msg = "Temporal interpolation is "
 
@@ -400,7 +399,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
 
     msg = "Spatial interpolation is "
 
-    if not os.path.exists(p_regrid):
+    if (not os.path.exists(p_regrid)) or cfg.opt_force_overwrite:
 
         msg = msg + "running"
         utils.log(msg, True)
@@ -531,7 +530,7 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
 
     # Observations -----------------------------------------------------------------------------------------------------
 
-    if not os.path.exists(p_obs):
+    if (not os.path.exists(p_obs)) or cfg.opt_force_overwrite:
 
         # Drop February 29th and keep reference period.
         ds_obs = utils.remove_feb29(ds_stn)
@@ -547,7 +546,7 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
 
     # Simulated climate (future period) --------------------------------------------------------------------------------
 
-    if os.path.exists(p_regrid_fut):
+    if os.path.exists(p_regrid_fut) and (not cfg.opt_force_overwrite):
 
         ds_regrid_fut = utils.open_netcdf(p_regrid_fut)
 
@@ -577,7 +576,7 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
 
-    if not os.path.exists(p_regrid_ref):
+    if (not os.path.exists(p_regrid_ref)) or cfg.opt_force_overwrite:
 
         # Select reference period.
         ds_regrid_ref = utils.sel_period(ds_regrid_fut, cfg.per_ref)
@@ -673,7 +672,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
     # Quantile Mapping Function ----------------------------------------------------------------------------------------
 
     # Load transfer function.
-    if (p_qmf != "") and os.path.exists(p_qmf):
+    if (p_qmf != "") and os.path.exists(p_qmf) and (not cfg.opt_force_overwrite):
         ds_qmf = utils.open_netcdf(p_qmf)
 
     # Calculate transfer function.
@@ -695,7 +694,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
     # Quantile Mapping -------------------------------------------------------------------------------------------------
 
     # Load quantile mapping.
-    if (p_qqmap != "") and os.path.exists(p_qqmap):
+    if (p_qqmap != "") and os.path.exists(p_qqmap) and (not cfg.opt_force_overwrite):
         ds_qqmap = utils.open_netcdf(p_qqmap)
 
     # Apply transfer function.
@@ -1061,7 +1060,7 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # This step only works in scalar mode.
     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/
     msg = "Step #3   Extraction is "
-    if not os.path.isfile(p_raw):
+    if (not os.path.isfile(p_raw)) or cfg.opt_force_overwrite:
         utils.log(msg + "running")
         extract(var, ds_stn, d_sim_ref, d_sim_fut, p_raw)
     else:
@@ -1075,7 +1074,7 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # This modifies one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
     #      creates  one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
     msg = "Step #4   Spatial and temporal interpolation is "
-    if not os.path.isfile(p_regrid):
+    if (not os.path.isfile(p_regrid)) or cfg.opt_force_overwrite:
         utils.log(msg + "running")
         interpolate(var, ds_stn, p_raw, p_regrid)
     else:
@@ -1087,7 +1086,8 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # This creates two .nc files in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
     utils.log("-")
     msg = "Step #4.5 Pre-processing is "
-    if not(os.path.isfile(p_obs)) or not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut)):
+    if (not(os.path.isfile(p_obs)) or not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut))) or\
+       cfg.opt_force_overwrite:
         utils.log(msg + "running")
         preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut)
     else:
@@ -1121,7 +1121,7 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
     utils.log("-")
     msg = "Step #5bc Statistical downscaling and bias adjustment is "
-    if not(os.path.isfile(p_qqmap)) or not(os.path.isfile(p_qmf)):
+    if (not(os.path.isfile(p_qqmap)) or not(os.path.isfile(p_qmf))) or cfg.opt_force_overwrite:
         utils.log(msg + "running")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)

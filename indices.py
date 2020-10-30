@@ -107,7 +107,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                 else:
                     p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
                             os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
-                if os.path.exists(p_idx):
+                if os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
                     continue
 
                 # Load datasets (one per variable).

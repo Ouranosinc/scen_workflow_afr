@@ -415,7 +415,7 @@ def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
     # Paths.
     p = p_list[i_file]
     p_csv = p.replace("/" + var_or_idx + "/", "/" + var_or_idx + "_csv/").replace(".nc", ".csv")
-    if os.path.exists(p_csv):
+    if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
         return()
 
     # Open dataset.

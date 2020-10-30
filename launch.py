@@ -207,6 +207,8 @@ def load_params(p_ini: str):
                 cfg.d_ra_day = ast.literal_eval(value)
             elif key == "opt_trace":
                 cfg.opt_trace = ast.literal_eval(value)
+            elif key == "opt_force_overwrite":
+                cfg.opt_force_overwrite = ast.literal_eval(value)
 
 
 def main():
