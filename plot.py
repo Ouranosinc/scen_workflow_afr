@@ -920,7 +920,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             year_n = per_hor[1] - cfg.per_ref[1]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            ds_hor = ds_itp[var_or_idx][year_1:(year_n+1)][:][:].mean(cfg.dim_time, skipna=True)
+            da_hor = ds_itp[var_or_idx][year_1:(year_n+1)][:][:].mean(cfg.dim_time, skipna=True)
 
         # Conversion coefficient.
         coef = 1
@@ -929,12 +929,12 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
 
         # Plot.
         cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + "/" + cat
-        p_fig = cfg.get_d_scen("", cat_fig, "") +\
+        p_fig = cfg.get_d_scen("", cat_fig, var_or_idx) +\
             var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
-        plot_heatmap_spec(ds_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
+        plot_heatmap_spec(da_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
 
-def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
+def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
                       per: [int, int], p_fig: str, map_package: str):
 
     """
@@ -944,8 +944,8 @@ def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x:
 
     Parameters
     ----------
-    ds: xr.Dataset
-        Dataset (with 2 dimensions: longitude and latitude).
+    da: xr.DataArray
+        DataArray (with 2 dimensions: longitude and latitude).
     var_or_idx : str
         Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
     threshs : [float]
@@ -988,7 +988,7 @@ def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x:
     if map_package == "seaborn":
         sns.set()
         fig, ax = plt.subplots(figsize=(8, 5))
-        g = sns.heatmap(ax=ax, data=ds, xticklabels=grid_x, yticklabels=grid_y)
+        g = sns.heatmap(ax=ax, data=da, xticklabels=grid_x, yticklabels=grid_y)
         if grid_x is not None:
             x_labels = ['{:,.2f}'.format(i) for i in grid_x]
             g.set_xticklabels(x_labels)
@@ -999,7 +999,7 @@ def plot_heatmap_spec(ds: xr.Dataset, var_or_idx: str, threshs: [float], grid_x:
     # Using matplotlib.
     elif map_package == "matplotlib":
         fs = 10
-        ds.plot.pcolormesh(add_colorbar=True, add_labels=True,
+        da.plot.pcolormesh(add_colorbar=True, add_labels=True,
                            cbar_kwargs=dict(orientation='vertical', pad=0.05, shrink=1, label=label))
         plt.title(title)
         plt.suptitle("", fontsize=fs)

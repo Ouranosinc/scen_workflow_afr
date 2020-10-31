@@ -193,6 +193,8 @@ def load_params(p_ini: str):
                 cfg.opt_plot_heat = ast.literal_eval(value)
             elif key == "d_bounds":
                 cfg.d_bounds = ast.literal_eval(value)
+            elif key == "region":
+                cfg.region = ast.literal_eval(value)
 
             # ENVIRONMENT:
             elif key == "n_proc":
@@ -260,7 +262,7 @@ def main():
     utils.log("Variables (CORDEX)     : " + str(cfg.variables_cordex))
     for i in range(len(cfg.idx_names)):
         utils.log("Climate index #" + str(i + 1) + "       : " + cfg.idx_names[i] + str(cfg.idx_threshs[i]))
-    if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
+    if cfg.opt_ra:
         utils.log("Reanalysis set         : " + cfg.obs_src)
         utils.log("Variables (reanalysis) : " + str(cfg.variables_ra))
     else:
@@ -269,6 +271,8 @@ def main():
     utils.log("Reference period       : " + str(cfg.per_ref))
     utils.log("Future period          : " + str(cfg.per_fut))
     utils.log("Horizons               : " + str(cfg.per_hors))
+    if cfg.region != "":
+        utils.log("Region                 : " + cfg.region)
 
     # Step #2: Download and aggregation --------------------------------------------------------------------------------
 
@@ -286,7 +290,7 @@ def main():
     # Aggregate reanalysis data to daily frequency
     utils.log("=")
     msg = "Step #2b  Aggregation of hourly data is "
-    if cfg.opt_aggregate and ((cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land)):
+    if cfg.opt_aggregate and cfg.opt_ra:
         msg = msg + "running"
         utils.log(msg)
         aggregate.run()

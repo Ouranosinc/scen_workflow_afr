@@ -195,10 +195,10 @@ priority_timestep   = ["day"] * len(variables_cordex)
 d_proj              = ""            # Projections.
 d_ra_raw            = ""            # Reanalysis set (default frequency, usually hourly).
 d_bounds            = ""            # geog.json file comprising political boundaries.
-d_bounds_shp        = ""            # Shapefile comprising political boundaries.
+region              = ""            # Region name or acronym.
 # Output-only files and directories.
 d_stn               = ""            # Observations or reanalysis.
-d_res              = ""             # Results.
+d_res               = ""            # Results.
 # Input and output files and directories.
 d_exec              = ""            # Base directory #3 (stations and output).
 d_ra_day            = ""            # Reanalysis set (aggregated frequency, i.e. daily).
@@ -591,7 +591,7 @@ def get_d_scen(stn: str, category: str, var: str = ""):
 
     d = d_res
     if stn != "":
-        d = d + cat_stn + "/" + stn + "/"
+        d = d + cat_stn + "/" + stn + ("_" + region if region != "" else "") + "/"
     if category != "":
         d = d
         if (category == cat_obs) or (category == cat_raw) or (category == cat_regrid) or (category == cat_qqmap) or\
@@ -621,7 +621,7 @@ def get_d_idx(stn: str, var: str = ""):
 
     d = d_res
     if stn != "":
-        d = d + cat_stn + "/" + stn + "/"
+        d = d + cat_stn + "/" + stn + ("_" + region if region != "" else "") + "/"
     d = d + cat_idx + "/"
     if var != "":
         d = d + var + "/"
