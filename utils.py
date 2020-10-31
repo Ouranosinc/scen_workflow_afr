@@ -279,7 +279,7 @@ def calendar(x: Union[xr.Dataset, xr.DataArray], n_days_old=360, n_days_new=365)
     return ref_365
 
 
-def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, freq=cfg.freq_D):
+def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, freq=cfg.freq_D) -> pd.DatetimeIndex:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -298,22 +298,41 @@ def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, fr
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Extract year.
+    def extract_date(val) -> [int, int, int]:
+
+        try:
+            year  = val.year
+            month = val.month
+            day   = val.day
+        except:
+            year  = int(str(val)[0:4])
+            month = int(str(val)[5:7])
+            day   = int(str(val)[8:10])
+
+        return [year, month, day]
+
+    # First year.
     val_1 = ds.time.values[0]
-    val_n = ds.time.values[len(ds.time.values) - 1]
     if year_1 == -1:
-        try:
-            year_1 = val_1.year
-        except:
-            year_1 = int(str(val_1)[0:4])
+        year_1 = extract_date(val_1)[0]
+
+    # Last year.
+    val_n = ds.time.values[len(ds.time.values) - 1]
     if year_n == -1:
-        try:
-            year_n = val_n.year
-        except:
-            year_n = int(str(val_n)[0:4])
-    mult = 1
-    if freq == cfg.freq_D:
-        mult = 365
-    new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * mult, freq=freq)
+        year_n = extract_date(val_n)[0]
+
+    # Exactly the right number of time items.
+    n_time = len(ds.time.values)
+    if (freq != cfg.freq_D) or (n_time == ((year_n - year_1 + 1) * 365)):
+        mult = 365 if freq == cfg.freq_D else 1
+        new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * mult, freq=freq)
+    else:
+        arr_time = []
+        for val in ds.time.values:
+            ymd = extract_date(val)
+            arr_time.append(str(ymd[0]) + "-" + str(ymd[1]).rjust(2, "0") + "-" + str(ymd[2]).rjust(2, "0"))
+        new_time = pd.DatetimeIndex(arr_time, dtype="datetime64[ns]")
 
     return new_time
 

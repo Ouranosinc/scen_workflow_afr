@@ -498,7 +498,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7c  Conversion of NetCDF to CSV files is "
-    if cfg.opt_conv_nc_csv:
+    if cfg.opt_conv_nc_csv and not cfg.opt_ra:
 
         msg = msg + "running"
         utils.log(msg)
