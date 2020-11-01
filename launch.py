@@ -234,7 +234,7 @@ def main():
 
     # The following variables are determined automatically.
     d_base = cfg.d_exec + cfg.country + "/" + cfg.project + "/"
-    cfg.d_stn = d_base + cfg.cat_stn + "/" + cfg.obs_src + ("_" + cfg.region if cfg.region != "" else "") + "/"
+    cfg.d_stn = d_base + cfg.cat_stn + "/" + cfg.obs_src + ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "") + "/"
     cfg.d_res = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
     if cfg.d_bounds != "":
         cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
@@ -271,7 +271,7 @@ def main():
     utils.log("Reference period       : " + str(cfg.per_ref))
     utils.log("Future period          : " + str(cfg.per_fut))
     utils.log("Horizons               : " + str(cfg.per_hors))
-    if cfg.region != "":
+    if (cfg.region != "") and cfg.opt_ra:
         utils.log("Region                 : " + cfg.region)
 
     # Step #2: Download and aggregation --------------------------------------------------------------------------------

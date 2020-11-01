@@ -928,7 +928,8 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             coef = cfg.spd
 
         # Plot.
-        cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + "/" + cat
+        cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + \
+            ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "") + "/" + cat
         p_fig = cfg.get_d_scen("", cat_fig, var_or_idx) +\
             var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         plot_heatmap_spec(da_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
