@@ -234,7 +234,7 @@ def main():
 
     # The following variables are determined automatically.
     d_base = cfg.d_exec + cfg.country + "/" + cfg.project + "/"
-    cfg.d_stn = d_base + cfg.cat_stn + ("_" + cfg.region if cfg.region != "" else "") + "/" + cfg.obs_src + "/"
+    cfg.d_stn = d_base + cfg.cat_stn + "/" + cfg.obs_src + ("_" + cfg.region if cfg.region != "" else "") + "/"
     cfg.d_res = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
     if cfg.d_bounds != "":
         cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
