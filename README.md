@@ -44,15 +44,20 @@ The following features were added:
 - conversion of precipitation values (from kg m-2 s-1 to mm) in workflow and postprocess figures (time series).
 - correction of an anomaly during the calculation of statistics of precipitation. 
 
-## Upcoming features
+### v1.1.0
 
-The following features are currently being implemented:
 - compatibility with gridded data (not only at a station);
 - generation of maps for climate variables (interpolation);
 - implementation of parallel processing for computationally expensive steps;
 - clipping of scenario and index results if region boundaries are specified (in a .geojson file);
 - calculation of statistics based on region boundaries (.geojson file) if reanalysis data is provided;
-- conversion of NetCDF to .csv and .geotiff files.
+- conversion of NetCDF files to .csv files (only if the analysis is based on observations).
+
+## Upcoming features
+
+The following features are currently being implemented:
+- addition of region boundaries in heat maps;
+- conversion of heat maps to .csv and .geotiff files.
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
