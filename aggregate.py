@@ -113,15 +113,11 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             # DEBUG: ds_day_sel = ds_day.sel(time=dbg_date, latitude=dbg_latitude, longitude=dbg_longitude)
             # DEBUG: val_day    = ds_day_sel.data.mean()
 
-            # Clip to country boundaries.
-            if cfg.d_bounds != "":
-                ds_day = subset.subset_shape(ds_day, cfg.d_bounds)
-
             # Plot #2: Map.
             plot.plot_dayofyear(ds_day, set_name, var, dbg_date)
 
 
-def calc_vapour_pressure(da_temperature: xr.DataArray) -> xr.DataArray:
+def calc_vapour_pressure(da_tas: xr.DataArray) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -130,25 +126,24 @@ def calc_vapour_pressure(da_temperature: xr.DataArray) -> xr.DataArray:
 
     Parameters
     ----------
-    da_temperature : xr.DataArray
+    da_tas : xr.DataArray
         Temperature or dew temperature (C).
 
     Returns
     -------
-    xr.DataArray
-        Vapour pressure (hPa)
-        If a temperature is passed, saturation vapour pressure is calculated.
-        If a dew point temperature is passed, actual vapour pressure is calculated.
+    Vapour pressure (hPa)
+    If a temperature is passed, saturation vapour pressure is calculated.
+    If a dew point temperature is passed, actual vapour pressure is calculated.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Calculate vapour pressure  (hPa).
-    da_vp = 6.11 * 10.0 ** (7.5 * da_temperature / (237.7 + da_temperature))
+    da_vp = 6.11 * 10.0 ** (7.5 * da_tas / (237.7 + da_tas))
 
     return da_vp
 
 
-def calc_spec_humidity(ds_temperature: xr.DataArray, ds_pressure: xr.DataArray) -> xr.DataArray:
+def calc_spec_humidity(da_tas: xr.DataArray, da_ps: xr.DataArray) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -157,23 +152,22 @@ def calc_spec_humidity(ds_temperature: xr.DataArray, ds_pressure: xr.DataArray) 
 
     Parameters
     ----------
-    da_temperature : xr.DataArray
+    da_tas : xr.DataArray
         Temperature or dew temperature (C).
-    da_pressure : xr.DataArray
-        Atmospheric pressure (hPa).
+    da_ps : xr.DataArray
+        Barometric pressure (hPa).
 
     Returns
     -------
-    xr.DataArray
-        Specific humidity (g/kg).
+    Specific humidity (g/kg).
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Calculate vapour pressure (hPa).
-    da_vp = calc_vapour_pressure(ds_temperature)[0]
+    da_vp = calc_vapour_pressure(da_tas)
 
     # Calculate specific humidity.
-    da_sh = (0.622 * da_vp) / (ds_pressure - 0.378 * da_vp)
+    da_sh = (0.622 * da_vp) / (da_ps - 0.378 * da_vp)
 
     return da_sh
 
@@ -202,7 +196,7 @@ def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
     ds_sp  = utils.open_netcdf(p_sp, chunks={cfg.dim_time: n_years})[cfg.var_era5_sp]
 
     # Calculate specific humidity values.
-    da_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)[0]
+    da_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)
 
     # Update meta information.
     da_sh.name = cfg.var_era5_sh
@@ -229,14 +223,13 @@ def run():
         if var == cfg.var_cordex_huss:
             vars.append(cfg.var_era5_d2m)
             vars.append(cfg.var_era5_sp)
-            vars.append(cfg.var_era5_sh)
         elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-            vars.append(cfg.var_era5_t2m)
+            if cfg.var_era5_t2m not in vars:
+                vars.append(cfg.var_era5_t2m)
         else:
             var_ra = cfg.convert_var_name(var)
             if var_ra is not None:
                 vars.append(var_ra)
-    vars = list(set(vars))
 
     # Loop through variables.
     for var in vars:
@@ -247,24 +240,29 @@ def run():
         n_years = len(p_raw_lst)
         for i_raw in range(len(p_raw_lst)):
             p_raw = p_raw_lst[i_raw]
+            p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
 
             utils.log("Processing: '" + p_raw + "'", True)
 
-            # Create an hourly dataset for specific humidity.
-            # This requires cfg.var_era5_t2m and cfg.var_era5_sp.
-            if var == cfg.var_era5_sh:
-                p_raw_sh  = p_raw
-                p_raw_d2m = p_raw_sh.replace(cfg.var_era5_sh, cfg.var_era5_d2m)
-                p_raw_sp  = p_raw_sh.replace(cfg.var_era5_sh, cfg.var_era5_sp)
-                if (os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and not os.path.exists(p_raw_sh)) or\
-                   cfg.opt_force_overwrite:
-                    gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
-
             # Perform aggregation.
-            else:
-                p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
-                if (not os.path.exists(p_day)) or cfg.opt_force_overwrite:
-                    aggregate(p_raw, p_day, cfg.obs_src, var)
+            if (not os.path.exists(p_day)) or cfg.opt_force_overwrite:
+                aggregate(p_raw, p_day, cfg.obs_src, var)
+
+            # Calculate specific humidity.
+            if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_sp):
+                if var == cfg.var_era5_d2m:
+                    p_raw_d2m = p_raw
+                    p_raw_sp  = p_raw.replace(cfg.var_era5_d2m, cfg.var_era5_sp)
+                else:
+                    p_raw_sp  = p_raw
+                    p_raw_d2m = p_raw.replace(cfg.var_era5_sp, cfg.var_era5_d2m)
+                p_raw_sh  = p_raw_sp.replace(cfg.var_era5_sp, cfg.var_era5_sh)
+                p_day_sh  = cfg.d_ra_day + os.path.basename(p_raw_sh).replace("hour", "day")
+                if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and\
+                   ((not os.path.exists(p_raw_sh)) or cfg.opt_force_overwrite):
+                    gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
+                if os.path.exists(p_raw_sh) and (not os.path.exists(p_day_sh) or cfg.opt_force_overwrite):
+                    aggregate(p_raw_sh, p_day_sh, cfg.obs_src, cfg.var_era5_sh)
 
 
 if __name__ == "__main__":
