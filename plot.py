@@ -872,18 +872,14 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             ds_itp[var_or_idx] = ds_itp[var_or_idx] / float(n_sim)
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
 
-        # Clip.
-        if cfg.d_bounds != "":
-            ds_itp = utils.subset_shape(ds_itp, var_or_idx)
-
-        # Adjust units.
+        # Convert units (C or mm).
         if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
            (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
             ds_itp = ds_itp - cfg.d_KC
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
         elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
              (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1):
-            ds_itp = ds_itp * 365
+            ds_itp = ds_itp * cfg.spd
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
 
         # Adjust coordinate names (required for clipping).
@@ -918,21 +914,33 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
         else:
             year_1 = per_hor[0] - cfg.per_ref[1]
             year_n = per_hor[1] - cfg.per_ref[1]
+        n_years = year_n - year_1 + 1
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            da_hor = ds_itp[var_or_idx][year_1:(year_n+1)][:][:].mean(cfg.dim_time, skipna=True)
+            if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                da_hor = ds_itp[var_or_idx][year_1:(year_n + 1)][:][:].mean(cfg.dim_time, skipna=True)
+            else:
+                da_hor = ds_itp.groupby(ds_itp.time.dt.year).sum(dim=cfg.dim_time)[var_or_idx].\
+                    mean("year", skipna=True)
+                if len(ds_itp.time.values) <= n_years:
+                    da_hor = da_hor * 365
 
-        # Conversion coefficient.
-        coef = 1
-        if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            coef = cfg.spd
+        # Sum up quantities.
+        # if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+        #     if len(ds_itp.time.values) <= n_years:
+        #         da_hor = da_hor * 365
+        #     da_hor = da_hor * n_years
+
+        # Clip.
+        if cfg.d_bounds != "":
+            da_hor = utils.subset_shape(da_hor)
 
         # Plot.
         cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + \
             ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "") + "/" + cat
         p_fig = cfg.get_d_scen("", cat_fig, var_or_idx) +\
             var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
-        plot_heatmap_spec(da_hor * coef, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
+        plot_heatmap_spec(da_hor, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
 
 
 def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],

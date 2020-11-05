@@ -279,6 +279,31 @@ def calendar(x: Union[xr.Dataset, xr.DataArray], n_days_old=360, n_days_new=365)
     return ref_365
 
 
+def extract_date(val: pd.DatetimeIndex) -> [int]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Extract date (year, month, day).
+
+    Parameters
+    ----------
+    val : pd_DatetimeIndex
+        Date.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    try:
+        year = val.year
+        month = val.month
+        day = val.day
+    except:
+        year = int(str(val)[0:4])
+        month = int(str(val)[5:7])
+        day = int(str(val)[8:10])
+
+    return [year, month, day]
+
+
 def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, freq=cfg.freq_D) -> pd.DatetimeIndex:
 
     """
@@ -298,26 +323,12 @@ def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, fr
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Extract year.
-    def extract_date(val) -> [int, int, int]:
-
-        try:
-            year  = val.year
-            month = val.month
-            day   = val.day
-        except:
-            year  = int(str(val)[0:4])
-            month = int(str(val)[5:7])
-            day   = int(str(val)[8:10])
-
-        return [year, month, day]
-
-    # First year.
+    # Extract first year.
     val_1 = ds.time.values[0]
     if year_1 == -1:
         year_1 = extract_date(val_1)[0]
 
-    # Last year.
+    # Extract last year.
     val_n = ds.time.values[len(ds.time.values) - 1]
     if year_n == -1:
         year_n = extract_date(val_n)[0]
@@ -1012,7 +1023,7 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
 
     Parameters
     ----------
-    ds_from: xr.Dataset
+    ds: xr.Dataset
         Dataset.
     var : str
         Variable.
