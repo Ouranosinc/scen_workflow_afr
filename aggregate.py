@@ -233,7 +233,9 @@ def run():
         elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
             vars.append(cfg.var_era5_t2m)
         else:
-            vars.append(cfg.convert_var_name(var))
+            var_ra = cfg.convert_var_name(var)
+            if var_ra is not None:
+                vars.append(var_ra)
     vars = list(set(vars))
 
     # Loop through variables.
