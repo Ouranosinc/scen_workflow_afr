@@ -921,13 +921,14 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
         n_years = year_n - year_1 + 1
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
+            ds_hor = ds_itp[var_or_idx][year_1:(year_n + 1)][:][:]
             if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                da_hor = ds_itp[var_or_idx][year_1:(year_n + 1)][:][:].mean(cfg.dim_time, skipna=True)
+                da_hor = ds_hor.mean(cfg.dim_time, skipna=True)
             else:
-                da_hor = ds_itp.groupby(ds_itp.time.dt.year).sum(dim=cfg.dim_time)[var_or_idx].\
-                    mean("year", skipna=True)
+                da_hor = ds_hor.groupby(ds_hor.time.dt.year).sum(dim=cfg.dim_time).mean("year", skipna=True) * n_years
                 if len(ds_itp.time.values) <= n_years:
                     da_hor = da_hor * 365
+                da_hor = da_hor.where(da_hor.values >= 1)
 
         # Sum up quantities.
         # if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
