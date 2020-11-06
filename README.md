@@ -12,7 +12,7 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 
 The current version of the script (v1.0.4) performs these tasks at a station.
 
-The technical documentation can be found [here](https://ouranos-my.sharepoint.com/:b:/g/personal/yanrou1_ouranos_ca/ETTWcFZcPUJJl5IMM3aUJ4IB17VBsqRqFaI4WbxfWNB9cw?e=3rRTfY).
+The technical documentation can be found [here](https://ouranos-my.sharepoint.com/:f:/g/personal/yanrou1_ouranos_ca/EknV5GO46cxChVpilQwKzMQBrB3wu4e6aS3bUfoUlZ3gwg?e=R1Ju2C).
 
 ## Releases
 ### v1.0.0
