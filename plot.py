@@ -920,7 +920,7 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
 
             # Calculate mean or sum.
             if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                ds_hor = ds_hor.groupby(ds_hor.time.dt.year).mean(cfg.dim_time).mean("year", skipna=True)[var_or_idx]
+                ds_hor = ds_hor.groupby(ds_hor.time.dt.year).mean(cfg.dim_time)
             else:
                 ds_hor = ds_hor.groupby(ds_hor.time.dt.year).sum(cfg.dim_time)
             da_hor = ds_hor.mean("year", skipna=True)[var_or_idx]
