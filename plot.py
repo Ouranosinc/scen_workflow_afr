@@ -10,6 +10,7 @@
 
 import config as cfg
 import glob
+import matplotlib.cbook
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import math
@@ -297,31 +298,34 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     if da_ref.time.dtype == cfg.dtype_obj:
         da_ref[cfg.dim_time] = utils.reset_calendar(da_ref)
 
-    # Upper plot: Reference period.
-    f.add_subplot(211)
-    plt.plot(da_ref.time, y, color=cfg.col_sim_ref)
-    plt.plot(da_ref.time, ffit, color="black")
-    plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
-    plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis="x", labelsize=fs_axes)
-    plt.tick_params(axis="y", labelsize=fs_axes)
-    plt.title("Tendance", fontsize=fs_title)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
-    # Lower plot: Complete simulation.
-    f.add_subplot(212)
-    arr_y_detrend = signal.detrend(da_fut * coef + delta_fut)
-    arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
-    arr_y_error  = (y - ffit)
-    arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
-    plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=cfg.col_sim_fut)
-    plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=cfg.col_sim_ref)
-    plt.legend(["Simulation", "Simulation (réf.)"], fontsize=fs_legend, frameon=False)
-    plt.xlabel("Jours", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-    plt.tick_params(axis="x", labelsize=fs_axes)
-    plt.tick_params(axis="y", labelsize=fs_axes)
-    plt.title("Variation autour de la moyenne (prédiction basée sur une équation quartique)", fontsize=fs_title)
+        # Upper plot: Reference period.
+        f.add_subplot(211)
+        plt.plot(da_ref.time, y, color=cfg.col_sim_ref)
+        plt.plot(da_ref.time, ffit, color="black")
+        plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
+        plt.xlabel("Année", fontsize=fs_axes)
+        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.tick_params(axis="x", labelsize=fs_axes)
+        plt.tick_params(axis="y", labelsize=fs_axes)
+        plt.title("Tendance", fontsize=fs_title)
+
+        # Lower plot: Complete simulation.
+        f.add_subplot(212)
+        arr_y_detrend = signal.detrend(da_fut * coef + delta_fut)
+        arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
+        arr_y_error  = (y - ffit)
+        arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
+        plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=cfg.col_sim_fut)
+        plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=cfg.col_sim_ref)
+        plt.legend(["Simulation", "Simulation (réf.)"], fontsize=fs_legend, frameon=False)
+        plt.xlabel("Jours", fontsize=fs_axes)
+        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.tick_params(axis="x", labelsize=fs_axes)
+        plt.tick_params(axis="y", labelsize=fs_axes)
+        plt.title("Variation autour de la moyenne (prédiction basée sur une équation quartique)", fontsize=fs_title)
 
     # Save plot.
     if p_fig != "":

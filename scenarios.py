@@ -1175,7 +1175,8 @@ def run():
 
                 # Loop through raw NetCDF files.
                 p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*.nc"))
-                for p_raw in p_raw_list:
+                for i in range(len(p_raw_list)):
+                    p_raw = p_raw_list[i]
 
                     # Path of NetCDF files.
                     p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
