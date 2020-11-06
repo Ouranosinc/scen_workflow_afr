@@ -911,30 +911,19 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
     utils.log("Generating maps.", True)
     for per_hor in per_hors:
 
-        # Select years.
-        if rcp == cfg.rcp_ref:
-            year_1 = 0
-            year_n = cfg.per_ref[1] - cfg.per_ref[0]
-        else:
-            year_1 = per_hor[0] - cfg.per_ref[1]
-            year_n = per_hor[1] - cfg.per_ref[1]
-        n_years = year_n - year_1 + 1
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            ds_hor = ds_itp[var_or_idx][year_1:(year_n + 1)][:][:]
-            if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                da_hor = ds_hor.mean(cfg.dim_time, skipna=True)
-            else:
-                da_hor = ds_hor.groupby(ds_hor.time.dt.year).sum(dim=cfg.dim_time).mean("year", skipna=True) * n_years
-                if len(ds_itp.time.values) <= n_years:
-                    da_hor = da_hor * 365
-                da_hor = da_hor.where(da_hor.values >= 1)
 
-        # Sum up quantities.
-        # if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-        #     if len(ds_itp.time.values) <= n_years:
-        #         da_hor = da_hor * 365
-        #     da_hor = da_hor * n_years
+            # Select period.
+            years_str = [str(per_hor[0]) + "-01-01", str(per_hor[1]) + "-12-31"]
+            ds_hor = ds_itp.sel(time=slice(years_str[0], years_str[1]))
+
+            # Calculate mean or sum.
+            if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                da_hor = ds_hor.groupby(ds_hor.time.dt.year).mean(cfg.dim_time).mean("year", skipna=True)[var_or_idx]
+            else:
+                da_hor = ds_hor.groupby(ds_hor.time.dt.year).sum(cfg.dim_time).mean("year", skipna=True)[var_or_idx]
+                da_hor = da_hor.where(da_hor.values >= 1)
 
         # Clip.
         if cfg.d_bounds != "":
