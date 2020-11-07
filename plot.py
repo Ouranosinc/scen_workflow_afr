@@ -586,7 +586,8 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
     # Determine if sum is needed.
     stat_inner = stat
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-        stat_inner = cfg.stat_sum
+        if stat == cfg.stat_mean:
+            stat_inner = cfg.stat_sum
         da_obs       = da_obs.resample(time="1M").sum()
         da_ref       = da_ref.resample(time="1M").sum()
         da_fut       = da_fut.resample(time="1M").sum()
