@@ -902,7 +902,6 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             else:
                 ds_hor = ds_hor.resample(time=cfg.freq_YS).sum()
             da_hor = ds_hor.mean(dim="time")[var_or_idx]
-            # da_stn.resample(time=cfg.freq_YS).sum().mean("time") * 86400 * 30
 
             # Eliminate negligible values (<1mm/year).
             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
