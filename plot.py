@@ -579,12 +579,14 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
         elif stat_inner == cfg.stat_quantile:
             da_group_stat = da_group.quantile(quantile_inner, dim=cfg.dim_time)
         elif stat_inner == cfg.stat_sum:
-            n_years = da[cfg.dim_time].size / 365
+            n_years = da[cfg.dim_time].size / 12
             da_group_stat = da_group.sum(dim=cfg.dim_time) / n_years
         return da_group_stat
 
     # Determine if sum is needed.
+    stat_inner = stat
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+        stat_inner = cfg.stat_sum
         da_obs       = da_obs.resample(time="1M").sum()
         da_ref       = da_ref.resample(time="1M").sum()
         da_fut       = da_fut.resample(time="1M").sum()
@@ -592,36 +594,11 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
         da_qqmap_ref = da_qqmap_ref.resample(time="1M").sum()
 
     # Calculate statistics
-    if stat == cfg.stat_min:
-        da_obs       = da_groupby(da_obs, cfg.stat_min)
-        da_ref       = da_groupby(da_ref, cfg.stat_min)
-        da_fut       = da_groupby(da_fut, cfg.stat_min)
-        da_qqmap     = da_groupby(da_qqmap, cfg.stat_min)
-        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_min)
-    elif stat == cfg.stat_max:
-        da_obs       = da_groupby(da_obs, cfg.stat_max)
-        da_ref       = da_groupby(da_ref, cfg.stat_max)
-        da_fut       = da_groupby(da_fut, cfg.stat_max)
-        da_qqmap     = da_groupby(da_qqmap, cfg.stat_max)
-        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_max)
-    elif stat == cfg.stat_mean:
-        da_obs       = da_groupby(da_obs, cfg.stat_mean)
-        da_ref       = da_groupby(da_ref, cfg.stat_mean)
-        da_fut       = da_groupby(da_fut, cfg.stat_mean)
-        da_qqmap     = da_groupby(da_qqmap, cfg.stat_mean)
-        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_mean)
-    elif stat == cfg.stat_sum:
-        da_obs       = da_groupby(da_obs, cfg.stat_sum)
-        da_ref       = da_groupby(da_ref, cfg.stat_sum)
-        da_fut       = da_groupby(da_fut, cfg.stat_sum)
-        da_qqmap     = da_groupby(da_qqmap, cfg.stat_sum)
-        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_sum)
-    elif stat == cfg.stat_quantile:
-        da_obs       = da_groupby(da_obs, cfg.stat_quantile, quantile)
-        da_ref       = da_groupby(da_ref, cfg.stat_quantile, quantile)
-        da_fut       = da_groupby(da_fut, cfg.stat_quantile, quantile)
-        da_qqmap     = da_groupby(da_qqmap, cfg.stat_quantile, quantile)
-        da_qqmap_ref = da_groupby(da_qqmap_ref, cfg.stat_quantile, quantile)
+    da_obs       = da_groupby(da_obs, stat_inner, quantile)
+    da_ref       = da_groupby(da_ref, stat_inner, quantile)
+    da_fut       = da_groupby(da_fut, stat_inner, quantile)
+    da_qqmap     = da_groupby(da_qqmap, stat_inner, quantile)
+    da_qqmap_ref = da_groupby(da_qqmap_ref, stat_inner, quantile)
 
     # Draw curves.
     da_obs.plot.line(color=cfg.col_obs)
@@ -920,10 +897,11 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
 
             # Calculate mean or sum.
             if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                ds_hor = ds_hor.groupby(ds_hor.time.dt.year).mean(cfg.dim_time)
+                ds_hor = ds_hor.resample(time=cfg.freq_YS).mean()
             else:
-                ds_hor = ds_hor.groupby(ds_hor.time.dt.year).sum(cfg.dim_time)
-            da_hor = ds_hor.mean("year", skipna=True)[var_or_idx]
+                ds_hor = ds_hor.resample(time=cfg.freq_YS).sum()
+            da_hor = ds_hor.mean(dim="time")[var_or_idx]
+            # da_stn.resample(time=cfg.freq_YS).sum().mean("time") * 86400 * 30
 
             # Eliminate negligible values (<1mm/year).
             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:

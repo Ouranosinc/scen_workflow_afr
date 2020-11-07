@@ -182,8 +182,6 @@ def load_observations(var: str):
         p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + ".nc"
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
         utils.save_netcdf(ds, p_stn, desc=desc)
-        utils.close_netcdf(ds)
-        utils.close_netcdf(da)
 
 
 def load_reanalysis(var_ra: str):
@@ -589,11 +587,6 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
         desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid_ref)
         utils.save_netcdf(ds_regrid_ref, p_regrid_ref, desc=desc)
 
-    utils.close_netcdf(ds_stn)
-    utils.close_netcdf(ds_fut)
-    utils.close_netcdf(ds_regrid_ref)
-    utils.close_netcdf(ds_regrid_fut)
-
 
 def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Dataset, p_ref: str, p_fut: str,
                 p_qqmap: str, p_qmf: str, title: str = "", p_fig: str = ""):
@@ -640,6 +633,8 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         da_stn = ds_stn[var]
     if cfg.dim_longitude in da_stn.dims:
         da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
+    if cfg.d_bounds != "":
+        da_stn = utils.subset_shape(da_stn)
     ds_ref = utils.open_netcdf(p_ref)
     ds_fut = utils.open_netcdf(p_fut)
     da_ref = ds_ref[var]
@@ -788,11 +783,6 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         # Generate time series only.
         if cfg.opt_plot:
             plot.plot_calib_ts(da_stn_xy, da_fut_xy, da_qqmap_xy, var, title, p_fig.replace(".png", "_ts.png"))
-
-    utils.close_netcdf(da_ref)
-    utils.close_netcdf(da_fut)
-    utils.close_netcdf(ds_qmf)
-    utils.close_netcdf(ds_qqmap)
 
     return ds_qqmap if (p_fig == "") else None
 

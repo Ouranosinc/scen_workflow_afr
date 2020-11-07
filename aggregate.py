@@ -9,6 +9,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
+import datetime
 import glob
 import os
 import plot as plot
@@ -86,7 +87,10 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             elif stat == cfg.stat_sum:
                 if (var == cfg.var_era5_tp) or (var == cfg.var_era5_e) or (var == cfg.var_era5_pev) or\
                         (var == cfg.var_era5_ssrd):
-                    ds_day = ds_hour.resample(time=cfg.freq_D).sum()
+                    if cfg.obs_src == cfg.obs_src_era5:
+                        ds_day = ds_hour.resample(time=cfg.freq_D).sum()
+                    else:
+                        ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=cfg.freq_D).sum()
                     save = True
 
             # Save NetCDF file.
