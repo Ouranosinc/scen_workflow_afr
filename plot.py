@@ -1075,6 +1075,9 @@ def draw_region_boundary(ax):
     fig, myplot = configure_plot(ax)
     coordinates = pydata["features"][0]["geometry"]["coordinates"][0]
     vertices = coordinates[0]
+    if len(vertices) == 2:
+        coordinates = pydata["features"][0]["geometry"]["coordinates"]
+        vertices = coordinates[0]
     set_plot_extent(myplot, vertices)
     plot_feature(coordinates, myplot)
 
