@@ -332,11 +332,16 @@ def calc_stats(cat: str):
                 utils.save_csv(df, p)
 
 
-def conv_nc_csv():
+def conv_nc_csv(cat: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Convert NetCDF to CSV files.
+
+    Parameters
+    ----------
+    cat : str
+        Category: cfg.cat_scen is for climate scenarios or cfg.cat_idx for climate indices.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -345,7 +350,10 @@ def conv_nc_csv():
     for stn in stns:
 
         # Loop through categories.
-        cat_list = [cfg.cat_obs, cfg.cat_raw, cfg.cat_regrid, cfg.cat_qmf, cfg.cat_qqmap, cfg.cat_idx]
+
+        cat_list = [cfg.cat_obs, cfg.cat_raw, cfg.cat_regrid, cfg.cat_qmf, cfg.cat_qqmap]
+        if cat == cfg.cat_idx:
+            cat_list = [cfg.cat_idx]
         for cat in cat_list:
 
             # Loop through variables or indices.
@@ -467,45 +475,3 @@ def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
 
     # Save CSV file.
     utils.save_csv(df, p_csv)
-
-
-def run():
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Entry point.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    utils.log("=")
-    msg = "Step #7   Calculation of statistics is "
-    if cfg.opt_stat:
-
-        msg = msg + "running"
-        utils.log(msg)
-
-        # Scenarios.
-        calc_stats(cfg.cat_scen)
-
-        # Indices.
-        calc_stats(cfg.cat_idx)
-
-    else:
-
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
-
-    utils.log("-")
-    msg = "Step #7c  Conversion of NetCDF to CSV files is "
-    if cfg.opt_conv_nc_csv and not cfg.opt_ra:
-
-        msg = msg + "running"
-        utils.log(msg)
-        conv_nc_csv()
-
-    else:
-
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)

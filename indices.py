@@ -10,7 +10,9 @@
 import config as cfg
 import glob
 import os.path
+import pandas as pd
 import plot
+import statistics
 import utils
 import xarray as xr
 import xclim.indices as indices
@@ -202,6 +204,8 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Indices ----------------------------------------------------------------------------------------------------------
+
     # Calculate indices.
     utils.log("=")
     msg = "Step #6   Calculation of climate indices is "
@@ -218,6 +222,40 @@ def run():
         msg = msg + "not required"
         utils.log(msg)
 
+    # Statistics -------------------------------------------------------------------------------------------------------
+
+    utils.log("=")
+    msg = "Step #7   Calculation of statistics is "
+    if cfg.opt_stat:
+
+        msg = msg + "running"
+        utils.log(msg)
+
+        # Indices.
+        statistics.calc_stats(cfg.cat_idx)
+
+    else:
+
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
+
+    utils.log("-")
+    msg = "Step #7c  Conversion of NetCDF to CSV files is "
+    if cfg.opt_conv_nc_csv and not cfg.opt_ra:
+
+        msg = msg + "running"
+        utils.log(msg)
+        statistics.conv_nc_csv(cfg.cat_idx)
+
+    else:
+
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
+
+    # Plots ------------------------------------------------------------------------------------------------------------
+
     # Generate plots.
     if cfg.opt_plot:
 
@@ -227,23 +265,36 @@ def run():
         for i in range(len(cfg.idx_names)):
             plot.plot_ts(cfg.idx_names[i], cfg.idx_threshs[i])
 
-    # Perform interpolation (requires multiples stations).
-    # Heat maps are not generated:
+    # Generate maps.
+    # Heat maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
-    if cfg.opt_plot_heat and ((len(cfg.stns) > 1) or cfg.opt_ra):
+    if cfg.opt_plot_heat and cfg.opt_ra:
 
         utils.log("=")
         utils.log("Step #8c  Generating heat maps.")
 
         for i in range(len(cfg.idx_names)):
 
+            # Get the minimum and maximum values in the statistics file.
+            idx = cfg.idx_names[i]
+            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, idx) + idx + "_" + cfg.obs_src + ".csv"
+            if not os.path.exists(p_stat):
+                z_min = z_max = -1
+            else:
+                df_stats = pd.read_csv(p_stat, sep=",")
+                vals = df_stats[(df_stats["stat"] == cfg.stat_min) |
+                                (df_stats["stat"] == cfg.stat_max) |
+                                (df_stats["stat"] == "none")]["val"]
+                z_min = min(vals)
+                z_max = max(vals)
+
             # Reference period.
-            plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], cfg.rcp_ref, [cfg.per_ref])
+            plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
 
             # Future period.
             for rcp in cfg.rcps:
-                plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors)
+                plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors, z_min, z_max)
 
 
 if __name__ == "__main__":

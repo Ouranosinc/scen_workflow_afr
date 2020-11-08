@@ -19,10 +19,13 @@ import numpy.polynomial.polynomial as poly
 import os.path
 import pandas as pd
 import seaborn as sns
+import simplejson
 import statistics
 import utils
 import warnings
 import xarray as xr
+from descartes import PolygonPatch
+from matplotlib import pyplot
 from matplotlib.lines import Line2D
 from scipy import signal
 from scipy.interpolate import griddata
@@ -668,7 +671,7 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # ======================================================================================================================
 
 
-def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]]):
+def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]], z_min: float, z_max: float):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -684,6 +687,10 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
         Emission scenario.
     per_hors: [[int]]
         Horizons.
+    z_min : float
+        Minimum value (associated with color bar).
+    z_max : float
+        Maximum value (associated with color bar).
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -916,11 +923,11 @@ def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]])
             ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "") + "/" + cat
         p_fig = cfg.get_d_scen("", cat_fig, var_or_idx) +\
             var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
-        plot_heatmap_spec(da_hor, var_or_idx, threshs, grid_x, grid_y, per_hor, p_fig, "matplotlib")
+        plot_heatmap_spec(da_hor, var_or_idx, threshs, grid_x, grid_y, per_hor, z_min, z_max, p_fig, "matplotlib")
 
 
 def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
-                      per: [int, int], p_fig: str, map_package: str):
+                      per: [int, int], z_min: float, z_max: float, p_fig: str, map_package: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -941,6 +948,10 @@ def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_
         Y-coordinates.
     per: [int, int]
         Period of interest, for instance, [1981, 2010].
+    z_min : float
+        Minimum value (associated with color bar).
+    z_max : float
+        Maximum value (associated with color bar).
     p_fig : str
         Path of output figure.
     map_package: str
@@ -983,9 +994,13 @@ def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_
 
     # Using matplotlib.
     elif map_package == "matplotlib":
+
+        # Color mesh.
         fs = 10
-        da.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                           cbar_kwargs=dict(orientation='vertical', pad=0.05, shrink=1, label=label))
+        mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
+                                  cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label))
+        if (z_min is not None) and (z_max is not None):
+            mesh.set_clim(z_min, z_max)
         plt.title(title)
         plt.suptitle("", fontsize=fs)
         plt.xlabel("Longitude (º)", fontsize=fs)
@@ -995,11 +1010,73 @@ def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_
         plt.xlim(cfg.lon_bnds)
         plt.ylim(cfg.lat_bnds)
 
+        # Draw region boundary.
+        draw_region_boundary(mesh.axes)
+
     # Save figure.
     if p_fig != "":
         utils.save_plot(plt, p_fig)
 
     plt.close()
+
+
+def draw_region_boundary(ax):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Draw region boundary.
+
+    Parameters
+    ----------
+    ax : Any
+        ...
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    def configure_plot(ax):
+
+        fig = pyplot.figure(1, figsize=(10, 4), dpi=180)
+        ax.set_aspect("equal")
+        ax.set_anchor("C")
+
+        return fig, ax
+
+    def set_plot_extent(ax, vertices):
+
+        # Extract limits.
+        x_min = x_max = y_min = y_max = None
+        for i in range(len(vertices)):
+            x_i = vertices[i][0]
+            y_i = vertices[i][1]
+            if i == 0:
+                x_min = x_max = x_i
+                y_min = y_max = y_i
+            else:
+                x_min = min(x_i, x_min)
+                x_max = max(x_i, x_max)
+                y_min = min(y_i, y_min)
+                y_max = max(y_i, y_max)
+
+        # Set the graph axes to the feature extents
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+
+    def plot_feature(coordinates, myplot):
+
+        poly = {"type": "Polygon", "coordinates": coordinates}
+        patch = PolygonPatch(poly, fill=False, ec="black", alpha=0.75, zorder=2)
+        myplot.add_patch(patch)
+
+    # Read geojson file.
+    with open(cfg.d_bounds) as f:
+        pydata = simplejson.load(f)
+
+    # Draw feature.
+    fig, myplot = configure_plot(ax)
+    coordinates = pydata["features"][0]["geometry"]["coordinates"][0]
+    vertices = coordinates[0]
+    set_plot_extent(myplot, vertices)
+    plot_feature(coordinates, myplot)
 
 
 def plot_ts(var_or_idx: str, threshs: [float] = None):

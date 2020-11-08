@@ -38,7 +38,6 @@ import indices
 import os
 import scenarios
 import scenarios_calib as scen_calib
-import statistics as stat
 import utils
 
 
@@ -359,14 +358,11 @@ def main():
     # Initialization.
     scen_calib.init_calib_params()
 
-    # Steps #2-5,8: Production of scenarios.
+    # Steps #2-5,8: Production of scenarios, plots and statistics.
     scenarios.run()
 
-    # Steps #6,8: Calculation of indices.
+    # Steps #6,8: Calculation of indices, plots and statistics.
     indices.run()
-
-    # Step #7: Calculation of statistics
-    stat.run()
 
     utils.log("=")
     utils.log("Script completed: " + utils.get_datetime_str())

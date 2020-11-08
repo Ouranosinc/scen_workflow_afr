@@ -25,6 +25,7 @@ import pandas as pd
 import plot
 import rcm
 import scenarios_calib
+import statistics
 import utils
 import xarray as xr
 import xarray.core.variable as xcv
@@ -1128,6 +1129,8 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Scenarios --------------------------------------------------------------------------------------------------------
+
     # Generate climate scenarios.
     msg = "Step #2-5 Production of climate scenarios is "
     if cfg.opt_scen:
@@ -1143,10 +1146,42 @@ def run():
         utils.log("=")
         utils.log(msg + "not required")
 
+    # Statistics -------------------------------------------------------------------------------------------------------
+
+    utils.log("=")
+    msg = "Step #7   Calculation of statistics is "
+    if cfg.opt_stat:
+
+        msg = msg + "running"
+        utils.log(msg)
+
+        # Scenarios.
+        statistics.calc_stats(cfg.cat_scen)
+
+    else:
+
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
+
+    utils.log("-")
+    msg = "Step #7c  Conversion of NetCDF to CSV files is "
+    if cfg.opt_conv_nc_csv and not cfg.opt_ra:
+
+        msg = msg + "running"
+        utils.log(msg)
+        statistics.conv_nc_csv(cfg.cat_scen)
+
+    else:
+
+        utils.log("=")
+        msg = msg + "not required"
+        utils.log(msg)
+
+    # Plots ------------------------------------------------------------------------------------------------------------
+
     # Generate time series.
     if cfg.opt_plot:
-
-        # --------------------------------------------------------------------------------------------------------------
 
         utils.log("=")
         utils.log("Step #8a  Generating post-process and workflow diagrams.")
@@ -1196,33 +1231,44 @@ def run():
                         p_regrid_fut.split("/")[-1].replace("4qqmap.nc", cfg.cat_fig_workflow + ".png")
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
-        # --------------------------------------------------------------------------------------------------------------
-
         utils.log("=")
         utils.log("Step #8b  Generating time series.")
 
         for var in cfg.variables_cordex:
             plot.plot_ts(var)
 
-    # ------------------------------------------------------------------------------------------------------------------
+    # Heat maps --------------------------------------------------------------------------------------------------------
 
-    # Perform interpolation (requires multiples stations).
-    # Heat maps are not generated:
+    # Generate maps.
+    # Heat maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
-    if cfg.opt_plot_heat and ((len(cfg.stns) > 1) or cfg.opt_ra):
+    if cfg.opt_plot_heat and cfg.opt_ra:
 
         utils.log("=")
         utils.log("Step #8c  Generating heat maps.")
 
         for i in range(len(cfg.variables_cordex)):
 
+            # Get the minimum and maximum values in the statistics file.
+            var = cfg.variables_cordex[i]
+            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, var) + var + "_" + cfg.obs_src + ".csv"
+            if not os.path.exists(p_stat):
+                z_min = z_max = -1
+            else:
+                df_stats = pd.read_csv(p_stat, sep=",")
+                vals = df_stats[(df_stats["stat"] == cfg.stat_min) |
+                                (df_stats["stat"] == cfg.stat_max) |
+                                (df_stats["stat"] == "none")]["val"]
+                z_min = min(vals)
+                z_max = max(vals)
+
             # Reference period.
-            plot.plot_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref])
+            plot.plot_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
 
             # Future period.
             for rcp in cfg.rcps:
-                plot.plot_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors)
+                plot.plot_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors, z_min, z_max)
 
 
 if __name__ == "__main__":
