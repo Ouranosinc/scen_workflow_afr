@@ -11,6 +11,7 @@
 import config as cfg
 import glob
 import matplotlib.cbook
+import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import math
@@ -997,8 +998,14 @@ def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_
 
         # Color mesh.
         fs = 10
+        if (var_or_idx == cfg.var_cordex_uas) or (var_or_idx == cfg.var_cordex_vas):
+            cmap = "RdBu_r"
+            vmax_abs = max(abs(z_min), abs(z_max))
+            norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
+        else:
+            cmap = norm = None
         mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                                  cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label))
+                                  cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label), cmap=cmap, norm=norm)
         if (z_min is not None) and (z_max is not None):
             mesh.set_clim(z_min, z_max)
         plt.title(title)
