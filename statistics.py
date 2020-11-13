@@ -351,7 +351,7 @@ def conv_nc_csv(cat: str):
 
         # Loop through categories.
 
-        cat_list = [cfg.cat_obs, cfg.cat_raw, cfg.cat_regrid, cfg.cat_qmf, cfg.cat_qqmap]
+        cat_list = [cfg.cat_obs, cfg.cat_raw, cfg.cat_regrid, cfg.cat_qqmap]
         if cat == cfg.cat_idx:
             cat_list = [cfg.cat_idx]
         for cat in cat_list:
