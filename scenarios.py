@@ -1149,20 +1149,11 @@ def run():
     # Statistics -------------------------------------------------------------------------------------------------------
 
     utils.log("=")
-    msg = "Step #7   Calculation of statistics (scenarios) is "
+    msg = "Step #7a  Calculation of statistics (scenarios) is "
     if cfg.opt_stat:
 
         msg = msg + "running"
         utils.log(msg)
-
-        # Calculate time series.
-        utils.log("-")
-        utils.log("Step #7a  Generating times series (scenarios).")
-        statistics.calc_time_series(cfg.cat_scen)
-
-        # Calculate overall statistics.
-        utils.log("-")
-        utils.log("Step #7b  Calculating overall statistics (scenarios).")
         statistics.calc_stats(cfg.cat_scen)
 
     else:
@@ -1172,12 +1163,20 @@ def run():
         utils.log(msg)
 
     utils.log("-")
-    msg = "Step #7c  Conversion of NetCDF to CSV files (scenarios) is "
-    if cfg.opt_save_csv and not cfg.opt_ra:
+    msg = "Step #7b  Export to CSV files (scenarios) is "
+    if cfg.opt_save_csv:
 
         msg = msg + "running"
         utils.log(msg)
-        statistics.conv_nc_csv(cfg.cat_scen)
+
+        utils.log("-")
+        utils.log("Step #7b1 Generating times series (scenarios).")
+        statistics.calc_time_series(cfg.cat_scen)
+
+        if not cfg.opt_ra:
+            utils.log("-")
+            utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios).")
+            statistics.conv_nc_csv(cfg.cat_scen)
 
     else:
 
@@ -1238,9 +1237,9 @@ def run():
                         p_regrid_fut.split("/")[-1].replace("4qqmap.nc", cfg.cat_fig_workflow + ".png")
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
-        utils.log("=")
-        utils.log("Step #8b  Generating time series (scenarios).")
         if not cfg.opt_save_csv:
+            utils.log("=")
+            utils.log("Step #8b  Generating time series (scenarios).")
             statistics.calc_time_series(cfg.cat_scen)
 
     # Heat maps --------------------------------------------------------------------------------------------------------
