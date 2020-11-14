@@ -363,9 +363,10 @@ def calc_time_series(cat: str):
 
             utils.log("Processing (time series): '" + stn + "', '" + var_or_idx + "'", True)
 
-            p_csv = cfg.get_d_scen(stn + ("_" + cfg.region if (cfg.region != "") else ""),
-                                   cfg.cat_fig + "/time_series", var_or_idx) + var_or_idx + "_" + stn + "_ts.csv"
-            if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
+            # Files to be created.
+            p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx + "_csv") + \
+                var_or_idx + "_" + stn + ".csv"
+            if not cfg.opt_plot and (os.path.exists(p_csv) or cfg.opt_force_overwrite):
                 continue
 
             # Loop through emission scenarios.
@@ -521,15 +522,15 @@ def calc_time_series(cat: str):
                 if cfg.opt_plot:
 
                     # Time series with simulations grouped by RCP scenario.
-                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", "") + var_or_idx + "_" +\
-                            stn + "_rcp.png"
+                    p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx) + \
+                                var_or_idx + "_" + stn + "_rcp.png"
                     plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx,
-                        threshs, rcps, ylim, p_fig, 1)
+                        threshs, rcps, ylim, p_fig_rcp, 1)
 
                     # Time series showing individual simulations.
-                    p_fig = p_fig.replace("_rcp.png", "_sim.png")
+                    p_fig_sim = p_fig_rcp.replace("_rcp.png", "_sim.png")
                     plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx,
-                        threshs, rcps, ylim, p_fig, 2)
+                        threshs, rcps, ylim, p_fig_sim, 2)
 
 
 def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
@@ -842,7 +843,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
 
         # Generate plot.
         stn = "stns" if not cfg.opt_ra else cfg.obs_src
-        d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx)
+        d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx) + var_or_idx + "/"
         fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         p_fig = d_fig + fn_fig
         if cfg.opt_plot_heat:
