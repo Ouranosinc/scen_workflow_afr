@@ -57,7 +57,8 @@ The following features were added:
 ### v1.1.1
 
 The following feature was added:
-- conversion of heat maps and time series to .csv.
+- conversion of heat maps and time series to .csv;
+- heat maps of wind variables now use a blue-white-red color bar with white corresponding to zero.
 
 The following change was made:
 - relocated heat maps under directory stn/fig/scen/maps. 

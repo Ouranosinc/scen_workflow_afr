@@ -218,7 +218,6 @@ def run():
             generate(cfg.idx_names[i], cfg.idx_threshs[i])
 
     else:
-        utils.log("=")
         msg = msg + "not required"
         utils.log(msg)
 
