@@ -208,7 +208,7 @@ def run():
 
     # Calculate indices.
     utils.log("=")
-    msg = "Step #6   Calculation of climate indices is "
+    msg = "Step #6   Calculation of indices is "
     if cfg.opt_idx:
 
         msg = msg + "running"
@@ -225,13 +225,20 @@ def run():
     # Statistics -------------------------------------------------------------------------------------------------------
 
     utils.log("=")
-    msg = "Step #7   Calculation of statistics is "
+    msg = "Step #7   Calculation of statistics (indices) is "
     if cfg.opt_stat:
 
         msg = msg + "running"
         utils.log(msg)
 
-        # Indices.
+        # Calculate time series.
+        utils.log("-")
+        utils.log("Step #7a  Calculation of times series (indices).")
+        statistics.calc_ts(cfg.cat_idx)
+
+        # Calculate overall statistics.
+        utils.log("-")
+        utils.log("Step #7b  Calculation of statistics (indices).")
         statistics.calc_stats(cfg.cat_idx)
 
     else:
@@ -241,8 +248,8 @@ def run():
         utils.log(msg)
 
     utils.log("-")
-    msg = "Step #7c  Conversion of NetCDF to CSV files is "
-    if cfg.opt_conv_nc_csv and not cfg.opt_ra:
+    msg = "Step #7c  Conversion of NetCDF to CSV files (indices) is "
+    if cfg.opt_save_csv and not cfg.opt_ra:
 
         msg = msg + "running"
         utils.log(msg)
@@ -261,9 +268,8 @@ def run():
 
         utils.log("=")
         utils.log("Step #8b  Generating time series.")
-
-        for i in range(len(cfg.idx_names)):
-            plot.plot_ts(cfg.idx_names[i], cfg.idx_threshs[i])
+        if not cfg.opt_save_csv:
+            statistics.calc_ts(cfg.cat_idx)
 
     # Generate maps.
     # Heat maps are not generated from data at stations:

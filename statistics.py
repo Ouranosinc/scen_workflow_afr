@@ -14,6 +14,7 @@ import multiprocessing
 import numpy as np
 import os
 import pandas as pd
+import plot
 import utils
 import xarray as xr
 from typing import Union
@@ -53,7 +54,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     # List files.
     if data_type == cfg.cat_obs:
         if var_or_idx in cfg.variables_cordex:
-            p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + cfg.obs_src + ".nc"]
+            p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + stn + ".nc"]
         else:
             p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref.nc"]
     else:
@@ -227,13 +228,6 @@ def calc_stats(cat: str):
     # Data frequency.
     freq = cfg.freq_D if cat == cfg.cat_scen else cfg.freq_YS
 
-    # Scenarios.
-    utils.log("-")
-    if cat == cfg.cat_scen:
-        utils.log("Step #7a  Calculation of statistics for climate scenarios.")
-    else:
-        utils.log("Step #7b  Calculation of statistics for climate indices.")
-
     # Loop through stations.
     stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
     for stn in stns:
@@ -274,7 +268,7 @@ def calc_stats(cat: str):
                 if not os.path.isdir(d):
                     continue
 
-                utils.log("Processing: '" + stn + "', '" + var_or_idx + "', '" + rcp + "'", True)
+                utils.log("Processing (stats): '" + stn + "', '" + var_or_idx + "', '" + rcp + "'", True)
 
                 # Loop through statistics.
                 stats = [cfg.stat_mean]
@@ -367,7 +361,7 @@ def conv_nc_csv(cat: str):
                     continue
                 p_list.sort()
 
-                utils.log("Processing: '" + stn + "', '" + cat + "', '" + var_or_idx + "'", True)
+                utils.log("Processing: '" + stn + "', '" + var_or_idx + "'", True)
 
                 # Scalar processing mode.
                 if cfg.n_proc == 1:
@@ -454,7 +448,11 @@ def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
             for i in range(n_time):
                 val_list[i] = val_list[i].mean()
         else:
-            val_list = list(val_list[0][0])
+            if cfg.rcp_ref in p:
+                for i in range(n_time):
+                    val_list[i] = val_list[i][0][0]
+            else:
+                val_list = list(val_list[0][0])
 
     # Convert values to more practical units (if required).
     if (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and\
@@ -475,3 +473,262 @@ def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
 
     # Save CSV file.
     utils.save_csv(df, p_csv)
+
+
+def calc_ts(cat: str):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Plot time series for individual simulations.
+
+    Parameters
+    ----------
+    cat : str
+        Category: cfg.cat_scen is for climate scenarios or cfg.cat_idx for climate indices.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Emission scenarios.
+    rcps = [cfg.rcp_ref] + cfg.rcps
+
+    # Minimum and maximum values along the y-axis
+    ylim = []
+
+    # Loop through stations.
+    stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
+    for stn in stns:
+
+        # Loop through variables.
+        vars_or_idxs = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
+        for i_var_or_idx in range(len(vars_or_idxs)):
+            var_or_idx = vars_or_idxs[i_var_or_idx]
+            threshs = [] if cat == cfg.cat_scen else cfg.idx_threshs
+
+            utils.log("Processing (time series): '" + stn + "', '" + var_or_idx + "'", True)
+
+            # Loop through emission scenarios.
+            ds_ref = None
+            ds_rcp_26, ds_rcp_26_grp = [], []
+            ds_rcp_45, ds_rcp_45_grp = [], []
+            ds_rcp_85, ds_rcp_85_grp = [], []
+            for rcp in rcps:
+
+                # List files.
+                if rcp == cfg.rcp_ref:
+                    if var_or_idx in cfg.variables_cordex:
+                        p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + stn + ".nc"]
+                    else:
+                        p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref.nc"]
+                else:
+                    if var_or_idx in cfg.variables_cordex:
+                        d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
+                    else:
+                        d = cfg.get_d_idx(stn, var_or_idx)
+                    p_sim_list = glob.glob(d + "*_" + rcp + ".nc")
+
+                # Exit if there is no file corresponding to the criteria.
+                if (len(p_sim_list) == 0) or \
+                   ((len(p_sim_list) > 0) and not(os.path.isdir(os.path.dirname(p_sim_list[0])))):
+                    continue
+
+                # Loop through simulation files.
+                for i_sim in range(len(p_sim_list)):
+
+                    # Load dataset.
+                    ds = utils.open_netcdf(p_sim_list[i_sim]).squeeze()
+
+                    # Select control point.
+                    if cfg.opt_ra:
+                        if cfg.d_bounds == "":
+                            ds = utils.subset_ctrl_pt(ds)
+                        else:
+                            ds = utils.squeeze_lon_lat(ds, var_or_idx)
+
+                    # First and last years.
+                    year_1 = int(str(ds.time.values[0])[0:4])
+                    year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
+                    if rcp == cfg.rcp_ref:
+                        year_1 = max(year_1, cfg.per_ref[0])
+                        year_n = min(year_n, cfg.per_ref[1])
+                    else:
+                        year_1 = max(year_1, cfg.per_ref[0])
+                        year_n = min(year_n, cfg.per_fut[1])
+
+                    # Select years.
+                    years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
+                    ds = ds.sel(time=slice(years_str[0], years_str[1]))
+
+                    # Remember units.
+                    units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds.attrs[cfg.attrs_units]
+                    if units == "degree_C":
+                        units = cfg.unit_C
+
+                    # Calculate statistics.
+                    # TODO: Include coordinates in the generated dataset.
+                    years = ds.groupby(ds.time.dt.year).groups.keys()
+                    if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                        ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
+                    else:
+                        ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
+                    n_time = len(ds[cfg.dim_time].values)
+                    da = xr.DataArray(np.array(ds[var_or_idx].values), name=var_or_idx,
+                                      coords=[(cfg.dim_time, np.arange(n_time))])
+                    ds = da.to_dataset()
+                    ds[cfg.dim_time] = utils.reset_calendar_list(years)
+                    ds[var_or_idx].attrs[cfg.attrs_units] = units
+
+                    # Convert units.
+                    if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+                        if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K:
+                            ds = ds - cfg.d_KC
+                            ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
+                    elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                        if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1:
+                            ds = ds * cfg.spd
+                            ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
+
+                    # Calculate minimum and maximum values along the y-axis.
+                    if not ylim:
+                        ylim = [min(ds[var_or_idx].values), max(ds[var_or_idx].values)]
+                    else:
+                        ylim = [min(ylim[0], min(ds[var_or_idx].values)),
+                                max(ylim[1], max(ds[var_or_idx].values))]
+
+                    # Append to list of datasets.
+                    if rcp == cfg.rcp_ref:
+                        ds_ref = ds
+                    elif rcp == cfg.rcp_26:
+                        ds_rcp_26.append(ds)
+                    elif rcp == cfg.rcp_45:
+                        ds_rcp_45.append(ds)
+                    elif rcp == cfg.rcp_85:
+                        ds_rcp_85.append(ds)
+
+                # Group by RCP.
+                if rcp != cfg.rcp_ref:
+                    if rcp == cfg.rcp_26:
+                        ds_rcp_26_grp = calc_stat_mean_min_max(ds_rcp_26, var_or_idx)
+                    elif rcp == cfg.rcp_45:
+                        ds_rcp_45_grp = calc_stat_mean_min_max(ds_rcp_45, var_or_idx)
+                    elif rcp == cfg.rcp_85:
+                        ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, var_or_idx)
+
+            if (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
+
+                # Generate statistics.
+                if cfg.opt_save_csv:
+
+                    # Extract years.
+                    years = []
+                    if cfg.rcp_26 in rcps:
+                        years = utils.extract_years(ds_rcp_26_grp[0])
+                    elif cfg.rcp_45 in rcps:
+                        years = utils.extract_years(ds_rcp_45_grp[0])
+                    elif cfg.rcp_85 in rcps:
+                        years = utils.extract_years(ds_rcp_85_grp[0])
+
+                    # Initialize pandas dataframe.
+                    dict_pd = {"year": years}
+                    df = pd.DataFrame(dict_pd)
+                    df[cfg.rcp_ref] = None
+
+                    # Add values.
+                    for rcp in rcps:
+                        if rcp == cfg.rcp_ref:
+                            years = utils.extract_years(ds_ref)
+                            vals = ds_ref[var_or_idx].values
+                            for i in range(len(vals)):
+                                df[cfg.rcp_ref][df["year"] == years[i]] = vals[i]
+                        elif rcp == cfg.rcp_26:
+                            df[cfg.rcp_26 + "_min"] = ds_rcp_26_grp[0][var_or_idx].values
+                            df[cfg.rcp_26 + "_moy"] = ds_rcp_26_grp[1][var_or_idx].values
+                            df[cfg.rcp_26 + "_max"] = ds_rcp_26_grp[2][var_or_idx].values
+                        elif rcp == cfg.rcp_45:
+                            df[cfg.rcp_45 + "_min"] = ds_rcp_45_grp[0][var_or_idx].values
+                            df[cfg.rcp_45 + "_moy"] = ds_rcp_45_grp[1][var_or_idx].values
+                            df[cfg.rcp_45 + "_max"] = ds_rcp_45_grp[2][var_or_idx].values
+                        elif rcp == cfg.rcp_85:
+                            df[cfg.rcp_85 + "_min"] = ds_rcp_85_grp[0][var_or_idx].values
+                            df[cfg.rcp_85 + "_moy"] = ds_rcp_85_grp[1][var_or_idx].values
+                            df[cfg.rcp_85 + "_max"] = ds_rcp_85_grp[2][var_or_idx].values
+
+                    # Save file.
+                    p_stat = cfg.get_d_scen(stn, cfg.cat_stat, var_or_idx) + var_or_idx + "_" + stn + "_ts.csv"
+                    utils.save_csv(df, p_stat)
+
+                # Generate plots.
+                if cfg.opt_plot:
+
+                    # Time series with simulations grouped by RCP scenario.
+                    cat_fig = cfg.cat_fig + "/" + cat + "/" + var_or_idx + "/"
+                    p_fig = cfg.get_d_scen(stn, cat_fig, "") + var_or_idx + "_" + stn + "_rcp.png"
+                    plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx,
+                        threshs, rcps, ylim, p_fig, 1)
+
+                    # Time series showing individual simulations.
+                    p_fig = p_fig.replace("_rcp.png", "_sim.png")
+                    plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx,
+                        threshs, rcps, ylim, p_fig, 2)
+
+
+def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate mean, minimum and maximum values within a group of datasets.
+    TODO: Include coordinates in the returned datasets.
+
+    Parameters
+    ----------
+    ds_list : [xr.Dataset]
+        Array of datasets from a given group.
+    var_or_idx : str
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
+
+    Returns
+    -------
+    ds_mean_min_max : [xr.Dataset]
+        Array of datasets with mean, minimum and maximum values.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    ds_mean_min_max = []
+
+    # Get years, units and coordinates.
+    units = ds_list[0][var_or_idx].attrs[cfg.attrs_units]
+    year_1 = int(str(ds_list[0].time.values[0])[0:4])
+    year_n = int(str(ds_list[0].time.values[len(ds_list[0].time.values) - 1])[0:4])
+    n_time = year_n - year_1 + 1
+
+    # Calculate statistics.
+    arr_vals_mean = []
+    arr_vals_min = []
+    arr_vals_max = []
+    for i_time in range(n_time):
+        vals = []
+        for ds in ds_list:
+            vals.append(float(ds[var_or_idx][i_time].values))
+        arr_vals_mean.append(np.array(vals).mean())
+        arr_vals_min.append(min(np.array(vals)))
+        arr_vals_max.append(max(np.array(vals)))
+
+    # Build datasets.
+    for i in range(1, 4):
+
+        # Select values.
+        if i == 1:
+            arr_vals = arr_vals_mean
+        elif i == 2:
+            arr_vals = arr_vals_min
+        else:
+            arr_vals = arr_vals_max
+
+        # Build dataset.
+        da = xr.DataArray(np.array(arr_vals), name=var_or_idx, coords=[(cfg.dim_time, np.arange(n_time))])
+        ds = da.to_dataset()
+        ds[cfg.dim_time] = utils.reset_calendar(ds, year_1, year_n, cfg.freq_YS)
+        ds[var_or_idx].attrs[cfg.attrs_units] = units
+
+        ds_mean_min_max.append(ds)
+
+    return ds_mean_min_max

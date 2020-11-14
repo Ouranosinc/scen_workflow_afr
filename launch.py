@@ -182,8 +182,10 @@ def load_params(p_ini: str):
                 cfg.opt_stat = ast.literal_eval(value)
             elif key == "stat_quantiles":
                 cfg.stat_quantiles = convert_to_1d(value, float)
-            elif key == "opt_conv_nc_csv":
-                cfg.opt_conv_nc_csv = ast.literal_eval(value)
+            elif key == "opt_save_csv":
+                cfg.opt_save_csv = ast.literal_eval(value)
+            elif key == "opt_save_geotiff":
+                cfg.opt_save_geotiff = ast.literal_eval(value)
 
             # VISUALIZATION:
             elif key == "opt_plot":

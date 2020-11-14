@@ -1132,7 +1132,7 @@ def run():
     # Scenarios --------------------------------------------------------------------------------------------------------
 
     # Generate climate scenarios.
-    msg = "Step #2-5 Production of climate scenarios is "
+    msg = "Step #2-5 Calculation of scenarios is "
     if cfg.opt_scen:
 
         # Uncomment the following line to calibrate for all stations and variables.
@@ -1149,13 +1149,20 @@ def run():
     # Statistics -------------------------------------------------------------------------------------------------------
 
     utils.log("=")
-    msg = "Step #7   Calculation of statistics is "
+    msg = "Step #7   Calculation of statistics (scenarios) is "
     if cfg.opt_stat:
 
         msg = msg + "running"
         utils.log(msg)
 
-        # Scenarios.
+        # Calculate time series.
+        utils.log("-")
+        utils.log("Step #7a  Calculation of times series (scenarios).")
+        statistics.calc_ts(cfg.cat_scen)
+
+        # Calculate overall statistics.
+        utils.log("-")
+        utils.log("Step #7b  Calculation of overall statistics for climate scenarios.")
         statistics.calc_stats(cfg.cat_scen)
 
     else:
@@ -1165,8 +1172,8 @@ def run():
         utils.log(msg)
 
     utils.log("-")
-    msg = "Step #7c  Conversion of NetCDF to CSV files is "
-    if cfg.opt_conv_nc_csv and not cfg.opt_ra:
+    msg = "Step #7c  Conversion of NetCDF to CSV files (scenarios) is "
+    if cfg.opt_save_csv and not cfg.opt_ra:
 
         msg = msg + "running"
         utils.log(msg)
@@ -1233,9 +1240,8 @@ def run():
 
         utils.log("=")
         utils.log("Step #8b  Generating time series.")
-
-        for var in cfg.variables_cordex:
-            plot.plot_ts(var)
+        if not cfg.opt_save_csv:
+            statistics.calc_ts(cfg.cat_scen)
 
     # Heat maps --------------------------------------------------------------------------------------------------------
 

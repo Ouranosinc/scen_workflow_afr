@@ -304,6 +304,29 @@ def extract_date(val: pd.DatetimeIndex) -> [int]:
     return [year, month, day]
 
 
+def extract_years(ds: Union[xr.DataArray, xr.Dataset]) -> [int]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Extract years.
+
+    Parameters
+    ----------
+    ds : Union[xr.DataArray, xr.Dataset]
+        DataArray or Dataset
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    time_list = list(ds.time.values)
+    for i in range(len(time_list)):
+        try:
+            time_list[i] = time_list[i].year
+        except:
+            time_list[i] = str(time_list[i])[0:4]
+
+    return time_list
+
+
 def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, freq=cfg.freq_D) -> pd.DatetimeIndex:
 
     """
