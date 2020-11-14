@@ -1162,7 +1162,7 @@ def run():
 
         # Calculate overall statistics.
         utils.log("-")
-        utils.log("Step #7b  Calculation of overall statistics for climate scenarios.")
+        utils.log("Step #7b  Calculation of overall statistics (scenarios).")
         statistics.calc_stats(cfg.cat_scen)
 
     else:
