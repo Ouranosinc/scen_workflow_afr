@@ -506,6 +506,10 @@ def calc_ts(cat: str):
 
             utils.log("Processing (time series): '" + stn + "', '" + var_or_idx + "'", True)
 
+            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, var_or_idx) + var_or_idx + "_" + stn + "_ts.csv"
+            if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
+                continue
+
             # Loop through emission scenarios.
             ds_ref = None
             ds_rcp_26, ds_rcp_26_grp = [], []
@@ -653,8 +657,7 @@ def calc_ts(cat: str):
                             df[cfg.rcp_85 + "_max"] = ds_rcp_85_grp[2][var_or_idx].values
 
                     # Save file.
-                    p_stat = cfg.get_d_scen(stn, cfg.cat_stat, var_or_idx) + var_or_idx + "_" + stn + "_ts.csv"
-                    utils.save_csv(df, p_stat)
+                    utils.save_csv(df, p_csv)
 
                 # Generate plots.
                 if cfg.opt_plot:
