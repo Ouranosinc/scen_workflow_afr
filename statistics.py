@@ -276,7 +276,7 @@ def calc_stats(cat: str):
                 if not os.path.isdir(d):
                     continue
 
-                utils.log("Processing (stats): '" + stn + "', '" + var_or_idx + "', '" + rcp + "'", True)
+                utils.log("Processing: '" + stn + "', '" + var_or_idx + "', '" + rcp + "'", True)
 
                 # Loop through statistics.
                 stats = [cfg.stat_mean]
@@ -361,7 +361,7 @@ def calc_time_series(cat: str):
             var_or_idx = vars_or_idxs[i_var_or_idx]
             threshs = [] if cat == cfg.cat_scen else cfg.idx_threshs
 
-            utils.log("Processing (time series): '" + stn + "', '" + var_or_idx + "'", True)
+            utils.log("Processing: '" + stn + "', '" + var_or_idx + "'", True)
 
             # Files to be created.
             p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx + "_csv") + \
