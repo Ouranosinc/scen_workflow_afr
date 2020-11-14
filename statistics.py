@@ -843,7 +843,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
 
         # Generate plot.
         stn = "stns" if not cfg.opt_ra else cfg.obs_src
-        d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx) + var_or_idx + "/"
+        d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx)
         fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         p_fig = d_fig + fn_fig
         if cfg.opt_plot_heat:

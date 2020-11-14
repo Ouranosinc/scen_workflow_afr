@@ -46,6 +46,7 @@ The following features were added:
 
 ### v1.1.0
 
+The following features were added:
 - compatibility with gridded data (not only at a station);
 - generation of maps for climate variables (interpolation);
 - implementation of parallel processing for computationally expensive steps;
@@ -53,11 +54,13 @@ The following features were added:
 - calculation of statistics based on region boundaries (.geojson file) if reanalysis data is provided;
 - conversion of NetCDF files to .csv files (only if the analysis is based on observations).
 
-## Upcoming features
+### v1.1.1
 
-The following features are currently being implemented:
-- addition of region boundaries in heat maps;
-- conversion of heat maps to .csv and .geotiff files.
+The following feature was added:
+- conversion of heat maps and time series to .csv.
+
+The following change was made:
+- relocated heat maps under directory stn/fig/scen/maps. 
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

@@ -278,7 +278,7 @@ def run():
     if cfg.opt_ra and (cfg.opt_plot_heat or cfg.opt_save_csv):
 
         utils.log("=")
-        utils.log("Step #8c  Calculating heat maps (indices).")
+        utils.log("Step #8c  Generating heat maps (indices).")
 
         for i in range(len(cfg.idx_names)):
 

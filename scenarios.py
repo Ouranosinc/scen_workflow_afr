@@ -1239,7 +1239,7 @@ def run():
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
         utils.log("=")
-        utils.log("Step #8b  Generating time series.")
+        utils.log("Step #8b  Generating time series (scenarios).")
         if not cfg.opt_save_csv:
             statistics.calc_time_series(cfg.cat_scen)
 
@@ -1252,7 +1252,7 @@ def run():
     if cfg.opt_ra and (cfg.opt_plot_heat or cfg.opt_save_csv):
 
         utils.log("=")
-        utils.log("Step #8c  Generating heat maps.")
+        utils.log("Step #8c  Generating heat maps (scenarios).")
 
         for i in range(len(cfg.variables_cordex)):
 
