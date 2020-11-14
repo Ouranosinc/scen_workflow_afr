@@ -1157,12 +1157,12 @@ def run():
 
         # Calculate time series.
         utils.log("-")
-        utils.log("Step #7a  Calculation of times series (scenarios).")
-        statistics.calc_ts(cfg.cat_scen)
+        utils.log("Step #7a  Generating times series (scenarios).")
+        statistics.calc_time_series(cfg.cat_scen)
 
         # Calculate overall statistics.
         utils.log("-")
-        utils.log("Step #7b  Calculation of overall statistics (scenarios).")
+        utils.log("Step #7b  Calculating overall statistics (scenarios).")
         statistics.calc_stats(cfg.cat_scen)
 
     else:
@@ -1241,7 +1241,7 @@ def run():
         utils.log("=")
         utils.log("Step #8b  Generating time series.")
         if not cfg.opt_save_csv:
-            statistics.calc_ts(cfg.cat_scen)
+            statistics.calc_time_series(cfg.cat_scen)
 
     # Heat maps --------------------------------------------------------------------------------------------------------
 
@@ -1249,7 +1249,7 @@ def run():
     # Heat maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
-    if cfg.opt_plot_heat and cfg.opt_ra:
+    if cfg.opt_ra and (cfg.opt_plot_heat or cfg.opt_save_csv):
 
         utils.log("=")
         utils.log("Step #8c  Generating heat maps.")
@@ -1270,11 +1270,11 @@ def run():
                 z_max = max(vals)
 
             # Reference period.
-            plot.plot_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
+            statistics.calc_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
 
             # Future period.
             for rcp in cfg.rcps:
-                plot.plot_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors, z_min, z_max)
+                statistics.calc_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors, z_min, z_max)
 
 
 if __name__ == "__main__":

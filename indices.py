@@ -233,12 +233,12 @@ def run():
 
         # Calculate time series.
         utils.log("-")
-        utils.log("Step #7a  Calculation of times series (indices).")
-        statistics.calc_ts(cfg.cat_idx)
+        utils.log("Step #7a  Generating times series (indices).")
+        statistics.calc_time_series(cfg.cat_idx)
 
         # Calculate overall statistics.
         utils.log("-")
-        utils.log("Step #7b  Calculation of statistics (indices).")
+        utils.log("Step #7b  Calculating statistics (indices).")
         statistics.calc_stats(cfg.cat_idx)
 
     else:
@@ -267,18 +267,18 @@ def run():
     if cfg.opt_plot:
 
         utils.log("=")
-        utils.log("Step #8b  Generating time series.")
+        utils.log("Step #8b  Calculating time series (indices).")
         if not cfg.opt_save_csv:
-            statistics.calc_ts(cfg.cat_idx)
+            statistics.calc_time_series(cfg.cat_idx)
 
     # Generate maps.
     # Heat maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
-    if cfg.opt_plot_heat and cfg.opt_ra:
+    if cfg.opt_ra and (cfg.opt_plot_heat or cfg.opt_save_csv):
 
         utils.log("=")
-        utils.log("Step #8c  Generating heat maps.")
+        utils.log("Step #8c  Calculating heat maps (indices).")
 
         for i in range(len(cfg.idx_names)):
 
@@ -296,11 +296,11 @@ def run():
                 z_max = max(vals)
 
             # Reference period.
-            plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
+            statistics.calc_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
 
             # Future period.
             for rcp in cfg.rcps:
-                plot.plot_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors, z_min, z_max)
+                statistics.calc_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors, z_min, z_max)
 
 
 if __name__ == "__main__":

@@ -9,19 +9,15 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
-import glob
 import matplotlib.cbook
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
-import math
 import numpy as np
 import numpy.polynomial.polynomial as poly
 import os.path
-import pandas as pd
 import seaborn as sns
 import simplejson
-import statistics
 import utils
 import warnings
 import xarray as xr
@@ -29,7 +25,6 @@ from descartes import PolygonPatch
 from matplotlib import pyplot
 from matplotlib.lines import Line2D
 from scipy import signal
-from scipy.interpolate import griddata
 
 
 # ======================================================================================================================
@@ -671,264 +666,8 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # Scenarios and indices.
 # ======================================================================================================================
 
-
-def plot_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]], z_min: float, z_max: float):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Interpolate data within a zone.
-
-    Parameters
-    ----------
-    var_or_idx: str
-        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
-    threshs: [float]
-        Climate index thresholds.
-    rcp: str
-        Emission scenario.
-    per_hors: [[int]]
-        Horizons.
-    z_min : float
-        Minimum value (associated with color bar).
-    z_max : float
-        Maximum value (associated with color bar).
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Determine category.
-    cat = cfg.cat_scen if var_or_idx in cfg.variables_cordex else cfg.cat_idx
-
-    utils.log("-")
-    if cat == cfg.cat_scen:
-        utils.log("Scenario          : " + var_or_idx, True)
-    else:
-        utils.log("Index             : " + var_or_idx, True)
-    utils.log("Emission scenario : " + cfg.get_rcp_desc(rcp), True)
-    utils.log("-")
-
-    # Number of years and stations.
-    if rcp == cfg.rcp_ref:
-        n_year = cfg.per_ref[1] - cfg.per_ref[0] + 1
-    else:
-        n_year = cfg.per_fut[1] - cfg.per_ref[1] + 1
-
-    # List stations.
-    stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
-
-    # Observations -----------------------------------------------------------------------------------------------------
-
-    if not cfg.opt_ra:
-
-        # Get information on stations.
-        # TODO.YR: Coordinates should be embedded into ds_stat below.
-        p_stn = glob.glob(cfg.get_d_stn(cfg.var_cordex_tas) + "../*.csv")[0]
-        df = pd.read_csv(p_stn, sep=cfg.file_sep)
-
-        # Collect values for each station and determine overall boundaries.
-        utils.log("Collecting emissions scenarios at each station.", True)
-        x_bnds = []
-        y_bnds = []
-        data_stn = []
-        for stn in stns:
-
-            # Get coordinates.
-            lon = df[df["station"] == stn][cfg.dim_lon].values[0]
-            lat = df[df["station"] == stn][cfg.dim_lat].values[0]
-
-            # Calculate statistics.
-            if rcp == cfg.rcp_ref:
-                ds_stat = statistics.calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
-                                               cfg.stat_mean)
-            else:
-                ds_stat = statistics.calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None,
-                                               cfg.stat_mean)
-            if ds_stat is None:
-                continue
-
-            # Extract data from stations.
-            data = [[], [], []]
-            n = ds_stat.dims[cfg.dim_time]
-            for year in range(0, n):
-
-                # Collect data.
-                x = float(lon)
-                y = float(lat)
-                z = float(ds_stat[var_or_idx][0][0][year])
-                if math.isnan(z):
-                    z = float(0)
-                data[0].append(x)
-                data[1].append(y)
-                data[2].append(z)
-
-                # Update overall boundaries (round according to the variable 'step').
-                if not x_bnds:
-                    x_bnds = [x, x]
-                    y_bnds = [y, y]
-                else:
-                    x_bnds = [min(x_bnds[0], x), max(x_bnds[1], x)]
-                    y_bnds = [min(y_bnds[0], y), max(y_bnds[1], y)]
-
-            # Add data from station to complete dataset.
-            data_stn.append(data)
-
-        # Build the list of x and y locations for which interpolation is needed.
-        utils.log("Collecting the coordinates of stations.", True)
-        grid_time = range(0, n_year)
-
-        def round_to_nearest_decimal(val, step):
-            if val < 0:
-                val_rnd = math.floor(val/step) * step
-            else:
-                val_rnd = math.ceil(val/step) * step
-            return val_rnd
-
-        for i in range(0, 2):
-            x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cfg.idx_resol)
-            y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cfg.idx_resol)
-        grid_x = np.arange(x_bnds[0], x_bnds[1] + cfg.idx_resol, cfg.idx_resol)
-        grid_y = np.arange(y_bnds[0], y_bnds[1] + cfg.idx_resol, cfg.idx_resol)
-
-        # Perform interpolation.
-        # There is a certain flexibility regarding the number of years in a dataset. Ideally, the station should not
-        # have been considered in the analysis, unless there is no better option.
-        utils.log("Performing interpolation.", True)
-        new_grid = np.meshgrid(grid_x, grid_y)
-        new_grid_data = np.empty((n_year, len(grid_y), len(grid_x)))
-        for i_year in range(0, n_year):
-            arr_x = []
-            arr_y = []
-            arr_z = []
-            for i_stn in range(len(data_stn)):
-                if i_year < len(data_stn[i_stn][0]):
-                    arr_x.append(data_stn[i_stn][0][i_year])
-                    arr_y.append(data_stn[i_stn][1][i_year])
-                    arr_z.append(data_stn[i_stn][2][i_year])
-            new_grid_data[i_year, :, :] =\
-                griddata((arr_x, arr_y), np.array(arr_z), (new_grid[0], new_grid[1]), fill_value=np.nan,
-                         method="linear")
-        da_itp = xr.DataArray(new_grid_data,
-                              coords={cfg.dim_time: grid_time, cfg.dim_lat: grid_y, cfg.dim_lon: grid_x},
-                              dims=[cfg.dim_time, cfg.dim_lat, cfg.dim_lon])
-        ds_itp = da_itp.to_dataset(name=var_or_idx)
-
-    # Reanalysis -------------------------------------------------------------------------------------------------------
-
-    # There is no need to interpolate.
-    else:
-
-        # Reference period.
-        if var_or_idx in cfg.variables_cordex:
-            p_itp_ref = cfg.get_d_scen(cfg.obs_src, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + cfg.obs_src + ".nc"
-        else:
-            p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"
-        if rcp == cfg.rcp_ref:
-            p_itp = p_itp_ref
-            if not os.path.exists(p_itp):
-                return
-            ds_itp = utils.open_netcdf(p_itp)
-
-        # Future period.
-        else:
-
-            # List scenarios or indices for the current RCP.
-            if cat == cfg.cat_scen:
-                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
-            else:
-                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_idx, var_or_idx)
-            p_sim_list = [i for i in glob.glob(d + "*.nc") if i != p_itp_ref]
-
-            # Combine datasets.
-            ds_itp = None
-            n_sim = 0
-            units = None
-            for p_sim in p_sim_list:
-                if os.path.exists(p_sim) and (rcp in p_sim):
-                    ds_sim = utils.open_netcdf(p_sim)
-                    if cat == cfg.cat_scen:
-                        ds_sim[cfg.dim_time] = utils.reset_calendar(ds_sim.time)
-                    if ds_itp is None:
-                        ds_itp = ds_sim
-                        if cfg.attrs_units in ds_sim[var_or_idx].attrs:
-                            units = ds_sim[var_or_idx].attrs[cfg.attrs_units]
-                        elif cfg.attrs_units in ds_sim.data_vars:
-                            units = ds_sim[cfg.attrs_units]
-                        else:
-                            units = 1
-                    else:
-                        ds_itp[var_or_idx] = ds_itp[var_or_idx] + ds_sim[var_or_idx]
-                    n_sim = n_sim + 1
-            if ds_itp is None:
-                return
-            ds_itp[var_or_idx] = ds_itp[var_or_idx] / float(n_sim)
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
-
-        # Convert units (C or mm).
-        if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
-           (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
-            ds_itp = ds_itp - cfg.d_KC
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
-        elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
-             (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1):
-            ds_itp = ds_itp * cfg.spd
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
-
-        # Adjust coordinate names (required for clipping).
-        # TODO.YR: Ideally, this should be done elsewhere.
-        if cfg.dim_longitude not in list(ds_itp.dims):
-            if cfg.dim_rlon in ds_itp.dims:
-                ds_itp = ds_itp.rename_dims({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-                ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_rlon]
-                del ds_itp[cfg.dim_rlon]
-                ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_rlat]
-                del ds_itp[cfg.dim_rlat]
-            else:
-                ds_itp = ds_itp.rename_dims({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
-                ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_lon]
-                del ds_itp[cfg.dim_lon]
-                ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_lat]
-                del ds_itp[cfg.dim_lat]
-
-        grid_x = None
-        grid_y = None
-
-    # Maps -------------------------------------------------------------------------------------------------------------
-
-    # Loop through horizons.
-    utils.log("Generating maps.", True)
-    for per_hor in per_hors:
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-
-            # Select period.
-            years_str = [str(per_hor[0]) + "-01-01", str(per_hor[1]) + "-12-31"]
-            ds_hor = ds_itp.sel(time=slice(years_str[0], years_str[1]))
-
-            # Calculate mean or sum.
-            if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                ds_hor = ds_hor.resample(time=cfg.freq_YS).mean()
-            else:
-                ds_hor = ds_hor.resample(time=cfg.freq_YS).sum()
-            da_hor = ds_hor.mean(dim="time")[var_or_idx]
-
-            # Eliminate negligible values (<1mm/year).
-            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                da_hor = da_hor.where(da_hor.values >= 1)
-
-        # Clip.
-        if cfg.d_bounds != "":
-            da_hor = utils.subset_shape(da_hor)
-
-        # Plot.
-        cat_fig = cfg.cat_fig + "/" + ("stns" if not cfg.opt_ra else cfg.obs_src) + \
-            ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "") + "/" + cat
-        p_fig = cfg.get_d_scen("", cat_fig, var_or_idx) +\
-            var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
-        plot_heatmap_spec(da_hor, var_or_idx, threshs, grid_x, grid_y, per_hor, z_min, z_max, p_fig, "matplotlib")
-
-
-def plot_heatmap_spec(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
-                      per: [int, int], z_min: float, z_max: float, p_fig: str, map_package: str):
+def plot_heatmap(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
+                 per: [int, int], z_min: float, z_max: float, p_fig: str, map_package: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------

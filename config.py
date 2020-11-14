@@ -294,7 +294,6 @@ idx_threshs         = []            # Index thresholds.
 opt_stat            = True          # If True, calculate statistics.
 stat_quantiles      = [1.00, 0.99, 0.75, 0.50, 0.25, 0.01, 0.00]  # Quantiles.
 opt_save_csv        = False         # If True, save results to CSV files.
-opt_save_geotiff    = False         # If True, save results to GEOTIFF files.
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
