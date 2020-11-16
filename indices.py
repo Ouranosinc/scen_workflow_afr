@@ -239,7 +239,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7b  Export to CSV files (indices) is "
-    if cfg.opt_save_csv and not cfg.opt_ra:
+    if cfg.opt_save_csv:
 
         msg = msg + "running"
         utils.log(msg)
