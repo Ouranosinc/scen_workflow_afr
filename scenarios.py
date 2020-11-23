@@ -332,8 +332,6 @@ def extract(var: str, ds_stn: xr.Dataset, d_ref: str, d_fut: str, p_raw: str):
 
     # Data extraction --------------------------------------------------------------------------------------------------
 
-    utils.log("Extracting data from NetCDF file", True)
-
     # The idea is to extract historical and projected data based on a range of longitude, latitude, years.
     ds_raw = rcm.extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds,
                                   priority_timestep=cfg.priority_timestep[cfg.variables_cordex.index(var)],
@@ -374,7 +372,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
     # Load dataset.
     ds_raw = utils.open_netcdf(p_raw)
 
-    msg = "Temporal interpolation is "
+    msg = "Interpolating (time)"
 
     # This checks if the data is daily. If it is sub-daily, resample to daily. This can take a while, but should
     # save us computation time later.
@@ -382,7 +380,6 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
             np.array([datetime.timedelta(1)], dtype="timedelta64[ms]")[0]:
 
         # Interpolate.
-        msg = msg + "running"
         utils.log(msg, True)
         ds_raw = ds_raw.resample(time="1D").mean(dim=cfg.dim_time, keep_attrs=True)
 
@@ -391,16 +388,14 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
         utils.save_netcdf(ds_raw, p_raw, desc=desc)
         ds_raw = utils.open_netcdf(p_raw)
     else:
-        msg = msg + "not required (data is daily)"
-        utils.log(msg, True)
+        utils.log(msg + " (not required; daily frequency)", True)
 
     # Spatial interpolation --------------------------------------------------------------------------------------------
 
-    msg = "Spatial interpolation is "
+    msg = "Interpolating (space)"
 
     if (not os.path.exists(p_regrid)) or cfg.opt_force_overwrite:
 
-        msg = msg + "running"
         utils.log(msg, True)
 
         # Method 1: Convert data to a new grid.
@@ -467,8 +462,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
 
     else:
 
-        msg = msg + "not required"
-        utils.log(msg, True)
+        utils.log(msg + " (not required)", True)
 
 
 def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
@@ -777,12 +771,12 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
                 da_qmf_xy       = utils.squeeze_lon_lat(da_qmf_xy)
 
         # Generate summary plot.
-        if cfg.opt_plot:
+        if cfg.opt_plot[0]:
             plot.plot_calib(da_stn_xy, da_ref_xy, da_fut_xy, da_qqmap_xy, da_qqmap_ref_xy, da_qmf_xy,
                             var, title, p_fig)
 
         # Generate time series only.
-        if cfg.opt_plot:
+        if cfg.opt_plot[0]:
             plot.plot_calib_ts(da_stn_xy, da_fut_xy, da_qqmap_xy, var, title, p_fig.replace(".png", "_ts.png"))
 
     return ds_qqmap if (p_fig == "") else None
@@ -828,7 +822,7 @@ def generate():
     list_cordex = utils.list_cordex(cfg.d_proj, cfg.rcps)
 
     utils.log("=")
-    utils.log("Step #3-5 Production of climate scenarios is running")
+    utils.log("Step #3-5 Producing climate scenarios")
 
     # Loop through variables.
     for i_var in range(0, len(cfg.variables_cordex)):
@@ -1050,12 +1044,12 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # Step #3: Extraction.
     # This step only works in scalar mode.
     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/
-    msg = "Step #3   Extraction is "
+    msg = "Step #3   Extracting projections"
     if (not os.path.isfile(p_raw)) or cfg.opt_force_overwrite:
-        utils.log(msg + "running")
+        utils.log(msg)
         extract(var, ds_stn, d_sim_ref, d_sim_fut, p_raw)
     else:
-        utils.log(msg + "not required")
+        utils.log(msg + " (not required)")
 
     # When running in parallel mode and only performing extraction, the remaining steps will be done in a second pass.
     if extract_only:
@@ -1064,36 +1058,36 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # Step #4: Spatial and temporal interpolation.
     # This modifies one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
     #      creates  one .nc file in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
-    msg = "Step #4   Spatial and temporal interpolation is "
+    msg = "Step #4   Interpolating (space and time)"
     if (not os.path.isfile(p_regrid)) or cfg.opt_force_overwrite:
-        utils.log(msg + "running")
+        utils.log(msg)
         interpolate(var, ds_stn, p_raw, p_regrid)
     else:
-        utils.log(msg + "not required")
+        utils.log(msg + " (not required)")
 
     # Adjusting the datasets associated with observations and simulated conditions
     # (for the reference and future periods) to ensure that calendar is based on 365 days per year and
     # that values are within boundaries (0-100%).
     # This creates two .nc files in ~/sim_climat/<country>/<project>/<stn>/regrid/<var>/.
     utils.log("-")
-    msg = "Step #4.5 Pre-processing is "
+    msg = "Step #4.5 Pre-processing"
     if (not(os.path.isfile(p_obs)) or not(os.path.isfile(p_regrid_ref)) or not(os.path.isfile(p_regrid_fut))) or\
        cfg.opt_force_overwrite:
-        utils.log(msg + "running")
+        utils.log(msg)
         preprocess(var, ds_stn, p_obs, p_regrid, p_regrid_ref, p_regrid_fut)
     else:
-        utils.log(msg + "not required")
+        utils.log(msg + " (not required)")
 
     # Step #5: Post-processing.
 
     # Step #5a: Calculate adjustment factors.
     utils.log("-")
-    msg = "Step #5a  Calculating adjustment factors is "
+    msg = "Step #5a  Calculating adjustment factors"
     if cfg.opt_calib:
-        utils.log(msg + "running")
+        utils.log(msg)
         scenarios_calib.bias_correction(stn, var, sim_name)
     else:
-        utils.log(msg + "not required")
+        utils.log(msg + " (not required)")
     df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
                               (cfg.df_calib["stn"] == stn) &
                               (cfg.df_calib["var"] == var)]
@@ -1111,14 +1105,14 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # Step #5c: Bias correction.
     # This creates one .nc file in ~/sim_climat/<country>/<project>/<stn>/qqmap/<var>/.
     utils.log("-")
-    msg = "Step #5bc Statistical downscaling and bias adjustment is "
+    msg = "Step #5bc Statistical downscaling and adjusting bias"
     if (not(os.path.isfile(p_qqmap)) or not(os.path.isfile(p_qmf))) or cfg.opt_force_overwrite:
-        utils.log(msg + "running")
+        utils.log(msg)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
             postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf)
     else:
-        utils.log(msg + "not required")
+        utils.log(msg + " (not required)")
 
 
 def run():
@@ -1129,67 +1123,63 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    not_req = " (not required)"
+
     # Scenarios --------------------------------------------------------------------------------------------------------
 
     # Generate climate scenarios.
-    msg = "Step #2-5 Calculation of scenarios is "
+    msg = "Step #2-5 Calculating scenarios"
     if cfg.opt_scen:
-
-        # Uncomment the following line to calibrate for all stations and variables.
-        # scen_calib.run()
-
-        # Generate scenarios.
+        utils.log(msg)
         generate()
-
     else:
-
-        utils.log(msg + "not required")
+        utils.log(msg + not_req)
 
     # Statistics -------------------------------------------------------------------------------------------------------
 
     utils.log("=")
-    msg = "Step #7a  Calculation of statistics (scenarios) is "
-    if cfg.opt_stat:
-
-        msg = msg + "running"
+    msg = "Step #7   Exporting results (scenarios)"
+    if cfg.opt_stat or cfg.opt_save_csv:
         utils.log(msg)
-        statistics.calc_stats(cfg.cat_scen)
-
     else:
-
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
+        utils.log(msg + not_req)
 
     utils.log("-")
-    msg = "Step #7b  Export to CSV files (scenarios) is "
-    if cfg.opt_save_csv:
-
-        msg = msg + "running"
+    msg = "Step #7a  Calculating statistics (scenarios)"
+    if cfg.opt_stat:
         utils.log(msg)
+        statistics.calc_stats(cfg.cat_scen)
+    else:
+        utils.log(msg + not_req)
 
+    utils.log("-")
+    msg = "Step #7b  Exporting results to CSV files (scenarios)"
+    if cfg.opt_save_csv:
+        utils.log(msg)
         utils.log("-")
-        utils.log("Step #7b1 Generating times series (scenarios).")
+        utils.log("Step #7b1 Generating times series (scenarios)")
         statistics.calc_time_series(cfg.cat_scen)
-
         if not cfg.opt_ra:
             utils.log("-")
-            utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios).")
+            utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios)")
             statistics.conv_nc_csv(cfg.cat_scen)
-
     else:
-
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
+        utils.log(msg + not_req)
 
     # Plots ------------------------------------------------------------------------------------------------------------
 
-    # Generate time series.
-    if cfg.opt_plot:
+    utils.log("=")
+    msg = "Step #8   Generating diagrams and maps (scenarios)"
+    if cfg.opt_plot[0] or cfg.opt_plot_heat[0]:
+        utils.log(msg)
+    else:
+        utils.log(msg + not_req)
 
-        utils.log("=")
-        utils.log("Step #8a  Generating post-process and workflow diagrams.")
+    # Generate time series.
+    if cfg.opt_plot[0]:
+
+        utils.log("-")
+        utils.log("Step #8a  Generating post-process and workflow diagrams")
 
         # Loop through variables.
         for var in cfg.variables_cordex:
@@ -1237,8 +1227,8 @@ def run():
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
         if not cfg.opt_save_csv:
-            utils.log("=")
-            utils.log("Step #8b  Generating time series (scenarios).")
+            utils.log("-")
+            utils.log("Step #8b  Generating time series (scenarios)")
             statistics.calc_time_series(cfg.cat_scen)
 
     # Heat maps --------------------------------------------------------------------------------------------------------
@@ -1247,10 +1237,11 @@ def run():
     # Heat maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
-    if cfg.opt_ra and (cfg.opt_plot_heat or cfg.opt_save_csv):
+    utils.log("-")
+    msg = "Step #8c  Generating heat maps (scenarios)"
+    if cfg.opt_ra and (cfg.opt_plot_heat[0] or cfg.opt_save_csv):
 
-        utils.log("=")
-        utils.log("Step #8c  Generating heat maps (scenarios).")
+        utils.log(msg)
 
         for i in range(len(cfg.variables_cordex)):
 
@@ -1258,7 +1249,7 @@ def run():
             var = cfg.variables_cordex[i]
             p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, var) + var + "_" + cfg.obs_src + ".csv"
             if not os.path.exists(p_stat):
-                z_min = z_max = -1
+                z_min = z_max = None
             else:
                 df_stats = pd.read_csv(p_stat, sep=",")
                 vals = df_stats[(df_stats["stat"] == cfg.stat_min) |
@@ -1273,6 +1264,9 @@ def run():
             # Future period.
             for rcp in cfg.rcps:
                 statistics.calc_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors, z_min, z_max)
+
+    else:
+        utils.log(msg + " (not required)")
 
 
 if __name__ == "__main__":

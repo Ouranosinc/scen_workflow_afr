@@ -706,8 +706,12 @@ def plot_heatmap(da: xr.DataArray, var_or_idx: str, threshs: [float], grid_x: [f
     # ==========================================================
 
     if var_or_idx == cfg.idx_tx_days_above:
-        title = cfg.get_idx_desc(var_or_idx, threshs) + cfg.get_var_unit(cfg.var_cordex_tasmax)
+        title = cfg.get_idx_desc(var_or_idx, threshs) + " " + cfg.get_var_unit(cfg.var_cordex_tasmax)
         label = "Nbr. jours"
+
+    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day]:
+        title = cfg.get_idx_desc(var_or_idx, threshs)
+        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr) + ")"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END
@@ -870,8 +874,12 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     # ==========================================================
 
     if var_or_idx == cfg.idx_tx_days_above:
-        title = cfg.get_idx_desc(var_or_idx, threshs) + cfg.get_var_unit(cfg.var_cordex_tasmax)
+        title = cfg.get_idx_desc(var_or_idx, threshs) + " " + cfg.get_var_unit(cfg.var_cordex_tasmax)
         label = "Nbr. jours"
+
+    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day]:
+        title = cfg.get_idx_desc(var_or_idx, threshs)
+        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr) + ")"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END
@@ -880,7 +888,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     else:
         title = cfg.get_var_desc(var_or_idx).capitalize()
         label = title + " (" + cfg.get_var_unit(var_or_idx) + ")"
-    title = title + " (" + stn + ")"
+    title = title + " (" + stn.lower() + ")"
 
     # Initialize plot.
     f, ax = plt.subplots()

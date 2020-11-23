@@ -63,5 +63,11 @@ The following feature was added:
 The following change was made:
 - relocated heat maps under directory stn/fig/scen/maps. 
 
+### Upcoming version
+
+The following features are being implemented:
+- possibility to enable/disable plot generation independently in scenarios and indices;
+- improved logging.
+
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

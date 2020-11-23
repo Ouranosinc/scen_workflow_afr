@@ -366,7 +366,8 @@ def calc_time_series(cat: str):
             # Files to be created.
             p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx + "_csv") + \
                 var_or_idx + "_" + stn + ".csv"
-            if not cfg.opt_plot and (os.path.exists(p_csv) or cfg.opt_force_overwrite):
+            if not (((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1]))) and\
+                    (os.path.exists(p_csv) or cfg.opt_force_overwrite):
                 continue
 
             # Loop through emission scenarios.
@@ -519,7 +520,7 @@ def calc_time_series(cat: str):
                     utils.save_csv(df, p_csv)
 
                 # Generate plots.
-                if cfg.opt_plot:
+                if ((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1])):
 
                     # Time series with simulations grouped by RCP scenario.
                     p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx) + \
@@ -622,13 +623,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
     # Determine category.
     cat = cfg.cat_scen if var_or_idx in cfg.variables_cordex else cfg.cat_idx
 
-    utils.log("-")
-    if cat == cfg.cat_scen:
-        utils.log("Scenario          : " + var_or_idx, True)
-    else:
-        utils.log("Index             : " + var_or_idx, True)
-    utils.log("Emission scenario : " + cfg.get_rcp_desc(rcp), True)
-    utils.log("-")
+    utils.log("Processing: '" + var_or_idx + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
 
     # Number of years and stations.
     if rcp == cfg.rcp_ref:
@@ -838,6 +833,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
                 da_hor = da_hor.where(da_hor.values >= 1)
 
         # Clip.
+        da_hor = da_hor.squeeze()
         if cfg.d_bounds != "":
             da_hor = utils.subset_shape(da_hor)
 
@@ -846,7 +842,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
         d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx)
         fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         p_fig = d_fig + fn_fig
-        if cfg.opt_plot_heat:
+        if ((cat == cfg.cat_scen) and (cfg.opt_plot_heat[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot_heat[1])):
             plot.plot_heatmap(da_hor, var_or_idx, threshs, grid_x, grid_y, per_hor, z_min, z_max, p_fig, "matplotlib")
 
         # Save to CSV.

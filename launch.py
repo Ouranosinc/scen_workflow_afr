@@ -61,6 +61,9 @@ def load_params(p_ini: str):
 
         if type == str:
             val_new = ast.literal_eval(val)
+        elif type == bool:
+            val = val.replace("[", "").replace("]", "").split(",")
+            val_new = [True if i == 'True' else False for i in val]
         else:
             val = val.replace("[", "").replace("]", "").split(",")
             val_new = [type(i) for i in val]
@@ -187,9 +190,9 @@ def load_params(p_ini: str):
 
             # VISUALIZATION:
             elif key == "opt_plot":
-                cfg.opt_plot = ast.literal_eval(value)
+                cfg.opt_plot = convert_to_1d(value, bool)
             elif key == "opt_plot_heat":
-                cfg.opt_plot_heat = ast.literal_eval(value)
+                cfg.opt_plot_heat = [False, False] if not cfg.opt_ra else convert_to_1d(value, bool)
             elif key == "d_bounds":
                 cfg.d_bounds = ast.literal_eval(value)
             elif key == "region":
@@ -278,25 +281,21 @@ def main():
 
     # Download data.
     utils.log("=")
-    msg = "Step #2a  Downloading climate data is "
+    msg = "Step #2a  Downloading climate data"
     if cfg.opt_download:
-        msg = msg + "running"
         utils.log(msg)
         download.run()
     else:
-        msg = msg + "not required"
-        utils.log(msg)
+        utils.log(msg + " (not required)")
 
     # Aggregate reanalysis data to daily frequency
     utils.log("=")
-    msg = "Step #2b  Aggregation of hourly data is "
+    msg = "Step #2b  Aggregating hourly data"
     if cfg.opt_aggregate and cfg.opt_ra:
-        msg = msg + "running"
         utils.log(msg)
         aggregate.run()
     else:
-        msg = msg + "not required"
-        utils.log(msg)
+        utils.log(msg + " (not required)")
 
     # Steps #3-5: Data extraction, scenarios, bias adjustment and statistical downscaling ------------------------------
 

@@ -43,8 +43,14 @@ def generate(idx_name: str, idx_threshs: [float]):
 
     # Select variables.
     vars = []
+
+    # Temperature.
     if idx_name == cfg.idx_tx_days_above:
-        vars = [cfg.var_cordex_tasmax]
+        vars.append(cfg.var_cordex_tasmax)
+
+    # Precipitation.
+    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day]:
+        vars.append(cfg.var_cordex_pr)
 
     # ==========================================================
     # TODO.CUSTOMIZATION.END
@@ -66,11 +72,7 @@ def generate(idx_name: str, idx_threshs: [float]):
         # Loop through emissions scenarios.
         for rcp in rcps:
 
-            utils.log("-")
-            utils.log("Index             : " + idx_name, True)
-            utils.log("Station           : " + stn, True)
-            utils.log("Emission scenario : " + cfg.get_rcp_desc(rcp), True)
-            utils.log("-")
+            utils.log("Processing: '" + idx_name + "', '" + stn + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
 
             # Analysis of simulation files -----------------------------------------------------------------------------
 
@@ -117,30 +119,18 @@ def generate(idx_name: str, idx_threshs: [float]):
                 for i_var in range(0, len(vars)):
                     var = vars[i_var]
                     ds = utils.open_netcdf(p_sim[i_var][i_sim])
+
+                    # Adjust temperature units.
                     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
                         if ds[var].attrs[cfg.attrs_units] == cfg.unit_K:
                             ds[var] = ds[var] - cfg.d_KC
-                            ds[var].attrs[cfg.attrs_units] = cfg.unit_C
                         elif rcp == cfg.rcp_ref:
                             ds[var][cfg.attrs_units] = cfg.unit_C
-                            ds[var].attrs[cfg.attrs_units] = cfg.unit_C
+                        ds[var].attrs[cfg.attrs_units] = cfg.unit_C
+
                     ds_scen.append(ds)
 
-                # Adjust units.
-                idx_threshs_str = []
-                for _ in range(0, len(ds_scen)):
-                    if rcp == cfg.rcp_ref:
-                        for idx_thresh in idx_threshs:
-                            idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_C)
-                    else:
-                        for idx_thresh in idx_threshs:
-                            idx_threshs_str.append(str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K)
-
                 # Indices ----------------------------------------------------------------------------------------------
-
-                # TODO.YR: Below, unit conversion should not be required. The unit in the file produced by the scenario
-                #          workflow is "degree_C", but it should be "C". This can be fixed eventually, but it's not a
-                #          priority.
 
                 idx_units = None
                 arr_idx = None
@@ -151,12 +141,31 @@ def generate(idx_name: str, idx_threshs: [float]):
                 # copying the following code block.
                 # ==========================================================
 
-                # Number of days where daily maximum temperature exceeds a threshold value.
+                # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
+                idx_threshs_str = []
+
                 if idx_name == cfg.idx_tx_days_above:
-                    ds_scen_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
+                    for _ in range(0, len(ds_scen)):
+                        for idx_thresh in idx_threshs:
+                            idx_ref = str(idx_thresh) + " " + cfg.unit_C
+                            idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
+                            idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
+
+                # Calculate indices.
+
+                if idx_name == cfg.idx_tx_days_above:
+                    da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     idx_thresh_str_tasmax = idx_threshs_str[0]
-                    arr_idx = indices.tx_days_above(ds_scen_tasmax, idx_thresh_str_tasmax).values
+                    arr_idx = indices.tx_days_above(da_tasmax, idx_thresh_str_tasmax).values
                     idx_units = cfg.unit_1
+
+                if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day]:
+                    da_pr = ds_scen[0][cfg.var_cordex_pr]
+                    if idx_name == cfg.idx_rx1day:
+                        arr_idx = indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS)
+                    else:
+                        arr_idx = indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS)
+                    idx_units = cfg.unit_mm
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.END
@@ -204,79 +213,77 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    not_req = " (not required)"
+
     # Indices ----------------------------------------------------------------------------------------------------------
 
     # Calculate indices.
     utils.log("=")
-    msg = "Step #6   Calculation of indices is "
+    msg = "Step #6   Calculating indices"
     if cfg.opt_idx:
-
-        msg = msg + "running"
-        utils.log(msg, True)
-
+        utils.log(msg)
         for i in range(0, len(cfg.idx_names)):
             generate(cfg.idx_names[i], cfg.idx_threshs[i])
-
     else:
-        msg = msg + "not required"
-        utils.log(msg)
+        utils.log(msg + not_req)
 
     # Statistics -------------------------------------------------------------------------------------------------------
 
     utils.log("=")
-    msg = "Step #7a  Calculation of statistics (indices) is "
-    if cfg.opt_stat:
-
-        msg = msg + "running"
+    msg = "Step #7   Exporting results (indices)"
+    if cfg.opt_stat or cfg.opt_save_csv:
         utils.log(msg)
-        statistics.calc_stats(cfg.cat_idx)
-
     else:
-
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
+        utils.log(msg + not_req)
 
     utils.log("-")
-    msg = "Step #7b  Export to CSV files (indices) is "
-    if cfg.opt_save_csv:
-
-        msg = msg + "running"
+    msg = "Step #7a  Calculating statistics (indices)"
+    if cfg.opt_stat:
         utils.log(msg)
+        statistics.calc_stats(cfg.cat_idx)
+    else:
+        utils.log(msg + not_req)
 
+    utils.log("-")
+    msg = "Step #7b  Exporting results to CSV files (indices)"
+    if cfg.opt_save_csv:
+        utils.log(msg)
         utils.log("-")
-        utils.log("Step #7b1 Generating times series (indices).")
+        utils.log("Step #7b1 Generating times series (indices)")
         statistics.calc_time_series(cfg.cat_idx)
-
         if not cfg.opt_ra:
             utils.log("-")
-            utils.log("Step #7b2 Converting NetCDF to CSV files (indices).")
+            utils.log("Step #7b2 Converting NetCDF to CSV files (indices)")
             statistics.conv_nc_csv(cfg.cat_idx)
-
     else:
-
-        utils.log("=")
-        msg = msg + "not required"
-        utils.log(msg)
+        utils.log(msg + not_req)
 
     # Plots ------------------------------------------------------------------------------------------------------------
 
+    utils.log("=")
+    msg = "Step #8   Generating diagrams and maps (indices)"
+    if cfg.opt_plot[1] or cfg.opt_plot_heat[1]:
+        utils.log(msg)
+    else:
+        utils.log(msg + not_req)
+
     # Generate plots.
-    if cfg.opt_plot:
+    if cfg.opt_plot[1]:
 
         if not cfg.opt_save_csv:
             utils.log("=")
-            utils.log("Step #8b  Generating time series (indices).")
+            utils.log("Step #8b  Generating time series (indices)")
             statistics.calc_time_series(cfg.cat_idx)
 
     # Generate maps.
     # Heat maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
-    if cfg.opt_ra and (cfg.opt_plot_heat or cfg.opt_save_csv):
+    utils.log("-")
+    msg = "Step #8c  Generating heat maps (indices)"
+    if cfg.opt_ra and (cfg.opt_plot_heat[1] or cfg.opt_save_csv):
 
-        utils.log("=")
-        utils.log("Step #8c  Generating heat maps (indices).")
+        utils.log(msg)
 
         for i in range(len(cfg.idx_names)):
 
@@ -284,7 +291,7 @@ def run():
             idx = cfg.idx_names[i]
             p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, idx) + idx + "_" + cfg.obs_src + ".csv"
             if not os.path.exists(p_stat):
-                z_min = z_max = -1
+                z_min = z_max = None
             else:
                 df_stats = pd.read_csv(p_stat, sep=",")
                 vals = df_stats[(df_stats["stat"] == cfg.stat_min) |
@@ -299,6 +306,9 @@ def run():
             # Future period.
             for rcp in cfg.rcps:
                 statistics.calc_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors, z_min, z_max)
+
+    else:
+        utils.log(msg + " (not required)")
 
 
 if __name__ == "__main__":
