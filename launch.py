@@ -182,17 +182,19 @@ def load_params(p_ini: str):
 
             # STATISTICS:
             elif key == "opt_stat":
-                cfg.opt_stat = ast.literal_eval(value)
+                cfg.opt_stat = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "stat_quantiles":
                 cfg.stat_quantiles = convert_to_1d(value, float)
             elif key == "opt_save_csv":
-                cfg.opt_save_csv = ast.literal_eval(value)
+                cfg.opt_save_csv = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
 
             # VISUALIZATION:
             elif key == "opt_plot":
-                cfg.opt_plot = convert_to_1d(value, bool)
+                cfg.opt_plot = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_plot_heat":
-                cfg.opt_plot_heat = [False, False] if not cfg.opt_ra else convert_to_1d(value, bool)
+                cfg.opt_plot_heat = [False, False]
+                if cfg.opt_ra:
+                    cfg.opt_plot_heat = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "d_bounds":
                 cfg.d_bounds = ast.literal_eval(value)
             elif key == "region":

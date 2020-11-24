@@ -1139,14 +1139,14 @@ def run():
 
     utils.log("=")
     msg = "Step #7   Exporting results (scenarios)"
-    if cfg.opt_stat or cfg.opt_save_csv:
+    if cfg.opt_stat[0] or cfg.opt_save_csv[0]:
         utils.log(msg)
     else:
         utils.log(msg + not_req)
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (scenarios)"
-    if cfg.opt_stat:
+    if cfg.opt_stat[0]:
         utils.log(msg)
         statistics.calc_stats(cfg.cat_scen)
     else:
@@ -1154,7 +1154,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7b  Exporting results to CSV files (scenarios)"
-    if cfg.opt_save_csv:
+    if cfg.opt_save_csv[0]:
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (scenarios)")
@@ -1226,7 +1226,7 @@ def run():
                         p_regrid_fut.split("/")[-1].replace("4qqmap.nc", cfg.cat_fig_workflow + ".png")
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
-        if not cfg.opt_save_csv:
+        if not cfg.opt_save_csv[0]:
             utils.log("-")
             utils.log("Step #8b  Generating time series (scenarios)")
             statistics.calc_time_series(cfg.cat_scen)
@@ -1239,7 +1239,7 @@ def run():
     # - calculation is very slow (something is wrong).
     utils.log("-")
     msg = "Step #8c  Generating heat maps (scenarios)"
-    if cfg.opt_ra and (cfg.opt_plot_heat[0] or cfg.opt_save_csv):
+    if cfg.opt_ra and (cfg.opt_plot_heat[0] or cfg.opt_save_csv[0]):
 
         utils.log(msg)
 

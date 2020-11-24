@@ -110,8 +110,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         if cfg.attrs_units in ds[var_or_idx].attrs:
             if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
                (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
-                    ds = ds - cfg.d_KC
-                    ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
+                ds = ds - cfg.d_KC
+                ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
             elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                 ds = ds * cfg.spd
 
@@ -439,7 +439,6 @@ def calc_time_series(cat: str):
                                       coords=[(cfg.dim_time, np.arange(n_time))])
                     ds = da.to_dataset()
                     ds[cfg.dim_time] = utils.reset_calendar_list(years)
-                    ds[var_or_idx].attrs[cfg.attrs_units] = units
 
                     # Convert units.
                     if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
@@ -450,6 +449,8 @@ def calc_time_series(cat: str):
                         if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1:
                             ds = ds * cfg.spd
                             ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
+                    else:
+                        ds[var_or_idx].attrs[cfg.attrs_units] = units
 
                     # Calculate minimum and maximum values along the y-axis.
                     if not ylim:
@@ -526,12 +527,12 @@ def calc_time_series(cat: str):
                     p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx) + \
                                 var_or_idx + "_" + stn + "_rcp.png"
                     plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx,
-                        threshs, rcps, ylim, p_fig_rcp, 1)
+                                 threshs, rcps, ylim, p_fig_rcp, 1)
 
                     # Time series showing individual simulations.
                     p_fig_sim = p_fig_rcp.replace("_rcp.png", "_sim.png")
                     plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx,
-                        threshs, rcps, ylim, p_fig_sim, 2)
+                                 threshs, rcps, ylim, p_fig_sim, 2)
 
 
 def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
@@ -779,7 +780,10 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
             ds_itp[var_or_idx] = ds_itp[var_or_idx] / float(n_sim)
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
 
-        # Convert units (C or mm).
+        # Remember units.
+        units = ds_itp[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds_itp.attrs[cfg.attrs_units]
+
+        # Convert units.
         if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
            (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
             ds_itp = ds_itp - cfg.d_KC
@@ -788,6 +792,8 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
              (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1):
             ds_itp = ds_itp * cfg.spd
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
+        else:
+            ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
 
         # Adjust coordinate names (required for clipping).
         # TODO.YR: Ideally, this should be done elsewhere.
@@ -833,7 +839,6 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
                 da_hor = da_hor.where(da_hor.values >= 1)
 
         # Clip.
-        da_hor = da_hor.squeeze()
         if cfg.d_bounds != "":
             da_hor = utils.subset_shape(da_hor)
 
@@ -843,7 +848,8 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
         fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         p_fig = d_fig + fn_fig
         if ((cat == cfg.cat_scen) and (cfg.opt_plot_heat[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot_heat[1])):
-            plot.plot_heatmap(da_hor, var_or_idx, threshs, grid_x, grid_y, per_hor, z_min, z_max, p_fig, "matplotlib")
+            plot.plot_heatmap(da_hor, stn, var_or_idx, threshs, grid_x, grid_y, per_hor, z_min, z_max, p_fig,
+                              "matplotlib")
 
         # Save to CSV.
         d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx + "_csv")

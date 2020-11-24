@@ -11,7 +11,6 @@ import config as cfg
 import glob
 import os.path
 import pandas as pd
-import plot
 import statistics
 import utils
 import xarray as xr
@@ -36,9 +35,9 @@ def generate(idx_name: str, idx_threshs: [float]):
     rcps = [cfg.rcp_ref] + cfg.rcps
 
     # ==========================================================
-    # TODO.CUSTOMIZATION.BEGIN
-    # When adding a new climate index, specify the required
-    # variable(s) by copying the following code block.
+    # TODO.CUSTOMIZATION.INDEX.BEGIN
+    # Specify the required variable(s) by copying the following
+    # code block.
     # ==========================================================
 
     # Select variables.
@@ -49,11 +48,11 @@ def generate(idx_name: str, idx_threshs: [float]):
         vars.append(cfg.var_cordex_tasmax)
 
     # Precipitation.
-    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day]:
+    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd]:
         vars.append(cfg.var_cordex_pr)
 
     # ==========================================================
-    # TODO.CUSTOMIZATION.END
+    # TODO.CUSTOMIZATION.INDEX.END
     # ==========================================================
 
     # Loop through stations.
@@ -136,47 +135,56 @@ def generate(idx_name: str, idx_threshs: [float]):
                 arr_idx = None
 
                 # ==========================================================
-                # TODO.CUSTOMIZATION.BEGIN
-                # When adding a new climate index, calculate the index by
-                # copying the following code block.
+                # TODO.CUSTOMIZATION.INDEX.BEGIN
+                # Calculate the index by copying the following code block.
                 # ==========================================================
 
                 # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
                 idx_threshs_str = []
 
-                if idx_name == cfg.idx_tx_days_above:
-                    for _ in range(0, len(ds_scen)):
-                        for idx_thresh in idx_threshs:
+                for _ in range(0, len(ds_scen)):
+                    for idx_thresh in idx_threshs:
+
+                        if idx_name == cfg.idx_tx_days_above:
                             idx_ref = str(idx_thresh) + " " + cfg.unit_C
                             idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
                             idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
 
-                # Calculate indices.
+                        elif idx_name == cfg.idx_cwd:
+                            idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_mm + "/day")
 
+                # Calculate indices.
+                da_idx = None
                 if idx_name == cfg.idx_tx_days_above:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     idx_thresh_str_tasmax = idx_threshs_str[0]
-                    arr_idx = indices.tx_days_above(da_tasmax, idx_thresh_str_tasmax).values
+                    da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, idx_thresh_str_tasmax).values)
+                    da_idx = da_idx.astype(int)
+                    da_idx.attrs[cfg.attrs_units] = cfg.unit_1
                     idx_units = cfg.unit_1
 
-                if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day]:
+                elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day]:
                     da_pr = ds_scen[0][cfg.var_cordex_pr]
                     if idx_name == cfg.idx_rx1day:
-                        arr_idx = indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS)
+                        da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS))
                     else:
-                        arr_idx = indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS)
+                        da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS))
                     idx_units = cfg.unit_mm
 
-                # ==========================================================
-                # TODO.CUSTOMIZATION.END
-                # ==========================================================
+                elif idx_name == cfg.idx_cwd:
+                    da_pr = ds_scen[0][cfg.var_cordex_pr]
+                    idx_thresh_str_pr = idx_threshs_str[0]
+                    da_idx = xr.DataArray(indices.maximum_consecutive_wet_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                    da_idx = da_idx.astype(int)
+                    da_idx.attrs[cfg.attrs_units] = cfg.unit_1
+                    idx_units = cfg.unit_1
 
-                # Create data array.
-                da_idx = xr.DataArray(arr_idx)
-                da_idx.name = idx_name
+                # ==========================================================
+                # TODO.CUSTOMIZATION.INDEX.END
+                # ==========================================================
 
                 # Create dataset.
-                # For unknown reason, we cannot assign units to the data array (the saved NetCDF file will not open).
+                da_idx.name = idx_name
                 ds_idx = da_idx.to_dataset()
                 ds_idx.attrs[cfg.attrs_units] = idx_units
                 if "dim_0" in list(ds_idx.dims):
@@ -190,6 +198,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                 ds_idx.attrs[cfg.attrs_lname] = idx_name
                 ds_idx = utils.copy_coordinates(ds_scen[0], ds_idx)
                 ds_idx[idx_name] = utils.copy_coordinates(ds_scen[0][vars[0]], ds_idx[idx_name])
+                ds_idx = ds_idx.squeeze()
 
                 # Adjust calendar.
                 year_1 = cfg.per_fut[0]
@@ -231,14 +240,14 @@ def run():
 
     utils.log("=")
     msg = "Step #7   Exporting results (indices)"
-    if cfg.opt_stat or cfg.opt_save_csv:
+    if cfg.opt_stat[1] or cfg.opt_save_csv[1]:
         utils.log(msg)
     else:
         utils.log(msg + not_req)
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (indices)"
-    if cfg.opt_stat:
+    if cfg.opt_stat[1]:
         utils.log(msg)
         statistics.calc_stats(cfg.cat_idx)
     else:
@@ -246,7 +255,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7b  Exporting results to CSV files (indices)"
-    if cfg.opt_save_csv:
+    if cfg.opt_save_csv[1]:
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (indices)")
@@ -270,7 +279,7 @@ def run():
     # Generate plots.
     if cfg.opt_plot[1]:
 
-        if not cfg.opt_save_csv:
+        if not cfg.opt_save_csv[1]:
             utils.log("=")
             utils.log("Step #8b  Generating time series (indices)")
             statistics.calc_time_series(cfg.cat_idx)
@@ -281,7 +290,7 @@ def run():
     # - calculation is very slow (something is wrong).
     utils.log("-")
     msg = "Step #8c  Generating heat maps (indices)"
-    if cfg.opt_ra and (cfg.opt_plot_heat[1] or cfg.opt_save_csv):
+    if cfg.opt_ra and (cfg.opt_plot_heat[1] or cfg.opt_save_csv[1]):
 
         utils.log(msg)
 

@@ -49,6 +49,7 @@ unit_Jm2            = "J m-2"
 unit_Pa             = "Pa"
 unit_deg            = "°"
 unit_pct            = "%"
+unit_d              = "d"
 
 # Dataset dimensions.
 dim_lon             = "lon"
@@ -60,7 +61,7 @@ dim_latitude        = "latitude"
 dim_time            = "time"
 
 # ==========================================================
-# TODO.CUSTOMIZATION.BEGIN
+# TODO.CUSTOMIZATION.VARIABLE.BEGIN
 # Add new CORDEX AND ERA5* variables below.
 # ==========================================================
 
@@ -93,7 +94,7 @@ var_era5_d2m        = "d2m"         # Dew temperature.
 var_era5_sh         = "sh"          # Specific humidity.
 
 # ==========================================================
-# TODO.CUSTOMIZATION.END
+# TODO.CUSTOMIZATION.VARIABLE.END
 # ==========================================================
 
 # Directory names.
@@ -141,10 +142,19 @@ opt_calib_bias_meth_mae    = "mae"      # Mean absolute error.
 opt_calib_bias_meth_rmse   = "rmse"     # Root mean square error.
 opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 
-# Indices.
+# ==========================================================
+# TODO.CUSTOMIZATION.INDEX.BEGIN
+# Add new index below.
+# ==========================================================
+
 idx_tx_days_above   = "tx_days_above"   # Number of days per year with a maximum temperature above a threshold value.
 idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
 idx_rx5day          = "rx5day"          # Highest 5-day precipitation amount.
+idx_cwd             = "cwd"             # Number of consecutive wet days.
+
+# ==========================================================
+# TODO.CUSTOMIZATION.INDEX.END
+# ==========================================================
 
 # Statistics.
 stat_mean           = "mean"        # Mean value.
@@ -293,15 +303,15 @@ idx_threshs         = []            # Index thresholds.
 
 # Step 7 - Statistics --------------------------------------------------------------------------------------------------
 
-opt_stat            = True          # If True, calculate statistics.
+opt_stat            = [True,True]   # If True, calculate statistics [for scenarios, for indices].
 stat_quantiles      = [1.00, 0.99, 0.75, 0.50, 0.25, 0.01, 0.00]  # Quantiles.
-opt_save_csv        = False         # If True, save results to CSV files.
+opt_save_csv        = [False,False] # If True, save results to CSV files [for scenarios, for indices].
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
 # Plots.
-opt_plot            = [True, True]    # If True, actives plot generation (scenarios and indices).
-opt_plot_heat       = [False, False]  # If True, generate heat maps (scenarios and indices).
+opt_plot            = [True, True]    # If True, actives plot generation [for scenarios, for indices].
+opt_plot_heat       = [False, False]  # If True, generate heat maps [for scenarios, for indices].
 
 # Color associated with specific datasets (for consistency).
 col_sim_adj_ref     = "blue"        # Simulation (bias-adjusted) for the reference period.
@@ -399,7 +409,7 @@ def get_var_desc(var: str, set_name: str = "cordex"):
     return var_desc
 
 
-def get_idx_desc(idx_name: str, idx_threshs_loc: [[float]] = None):
+def get_idx_desc(idx_name: str):
 
     """
     ----------------------------------------------------------------------------------------------------------------
@@ -409,21 +419,22 @@ def get_idx_desc(idx_name: str, idx_threshs_loc: [[float]] = None):
     ----------
     idx_name : str
         Climate index.
-    idx_threshs_loc : [[float]]]
-        Thresholds
     ----------------------------------------------------------------------------------------------------------------
     """
 
     idx_desc = ""
 
+    # Extract thresholds.
+    idx_threshs_loc = idx_threshs[idx_names == idx_name]
+
     # ==========================================================
-    # TODO.CUSTOMIZATION.BEGIN
-    # When adding a new climate index, copy the following code
-    # block.
+    # TODO.CUSTOMIZATION.INDEX.BEGIN
+    # Copy the following code block.
     # ==========================================================
 
     if idx_name == idx_tx_days_above:
-        idx_desc = "Nbr. jours où " + get_var_desc(var_cordex_tasmax).lower() + " > " + str(idx_threshs_loc[0])
+        idx_desc = "Nbr. jours où " + get_var_desc(var_cordex_tasmax).lower() + " > " + str(idx_threshs_loc[0]) + " " +\
+                   get_var_unit(var_cordex_tasmax)
 
     elif (idx_name == idx_rx1day) or (idx_name == idx_rx5day):
         idx_desc = "Cumul. précipitation"
@@ -432,8 +443,12 @@ def get_idx_desc(idx_name: str, idx_threshs_loc: [[float]] = None):
         else:
             idx_desc += " (5 jours)"
 
+    elif idx_name == idx_cwd:
+        idx_desc = "Nbr. jours où " + get_var_desc(var_cordex_pr).lower() + " >= " + str(idx_threshs_loc[0]) + " " +\
+                   get_var_unit(var_cordex_pr)
+
     # ==========================================================
-    # TODO.CUSTOMIZATION.END
+    # TODO.CUSTOMIZATION.INDEX.END
     # ==========================================================
 
     return idx_desc
