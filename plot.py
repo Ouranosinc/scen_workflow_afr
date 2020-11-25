@@ -706,15 +706,17 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, threshs: [float], 
     # Generate title and label.
     # ==========================================================
 
-    title = cfg.get_idx_desc(var_or_idx).capitalize() +\
-        " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
+    title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
     label = ""
 
-    if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd]:
+    if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
         label = "Nbr. jours"
 
-    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day]:
-        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr) + ")"
+    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
+        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
+        if var_or_idx == cfg.idx_sdii:
+            label += "/day"
+        label += ")"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END
@@ -870,14 +872,17 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     # Generate title and label.
     # ==========================================================
 
-    title = cfg.get_idx_desc(var_or_idx).capitalize() + " (" + stn.capitalize() + ")"
+    title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ")"
     label = ""
 
-    if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd]:
+    if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
         label = "Nbr. jours"
 
-    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day]:
-        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr) + ")"
+    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
+        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
+        if var_or_idx == cfg.idx_sdii:
+            label += "/day"
+        label += ")"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END

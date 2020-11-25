@@ -48,7 +48,8 @@ def generate(idx_name: str, idx_threshs: [float]):
         vars.append(cfg.var_cordex_tasmax)
 
     # Precipitation.
-    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd]:
+    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_sdii, cfg.idx_prcptot, cfg.idx_r10mm,
+                    cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
         vars.append(cfg.var_cordex_pr)
 
     # ==========================================================
@@ -132,7 +133,6 @@ def generate(idx_name: str, idx_threshs: [float]):
                 # Indices ----------------------------------------------------------------------------------------------
 
                 idx_units = None
-                arr_idx = None
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.INDEX.BEGIN
@@ -150,7 +150,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                             idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
                             idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
 
-                        elif idx_name == cfg.idx_cwd:
+                        elif idx_name in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
                             idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_mm + "/day")
 
                 # Calculate indices.
@@ -160,24 +160,38 @@ def generate(idx_name: str, idx_threshs: [float]):
                     idx_thresh_str_tasmax = idx_threshs_str[0]
                     da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, idx_thresh_str_tasmax).values)
                     da_idx = da_idx.astype(int)
-                    da_idx.attrs[cfg.attrs_units] = cfg.unit_1
                     idx_units = cfg.unit_1
 
-                elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day]:
+                elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:
                     da_pr = ds_scen[0][cfg.var_cordex_pr]
                     if idx_name == cfg.idx_rx1day:
                         da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS))
-                    else:
+                    elif idx_name == cfg.idx_rx5day:
                         da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS))
-                    idx_units = cfg.unit_mm
+                    else:
+                        da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=cfg.freq_YS))
+                    idx_units = da_idx.attrs[cfg.attrs_units]
 
                 elif idx_name == cfg.idx_cwd:
                     da_pr = ds_scen[0][cfg.var_cordex_pr]
                     idx_thresh_str_pr = idx_threshs_str[0]
                     da_idx = xr.DataArray(indices.maximum_consecutive_wet_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
                     da_idx = da_idx.astype(int)
-                    da_idx.attrs[cfg.attrs_units] = cfg.unit_1
                     idx_units = cfg.unit_1
+
+                elif idx_name in [cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
+                    da_pr = ds_scen[0][cfg.var_cordex_pr]
+                    idx_thresh_str_pr = idx_threshs_str[0]
+                    da_idx = xr.DataArray(indices.wetdays(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                    da_idx = da_idx.astype(int)
+                    idx_units = cfg.unit_1
+
+                elif idx_name == cfg.idx_sdii:
+                    da_pr = ds_scen[0][cfg.var_cordex_pr]
+                    da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr))
+                    idx_units = da_idx.attrs[cfg.attrs_units]
+
+                da_idx.attrs[cfg.attrs_units] = idx_units
 
                 # ==========================================================
                 # TODO.CUSTOMIZATION.INDEX.END
@@ -247,7 +261,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (indices)"
-    if cfg.opt_stat[1]:
+    if cfg.opt_stat[1] or (cfg.opt_ra and (cfg.opt_plot_heat[1] or cfg.opt_save_csv[1])):
         utils.log(msg)
         statistics.calc_stats(cfg.cat_idx)
     else:
@@ -259,7 +273,7 @@ def run():
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (indices)")
-        statistics.calc_time_series(cfg.cat_idx)
+        statistics.calc_ts(cfg.cat_idx)
         if not cfg.opt_ra:
             utils.log("-")
             utils.log("Step #7b2 Converting NetCDF to CSV files (indices)")
@@ -282,7 +296,7 @@ def run():
         if not cfg.opt_save_csv[1]:
             utils.log("=")
             utils.log("Step #8b  Generating time series (indices)")
-            statistics.calc_time_series(cfg.cat_idx)
+            statistics.calc_ts(cfg.cat_idx)
 
     # Generate maps.
     # Heat maps are not generated from data at stations:
@@ -298,7 +312,8 @@ def run():
 
             # Get the minimum and maximum values in the statistics file.
             idx = cfg.idx_names[i]
-            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, idx) + idx + "_" + cfg.obs_src + ".csv"
+            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, cfg.cat_idx + "/" + idx) +\
+                idx + "_" + cfg.obs_src + ".csv"
             if not os.path.exists(p_stat):
                 z_min = z_max = None
             else:

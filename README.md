@@ -68,7 +68,9 @@ The following change was made:
 The following features are being implemented:
 - possibility to enable/disable plot generation independently in scenarios and indices;
 - improved description during logging;
-- option differentiated between scenarios and indices tasks.
+- a few options differentiated between scenarios and indices tasks;
+- created 'scen' and 'idx' directories under 'stat';
+- created climate indices: 'rx1day', 'rx5day', 'cwd', 'sdii', 'prcptot'.
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

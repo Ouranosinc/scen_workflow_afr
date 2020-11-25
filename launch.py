@@ -179,6 +179,11 @@ def load_params(p_ini: str):
                 cfg.idx_names = convert_to_1d(value, str)
             elif key == "idx_threshs":
                 cfg.idx_threshs = convert_to_2d(value, float)
+                for i in range(len(cfg.idx_names)):
+                    if cfg.idx_names[i] == cfg.idx_r10mm:
+                        cfg.idx_threshs[i] = [10]
+                    elif cfg.idx_names[i] == cfg.idx_r20mm:
+                        cfg.idx_threshs[i] = [20]
 
             # STATISTICS:
             elif key == "opt_stat":

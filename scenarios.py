@@ -1146,7 +1146,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (scenarios)"
-    if cfg.opt_stat[0]:
+    if cfg.opt_stat[0] or (cfg.opt_ra and (cfg.opt_plot_heat[0] or cfg.opt_save_csv[0])):
         utils.log(msg)
         statistics.calc_stats(cfg.cat_scen)
     else:
@@ -1158,7 +1158,7 @@ def run():
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (scenarios)")
-        statistics.calc_time_series(cfg.cat_scen)
+        statistics.calc_ts(cfg.cat_scen)
         if not cfg.opt_ra:
             utils.log("-")
             utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios)")
@@ -1229,7 +1229,7 @@ def run():
         if not cfg.opt_save_csv[0]:
             utils.log("-")
             utils.log("Step #8b  Generating time series (scenarios)")
-            statistics.calc_time_series(cfg.cat_scen)
+            statistics.calc_ts(cfg.cat_scen)
 
     # Heat maps --------------------------------------------------------------------------------------------------------
 
@@ -1247,7 +1247,8 @@ def run():
 
             # Get the minimum and maximum values in the statistics file.
             var = cfg.variables_cordex[i]
-            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, var) + var + "_" + cfg.obs_src + ".csv"
+            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, cfg.cat_scen + "/" + var) +\
+                var + "_" + cfg.obs_src + ".csv"
             if not os.path.exists(p_stat):
                 z_min = z_max = None
             else:

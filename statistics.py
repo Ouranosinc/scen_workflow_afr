@@ -124,7 +124,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
 
         # Records values.
         # Simulation data is assumed to be complete.
-        if ds[var_or_idx].size == n_time:
+        if ds[var_or_idx].time.size == n_time:
             if (cfg.dim_lon in ds.dims) or (cfg.dim_rlon in ds.dims) or (cfg.dim_longitude in ds.dims):
                 vals = ds.squeeze()[var_or_idx].values.tolist()
             else:
@@ -212,7 +212,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     return ds_stat
 
 
-def calc_stats(cat: str):
+def calc_stats(cat: str, var_or_idx_list: [str] = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -222,6 +222,8 @@ def calc_stats(cat: str):
     ----------
     cat : str
         Category: cfg.cat_scen is for climate scenarios or cfg.cat_idx for climate indices.
+    var_or_idx_list : [str]
+        List of variables or indices.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -236,11 +238,12 @@ def calc_stats(cat: str):
     for stn in stns:
 
         # Loop through variables (or indices).
-        vars_or_idxs = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
-        for var_or_idx in vars_or_idxs:
+        if var_or_idx_list is None:
+            var_or_idx_list = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
+        for var_or_idx in var_or_idx_list:
 
             # Skip iteration if the file already exists.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, var_or_idx) + var_or_idx + "_" + stn + ".csv"
+            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, cat + "/" + var_or_idx) + var_or_idx + "_" + stn + ".csv"
             if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
                 continue
 
@@ -332,7 +335,7 @@ def calc_stats(cat: str):
                 utils.save_csv(df, p_csv)
 
 
-def calc_time_series(cat: str):
+def calc_ts(cat: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -348,9 +351,6 @@ def calc_time_series(cat: str):
     # Emission scenarios.
     rcps = [cfg.rcp_ref] + cfg.rcps
 
-    # Minimum and maximum values along the y-axis
-    ylim = []
-
     # Loop through stations.
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
@@ -360,6 +360,9 @@ def calc_time_series(cat: str):
         for i_var_or_idx in range(len(vars_or_idxs)):
             var_or_idx = vars_or_idxs[i_var_or_idx]
             threshs = [] if cat == cfg.cat_scen else cfg.idx_threshs
+
+            # Minimum and maximum values along the y-axis
+            ylim = []
 
             utils.log("Processing: '" + stn + "', '" + var_or_idx + "'", True)
 
@@ -839,6 +842,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
                 da_hor = da_hor.where(da_hor.values >= 1)
 
         # Clip.
+        da_hor = da_hor.squeeze()
         if cfg.d_bounds != "":
             da_hor = utils.subset_shape(da_hor)
 
