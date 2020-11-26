@@ -792,7 +792,7 @@ def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Da
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Select the center cell.
+    Select the control point. If none was specified by the user, the cell at the center of the domain is considered.
 
     Parameters
     ----------

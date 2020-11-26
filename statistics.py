@@ -23,8 +23,8 @@ from scipy.interpolate import griddata
 from typing import Union
 
 
-def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx: str, rcp: str, hor: [int], stat: str,
-              q: float = -1) -> Union[xr.Dataset, None]:
+def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx: str, rcp: str, hor: [int],
+              use_bounds: bool, stat: str, q: float = -1) -> Union[xr.Dataset, None]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         Dataset type: {cfg.obs, cfg.cat_scen}
     freq_in : str
         Frequency (input): cfg.freq_D=daily; cfg.freq_YS=annual
-    freq_out : str, optional
+    freq_out : str
         Frequency (output): cfg.freq_D=daily; cfg.freq_YS=annual
     stn : str
         Station.
@@ -47,8 +47,10 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     hor : [int]
         Horizon: ex: [1981, 2010]
         If None is specified, the complete time range is considered.
+    use_bounds : bool
+        If True, use cfg.d_bounds.
     stat : str
-        Statistic: {cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantil"}
+        Statistic: {cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantile"}
     q : float, optional
         Quantile: value between 0 and 1.
     --------------------------------------------------------------------------------------------------------------------
@@ -115,11 +117,20 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
             elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                 ds = ds * cfg.spd
 
-        # Select control point.
         if cfg.opt_ra:
+
+            # Statistics are calculated at a point.
             if cfg.d_bounds == "":
                 ds = utils.subset_ctrl_pt(ds)
+
+            # Statistics are calculated on a surface.
             else:
+
+                # Clip to geographic boundaries.
+                if use_bounds and (cfg.d_bounds != ""):
+                    ds = utils.subset_shape(ds)
+
+                # Calculate mean value.
                 ds = utils.squeeze_lon_lat(ds)
 
         # Records values.
@@ -295,7 +306,7 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
 
                         # Calculate statistics.
                         hor = [min(min(hors)), max(max(hors))]
-                        ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx, rcp, hor, stat, q)
+                        ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx, rcp, hor, True, stat, q)
                         if ds_stat is None:
                             continue
 
@@ -596,6 +607,10 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
         ds[cfg.dim_time] = utils.reset_calendar(ds, year_1, year_n, cfg.freq_YS)
         ds[var_or_idx].attrs[cfg.attrs_units] = units
 
+        # Clip to geographic boundaries.
+        if cfg.d_bounds != "":
+            ds = utils.subset_shape(ds)
+
         ds_mean_min_max.append(ds)
 
     return ds_mean_min_max
@@ -660,9 +675,11 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
 
             # Calculate statistics.
             if rcp == cfg.rcp_ref:
-                ds_stat = calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None, cfg.stat_mean)
+                ds_stat = calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None, False,
+                                    cfg.stat_mean)
             else:
-                ds_stat = calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None, cfg.stat_mean)
+                ds_stat = calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None, False,
+                                    cfg.stat_mean)
             if ds_stat is None:
                 continue
 
@@ -841,10 +858,12 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                 da_hor = da_hor.where(da_hor.values >= 1)
 
-        # Clip.
+        # Squeeze dataset to remove 'lat' and 'lon'.
         da_hor = da_hor.squeeze()
-        if cfg.d_bounds != "":
-            da_hor = utils.subset_shape(da_hor)
+
+        # Clip.
+        # if cfg.d_bounds != "":
+        #     da_hor = utils.subset_shape(da_hor)
 
         # Generate plot.
         stn = "stns" if not cfg.opt_ra else cfg.obs_src

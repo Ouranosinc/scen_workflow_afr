@@ -210,6 +210,9 @@ priority_timestep   = ["day"] * len(variables_cordex)
 # System ---------------------------------------------------------------------------------------------------------------
 
 # Input-only files and directories.
+# The parameter 'd_bounds' is only used to compute statistics; this includes .csv files in the 'stat' directory and
+# time series (.png and .csv)). The idea behind this is to export heat maps (.png and .csv) that covers values included
+# in the box defined by 'lon_bnds' and 'lat_bnds'.
 d_proj              = ""            # Projections.
 d_ra_raw            = ""            # Reanalysis set (default frequency, usually hourly).
 d_bounds            = ""            # geog.json file comprising political boundaries.
@@ -309,9 +312,9 @@ idx_threshs         = []            # Index thresholds.
 
 # Step 7 - Statistics --------------------------------------------------------------------------------------------------
 
-opt_stat            = [True,True]   # If True, calculate statistics [for scenarios, for indices].
+opt_stat            = [True, True]    # If True, calculate statistics [for scenarios, for indices].
 stat_quantiles      = [1.00, 0.99, 0.75, 0.50, 0.25, 0.01, 0.00]  # Quantiles.
-opt_save_csv        = [False,False] # If True, save results to CSV files [for scenarios, for indices].
+opt_save_csv        = [False, False]  # If True, save results to CSV files [for scenarios, for indices].
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
