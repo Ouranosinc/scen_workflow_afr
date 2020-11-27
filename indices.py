@@ -150,7 +150,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                             idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
                             idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
 
-                        elif idx_name in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
+                        elif idx_name in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays,
+                                          cfg.idx_sdii]:
                             idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_mm + "/day")
 
                 # Calculate indices.
@@ -188,8 +189,10 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 elif idx_name == cfg.idx_sdii:
                     da_pr = ds_scen[0][cfg.var_cordex_pr]
-                    da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr))
-                    idx_units = da_idx.attrs[cfg.attrs_units]
+                    idx_thresh_str_pr = idx_threshs_str[0]
+                    da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, idx_thresh_str_pr))
+                    da_idx = da_idx.astype(int)
+                    idx_units = cfg.unit_1
 
                 da_idx.attrs[cfg.attrs_units] = idx_units
 
