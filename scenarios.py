@@ -442,10 +442,6 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
             ds_regrid = da_regrid.to_dataset(name=var)
             ds_regrid[var].attrs[cfg.attrs_units] = ds_raw[var].attrs[cfg.attrs_units]
 
-            # Clip to geographic boundaries.
-            # if cfg.d_bounds != "":
-            #     ds_regrid = utils.subset_shape(ds_regrid)
-
         # Method 2: Take nearest information.
         else:
 
@@ -628,8 +624,6 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         da_stn = ds_stn[var]
     if cfg.dim_longitude in da_stn.dims:
         da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
-    # if cfg.d_bounds != "":
-    #     da_stn = utils.subset_shape(da_stn)
     ds_ref = utils.open_netcdf(p_ref)
     ds_fut = utils.open_netcdf(p_fut)
     da_ref = ds_ref[var]

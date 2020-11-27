@@ -453,6 +453,7 @@ def calc_ts(cat: str):
                                       coords=[(cfg.dim_time, np.arange(n_time))])
                     ds = da.to_dataset()
                     ds[cfg.dim_time] = utils.reset_calendar_list(years)
+                    ds[var_or_idx].attrs[cfg.attrs_units] = units
 
                     # Convert units.
                     if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
@@ -463,8 +464,6 @@ def calc_ts(cat: str):
                         if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1:
                             ds = ds * cfg.spd
                             ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
-                    else:
-                        ds[var_or_idx].attrs[cfg.attrs_units] = units
 
                     # Calculate minimum and maximum values along the y-axis.
                     if not ylim:
@@ -606,10 +605,6 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
         ds = da.to_dataset()
         ds[cfg.dim_time] = utils.reset_calendar(ds, year_1, year_n, cfg.freq_YS)
         ds[var_or_idx].attrs[cfg.attrs_units] = units
-
-        # Clip to geographic boundaries.
-        if cfg.d_bounds != "":
-            ds = utils.subset_shape(ds)
 
         ds_mean_min_max.append(ds)
 
@@ -860,10 +855,6 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
 
         # Squeeze dataset to remove 'lat' and 'lon'.
         da_hor = da_hor.squeeze()
-
-        # Clip.
-        # if cfg.d_bounds != "":
-        #     da_hor = utils.subset_shape(da_hor)
 
         # Generate plot.
         stn = "stns" if not cfg.opt_ra else cfg.obs_src

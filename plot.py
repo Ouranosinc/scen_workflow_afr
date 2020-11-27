@@ -701,22 +701,29 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, threshs: [float], 
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    if var_or_idx in cfg.variables_cordex:
+
+        title = cfg.get_var_desc(var_or_idx) + " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
+        label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
+
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.BEGIN
     # Generate title and label.
     # ==========================================================
 
-    title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
-    label = ""
+    else:
 
-    if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-        label = "Nbr. jours"
+        title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
+        label = ""
 
-    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
-        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
-        if var_or_idx == cfg.idx_sdii:
-            label += "/day"
-        label += ")"
+        if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
+            label = "Nbr. jours"
+
+        elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
+            label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
+            if var_or_idx == cfg.idx_sdii:
+                label += "/day"
+            label += ")"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END
@@ -867,22 +874,29 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    if var_or_idx in cfg.variables_cordex:
+
+        title = cfg.get_var_desc(var_or_idx) + " (" + stn.capitalize() + ")"
+        label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
+
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.BEGIN
     # Generate title and label.
     # ==========================================================
 
-    title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ")"
-    label = ""
+    else:
 
-    if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-        label = "Nbr. jours"
+        title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ")"
+        label = ""
 
-    elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
-        label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
-        if var_or_idx == cfg.idx_sdii:
-            label += "/day"
-        label += ")"
+        if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
+            label = "Nbr. jours"
+
+        elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
+            label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
+            if var_or_idx == cfg.idx_sdii:
+                label += "/day"
+            label += ")"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END
