@@ -483,10 +483,16 @@ def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if len(ds.dims) == 1:
+    # Data array has a single dimension.
+    if len(ds[var].dims) == 1:
         ds[var].values = ds[var].values + np.random.rand(ds[var].values.shape[0]) * d_val
+
+    # Data array has 3 dimensions, with unknown ranking.
     else:
-        ds[var].values = ds[var].values + np.random.rand(ds[var].values.shape[0], 1, 1) * d_val
+        vals = ds[var].values.shape[0]
+        i_time = list(ds[var].dims).index("time")
+        ds[var].values = ds[var].values +\
+            np.random.rand(vals if i_time == 0 else 1, vals if i_time == 1 else 1, vals if i_time == 2 else 1) * d_val
 
     return ds
 
