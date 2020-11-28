@@ -483,7 +483,7 @@ def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if not cfg.opt_ra:
+    if len(ds.dims) == 1:
         ds[var].values = ds[var].values + np.random.rand(ds[var].values.shape[0]) * d_val
     else:
         ds[var].values = ds[var].values + np.random.rand(ds[var].values.shape[0], 1, 1) * d_val
