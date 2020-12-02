@@ -666,13 +666,12 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # Scenarios and indices.
 # ======================================================================================================================
 
-def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, threshs: [float], grid_x: [float], grid_y: [float],
+def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], grid_y: [float],
                  per: [int, int], z_min: float, z_max: float, p_fig: str, map_package: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Generate a heat map of a climate index for the reference period and for emission scenarios.
-    TODO: Add a color scale that is common to all horizons.
 
     Parameters
     ----------
@@ -682,8 +681,6 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, threshs: [float], 
         Station name.
     var_or_idx : str
         Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
-    threshs : [float]
-        Threshold value associated a climate index.
     grid_x: [float]
         X-coordinates.
     grid_y: [float]
@@ -701,34 +698,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, threshs: [float], 
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if var_or_idx in cfg.variables_cordex:
-
-        title = cfg.get_var_desc(var_or_idx) + " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
-        label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.INDEX.BEGIN
-    # Generate title and label.
-    # ==========================================================
-
-    else:
-
-        title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
-        label = ""
-
-        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
-                          cfg.idx_wetdays, cfg.idx_drydays]:
-            label = "Nbr jours"
-
-        elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
-            label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
-            if var_or_idx == cfg.idx_sdii:
-                label += "/day"
-            label += ")"
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.INDEX.END
-    # ==========================================================
+    # Get title and label.
+    title, label = get_title_label(stn, var_or_idx, per)
 
     plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
 
@@ -840,6 +811,63 @@ def draw_region_boundary(ax):
     plot_feature(coordinates, myplot)
 
 
+def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get title and label.
+
+    Parameters
+    ----------
+    stn : str
+        Station name.
+    var_or_idx : str
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
+    per: [int, int], Optional
+        Period of interest, for instance, [1981, 2010].
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if var_or_idx in cfg.variables_cordex:
+
+        title = cfg.get_var_desc(var_or_idx) + " (" + stn.capitalize() + ")"
+        label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
+
+    # ==========================================================
+    # TODO.CUSTOMIZATION.INDEX.BEGIN
+    # Generate title and label.
+    # ==========================================================
+
+    else:
+
+        title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ")"
+        if per is not None:
+            title += ", " + str(per[0]) + "-" + str(per[1]) + ")"
+        label = ""
+
+        # Temperature.
+        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_hotspellmaxlen, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen,
+                          cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays,
+                          cfg.idx_drydays]:
+            label = "Nbr jours"
+
+        elif var_or_idx == cfg.idx_hotspellfreq:
+            label = "Nbr"
+
+        # Precipitation.
+        elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
+            label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
+            if var_or_idx == cfg.idx_sdii:
+                label += "/day"
+            label += ")"
+
+    # ==========================================================
+    # TODO.CUSTOMIZATION.INDEX.END
+    # ==========================================================
+
+    return title, label
+
+
 def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
             stn: str, var_or_idx: str, threshs: [float], rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
 
@@ -875,34 +903,8 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if var_or_idx in cfg.variables_cordex:
-
-        title = cfg.get_var_desc(var_or_idx) + " (" + stn.capitalize() + ")"
-        label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.INDEX.BEGIN
-    # Generate title and label.
-    # ==========================================================
-
-    else:
-
-        title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ")"
-        label = ""
-
-        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
-                          cfg.idx_wetdays, cfg.idx_drydays]:
-            label = "Nbr jours"
-
-        elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
-            label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
-            if var_or_idx == cfg.idx_sdii:
-                label += "/day"
-            label += ")"
-
-    # ==========================================================
-    # TODO.CUSTOMIZATION.INDEX.END
-    # ==========================================================
+    # Get title and label.
+    title, label = get_title_label(stn, var_or_idx)
 
     # Initialize plot.
     f, ax = plt.subplots()

@@ -15,6 +15,9 @@ import statistics
 import utils
 import xarray as xr
 import xclim.indices as indices
+from xclim.core.calendar import resample_doy
+from xclim.indices import run_length as rl
+from xclim.core.units import convert_units_to
 
 
 def generate(idx_name: str, idx_threshs: [float]):
@@ -45,6 +48,10 @@ def generate(idx_name: str, idx_threshs: [float]):
 
     # Temperature.
     if idx_name == cfg.idx_txdaysabove:
+        vars.append(cfg.var_cordex_tasmax)
+
+    elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
+        vars.append(cfg.var_cordex_tasmin)
         vars.append(cfg.var_cordex_tasmax)
 
     # Precipitation.
@@ -141,28 +148,63 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
                 idx_threshs_str = []
+                for i in range(len(idx_threshs)):
+                    idx_thresh = idx_threshs[i]
 
-                for _ in range(0, len(ds_scen)):
-                    for idx_thresh in idx_threshs:
+                    # Temperature.
+                    if (idx_name == cfg.idx_txdaysabove) or\
+                       ((i == 0) and (idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen])) or \
+                       ((i <= 1) and (idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen])):
+                        idx_ref = str(idx_thresh) + " " + cfg.unit_C
+                        idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
+                        idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
 
-                        if idx_name == cfg.idx_txdaysabove:
-                            idx_ref = str(idx_thresh) + " " + cfg.unit_C
-                            idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
-                            idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
+                    # Precipitation.
+                    elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
+                                      cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
+                        idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_mm + "/day")
 
-                        elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
-                                          cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
-                            idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_mm + "/day")
+                    else:
+                        idx_threshs_str.append(str(idx_thresh))
 
-                # Calculate indices.
+                # Temperature.
                 da_idx = None
                 if idx_name == cfg.idx_txdaysabove:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
-                    idx_thresh_str_tasmax = idx_threshs_str[0]
-                    da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, idx_thresh_str_tasmax).values)
+                    thresh_tasmax = idx_threshs_str[0]
+                    da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, thresh_tasmax).values)
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
+                elif idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]:
+                    da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
+                    thresh_tasmax = idx_threshs_str[0]
+                    thresh_ndays = int(idx_threshs_str[1])
+                    if idx_name == cfg.idx_hotspellfreq:
+                        da_idx = xr.DataArray(
+                            indices.hot_spell_frequency(da_tasmax, thresh_tasmax, thresh_ndays).values)
+                    else:
+                        da_idx = xr.DataArray(
+                            indices.hot_spell_max_length(da_tasmax, thresh_tasmax, thresh_ndays).values)
+                    da_idx = da_idx.astype(int)
+                    idx_units = cfg.unit_1
+
+                elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
+                    da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
+                    da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
+                    thresh_tasmin = idx_threshs_str[0]
+                    thresh_tasmax = idx_threshs_str[1]
+                    thresh_ndays = int(float(idx_threshs_str[2]))
+                    if idx_name == cfg.idx_heatwavemaxlen:
+                        da_idx = xr.DataArray(heat_wave_max_length(da_tasmin, da_tasmax, thresh_tasmin,
+                                                                   thresh_tasmax, thresh_ndays).values)
+                    else:
+                        da_idx = xr.DataArray(heat_wave_total_length(da_tasmin, da_tasmax, thresh_tasmin,
+                                                                     thresh_tasmax, thresh_ndays).values)
+                    da_idx = da_idx.astype(int)
+                    idx_units = cfg.unit_1
+
+                # Precipitation.
                 elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:
                     da_pr = ds_scen[0][cfg.var_cordex_pr]
                     if idx_name == cfg.idx_rx1day:
@@ -176,19 +218,19 @@ def generate(idx_name: str, idx_threshs: [float]):
                 elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
                                   cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
                     da_pr = ds_scen[0][cfg.var_cordex_pr]
-                    idx_thresh_str_pr = idx_threshs_str[0]
+                    thresh_pr = idx_threshs_str[0]
                     if idx_name in cfg.idx_cwd:
                         da_idx = xr.DataArray(
-                            indices.maximum_consecutive_wet_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                            indices.maximum_consecutive_wet_days(da_pr, thresh_pr, cfg.freq_YS))
                     elif idx_name in cfg.idx_cdd:
                         da_idx = xr.DataArray(
-                            indices.maximum_consecutive_dry_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                            indices.maximum_consecutive_dry_days(da_pr, thresh_pr, cfg.freq_YS))
                     elif idx_name in [cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-                        da_idx = xr.DataArray(indices.wetdays(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                        da_idx = xr.DataArray(indices.wetdays(da_pr, thresh_pr, cfg.freq_YS))
                     elif idx_name == cfg.idx_drydays:
-                        da_idx = xr.DataArray(indices.dry_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                        da_idx = xr.DataArray(indices.dry_days(da_pr, thresh_pr, cfg.freq_YS))
                     elif idx_name == cfg.idx_sdii:
-                        da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, idx_thresh_str_pr))
+                        da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, thresh_pr))
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
@@ -229,9 +271,52 @@ def generate(idx_name: str, idx_threshs: [float]):
                 utils.save_netcdf(ds_idx, p_idx, desc=desc)
 
 
+def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasmin: str = "22.0 degC",
+    thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Same as equivalent non-working function in xclim.indices.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
+    thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
+
+    cond = tasmin
+    for t in range(len(cond.time)):
+        cond[t] = (tasmin[t] > thresh_tasmin) & (tasmax[t] > thresh_tasmax)
+
+    group = cond.resample(time=freq)
+    max_l = group.map(rl.longest_run, dim="time")
+
+    return max_l.where(max_l >= window, 0)
+
+
+def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasmin: str = "22.0 degC",
+    thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Same as equivalent non-working function in xclim.indices.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
+    thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
+
+    cond = tasmin
+    for t in range(len(cond.time)):
+        cond[t] = (tasmin[t] > thresh_tasmin) & (tasmax[t] > thresh_tasmax)
+
+    group = cond.resample(time=freq)
+    return group.map(rl.windowed_run_count, args=(window,), dim="time")
+
+
 def run():
 
     """
+
     --------------------------------------------------------------------------------------------------------------------
     Entry point.
     --------------------------------------------------------------------------------------------------------------------

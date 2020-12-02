@@ -862,8 +862,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
         fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         p_fig = d_fig + fn_fig
         if ((cat == cfg.cat_scen) and (cfg.opt_plot_heat[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot_heat[1])):
-            plot.plot_heatmap(da_hor, stn, var_or_idx, threshs, grid_x, grid_y, per_hor, z_min, z_max, p_fig,
-                              "matplotlib")
+            plot.plot_heatmap(da_hor, stn, var_or_idx, grid_x, grid_y, per_hor, z_min, z_max, p_fig, "matplotlib")
 
         # Save to CSV.
         d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx + "_csv")

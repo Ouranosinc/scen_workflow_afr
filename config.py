@@ -147,18 +147,25 @@ opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 # Add new index below.
 # ==========================================================
 
-idx_txdaysabove     = "txdaysabove"  # Number of days per year with a maximum temperature above a threshold value.
-idx_rx1day          = "rx1day"       # Highest 1-day precipitation amount.
-idx_rx5day          = "rx5day"       # Highest 5-day precipitation amount.
-idx_cwd             = "cwd"          # Maximum number of consecutive wet days (above a threshold).
-idx_cdd             = "cdd"          # Maximum number of consecutive dry days (above a threshold).
-idx_sdii            = "sdii"         # Average daily precipitation intensity.
-idx_prcptot         = "prcptot"      # Accumulated total precipitation.
-idx_r10mm           = "r10mm"        # Number of days with precipitation >= 10 mm.
-idx_r20mm           = "r20mm"        # Number of days with precipitation >= 20 mm.
-idx_rnnmm           = "rnnmm"        # Number of days with precipitation >= nn mm.
-idx_wetdays         = "wetdays"      # Number of wet days (above a threshold).
-idx_drydays         = "drydays"      # Number of dry days (below a threshold).
+# Temperature.
+idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length.
+idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length.
+idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells.
+idx_hotspellmaxlen  = "hotspellmaxlen"  # Maximum hot spell length.
+idx_txdaysabove     = "txdaysabove"     # Number of days per year with a maximum temperature above a threshold value.
+
+# Precipitation.
+idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
+idx_rx5day          = "rx5day"          # Highest 5-day precipitation amount.
+idx_cwd             = "cwd"             # Maximum number of consecutive wet days (above a threshold).
+idx_cdd             = "cdd"             # Maximum number of consecutive dry days (above a threshold).
+idx_sdii            = "sdii"            # Average daily precipitation intensity.
+idx_prcptot         = "prcptot"         # Accumulated total precipitation.
+idx_r10mm           = "r10mm"           # Number of days with precipitation >= 10 mm.
+idx_r20mm           = "r20mm"           # Number of days with precipitation >= 20 mm.
+idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
+idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
+idx_drydays         = "drydays"         # Number of dry days (below a threshold).
 
 # ==========================================================
 # TODO.CUSTOMIZATION.INDEX.END
@@ -443,10 +450,31 @@ def get_idx_desc(idx_name: str):
     # Copy the following code block.
     # ==========================================================
 
+    # Temperature.
     if idx_name == idx_txdaysabove:
         idx_desc = "Nbr jours où " + var_cordex_tasmax + " > " + str(idx_threshs_loc[0]) + " " +\
                    get_var_unit(var_cordex_tasmax)
 
+    elif idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen]:
+        if idx_name == idx_hotspellfreq:
+            idx_desc = "Nbr périodes chaudes"
+        elif idx_name == idx_hotspellmaxlen:
+            idx_desc = "Durée max périodes chaudes"
+        elif idx_name == idx_heatwavemaxlen:
+            idx_desc = "Nbr vagues de chaleur"
+        elif idx_name == idx_heatwavetotlen:
+            idx_desc = "Durée tot vagues de chaleur"
+        if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen]:
+            idx_desc += " (" +\
+                var_cordex_tasmin + " >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " +\
+                str(idx_threshs_loc[1]) + " jours)"
+        else:
+            idx_desc += " (" +\
+                var_cordex_tasmin + " >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
+                var_cordex_tasmax + " >= " + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
+                str(idx_threshs_loc[2]) + " jours)"
+
+    # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
         idx_desc = "Cumul " + var_cordex_pr + " " +\
             ("(1 jour)" if idx_name == idx_rx1day else "(5 jours)" if idx_name == idx_rx5day else "(total)")
