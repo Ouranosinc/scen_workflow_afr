@@ -194,13 +194,13 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
                     thresh_tasmin = idx_threshs_str[0]
                     thresh_tasmax = idx_threshs_str[1]
-                    thresh_ndays = int(float(idx_threshs_str[2]))
+                    window = int(float(idx_threshs_str[2]))
                     if idx_name == cfg.idx_heatwavemaxlen:
                         da_idx = xr.DataArray(heat_wave_max_length(da_tasmin, da_tasmax, thresh_tasmin,
-                                                                   thresh_tasmax, thresh_ndays).values)
+                                                                   thresh_tasmax, window).values)
                     else:
                         da_idx = xr.DataArray(heat_wave_total_length(da_tasmin, da_tasmax, thresh_tasmin,
-                                                                     thresh_tasmax, thresh_ndays).values)
+                                                                     thresh_tasmax, window).values)
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
@@ -283,14 +283,28 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
     thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
 
-    cond = tasmin
-    for t in range(len(cond.time)):
-        cond[t] = (tasmin[t] > thresh_tasmin) & (tasmax[t] > thresh_tasmax)
+    # Call the xclim function if time dimension is the same.
+    n_tasmin = len(tasmin[cfg.dim_time])
+    n_tasmax = len(tasmax[cfg.dim_time])
+    if n_tasmin == n_tasmax:
+        return indices.heat_wave_max_length(tasmin, tasmax, thresh_tasmin, thresh_tasmax, window, freq)
 
-    group = cond.resample(time=freq)
-    max_l = group.map(rl.longest_run, dim="time")
+    # Calculate manually.
+    else:
+        cond = tasmin
+        if n_tasmax > n_tasmin:
+            cond = tasmax
+        for t in cond.time:
+            if (t.values in tasmin["time"]) and (t.values in tasmax["time"]):
+                cond[cond["time"] == t] =\
+                    (tasmin[tasmin["time"] == t] > thresh_tasmin) & (tasmax[tasmax["time"] == t] > thresh_tasmax)
+            else:
+                cond[cond["time"] == t] = False
 
-    return max_l.where(max_l >= window, 0)
+        group = cond.resample(time=freq)
+        max_l = group.map(rl.longest_run, dim="time")
+
+        return max_l.where(max_l >= window, 0)
 
 
 def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasmin: str = "22.0 degC",
@@ -302,12 +316,26 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
+    thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
 
-    cond = tasmin
-    for t in range(len(cond.time)):
-        cond[t] = (tasmin[t] > thresh_tasmin) & (tasmax[t] > thresh_tasmax)
+    # Call the xclim function if time dimension is the same.
+    n_tasmin = len(tasmin[cfg.dim_time])
+    n_tasmax = len(tasmax[cfg.dim_time])
+    if n_tasmin == n_tasmax:
+        return indices.heat_wave_max_length(tasmin, tasmax, thresh_tasmin, thresh_tasmax, window, freq)
+
+    # Calculate manually.
+    else:
+        cond = tasmin
+        if n_tasmax > n_tasmin:
+            cond = tasmax
+        for t in cond.time:
+            if (t.values in tasmin["time"]) and (t.values in tasmax["time"]):
+                cond[cond["time"] == t] =\
+                    (tasmin[tasmin["time"] == t] > thresh_tasmin) & (tasmax[tasmax["time"] == t] > thresh_tasmax)
+            else:
+                cond[cond["time"] == t] = False
 
     group = cond.resample(time=freq)
     return group.map(rl.windowed_run_count, args=(window,), dim="time")
