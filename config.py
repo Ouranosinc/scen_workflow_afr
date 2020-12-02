@@ -147,16 +147,18 @@ opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 # Add new index below.
 # ==========================================================
 
-idx_tx_days_above   = "tx_days_above"   # Number of days per year with a maximum temperature above a threshold value.
-idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
-idx_rx5day          = "rx5day"          # Highest 5-day precipitation amount.
-idx_cwd             = "cwd"             # Number of consecutive wet days.
-idx_sdii            = "sdii"            # Average daily precipitation intensity.
-idx_prcptot         = "prcptot"         # Accumulated total precipitation.
-idx_r10mm           = "r10mm"           # Number of days with precipitation >= 10 mm.
-idx_r20mm           = "r20mm"           # Number of days with precipitation >= 20 mm.
-idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
-idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
+idx_txdaysabove     = "txdaysabove"  # Number of days per year with a maximum temperature above a threshold value.
+idx_rx1day          = "rx1day"       # Highest 1-day precipitation amount.
+idx_rx5day          = "rx5day"       # Highest 5-day precipitation amount.
+idx_cwd             = "cwd"          # Maximum number of consecutive wet days (above a threshold).
+idx_cdd             = "cdd"          # Maximum number of consecutive dry days (above a threshold).
+idx_sdii            = "sdii"         # Average daily precipitation intensity.
+idx_prcptot         = "prcptot"      # Accumulated total precipitation.
+idx_r10mm           = "r10mm"        # Number of days with precipitation >= 10 mm.
+idx_r20mm           = "r20mm"        # Number of days with precipitation >= 20 mm.
+idx_rnnmm           = "rnnmm"        # Number of days with precipitation >= nn mm.
+idx_wetdays         = "wetdays"      # Number of wet days (above a threshold).
+idx_drydays         = "drydays"      # Number of dry days (below a threshold).
 
 # ==========================================================
 # TODO.CUSTOMIZATION.INDEX.END
@@ -441,26 +443,25 @@ def get_idx_desc(idx_name: str):
     # Copy the following code block.
     # ==========================================================
 
-    if idx_name == idx_tx_days_above:
-        idx_desc = "Nbr. jours où " + get_var_desc(var_cordex_tasmax).lower() + " > " + str(idx_threshs_loc[0]) + " " +\
+    if idx_name == idx_txdaysabove:
+        idx_desc = "Nbr jours où " + var_cordex_tasmax + " > " + str(idx_threshs_loc[0]) + " " +\
                    get_var_unit(var_cordex_tasmax)
 
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
-        idx_desc = "Cumul. précipitation"
-        if idx_name == idx_rx1day:
-            idx_desc += " (1 jour)"
-        else:
-            idx_desc += " (5 jours)"
+        idx_desc = "Cumul " + var_cordex_pr + " " +\
+            ("(1 jour)" if idx_name == idx_rx1day else "(5 jours)" if idx_name == idx_rx5day else "(total)")
 
-    elif idx_name in [idx_cwd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays]:
-        idx_desc = "Nbr. jours"
+    elif idx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
+        idx_desc = "Nbr jours"
         if idx_name == idx_cwd:
-            idx_desc += " consec."
-        idx_desc += " où " + get_var_desc(var_cordex_pr).lower() + " >= " + str(idx_threshs_loc[0]) + " " +\
-            get_var_unit(var_cordex_pr)
+            idx_desc += " consécutifs"
+        op = " >= "
+        if idx_name in [idx_cdd, idx_drydays]:
+            op = " < "
+        idx_desc += " où " + var_cordex_pr + op + str(idx_threshs_loc[0]) + " " + get_var_unit(var_cordex_pr)
 
     elif idx_name == idx_sdii:
-        idx_desc = "Intensite moyenne précipitation"
+        idx_desc = "Intensite moyenne " + var_cordex_pr
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END

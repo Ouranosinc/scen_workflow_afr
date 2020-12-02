@@ -44,12 +44,12 @@ def generate(idx_name: str, idx_threshs: [float]):
     vars = []
 
     # Temperature.
-    if idx_name == cfg.idx_tx_days_above:
+    if idx_name == cfg.idx_txdaysabove:
         vars.append(cfg.var_cordex_tasmax)
 
     # Precipitation.
-    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_sdii, cfg.idx_prcptot, cfg.idx_r10mm,
-                    cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
+    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
+                    cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays]:
         vars.append(cfg.var_cordex_pr)
 
     # ==========================================================
@@ -145,18 +145,18 @@ def generate(idx_name: str, idx_threshs: [float]):
                 for _ in range(0, len(ds_scen)):
                     for idx_thresh in idx_threshs:
 
-                        if idx_name == cfg.idx_tx_days_above:
+                        if idx_name == cfg.idx_txdaysabove:
                             idx_ref = str(idx_thresh) + " " + cfg.unit_C
                             idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
                             idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
 
-                        elif idx_name in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays,
-                                          cfg.idx_sdii]:
+                        elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
+                                          cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
                             idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_mm + "/day")
 
                 # Calculate indices.
                 da_idx = None
-                if idx_name == cfg.idx_tx_days_above:
+                if idx_name == cfg.idx_txdaysabove:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     idx_thresh_str_tasmax = idx_threshs_str[0]
                     da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, idx_thresh_str_tasmax).values)
@@ -173,24 +173,22 @@ def generate(idx_name: str, idx_threshs: [float]):
                         da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=cfg.freq_YS))
                     idx_units = da_idx.attrs[cfg.attrs_units]
 
-                elif idx_name == cfg.idx_cwd:
+                elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
+                                  cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
                     da_pr = ds_scen[0][cfg.var_cordex_pr]
                     idx_thresh_str_pr = idx_threshs_str[0]
-                    da_idx = xr.DataArray(indices.maximum_consecutive_wet_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
-                    da_idx = da_idx.astype(int)
-                    idx_units = cfg.unit_1
-
-                elif idx_name in [cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-                    da_pr = ds_scen[0][cfg.var_cordex_pr]
-                    idx_thresh_str_pr = idx_threshs_str[0]
-                    da_idx = xr.DataArray(indices.wetdays(da_pr, idx_thresh_str_pr, cfg.freq_YS))
-                    da_idx = da_idx.astype(int)
-                    idx_units = cfg.unit_1
-
-                elif idx_name == cfg.idx_sdii:
-                    da_pr = ds_scen[0][cfg.var_cordex_pr]
-                    idx_thresh_str_pr = idx_threshs_str[0]
-                    da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, idx_thresh_str_pr))
+                    if idx_name in cfg.idx_cwd:
+                        da_idx = xr.DataArray(
+                            indices.maximum_consecutive_wet_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                    elif idx_name in cfg.idx_cdd:
+                        da_idx = xr.DataArray(
+                            indices.maximum_consecutive_dry_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                    elif idx_name in [cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
+                        da_idx = xr.DataArray(indices.wetdays(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                    elif idx_name == cfg.idx_drydays:
+                        da_idx = xr.DataArray(indices.dry_days(da_pr, idx_thresh_str_pr, cfg.freq_YS))
+                    elif idx_name == cfg.idx_sdii:
+                        da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, idx_thresh_str_pr))
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 

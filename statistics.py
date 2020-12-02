@@ -41,7 +41,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     stn : str
         Station.
     var_or_idx : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
     rcp : str
         Emission scenario: {cfg.rcp_26, cfg.rcp_45, cfg_rcp_85, "*"}
     hor : [int]
@@ -560,7 +560,7 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
     ds_list : [xr.Dataset]
         Array of datasets from a given group.
     var_or_idx : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
 
     Returns
     -------
@@ -620,7 +620,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
     Parameters
     ----------
     var_or_idx: str
-        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
+        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
     threshs: [float]
         Climate index thresholds.
     rcp: str

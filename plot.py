@@ -681,7 +681,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, threshs: [float], 
     stn : str
         Station name.
     var_or_idx : str
-        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
+        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
     threshs : [float]
         Threshold value associated a climate index.
     grid_x: [float]
@@ -716,8 +716,9 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, threshs: [float], 
         title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ", " + str(per[0]) + "-" + str(per[1]) + ")"
         label = ""
 
-        if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-            label = "Nbr. jours"
+        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
+                          cfg.idx_wetdays, cfg.idx_drydays]:
+            label = "Nbr jours"
 
         elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
             label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
@@ -859,7 +860,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     stn : str
         Station name.
     var_or_idx : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_tx_days_above).
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
     threshs : [float]
         Threshold values associated with a climate index.
     rcps : [str]
@@ -889,8 +890,9 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ")"
         label = ""
 
-        if var_or_idx in [cfg.idx_tx_days_above, cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-            label = "Nbr. jours"
+        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
+                          cfg.idx_wetdays, cfg.idx_drydays]:
+            label = "Nbr jours"
 
         elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
             label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
