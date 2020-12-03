@@ -55,7 +55,7 @@ def generate(idx_name: str, idx_threshs: [float]):
         vars.append(cfg.var_cordex_tasmax)
 
     # Precipitation.
-    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
+    elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
                     cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays]:
         vars.append(cfg.var_cordex_pr)
 

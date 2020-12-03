@@ -466,7 +466,7 @@ def get_idx_desc(idx_name: str):
             idx_desc = "Durée tot vagues de chaleur"
         if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen]:
             idx_desc += " (" +\
-                var_cordex_tasmin + " >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " +\
+                var_cordex_tasmax + " >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
                 str(idx_threshs_loc[1]) + " jours)"
         else:
             idx_desc += " (" +\
