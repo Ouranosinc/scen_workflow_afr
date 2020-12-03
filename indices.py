@@ -47,7 +47,7 @@ def generate(idx_name: str, idx_threshs: [float]):
     vars = []
 
     # Temperature.
-    if idx_name == cfg.idx_txdaysabove:
+    if idx_name in [cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]:
         vars.append(cfg.var_cordex_tasmax)
 
     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
@@ -186,7 +186,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                 elif idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     thresh_tasmax = idx_threshs_str[0]
-                    thresh_ndays = int(idx_threshs_str[1])
+                    thresh_ndays = int(float(idx_threshs_str[1]))
                     if idx_name == cfg.idx_hotspellfreq:
                         da_idx = xr.DataArray(
                             indices.hot_spell_frequency(da_tasmax, thresh_tasmax, thresh_ndays).values)
