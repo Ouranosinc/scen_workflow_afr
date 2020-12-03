@@ -15,7 +15,7 @@ import statistics
 import utils
 import xarray as xr
 import xclim.indices as indices
-from xclim.core.calendar import resample_doy
+from xclim.core.calendar import resample_doy, convert_calendar
 from xclim.indices import run_length as rl
 from xclim.core.units import convert_units_to
 
@@ -85,30 +85,36 @@ def generate(idx_name: str, idx_threshs: [float]):
 
             utils.log("Collecting simulation files.", True)
 
-            # List simulation files. As soon as there is no file for one variable, the analysis for the current RCP
-            # needs to abort.
-            n_sim = 0
-            p_sim = []
-            for var in vars:
-                if rcp == cfg.rcp_ref:
-                    p_sim_i = cfg.get_d_scen(stn, cfg.cat_obs, "") + var + "/" + var + "_" + stn + ".nc"
-                    if os.path.exists(p_sim_i) and (type(p_sim_i) is str):
-                        p_sim_i = [p_sim_i]
-                else:
-                    p_format = cfg.get_d_scen(stn, cfg.cat_qqmap, "") + var + "/*_" + rcp + ".nc"
-                    p_sim_i = glob.glob(p_format)
-                if not p_sim_i:
-                    p_sim = []
-                else:
-                    p_sim.append(p_sim_i)
-                    n_sim = len(p_sim_i)
+            # List simulation files for the first variable. As soon as there is no file for one variable, the analysis
+            # for the current RCP needs to abort.
+            if rcp == cfg.rcp_ref:
+                p_sim = cfg.get_d_scen(stn, cfg.cat_obs, "") + vars[0] + "/" + vars[0] + "_" + stn + ".nc"
+                if os.path.exists(p_sim) and (type(p_sim) is str):
+                    p_sim = [p_sim]
+            else:
+                p_format = cfg.get_d_scen(stn, cfg.cat_qqmap, "") + vars[0] + "/*_" + rcp + ".nc"
+                p_sim = glob.glob(p_format)
             if not p_sim:
                 continue
 
             utils.log("Calculating climate indices", True)
 
+            # Ensure that simulations are available for all other variables (than the first one).
+            if len(vars) > 1:
+                p_sim_fix = []
+                for p_sim_i in p_sim:
+                    missing = False
+                    for var_j in vars[1:]:
+                        p_sim_j = p_sim_i.replace(vars[0], var_j)
+                        if not os.path.exists(p_sim_j):
+                            missing = True
+                            break
+                    if not missing:
+                        p_sim_fix.append(p_sim_i)
+                p_sim = p_sim_fix
+
             # Loop through simulations.
-            for i_sim in range(0, n_sim):
+            for i_sim in range(len(p_sim)):
 
                 # Scenarios --------------------------------------------------------------------------------------------
 
@@ -117,7 +123,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     p_idx = cfg.get_d_idx(stn, idx_name) + idx_name + "_ref.nc"
                 else:
                     p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
-                            os.path.basename(p_sim[0][i_sim]).replace(vars[0], idx_name)
+                            os.path.basename(p_sim[i_sim]).replace(vars[0], idx_name)
                 if os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
                     continue
 
@@ -125,7 +131,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                 ds_scen = []
                 for i_var in range(0, len(vars)):
                     var = vars[i_var]
-                    ds = utils.open_netcdf(p_sim[i_var][i_sim])
+                    p_sim_i = p_sim[i_sim] if i_var == 0 else p_sim[i_sim].replace(vars[0], var)
+                    ds = utils.open_netcdf(p_sim_i)
 
                     # Adjust temperature units.
                     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
@@ -283,14 +290,21 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
     thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
 
+    # Adjust calendars.
+    if tasmin.time.dtype != tasmax.time.dtype:
+        tasmin["time"] = tasmin["time"].astype("datetime64[ns]")
+        tasmax["time"] = tasmax["time"].astype("datetime64[ns]")
+
     # Call the xclim function if time dimension is the same.
     n_tasmin = len(tasmin[cfg.dim_time])
     n_tasmax = len(tasmax[cfg.dim_time])
+
     if n_tasmin == n_tasmax:
         return indices.heat_wave_max_length(tasmin, tasmax, thresh_tasmin, thresh_tasmax, window, freq)
 
     # Calculate manually.
     else:
+
         cond = tasmin
         if n_tasmax > n_tasmin:
             cond = tasmax
@@ -319,14 +333,21 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
     thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
     thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
 
+    # Adjust calendars.
+    if tasmin.time.dtype != tasmax.time.dtype:
+        tasmin["time"] = tasmin["time"].astype("datetime64[ns]")
+        tasmax["time"] = tasmax["time"].astype("datetime64[ns]")
+
     # Call the xclim function if time dimension is the same.
     n_tasmin = len(tasmin[cfg.dim_time])
     n_tasmax = len(tasmax[cfg.dim_time])
+
     if n_tasmin == n_tasmax:
-        return indices.heat_wave_max_length(tasmin, tasmax, thresh_tasmin, thresh_tasmax, window, freq)
+        return indices.heat_wave_total_length(tasmin, tasmax, thresh_tasmin, thresh_tasmax, window, freq)
 
     # Calculate manually.
     else:
+
         cond = tasmin
         if n_tasmax > n_tasmin:
             cond = tasmax
@@ -337,8 +358,9 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
             else:
                 cond[cond["time"] == t] = False
 
-    group = cond.resample(time=freq)
-    return group.map(rl.windowed_run_count, args=(window,), dim="time")
+        group = cond.resample(time=freq)
+
+        return group.map(rl.windowed_run_count, args=(window,), dim="time")
 
 
 def run():

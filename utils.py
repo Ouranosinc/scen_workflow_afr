@@ -245,7 +245,7 @@ def calendar(x: Union[xr.Dataset, xr.DataArray], n_days_old=360, n_days_new=365)
     ts_time = ts.time.values
     ts[cfg.dim_time] = ts_year + ts_time
 
-    nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0])+1
+    nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0]) + 1
     time_new = np.arange(1, (nb_year*n_days_new)+1)
 
     # Create new times series.
