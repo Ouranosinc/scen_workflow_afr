@@ -47,7 +47,7 @@ def generate(idx_name: str, idx_threshs: [float]):
     vars = []
 
     # Temperature.
-    if idx_name in [cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]:
+    if idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]:
         vars.append(cfg.var_cordex_tasmax)
 
     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
@@ -118,13 +118,15 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Scenarios --------------------------------------------------------------------------------------------
 
-                # Skip iteration if the file already exists.
+                # Determine file name.
                 if rcp == cfg.rcp_ref:
                     p_idx = cfg.get_d_idx(stn, idx_name) + idx_name + "_ref.nc"
                 else:
                     p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
                             os.path.basename(p_sim[i_sim]).replace(vars[0], idx_name)
-                if os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
+
+                # Exit loop if the file already exists (simulations files only; not reference file).
+                if (rcp != cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
                     continue
 
                 # Load datasets (one per variable).
@@ -159,9 +161,29 @@ def generate(idx_name: str, idx_threshs: [float]):
                     idx_thresh = idx_threshs[i]
 
                     # Temperature.
-                    if (idx_name == cfg.idx_txdaysabove) or\
+                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]) or\
                        ((i == 0) and (idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen])) or \
                        ((i <= 1) and (idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen])):
+
+                        # Calculate the percentile for the current simulation (if no threshold was specified).
+                        if idx_name == cfg.idx_tx90p:
+                            idx_thresh = "90p"
+                        if "p" in str(idx_thresh):
+                            idx_thresh = float(idx_thresh.replace("p", "")) / 100.0
+                            if rcp == cfg.rcp_ref:
+                                if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]) or\
+                                   (i == 1):
+                                    idx_thresh =\
+                                        ds_scen[i][cfg.var_cordex_tasmax].quantile(idx_thresh).values.ravel()[0]
+                                else:
+                                    idx_thresh =\
+                                        ds_scen[i][cfg.var_cordex_tasmin].quantile(idx_thresh).values.ravel()[0]
+                                idx_thresh = float(round(idx_thresh, 2))
+                                cfg.idx_threshs[cfg.idx_names.index(idx_name)][i] = idx_thresh
+                            else:
+                                idx_thresh = cfg.idx_threshs[cfg.idx_names.index(idx_name)][i]
+
+                        # Combine threshold and unit.
                         idx_ref = str(idx_thresh) + " " + cfg.unit_C
                         idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
                         idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
@@ -174,9 +196,13 @@ def generate(idx_name: str, idx_threshs: [float]):
                     else:
                         idx_threshs_str.append(str(idx_thresh))
 
+                # Exit loop if the file already exists (reference file only).
+                if (rcp == cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
+                    continue
+
                 # Temperature.
                 da_idx = None
-                if idx_name == cfg.idx_txdaysabove:
+                if idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     thresh_tasmax = idx_threshs_str[0]
                     da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, thresh_tasmax).values)

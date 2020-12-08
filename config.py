@@ -148,6 +148,7 @@ opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 # ==========================================================
 
 # Temperature.
+idx_tx90p           = "tx90p"           # Number of days with maximum temperature > 90th percentile.
 idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length.
 idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length.
 idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells.
@@ -451,32 +452,30 @@ def get_idx_desc(idx_name: str):
     # ==========================================================
 
     # Temperature.
-    if idx_name == idx_txdaysabove:
-        idx_desc = "Nbr jours où " + var_cordex_tasmax + " > " + str(idx_threshs_loc[0]) + " " +\
-                   get_var_unit(var_cordex_tasmax)
+    if idx_name in [idx_txdaysabove, idx_tx90p]:
+        idx_desc = "Nbr jours où Tmax > " + str(idx_threshs_loc[0]) + " " + get_var_unit(var_cordex_tasmax)
 
     elif idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen]:
         if idx_name == idx_hotspellfreq:
-            idx_desc = "Nbr périodes chaudes"
+            idx_desc = "Nbr pér chaudes"
         elif idx_name == idx_hotspellmaxlen:
-            idx_desc = "Durée max périodes chaudes"
+            idx_desc = "Durée max pér chaudes"
         elif idx_name == idx_heatwavemaxlen:
-            idx_desc = "Nbr vagues de chaleur"
+            idx_desc = "Nbr vagues chaleur"
         elif idx_name == idx_heatwavetotlen:
-            idx_desc = "Durée tot vagues de chaleur"
+            idx_desc = "Durée tot vagues chaleur"
         if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen]:
-            idx_desc += " (" +\
-                var_cordex_tasmax + " >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
+            idx_desc += " (Tmax >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
                 str(idx_threshs_loc[1]) + " jours)"
         else:
             idx_desc += " (" +\
-                var_cordex_tasmin + " >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
-                var_cordex_tasmax + " >= " + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
+                "Tmin >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
+                "Tmax >= " + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
                 str(idx_threshs_loc[2]) + " jours)"
 
     # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
-        idx_desc = "Cumul " + var_cordex_pr + " " +\
+        idx_desc = "Cumul préc " +\
             ("(1 jour)" if idx_name == idx_rx1day else "(5 jours)" if idx_name == idx_rx5day else "(total)")
 
     elif idx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
@@ -486,10 +485,10 @@ def get_idx_desc(idx_name: str):
         op = " >= "
         if idx_name in [idx_cdd, idx_drydays]:
             op = " < "
-        idx_desc += " où " + var_cordex_pr + op + str(idx_threshs_loc[0]) + " " + get_var_unit(var_cordex_pr)
+        idx_desc += " où P" + op + str(idx_threshs_loc[0]) + " " + get_var_unit(var_cordex_pr)
 
     elif idx_name == idx_sdii:
-        idx_desc = "Intensite moyenne " + var_cordex_pr
+        idx_desc = "Intensite moyenne P"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END

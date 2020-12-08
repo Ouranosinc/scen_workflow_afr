@@ -57,27 +57,34 @@ def load_params(p_ini: str):
     config = configparser.ConfigParser()
     config.read(p_ini)
 
-    def convert_to_1d(val, type):
+    def convert_to_1d(vals, type):
 
         if type == str:
-            val_new = ast.literal_eval(val)
+            vals = ast.literal_eval(vals)
         elif type == bool:
-            val = val.replace("[", "").replace("]", "").split(",")
-            val_new = [True if i == 'True' else False for i in val]
+            vals = vals.replace("[", "").replace("]", "").split(",")
+            vals = [True if val == 'True' else False for val in vals]
         else:
-            val = val.replace("[", "").replace("]", "").split(",")
-            val_new = [type(i) for i in val]
+            vals = vals.replace("[", "").replace("]", "").split(",")
+            for i_val in range(len(vals)):
+                try:
+                    vals[i_val] = int(vals[i_val])
+                except ValueError:
+                    try:
+                        vals[i_val] = float(vals[i_val])
+                    except ValueError:
+                        pass
 
-        return val_new
+        return vals
 
-    def convert_to_2d(val, type):
+    def convert_to_2d(vals, type):
 
-        val_new = []
-        val = val[1:(len(val) - 1)].split("],")
-        for i in range(len(val)):
-            val_new.append(convert_to_1d(val[i], type))
+        vals_new = []
+        vals = vals[1:(len(vals) - 1)].split("],")
+        for i_val in range(len(vals)):
+            vals_new.append(convert_to_1d(vals[i_val], type))
 
-        return val_new
+        return vals_new
 
     # Loop through sections.
     for section in config.sections():

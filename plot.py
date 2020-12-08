@@ -718,8 +718,11 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
     # Using matplotlib.
     elif map_package == "matplotlib":
 
+        # Fonts.
+        fs           = 10
+        fs_sup_title = 9
+
         # Color mesh.
-        fs = 10
         if (var_or_idx == cfg.var_cordex_uas) or (var_or_idx == cfg.var_cordex_vas):
             cmap = "RdBu_r"
             vmax_abs = max(abs(z_min), abs(z_max))
@@ -730,8 +733,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
                                   cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label), cmap=cmap, norm=norm)
         if (z_min is not None) and (z_max is not None):
             mesh.set_clim(z_min, z_max)
-        plt.title(title)
-        plt.suptitle("", fontsize=fs)
+        plt.title(title, fontsize=fs_sup_title)
+        plt.suptitle("")
         plt.xlabel("Longitude (º)", fontsize=fs)
         plt.ylabel("Latitude (º)", fontsize=fs)
         plt.tick_params(axis="x", labelsize=fs)
@@ -830,7 +833,7 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
 
     if var_or_idx in cfg.variables_cordex:
 
-        title = cfg.get_var_desc(var_or_idx) + " (" + stn.capitalize() + ")"
+        title = cfg.get_var_desc(var_or_idx) + "\n(" + stn.capitalize() + ")"
         label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
 
     # ==========================================================
@@ -840,9 +843,10 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
 
     else:
 
-        title = cfg.get_idx_desc(var_or_idx) + " (" + stn.capitalize() + ")"
+        title = cfg.get_idx_desc(var_or_idx) + "\n(" + stn.capitalize()
         if per is not None:
-            title += ", " + str(per[0]) + "-" + str(per[1]) + ")"
+            title += ", " + str(per[0]) + "-" + str(per[1])
+        title += ")"
         label = ""
 
         # Temperature.
@@ -906,9 +910,12 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     # Get title and label.
     title, label = get_title_label(stn, var_or_idx)
 
+    # Fonts.
+    fs_sup_title = 9
+
     # Initialize plot.
     f, ax = plt.subplots()
-    ax.set_title(title)
+    ax.set_title(title, fontsize=fs_sup_title)
     ax.set_xlabel('Année')
     ax.secondary_yaxis('right')
     ax.get_yaxis().tick_right()
