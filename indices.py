@@ -15,8 +15,8 @@ import statistics
 import utils
 import xarray as xr
 import xclim.indices as indices
-from xclim.core.calendar import resample_doy, convert_calendar
 from xclim.indices import run_length as rl
+from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to
 
 
@@ -47,13 +47,14 @@ def generate(idx_name: str, idx_threshs: [float]):
     vars = []
 
     # Temperature.
-    if idx_name in [cfg.idx_tnx, cfg.idx_tng]:
+    if idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
         vars.append(cfg.var_cordex_tasmin)
 
-    elif idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txx]:
+    elif idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txx,
+                      cfg.idx_wsdi]:
         vars.append(cfg.var_cordex_tasmax)
 
-    elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_tgg]:
+    elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_tgg, cfg.idx_etr]:
         vars.append(cfg.var_cordex_tasmin)
         vars.append(cfg.var_cordex_tasmax)
 
@@ -164,7 +165,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     idx_thresh = idx_threshs[i]
 
                     # Temperature.
-                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]) or\
+                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
                        ((i == 0) and (idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen])) or \
                        ((i <= 1) and (idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen])):
 
@@ -178,7 +179,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                                    (i == 1):
                                     idx_thresh =\
                                         ds_scen[i][cfg.var_cordex_tasmax].quantile(idx_thresh).values.ravel()[0]
-                                else:
+                                elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
                                     idx_thresh =\
                                         ds_scen[i][cfg.var_cordex_tasmin].quantile(idx_thresh).values.ravel()[0]
                                 idx_thresh = float(round(idx_thresh, 2))
@@ -212,46 +213,63 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
-                elif idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]:
+                elif idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     thresh_tasmax = idx_threshs_str[0]
                     thresh_ndays = int(float(idx_threshs_str[1]))
                     if idx_name == cfg.idx_hotspellfreq:
                         da_idx = xr.DataArray(
                             indices.hot_spell_frequency(da_tasmax, thresh_tasmax, thresh_ndays).values)
-                    else:
+                    elif idx_name == cfg.idx_hotspellmaxlen:
                         da_idx = xr.DataArray(
                             indices.hot_spell_max_length(da_tasmax, thresh_tasmax, thresh_ndays).values)
+                    else:
+                        thresh_tasmax = float(thresh_tasmax.replace("p", "")) / 100.0
+                        da_txp = percentile_doy(da_tasmax, per=thresh_tasmax)
+                        cfg.idx_threshs[cfg.idx_names.index(idx_name)][0] =\
+                            ds_scen[0][cfg.var_cordex_tasmax].quantile(thresh_tasmax).values.ravel()[0]
+                        da_idx = xr.DataArray(
+                            indices.warm_spell_duration_index(da_tasmax, da_txp, thresh_ndays).values)
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
-                elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
+                elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_etr]:
                     da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
                     da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
                     thresh_tasmin = idx_threshs_str[0]
                     thresh_tasmax = idx_threshs_str[1]
                     window = int(float(idx_threshs_str[2]))
                     if idx_name == cfg.idx_heatwavemaxlen:
-                        da_idx = xr.DataArray(heat_wave_max_length(da_tasmin, da_tasmax, thresh_tasmin,
-                                                                   thresh_tasmax, window).values)
+                        da_idx = xr.DataArray(
+                            heat_wave_max_length(da_tasmin, da_tasmax, thresh_tasmin, thresh_tasmax, window).values)
+                    elif idx_name == cfg.idx_heatwavetotlen:
+                        da_idx = xr.DataArray(
+                            heat_wave_total_length(da_tasmin, da_tasmax, thresh_tasmin, thresh_tasmax, window).values)
                     else:
-                        da_idx = xr.DataArray(heat_wave_total_length(da_tasmin, da_tasmax, thresh_tasmin,
-                                                                     thresh_tasmax, window).values)
-                    da_idx = da_idx.astype(int)
-                    idx_units = cfg.unit_1
+                        da_idx = xr.DataArray(indices.extreme_temperature_range(da_tasmin, da_tasmax))
+                    if idx_name != cfg.idx_etr:
+                        da_idx = da_idx.astype(int)
+                        idx_units = cfg.unit_1
+                    else:
+                        idx_units = cfg.unit_C
 
                 elif idx_name == cfg.idx_txx:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     da_idx = indices.tx_max(da_tasmax)
                     idx_units = cfg.unit_C
 
-                elif idx_name in [cfg.idx_tnx, cfg.idx_tng]:
+                elif idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
                     da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
                     if idx_name == cfg.idx_tnx:
                         da_idx = indices.tn_max(da_tasmin)
-                    else:
+                        idx_units = cfg.unit_C
+                    elif idx_name == cfg.idx_tng:
                         da_idx = indices.tn_mean(da_tasmin)
-                    idx_units = cfg.unit_C
+                        idx_units = cfg.unit_C
+                    else:
+                        thresh_tasmin = idx_threshs_str[0]
+                        da_idx = indices.tropical_nights(da_tasmin, thresh_tasmin)
+                        idx_units = cfg.unit_1
 
                 elif idx_name == cfg.idx_tgg:
                     da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
