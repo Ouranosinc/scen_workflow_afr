@@ -470,7 +470,7 @@ def get_idx_desc(idx_name: str):
         elif idx_name == idx_hotspellmaxlen:
             idx_desc = "Durée max pér chaudes"
         elif idx_name == idx_heatwavemaxlen:
-            idx_desc = "Nbr vagues chaleur"
+            idx_desc = "Durée max vagues chaleur"
         elif idx_name == idx_heatwavetotlen:
             idx_desc = "Durée tot vagues chaleur"
         elif idx_name == idx_wsdi:
