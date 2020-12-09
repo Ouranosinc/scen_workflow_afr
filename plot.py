@@ -850,13 +850,12 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
         label = ""
 
         # Temperature.
-        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_hotspellmaxlen, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen,
-                          cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays,
-                          cfg.idx_drydays]:
-            label = "Nbr jours"
-
-        elif var_or_idx == cfg.idx_hotspellfreq:
+        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_heatwavemaxlen,
+                          cfg.idx_heatwavetotlen, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
+                          cfg.idx_wetdays, cfg.idx_drydays]:
             label = "Nbr"
+            if var_or_idx != cfg.idx_hotspellfreq:
+                label += " jours"
 
         elif var_or_idx == cfg.idx_txx:
             label = cfg.get_var_desc(cfg.var_cordex_tasmax) + " (" + cfg.get_var_unit(cfg.var_cordex_tasmax) + ")"
