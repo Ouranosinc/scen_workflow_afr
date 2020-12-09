@@ -149,11 +149,12 @@ opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 
 # Temperature.
 idx_tx90p           = "tx90p"           # Number of days with maximum temperature > 90th percentile.
-idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length.
-idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length.
-idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells.
-idx_hotspellmaxlen  = "hotspellmaxlen"  # Maximum hot spell length.
+idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length = f(Tmax, n_days).
+idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length = f(Tmax, n_days).
+idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells = f(Tmin, Tmax, n_days).
+idx_hotspellmaxlen  = "hotspellmaxlen"  # Maximum hot spell length = f(Tmin, Tmax, n_days).
 idx_txdaysabove     = "txdaysabove"     # Number of days per year with a maximum temperature above a threshold value.
+idx_txx             = "txx"             # Highest maximum temperature.
 
 # Precipitation.
 idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
@@ -472,6 +473,9 @@ def get_idx_desc(idx_name: str):
                 "Tmin >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
                 "Tmax >= " + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
                 str(idx_threshs_loc[2]) + " jours)"
+
+    elif idx_name == idx_txx:
+        idx_desc = "Valeur maximale Tmax"
 
     # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:

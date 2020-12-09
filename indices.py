@@ -47,7 +47,7 @@ def generate(idx_name: str, idx_threshs: [float]):
     vars = []
 
     # Temperature.
-    if idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]:
+    if idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txx]:
         vars.append(cfg.var_cordex_tasmax)
 
     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
@@ -56,7 +56,7 @@ def generate(idx_name: str, idx_threshs: [float]):
 
     # Precipitation.
     elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
-                    cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays]:
+                      cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays]:
         vars.append(cfg.var_cordex_pr)
 
     # ==========================================================
@@ -236,6 +236,11 @@ def generate(idx_name: str, idx_threshs: [float]):
                                                                      thresh_tasmax, window).values)
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
+
+                elif idx_name == cfg.idx_txx:
+                    da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
+                    da_idx = indices.tx_max(da_tasmax)
+                    idx_units = cfg.unit_C
 
                 # Precipitation.
                 elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:
