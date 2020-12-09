@@ -862,8 +862,11 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
         elif var_or_idx in [cfg.idx_tnx, cfg.idx_tng]:
             label = cfg.get_var_desc(cfg.var_cordex_tasmin) + " (" + cfg.get_var_unit(cfg.var_cordex_tasmin) + ")"
 
-        elif var_or_idx in [cfg.idx_tgg, cfg.idx_etr]:
+        elif var_or_idx == cfg.idx_tgg:
             label = cfg.get_var_desc(cfg.var_cordex_tas) + " (" + cfg.get_var_unit(cfg.var_cordex_tas) + ")"
+
+        elif var_or_idx == cfg.idx_etr:
+            label = "Écart de température (" + cfg.get_var_unit(cfg.var_cordex_tas) + ")"
 
         elif var_or_idx == cfg.idx_wsdi:
             label = "Indice"

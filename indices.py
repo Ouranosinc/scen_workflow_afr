@@ -253,27 +253,27 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 elif idx_name == cfg.idx_txx:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
-                    da_idx = indices.tx_max(da_tasmax)
+                    da_idx = xr.DataArray(indices.tx_max(da_tasmax))
                     idx_units = cfg.unit_C
 
                 elif idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
                     da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
                     if idx_name == cfg.idx_tnx:
-                        da_idx = indices.tn_max(da_tasmin)
+                        da_idx = xr.DataArray(indices.tn_max(da_tasmin))
                         idx_units = cfg.unit_C
                     elif idx_name == cfg.idx_tng:
-                        da_idx = indices.tn_mean(da_tasmin)
+                        da_idx = xr.DataArray(indices.tn_mean(da_tasmin))
                         idx_units = cfg.unit_C
                     else:
                         thresh_tasmin = idx_threshs_str[0]
-                        da_idx = indices.tropical_nights(da_tasmin, thresh_tasmin)
+                        da_idx = xr.DataArray(indices.tropical_nights(da_tasmin, thresh_tasmin))
                         idx_units = cfg.unit_1
 
                 elif idx_name in [cfg.idx_tgg, cfg.idx_etr]:
                     da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
                     da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
                     if idx_name == cfg.idx_tgg:
-                        da_idx = indices.tg_mean(indices.tas(da_tasmin, da_tasmax))
+                        da_idx = xr.DataArray(indices.tg_mean(indices.tas(da_tasmin, da_tasmax)))
                     else:
                         da_idx = xr.DataArray(indices.extreme_temperature_range(da_tasmin, da_tasmax))
                     idx_units = cfg.unit_C
