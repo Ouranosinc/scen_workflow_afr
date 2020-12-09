@@ -80,6 +80,9 @@ def generate(idx_name: str, idx_threshs: [float]):
         if not vars_avail:
             continue
 
+        # Variable that holds the 90th percentile of tasmax for the reference period.
+        da_tx90p = None
+
         # Loop through emissions scenarios.
         for rcp in rcps:
 
@@ -159,6 +162,10 @@ def generate(idx_name: str, idx_threshs: [float]):
                 # Calculate the index by copying the following code block.
                 # ==========================================================
 
+                # Calculate the 90th percentile of tasmax for the reference period.
+                if (idx_name == cfg.idx_wsdi) and (rcp == cfg.rcp_ref):
+                    da_tx90p = percentile_doy(ds_scen[0][cfg.var_cordex_tasmax], per=0.9)
+
                 # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
                 idx_threshs_str = []
                 for i in range(len(idx_threshs)):
@@ -166,17 +173,17 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                     # Temperature.
                     if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
-                       ((i == 0) and (idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen])) or \
+                       ((i == 0) and (idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi])) or \
                        ((i <= 1) and (idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen])):
 
                         # Calculate the percentile for the current simulation (if no threshold was specified).
-                        if idx_name == cfg.idx_tx90p:
+                        if (idx_name == cfg.idx_tx90p) or ((i == 0) and (idx_name == cfg.idx_wsdi)):
                             idx_thresh = "90p"
                         if "p" in str(idx_thresh):
                             idx_thresh = float(idx_thresh.replace("p", "")) / 100.0
                             if rcp == cfg.rcp_ref:
-                                if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen]) or\
-                                   (i == 1):
+                                if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen,
+                                                 cfg.idx_wsdi]) or (i == 1):
                                     idx_thresh =\
                                         ds_scen[i][cfg.var_cordex_tasmax].quantile(idx_thresh).values.ravel()[0]
                                 elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
@@ -224,12 +231,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                         da_idx = xr.DataArray(
                             indices.hot_spell_max_length(da_tasmax, thresh_tasmax, thresh_ndays).values)
                     else:
-                        thresh_tasmax = float(thresh_tasmax.replace("p", "")) / 100.0
-                        da_txp = percentile_doy(da_tasmax, per=thresh_tasmax)
-                        cfg.idx_threshs[cfg.idx_names.index(idx_name)][0] =\
-                            ds_scen[0][cfg.var_cordex_tasmax].quantile(thresh_tasmax).values.ravel()[0]
                         da_idx = xr.DataArray(
-                            indices.warm_spell_duration_index(da_tasmax, da_txp, thresh_ndays).values)
+                            indices.warm_spell_duration_index(da_tasmax, da_tx90p, thresh_ndays).values)
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
