@@ -236,7 +236,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
-                elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_etr]:
+                elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
                     da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
                     da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
                     thresh_tasmin = idx_threshs_str[0]
@@ -245,16 +245,11 @@ def generate(idx_name: str, idx_threshs: [float]):
                     if idx_name == cfg.idx_heatwavemaxlen:
                         da_idx = xr.DataArray(
                             heat_wave_max_length(da_tasmin, da_tasmax, thresh_tasmin, thresh_tasmax, window).values)
-                    elif idx_name == cfg.idx_heatwavetotlen:
+                    else:
                         da_idx = xr.DataArray(
                             heat_wave_total_length(da_tasmin, da_tasmax, thresh_tasmin, thresh_tasmax, window).values)
-                    else:
-                        da_idx = xr.DataArray(indices.extreme_temperature_range(da_tasmin, da_tasmax))
-                    if idx_name != cfg.idx_etr:
-                        da_idx = da_idx.astype(int)
-                        idx_units = cfg.unit_1
-                    else:
-                        idx_units = cfg.unit_C
+                    da_idx = da_idx.astype(int)
+                    idx_units = cfg.unit_1
 
                 elif idx_name == cfg.idx_txx:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
@@ -274,10 +269,13 @@ def generate(idx_name: str, idx_threshs: [float]):
                         da_idx = indices.tropical_nights(da_tasmin, thresh_tasmin)
                         idx_units = cfg.unit_1
 
-                elif idx_name == cfg.idx_tgg:
+                elif idx_name in [cfg.idx_tgg, cfg.idx_etr]:
                     da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
                     da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
-                    da_idx = indices.tg_mean(indices.tas(da_tasmin, da_tasmax))
+                    if idx_name == cfg.idx_tgg:
+                        da_idx = indices.tg_mean(indices.tas(da_tasmin, da_tasmax))
+                    else:
+                        da_idx = xr.DataArray(indices.extreme_temperature_range(da_tasmin, da_tasmax))
                     idx_units = cfg.unit_C
 
                 # Precipitation.
