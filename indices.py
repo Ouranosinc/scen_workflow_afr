@@ -275,7 +275,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     if idx_name == cfg.idx_tgg:
                         da_idx = xr.DataArray(indices.tg_mean(indices.tas(da_tasmin, da_tasmax)))
                     else:
-                        # TODO: The xclim function does not seem to be working (values are much too low).
+                        # TODO: xclim function does not seem to be working (values are much too low).
                         # da_idx = xr.DataArray(indices.extreme_temperature_range(da_tasmin, da_tasmax))
                         da_idx = xr.DataArray(indices.tx_max(da_tasmax) - indices.tn_min(da_tasmin))
                     idx_units = cfg.unit_C
