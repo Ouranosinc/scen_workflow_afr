@@ -47,10 +47,13 @@ def generate(idx_name: str, idx_threshs: [float]):
     vars = []
 
     # Temperature.
-    if idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txx]:
+    if idx_name in [cfg.idx_tnx, cfg.idx_tng]:
+        vars.append(cfg.var_cordex_tasmin)
+
+    elif idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txx]:
         vars.append(cfg.var_cordex_tasmax)
 
-    elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
+    elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_tgg]:
         vars.append(cfg.var_cordex_tasmin)
         vars.append(cfg.var_cordex_tasmax)
 
@@ -240,6 +243,20 @@ def generate(idx_name: str, idx_threshs: [float]):
                 elif idx_name == cfg.idx_txx:
                     da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
                     da_idx = indices.tx_max(da_tasmax)
+                    idx_units = cfg.unit_C
+
+                elif idx_name in [cfg.idx_tnx, cfg.idx_tng]:
+                    da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
+                    if idx_name == cfg.idx_tnx:
+                        da_idx = indices.tn_max(da_tasmin)
+                    else:
+                        da_idx = indices.tn_mean(da_tasmin)
+                    idx_units = cfg.unit_C
+
+                elif idx_name == cfg.idx_tgg:
+                    da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
+                    da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
+                    da_idx = indices.tg_mean(indices.tas(da_tasmin, da_tasmax))
                     idx_units = cfg.unit_C
 
                 # Precipitation.

@@ -153,8 +153,11 @@ idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length = f(Tmax, n_d
 idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length = f(Tmax, n_days).
 idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells = f(Tmin, Tmax, n_days).
 idx_hotspellmaxlen  = "hotspellmaxlen"  # Maximum hot spell length = f(Tmin, Tmax, n_days).
-idx_txdaysabove     = "txdaysabove"     # Number of days per year with a maximum temperature above a threshold value.
+idx_txdaysabove     = "txdaysabove"     # Number of days per year with Tmax above a threshold value.
 idx_txx             = "txx"             # Highest maximum temperature.
+idx_tnx             = "tnx"             # Highest minimum temperature.
+idx_tgg             = "tgg"             # Average temperature (from minimum and maximum).
+idx_tng             = "tng"             # Average minimum temperature.
 
 # Precipitation.
 idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
@@ -475,7 +478,16 @@ def get_idx_desc(idx_name: str):
                 str(idx_threshs_loc[2]) + " jours)"
 
     elif idx_name == idx_txx:
-        idx_desc = "Valeur maximale Tmax"
+        idx_desc = "Maximum de Tmax"
+
+    elif idx_name == idx_tnx:
+        idx_desc = "Maximum de Tmin"
+
+    elif idx_name == idx_tgg:
+        idx_desc = "Moyenne de (Tmin+Tmax)/2"
+
+    elif idx_name == idx_tng:
+        idx_desc = "Moyenne de Tmin"
 
     # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
