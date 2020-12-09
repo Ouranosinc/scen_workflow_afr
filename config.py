@@ -161,6 +161,7 @@ idx_tng             = "tng"             # Average Tmin.
 idx_tropicalnights  = "tropicalnights"  # Number of tropical nights = f(Tmin).
 idx_wsdi            = "wsdi"            # Warm spell duration index = f(Tmax, Tmax90p).
 idx_etr             = "etr"             # Extreme temperature range = f(Tmin, Tmax).
+idx_dc              = "dc"              # Drought code = f(Tmean,P,lat).
 
 # Precipitation.
 idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
@@ -474,7 +475,7 @@ def get_idx_desc(idx_name: str):
         elif idx_name == idx_heatwavetotlen:
             idx_desc = "Durée tot vagues chaleur"
         elif idx_name == idx_wsdi:
-            idx_desc = "Index durée pér chaudes"
+            idx_desc = "Indice durée pér chaudes"
         if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_wsdi]:
             idx_desc += " (Tmax >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
                 str(idx_threshs_loc[1]) + " jours)"
@@ -498,6 +499,9 @@ def get_idx_desc(idx_name: str):
 
     elif idx_name == idx_etr:
         idx_desc = "Écart extreme (Tmax-Tmin)"
+
+    elif idx_name == idx_dc:
+        idx_desc = "Code sécheresse"
 
     # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:

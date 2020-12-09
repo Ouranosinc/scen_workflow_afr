@@ -58,6 +58,10 @@ def generate(idx_name: str, idx_threshs: [float]):
         vars.append(cfg.var_cordex_tasmin)
         vars.append(cfg.var_cordex_tasmax)
 
+    elif idx_name == cfg.idx_dc:
+        vars.append(cfg.var_cordex_tas)
+        vars.append(cfg.var_cordex_pr)
+
     # Precipitation.
     elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
                       cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays]:
@@ -279,6 +283,14 @@ def generate(idx_name: str, idx_threshs: [float]):
                         # da_idx = xr.DataArray(indices.extreme_temperature_range(da_tasmin, da_tasmax))
                         da_idx = xr.DataArray(indices.tx_max(da_tasmax) - indices.tn_min(da_tasmin))
                     idx_units = cfg.unit_C
+
+                elif idx_name == cfg.idx_dc:
+                    da_tas = ds_scen[0][cfg.var_cordex_tas]
+                    da_pr  = ds_scen[1][cfg.var_cordex_pr]
+                    da_lon, da_lat = utils.get_coordinates(ds_scen[0])
+                    da_idx = xr.DataArray(indices.drought_code(da_tas, da_pr, da_lat, shut_down_mode="temperature")).\
+                        resample(time=cfg.freq_YS).mean()
+                    idx_units = cfg.unit_1
 
                 # Precipitation.
                 elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:

@@ -871,6 +871,9 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
         elif var_or_idx == cfg.idx_wsdi:
             label = "Indice"
 
+        elif var_or_idx == cfg.idx_dc:
+            label = "Code"
+
         # Precipitation.
         elif var_or_idx in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays,
                             cfg.idx_drydays]:

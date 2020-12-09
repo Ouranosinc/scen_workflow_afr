@@ -942,7 +942,8 @@ def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
     return ds
 
 
-def get_coordinates(ds: Union[xr.Dataset, xr.DataArray]) -> Tuple[List[float], List[float]]:
+def get_coordinates(ds: Union[xr.Dataset, xr.DataArray], array_format: bool = False) ->\
+        Tuple[Union[List[float], xr.DataArray], Union[List[float], xr.DataArray]]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -952,27 +953,40 @@ def get_coordinates(ds: Union[xr.Dataset, xr.DataArray]) -> Tuple[List[float], L
     ----------
     ds: Union[xr.Dataset, xr.DataArray]
         Dataset or DataArray to copy coordinates from.
+    array_format: bool
+        If True, return an array. If False, return xr.DataArray.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Extract longitude and latitude.
     if cfg.dim_longitude in list(ds.dims):
-        nd_lon_vals = ds[cfg.dim_longitude].values
-        nd_lat_vals = ds[cfg.dim_latitude].values
+        da_lon = ds[cfg.dim_longitude]
+        da_lat = ds[cfg.dim_latitude]
     elif cfg.dim_lon in list(ds.dims):
-        nd_lon_vals = ds[cfg.dim_lon].values
-        nd_lat_vals = ds[cfg.dim_lat].values
+        da_lon = ds[cfg.dim_lon]
+        da_lat = ds[cfg.dim_lat]
     else:
-        nd_lon_vals = ds[cfg.dim_rlon].values
-        nd_lat_vals = ds[cfg.dim_rlat].values
+        da_lon = ds[cfg.dim_rlon]
+        da_lat = ds[cfg.dim_rlat]
 
-    # Convert to a float array.
-    lon_vals = []
-    for i in range(len(nd_lon_vals)):
-        lon_vals.append(float(nd_lon_vals[i]))
-    lat_vals = []
-    for i in range(len(nd_lat_vals)):
-        lat_vals.append(float(nd_lat_vals[i]))
+    # Need to return an array.
+    if array_format:
+
+        # Extract values.
+        nd_lon_vals = da_lon.values
+        nd_lat_vals = da_lat.values
+
+        # Convert to a float array.
+        lon_vals = []
+        for i in range(len(nd_lon_vals)):
+            lon_vals.append(float(nd_lon_vals[i]))
+        lat_vals = []
+        for i in range(len(nd_lat_vals)):
+            lat_vals.append(float(nd_lat_vals[i]))
+
+    else:
+        lon_vals = da_lon
+        lat_vals = da_lat
 
     return lon_vals, lat_vals
 
@@ -994,7 +1008,7 @@ def copy_coordinates(ds_from: Union[xr.Dataset, xr.DataArray], ds_to: Union[xr.D
     """
 
     # Extract longitude and latitude values.
-    lon_vals, lat_vals = get_coordinates(ds_from)
+    lon_vals, lat_vals = get_coordinates(ds_from, True)
 
     # Assign coordinates.
     if cfg.dim_longitude in list(ds_to.dims):
