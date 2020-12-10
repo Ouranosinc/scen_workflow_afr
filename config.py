@@ -474,8 +474,6 @@ def get_idx_desc(idx_name: str):
             idx_desc = "Durée max vagues chaleur"
         elif idx_name == idx_heatwavetotlen:
             idx_desc = "Durée tot vagues chaleur"
-        elif idx_name == idx_wsdi:
-            idx_desc = "Indice durée pér chaudes"
         if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_wsdi]:
             idx_desc += " (Tmax >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
                 str(idx_threshs_loc[1]) + " jours)"
@@ -502,6 +500,9 @@ def get_idx_desc(idx_name: str):
 
     elif idx_name == idx_dc:
         idx_desc = "Code sécheresse"
+
+    elif idx_name == idx_wsdi:
+        idx_desc = "Indice durée pér chaudes"
 
     # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
