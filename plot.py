@@ -851,7 +851,7 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
 
         # Temperature.
         if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_heatwavemaxlen,
-                          cfg.idx_heatwavetotlen, cfg.idx_tropicalnights]:
+                          cfg.idx_heatwavetotlen, cfg.idx_tropicalnights, cfg.idx_tx90p]:
             label = "Nbr"
             if var_or_idx != cfg.idx_hotspellfreq:
                 label += " jours"
