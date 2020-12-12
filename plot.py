@@ -666,7 +666,7 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # Scenarios and indices.
 # ======================================================================================================================
 
-def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], grid_y: [float],
+def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], grid_y: [float], rcp: str,
                  per: [int, int], z_min: float, z_max: float, p_fig: str, map_package: str):
 
     """
@@ -685,6 +685,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
         X-coordinates.
     grid_y: [float]
         Y-coordinates.
+    rcp: str
+        RCP emission scenario.
     per: [int, int]
         Period of interest, for instance, [1981, 2010].
     z_min : float
@@ -699,7 +701,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
     """
 
     # Get title and label.
-    title, label = get_title_label(stn, var_or_idx, per)
+    title, label = get_title_label(stn, var_or_idx, rcp, per)
 
     plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
 
@@ -814,7 +816,7 @@ def draw_region_boundary(ax):
     plot_feature(coordinates, myplot)
 
 
-def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
+def get_title_label(stn: str, var_or_idx: str, rcp: str = None, per: [int] = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -826,6 +828,8 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
         Station name.
     var_or_idx : str
         Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
+    rcp: str
+        RCP emission scenario.
     per: [int, int], Optional
         Period of interest, for instance, [1981, 2010].
     --------------------------------------------------------------------------------------------------------------------
@@ -833,7 +837,10 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
 
     if var_or_idx in cfg.variables_cordex:
 
-        title = cfg.get_var_desc(var_or_idx) + "\n(" + stn.capitalize() + ")"
+        title = cfg.get_var_desc(var_or_idx) + "\n(" + stn.capitalize() + \
+                ("" if rcp is None else ", " + rcp) + \
+                ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
+        title += ")"
         label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
 
     # ==========================================================
@@ -843,9 +850,9 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
 
     else:
 
-        title = cfg.get_idx_desc(var_or_idx) + "\n(" + stn.capitalize()
-        if per is not None:
-            title += ", " + str(per[0]) + "-" + str(per[1])
+        title = cfg.get_idx_desc(var_or_idx) + "\n(" + stn.capitalize() + \
+                ("" if rcp is None else ", " + rcp) + \
+                ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
         title += ")"
         label = ""
 
@@ -876,7 +883,7 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
 
         # Precipitation.
         elif var_or_idx in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays,
-                            cfg.idx_drydays]:
+                            cfg.idx_drydays, cfg.idx_raindur]:
             label = "Nbr jours"
 
         elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
@@ -884,6 +891,9 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
             if var_or_idx == cfg.idx_sdii:
                 label += "/day"
             label += ")"
+
+        elif var_or_idx in [cfg.idx_rainstart, cfg.idx_rainend]:
+            label = "Jour de l'année"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END
@@ -893,7 +903,7 @@ def get_title_label(stn: str, var_or_idx: str, per: [int] = None):
 
 
 def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
-            stn: str, var_or_idx: str, threshs: [float], rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
+            stn: str, var_or_idx: str, rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -913,8 +923,6 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         Station name.
     var_or_idx : str
         Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
-    threshs : [float]
-        Threshold values associated with a climate index.
     rcps : [str]
         Emission scenarios.
     ylim : [int]

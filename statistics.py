@@ -540,12 +540,12 @@ def calc_ts(cat: str):
                     p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx) + \
                                 var_or_idx + "_" + stn + "_rcp.png"
                     plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx,
-                                 threshs, rcps, ylim, p_fig_rcp, 1)
+                                 rcps, ylim, p_fig_rcp, 1)
 
                     # Time series showing individual simulations.
                     p_fig_sim = p_fig_rcp.replace("_rcp.png", "_sim.png")
                     plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx,
-                                 threshs, rcps, ylim, p_fig_sim, 2)
+                                 rcps, ylim, p_fig_sim, 2)
 
 
 def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
@@ -862,7 +862,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
         fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
         p_fig = d_fig + fn_fig
         if ((cat == cfg.cat_scen) and (cfg.opt_plot_heat[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot_heat[1])):
-            plot.plot_heatmap(da_hor, stn, var_or_idx, grid_x, grid_y, per_hor, z_min, z_max, p_fig, "matplotlib")
+            plot.plot_heatmap(da_hor, stn, var_or_idx, grid_x, grid_y, rcp, per_hor, z_min, z_max, p_fig, "matplotlib")
 
         # Save to CSV.
         d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx + "_csv")

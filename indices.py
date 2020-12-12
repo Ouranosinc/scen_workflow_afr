@@ -9,6 +9,7 @@
 
 import config as cfg
 import glob
+import numpy as np
 import os.path
 import pandas as pd
 import statistics
@@ -44,28 +45,33 @@ def generate(idx_name: str, idx_threshs: [float]):
     # ==========================================================
 
     # Select variables.
-    vars = []
+    var_or_idx_list = []
 
     # Temperature.
     if idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
-        vars.append(cfg.var_cordex_tasmin)
+        var_or_idx_list.append(cfg.var_cordex_tasmin)
 
     elif idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txx,
                       cfg.idx_wsdi]:
-        vars.append(cfg.var_cordex_tasmax)
+        var_or_idx_list.append(cfg.var_cordex_tasmax)
 
     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_tgg, cfg.idx_etr]:
-        vars.append(cfg.var_cordex_tasmin)
-        vars.append(cfg.var_cordex_tasmax)
+        var_or_idx_list.append(cfg.var_cordex_tasmin)
+        var_or_idx_list.append(cfg.var_cordex_tasmax)
 
     elif idx_name == cfg.idx_dc:
-        vars.append(cfg.var_cordex_tas)
-        vars.append(cfg.var_cordex_pr)
+        var_or_idx_list.append(cfg.var_cordex_tas)
+        var_or_idx_list.append(cfg.var_cordex_pr)
 
     # Precipitation.
     elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
-                      cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays]:
-        vars.append(cfg.var_cordex_pr)
+                      cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_rainstart,
+                      cfg.idx_rainend]:
+        var_or_idx_list.append(cfg.var_cordex_pr)
+
+    elif idx_name == cfg.idx_raindur:
+        var_or_idx_list.append(cfg.idx_rainstart)
+        var_or_idx_list.append(cfg.idx_rainend)
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END
@@ -75,13 +81,16 @@ def generate(idx_name: str, idx_threshs: [float]):
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
 
-        # Verify if this variable is available for the current station.
-        vars_avail = True
-        for var in vars:
-            if not(os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, var))):
-                vars_avail = False
+        # Verify if this variable or index is available for the current station.
+        var_or_idx_list_avail = True
+        for var_or_idx in var_or_idx_list:
+            if ((var_or_idx in cfg.variables_cordex) and
+                not os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx))) or\
+               ((var_or_idx not in cfg.variables_cordex) and
+                not os.path.isdir(cfg.get_d_idx(stn, var_or_idx))):
+                var_or_idx_list_avail = False
                 break
-        if not vars_avail:
+        if not var_or_idx_list_avail:
             continue
 
         # Variable that holds the 90th percentile of tasmax for the reference period.
@@ -99,24 +108,31 @@ def generate(idx_name: str, idx_threshs: [float]):
             # List simulation files for the first variable. As soon as there is no file for one variable, the analysis
             # for the current RCP needs to abort.
             if rcp == cfg.rcp_ref:
-                p_sim = cfg.get_d_scen(stn, cfg.cat_obs, "") + vars[0] + "/" + vars[0] + "_" + stn + ".nc"
+                if var_or_idx_list[0] in cfg.variables_cordex:
+                    p_sim = cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx_list[0]) + var_or_idx_list[0] +\
+                            "_" + stn + ".nc"
+                else:
+                    p_sim = cfg.get_d_idx(cfg.obs_src, var_or_idx_list[0]) + var_or_idx_list[0] + "_ref.nc"
                 if os.path.exists(p_sim) and (type(p_sim) is str):
                     p_sim = [p_sim]
             else:
-                p_format = cfg.get_d_scen(stn, cfg.cat_qqmap, "") + vars[0] + "/*_" + rcp + ".nc"
-                p_sim = glob.glob(p_format)
+                if var_or_idx_list[0] in cfg.variables_cordex:
+                    d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx_list[0])
+                else:
+                    d = cfg.get_d_idx(stn, var_or_idx_list[0])
+                p_sim = glob.glob(d + "*_" + rcp + ".nc")
             if not p_sim:
                 continue
 
             utils.log("Calculating climate indices", True)
 
             # Ensure that simulations are available for all other variables (than the first one).
-            if len(vars) > 1:
+            if len(var_or_idx_list) > 1:
                 p_sim_fix = []
                 for p_sim_i in p_sim:
                     missing = False
-                    for var_j in vars[1:]:
-                        p_sim_j = p_sim_i.replace(vars[0], var_j)
+                    for var_j in var_or_idx_list[1:]:
+                        p_sim_j = p_sim_i.replace(var_or_idx_list[0], var_j)
                         if not os.path.exists(p_sim_j):
                             missing = True
                             break
@@ -134,17 +150,17 @@ def generate(idx_name: str, idx_threshs: [float]):
                     p_idx = cfg.get_d_idx(stn, idx_name) + idx_name + "_ref.nc"
                 else:
                     p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
-                            os.path.basename(p_sim[i_sim]).replace(vars[0], idx_name)
+                            os.path.basename(p_sim[i_sim]).replace(var_or_idx_list[0], idx_name)
 
                 # Exit loop if the file already exists (simulations files only; not reference file).
                 if (rcp != cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
                     continue
 
                 # Load datasets (one per variable).
-                ds_scen = []
-                for i_var in range(0, len(vars)):
-                    var = vars[i_var]
-                    p_sim_i = p_sim[i_sim] if i_var == 0 else p_sim[i_sim].replace(vars[0], var)
+                ds_var_or_idx = []
+                for i_var in range(0, len(var_or_idx_list)):
+                    var = var_or_idx_list[i_var]
+                    p_sim_i = p_sim[i_sim] if i_var == 0 else p_sim[i_sim].replace(var_or_idx_list[0], var)
                     ds = utils.open_netcdf(p_sim_i)
 
                     # Adjust temperature units.
@@ -155,7 +171,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                             ds[var][cfg.attrs_units] = cfg.unit_C
                         ds[var].attrs[cfg.attrs_units] = cfg.unit_C
 
-                    ds_scen.append(ds)
+                    ds_var_or_idx.append(ds)
 
                 # Indices ----------------------------------------------------------------------------------------------
 
@@ -168,7 +184,7 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Calculate the 90th percentile of tasmax for the reference period.
                 if (idx_name == cfg.idx_wsdi) and (rcp == cfg.rcp_ref):
-                    da_tx90p = percentile_doy(ds_scen[0][cfg.var_cordex_tasmax], per=0.9)
+                    da_tx90p = percentile_doy(ds_var_or_idx[0][cfg.var_cordex_tasmax], per=0.9)
 
                 # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
                 idx_threshs_str = []
@@ -189,10 +205,10 @@ def generate(idx_name: str, idx_threshs: [float]):
                                 if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen,
                                                  cfg.idx_wsdi]) or (i == 1):
                                     idx_thresh =\
-                                        ds_scen[i][cfg.var_cordex_tasmax].quantile(idx_thresh).values.ravel()[0]
+                                        ds_var_or_idx[i][cfg.var_cordex_tasmax].quantile(idx_thresh).values.ravel()[0]
                                 elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
                                     idx_thresh =\
-                                        ds_scen[i][cfg.var_cordex_tasmin].quantile(idx_thresh).values.ravel()[0]
+                                        ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_thresh).values.ravel()[0]
                                 idx_thresh = float(round(idx_thresh, 2))
                                 cfg.idx_threshs[cfg.idx_names.index(idx_name)][i] = idx_thresh
                             else:
@@ -218,14 +234,14 @@ def generate(idx_name: str, idx_threshs: [float]):
                 # Temperature.
                 da_idx = None
                 if idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]:
-                    da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
+                    da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
                     thresh_tasmax = idx_threshs_str[0]
                     da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, thresh_tasmax).values)
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
                 elif idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]:
-                    da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
+                    da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
                     thresh_tasmax = idx_threshs_str[0]
                     thresh_ndays = int(float(idx_threshs_str[1]))
                     if idx_name == cfg.idx_hotspellfreq:
@@ -241,8 +257,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                     idx_units = cfg.unit_1
 
                 elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
-                    da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
-                    da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
+                    da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
+                    da_tasmax = ds_var_or_idx[1][cfg.var_cordex_tasmax]
                     thresh_tasmin = idx_threshs_str[0]
                     thresh_tasmax = idx_threshs_str[1]
                     window = int(float(idx_threshs_str[2]))
@@ -256,12 +272,12 @@ def generate(idx_name: str, idx_threshs: [float]):
                     idx_units = cfg.unit_1
 
                 elif idx_name == cfg.idx_txx:
-                    da_tasmax = ds_scen[0][cfg.var_cordex_tasmax]
+                    da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
                     da_idx = xr.DataArray(indices.tx_max(da_tasmax))
                     idx_units = cfg.unit_C
 
                 elif idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
-                    da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
+                    da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
                     if idx_name == cfg.idx_tnx:
                         da_idx = xr.DataArray(indices.tn_max(da_tasmin))
                         idx_units = cfg.unit_C
@@ -274,8 +290,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                         idx_units = cfg.unit_1
 
                 elif idx_name in [cfg.idx_tgg, cfg.idx_etr]:
-                    da_tasmin = ds_scen[0][cfg.var_cordex_tasmin]
-                    da_tasmax = ds_scen[1][cfg.var_cordex_tasmax]
+                    da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
+                    da_tasmax = ds_var_or_idx[1][cfg.var_cordex_tasmax]
                     if idx_name == cfg.idx_tgg:
                         da_idx = xr.DataArray(indices.tg_mean(indices.tas(da_tasmin, da_tasmax)))
                     else:
@@ -285,16 +301,16 @@ def generate(idx_name: str, idx_threshs: [float]):
                     idx_units = cfg.unit_C
 
                 elif idx_name == cfg.idx_dc:
-                    da_tas = ds_scen[0][cfg.var_cordex_tas]
-                    da_pr  = ds_scen[1][cfg.var_cordex_pr]
-                    da_lon, da_lat = utils.get_coordinates(ds_scen[0])
+                    da_tas = ds_var_or_idx[0][cfg.var_cordex_tas]
+                    da_pr  = ds_var_or_idx[1][cfg.var_cordex_pr]
+                    da_lon, da_lat = utils.get_coordinates(ds_var_or_idx[0])
                     da_idx = xr.DataArray(indices.drought_code(da_tas, da_pr, da_lat, shut_down_mode="temperature")).\
                         resample(time=cfg.freq_YS).mean()
                     idx_units = cfg.unit_1
 
                 # Precipitation.
                 elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:
-                    da_pr = ds_scen[0][cfg.var_cordex_pr]
+                    da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
                     if idx_name == cfg.idx_rx1day:
                         da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS))
                     elif idx_name == cfg.idx_rx5day:
@@ -305,7 +321,7 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
                                   cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
-                    da_pr = ds_scen[0][cfg.var_cordex_pr]
+                    da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
                     thresh_pr = idx_threshs_str[0]
                     if idx_name in cfg.idx_cwd:
                         da_idx = xr.DataArray(
@@ -320,6 +336,31 @@ def generate(idx_name: str, idx_threshs: [float]):
                     elif idx_name == cfg.idx_sdii:
                         da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, thresh_pr))
                     da_idx = da_idx.astype(int)
+                    idx_units = cfg.unit_1
+
+                elif idx_name == cfg.idx_rainstart:
+                    da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
+                    p_wet = float(idx_threshs_str[0])
+                    d_wet = int(idx_threshs_str[1])
+                    doy = int(idx_threshs_str[2])
+                    p_dry = float(idx_threshs_str[3])
+                    d_dry = int(idx_threshs_str[4])
+                    d_tot = int(idx_threshs_str[5])
+                    da_idx = xr.DataArray(rain_season_start(da_pr, p_wet, d_wet, doy, p_dry, d_dry, d_tot))
+                    idx_units = cfg.unit_1
+
+                elif idx_name == cfg.idx_rainend:
+                    da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
+                    p_stock = float(idx_threshs_str[0])
+                    et_rate = float(idx_threshs_str[1])
+                    doy = int(idx_threshs_str[2])
+                    da_idx = xr.DataArray(rain_season_end(da_pr, p_stock, et_rate, doy))
+                    idx_units = cfg.unit_1
+
+                elif idx_name == cfg.idx_raindur:
+                    da_rainstart = ds_var_or_idx[0][cfg.idx_rainstart]
+                    da_rainend = ds_var_or_idx[1][cfg.idx_rainend]
+                    da_idx = da_rainend - da_rainstart
                     idx_units = cfg.unit_1
 
                 da_idx.attrs[cfg.attrs_units] = idx_units
@@ -341,17 +382,17 @@ def generate(idx_name: str, idx_threshs: [float]):
                     ds_idx = ds_idx.expand_dims(lat=1)
                 ds_idx.attrs[cfg.attrs_sname] = idx_name
                 ds_idx.attrs[cfg.attrs_lname] = idx_name
-                ds_idx = utils.copy_coordinates(ds_scen[0], ds_idx)
-                ds_idx[idx_name] = utils.copy_coordinates(ds_scen[0][vars[0]], ds_idx[idx_name])
+                ds_idx = utils.copy_coordinates(ds_var_or_idx[0], ds_idx)
+                ds_idx[idx_name] = utils.copy_coordinates(ds_var_or_idx[0][var_or_idx_list[0]], ds_idx[idx_name])
                 ds_idx = ds_idx.squeeze()
 
                 # Adjust calendar.
                 year_1 = cfg.per_fut[0]
                 year_n = cfg.per_fut[1]
                 if rcp == cfg.rcp_ref:
-                    year_1 = max(cfg.per_ref[0], int(str(ds_scen[0][cfg.dim_time][0].values)[0:4]))
-                    year_n = min(cfg.per_ref[1],
-                                 int(str(ds_scen[0][cfg.dim_time][len(ds_scen[0][cfg.dim_time]) - 1].values)[0:4]))
+                    year_1 = max(cfg.per_ref[0], int(str(ds_var_or_idx[0][cfg.dim_time][0].values)[0:4]))
+                    year_n = min(cfg.per_ref[1], int(str(ds_var_or_idx[0][cfg.dim_time]
+                                                         [len(ds_var_or_idx[0][cfg.dim_time]) - 1].values)[0:4]))
                 ds_idx[cfg.dim_time] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
 
                 # Save result to NetCDF file.
@@ -444,10 +485,106 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
         return group.map(rl.windowed_run_count, args=(window,), dim="time")
 
 
+def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry: float, d_dry: int, d_tot: int)\
+                      -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the first day of the rain season.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray:
+        Precipitation data.
+    p_wet : float
+        Daily precipitation amount required in first 'd_wet' days.
+    d_wet: int
+        Number of days with precipitation at season start (related to 'p_wet').
+    doy: int
+        Day of year after which the season starts.
+    p_dry: float
+        Daily precipitation amount under which precipitation is considered negligible.
+    d_dry: int
+        Maximum number of days in a dry period embedded into the period of 'd_tot' days.
+    d_tot: int
+        Number of days (after the first 'd_wet' days) after which a dry season is searched for.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Eliminate negative values.
+    da_pr.values[da_pr.values < 0] = 0
+
+    # Condition #1: Identify the sart of all sequences of 'd_wet' consecutive days with a sum of at least 'p_wet' in
+    # precipitation.
+    p_wet = convert_units_to(str(p_wet) + " mm/day", da_pr)
+    da_cond1 = xr.DataArray(da_pr.rolling(time=d_wet).sum() >= p_wet)
+
+    # Condition #2: Identify the last day of all sequences of 'd_dry' consecutive days with less than 'p_dry' in
+    # precipitation. Then identify each day within a 'd_tot' sequence in which there is a at least one dry period.
+    p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
+    da_cond2 = xr.DataArray(da_pr.rolling(time=d_dry).max() < p_dry)
+    n_t = len(da_cond2[cfg.dim_time])
+    for t in range(n_t):
+        da_cond2[t, :, :] = np.nan if (t > n_t - d_tot - 1) else (da_cond2[t+1:(t+d_tot+1)].sum(dim=cfg.dim_time) < 1)
+
+    # Condition #3: Identify days at or after 'doy'.
+    da_cond3 = (da_pr.time.dt.dayofyear >= doy)
+
+    # Combine the 3 conditions.
+    da_conds = da_cond1 & da_cond2 & da_cond3
+
+    # Obtain the first day of each year where conditions apply.
+    # Then remove errors.
+    da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+    da_start.values[(da_start.values < 0) | (da_start.values > 365)] = np.nan
+
+    return da_start
+
+
+def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy: int) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the last day of the rain season.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray:
+        Precipitation data.
+    p_stock : float
+        Amount of precipitation to evaporate (mm).
+    et_rate: int
+        Evapotranspiration rate (mm/day).
+    doy: int
+        Day of year after which the season ends.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Eliminate negative values.
+    da_pr.values[da_pr.values < 0] = 0
+
+    # Condition #1: Calculate the stock remaining, assuming that it will take 'p_stock' / 'et_rate' days for the water
+    # to evaporate. This is a simplification of reality.
+    p_stock = convert_units_to(str(p_stock) + " mm/day", da_pr)
+    et_rate = convert_units_to(str(et_rate) + " mm/day", da_pr)
+    da_cond1 = (p_stock - xr.DataArray(da_pr.rolling(time=int(p_stock/et_rate)).sum()) <= 0)
+
+    # Condition #2: Identify days at or after 'doy'.
+    da_cond2 = (da_pr.time.dt.dayofyear >= doy)
+
+    # Combine the 2 conditions.
+    da_conds = da_cond1 & da_cond2
+
+    # Obtain the first day of each year where conditions apply.
+    da_end = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+    da_end.values[(da_end.values < 0) | (da_end.values > 365)] = np.nan
+
+    return da_end
+
+
 def run():
 
     """
-
     --------------------------------------------------------------------------------------------------------------------
     Entry point.
     --------------------------------------------------------------------------------------------------------------------

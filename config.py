@@ -164,6 +164,12 @@ idx_etr             = "etr"             # Extreme temperature range = f(Tmin, Tm
 idx_dc              = "dc"              # Drought code = f(Tmean,P,lat).
 
 # Precipitation.
+# Regarding idx_rain* indices:
+# - Pwet is the daily precipitation amount required during the first Dwet consecutive days occurring at or after the
+#   DOY th day of year. There must not be a sequence of Ddry days with less than Pdry precipitation per day over the
+#   following Dtot days.
+# - Pstock is the amount of precipitation that must evaporate at a rate of ETrate per day occurring at or after the
+#   DOY th day of year.
 idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
 idx_rx5day          = "rx5day"          # Highest 5-day precipitation amount.
 idx_cwd             = "cwd"             # Maximum number of consecutive wet days (above a threshold).
@@ -175,6 +181,9 @@ idx_r20mm           = "r20mm"           # Number of days with precipitation >= 2
 idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
 idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
 idx_drydays         = "drydays"         # Number of dry days (below a threshold).
+idx_rainstart       = "rainstart"       # Day of year where rain season starts = f(Pwet, Dwet, DOY, Pdry, Ddry, Dtot).
+idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOY).
+idx_raindur         = "raindur"         # Duration of the rain season = idx_rainend - idx_rainstart + 1.
 
 # ==========================================================
 # TODO.CUSTOMIZATION.INDEX.END
@@ -519,6 +528,15 @@ def get_idx_desc(idx_name: str):
 
     elif idx_name == idx_sdii:
         idx_desc = "Intensite moyenne P"
+
+    if idx_name == idx_rainstart:
+        idx_desc = "Premier jour de la saison des pluies"
+
+    elif idx_name == idx_rainend:
+        idx_desc = "Dernier jour de la saison des pluies"
+
+    elif idx_name == idx_raindur:
+        idx_desc = "Durée de la saison des pluies (jours)"
 
     # ==========================================================
     # TODO.CUSTOMIZATION.INDEX.END
