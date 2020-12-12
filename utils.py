@@ -122,6 +122,27 @@ def sfcwind_2_uas_vas(sfcwind: xr.DataArray, winddir: np.array, resample=None, n
     return uas, vas
 
 
+def angle_diff(alpha: float, beta: float) -> float:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+     Calculate the difference between two angles.
+
+    Parameters
+    ----------
+    alpha : float
+        Angle #1.
+    beta : float
+        Angle #2.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    phi = abs(beta - alpha) % 360
+    distance = 360 - phi if (phi > 180) else phi
+
+    return distance
+
+
 def list_cordex(p_ds: str, rcps: [str]):
 
     """

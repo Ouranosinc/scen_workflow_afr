@@ -16,6 +16,7 @@ import statistics
 import utils
 import xarray as xr
 import xclim.indices as indices
+from typing import List
 from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to
@@ -38,11 +39,11 @@ def generate(idx_name: str, idx_threshs: [float]):
     # Emission scenarios.
     rcps = [cfg.rcp_ref] + cfg.rcps
 
-    # ==========================================================
+    # ==================================================================================================================
     # TODO.CUSTOMIZATION.INDEX.BEGIN
     # Specify the required variable(s) by copying the following
     # code block.
-    # ==========================================================
+    # ==================================================================================================================
 
     # Select variables.
     var_or_idx_list = []
@@ -59,10 +60,6 @@ def generate(idx_name: str, idx_threshs: [float]):
         var_or_idx_list.append(cfg.var_cordex_tasmin)
         var_or_idx_list.append(cfg.var_cordex_tasmax)
 
-    elif idx_name == cfg.idx_dc:
-        var_or_idx_list.append(cfg.var_cordex_tas)
-        var_or_idx_list.append(cfg.var_cordex_pr)
-
     # Precipitation.
     elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
                       cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_rainstart,
@@ -73,9 +70,19 @@ def generate(idx_name: str, idx_threshs: [float]):
         var_or_idx_list.append(cfg.idx_rainstart)
         var_or_idx_list.append(cfg.idx_rainend)
 
-    # ==========================================================
+    # Temperature-precipitation.
+    elif idx_name == cfg.idx_dc:
+        var_or_idx_list.append(cfg.var_cordex_tas)
+        var_or_idx_list.append(cfg.var_cordex_pr)
+
+    # Wind.
+    elif idx_name == cfg.idx_strongwind:
+        var_or_idx_list.append(cfg.var_cordex_uas)
+        var_or_idx_list.append(cfg.var_cordex_vas)
+
+    # ==================================================================================================================
     # TODO.CUSTOMIZATION.INDEX.END
-    # ==========================================================
+    # ==================================================================================================================
 
     # Loop through stations.
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
@@ -175,12 +182,12 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Indices ----------------------------------------------------------------------------------------------
 
-                idx_units = None
-
-                # ==========================================================
+                # ======================================================================================================
                 # TODO.CUSTOMIZATION.INDEX.BEGIN
                 # Calculate the index by copying the following code block.
-                # ==========================================================
+                # ======================================================================================================
+
+                idx_units = None
 
                 # Calculate the 90th percentile of tasmax for the reference period.
                 if (idx_name == cfg.idx_wsdi) and (rcp == cfg.rcp_ref):
@@ -191,14 +198,15 @@ def generate(idx_name: str, idx_threshs: [float]):
                 for i in range(len(idx_threshs)):
                     idx_thresh = idx_threshs[i]
 
-                    # Temperature.
-                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
-                       ((i == 0) and (idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi])) or \
-                       ((i <= 1) and (idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen])):
+                    # Convert thresholds (percentile to absolute value) ------------------------------------------------
 
-                        # Calculate the percentile for the current simulation (if no threshold was specified).
-                        if (idx_name == cfg.idx_tx90p) or ((i == 0) and (idx_name == cfg.idx_wsdi)):
-                            idx_thresh = "90p"
+                    if (idx_name == cfg.idx_tx90p) or ((idx_name == cfg.idx_wsdi) and (i == 0)):
+                        idx_thresh = "90p"
+                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
+                       ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
+                       ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)) or \
+                       ((idx_name == cfg.idx_strongwind) and (i == 0)):
+
                         if "p" in str(idx_thresh):
                             idx_thresh = float(idx_thresh.replace("p", "")) / 100.0
                             if rcp == cfg.rcp_ref:
@@ -209,29 +217,50 @@ def generate(idx_name: str, idx_threshs: [float]):
                                 elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
                                     idx_thresh =\
                                         ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_thresh).values.ravel()[0]
+                                elif idx_name == cfg.idx_strongwind:
+                                    da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
+                                    da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
+                                    da_wind, da_windfromdir = indices.uas_vas_2_sfcwind(da_uas, da_vas)
+                                    idx_thresh = da_wind.quantile(idx_thresh).values.ravel()[0]
                                 idx_thresh = float(round(idx_thresh, 2))
                                 cfg.idx_threshs[cfg.idx_names.index(idx_name)][i] = idx_thresh
                             else:
                                 idx_thresh = cfg.idx_threshs[cfg.idx_names.index(idx_name)][i]
 
-                        # Combine threshold and unit.
+                    # Combine threshold and unit -----------------------------------------------------------------------
+
+                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
+                       ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
+                       ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)):
                         idx_ref = str(idx_thresh) + " " + cfg.unit_C
                         idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
                         idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
 
-                    # Precipitation.
                     elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
                                       cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
-                        idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_mm + "/day")
+                        idx_threshs_str.append(str(idx_thresh) + " mm/day")
 
-                    else:
+                    elif (idx_name == cfg.idx_strongwind) and (i == 1):
+                        idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_ms1)
+
+                    elif not ((idx_name == cfg.idx_strongwind) and (i == 4)):
                         idx_threshs_str.append(str(idx_thresh))
+
+                    # Split lists --------------------------------------------------------------------------------------
+
+                    if (idx_name == cfg.idx_strongwind) and (i == 4):
+                        if idx_threshs[i] == "nan":
+                            idx_threshs_str.append(idx_threshs[i])
+                        else:
+                            items = idx_threshs[i].replace("[", "").replace("]", "").split(";")
+                            idx_threshs_str.append([int(i) for i in items])
 
                 # Exit loop if the file already exists (reference file only).
                 if (rcp == cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
                     continue
 
-                # Temperature.
+                # Temperature ------------------------------------------------------------------------------------------
+
                 da_idx = None
                 if idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]:
                     da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
@@ -308,7 +337,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                         resample(time=cfg.freq_YS).mean()
                     idx_units = cfg.unit_1
 
-                # Precipitation.
+                # Precipitation ----------------------------------------------------------------------------------------
+
                 elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:
                     da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
                     if idx_name == cfg.idx_rx1day:
@@ -363,11 +393,26 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_idx = da_rainend - da_rainstart
                     idx_units = cfg.unit_1
 
+                # Wind -------------------------------------------------------------------------------------------------
+
+                elif idx_name == cfg.idx_strongwind:
+                    da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
+                    da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
+                    thresh_ws = float(idx_threshs_str[0])
+                    thresh_wsneg = idx_threshs_str[1]
+                    thresh_wdir = float(idx_threshs_str[2])
+                    thresh_wdir_tol = float(idx_threshs_str[3])
+                    thresh_months = None if (idx_threshs_str[4] == "nan") else idx_threshs_str[4]
+                    da_wind, da_windfromdir = indices.uas_vas_2_sfcwind(da_uas, da_vas, thresh_wsneg)
+                    da_idx = xr.DataArray(
+                        strong_wind(da_wind, da_windfromdir, thresh_ws, thresh_wdir, thresh_wdir_tol, thresh_months))
+                    idx_units = cfg.unit_1
+
                 da_idx.attrs[cfg.attrs_units] = idx_units
 
-                # ==========================================================
+                # ======================================================================================================
                 # TODO.CUSTOMIZATION.INDEX.END
-                # ==========================================================
+                # ======================================================================================================
 
                 # Create dataset.
                 da_idx.name = idx_name
@@ -580,6 +625,51 @@ def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy: in
     da_end.values[(da_end.values < 0) | (da_end.values > 365)] = np.nan
 
     return da_end
+
+
+def strong_wind(da_wind: xr.DataArray, da_windfromdir: xr.DataArray, thresh_ws: float, thresh_wdir: float=None,
+                thresh_wdir_tol: float=45, months: List[int]=None) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate the number of days with a strong wind, potentially from a specified direction.
+
+    Parameters
+    ----------
+    da_wind : xr.DataArray
+        Wind speed (m s-1).
+    da_windfromdir : xr.DataArray
+        Direction for which the wind is coming from (degrees).
+    thresh_ws: float
+        Threshold related to 'da_wind' (m s-1).
+    thresh_wdir: float
+        Threshold related to 'da_windfromdir' (degrees).
+    thresh_wdir_tol: float
+        Threshold tolerance related to 'da_windfromdir' (degrees).
+    months: [int]
+        List of months.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Condition #1: Wind speed.
+    da_cond1 = da_wind > thresh_ws
+
+    # Condition #2: Wind direction.
+    da_cond2 = (da_windfromdir - thresh_wdir <= thresh_wdir_tol) if thresh_wdir is not None else True
+
+    # Condition #3: Month.
+    da_cond3 = True
+    if months is not None:
+        for i in range(len(months)):
+            da_cond3_i = da_wind.time.dt.month == months[i]
+            da_cond3 = da_cond3_i if i == 0 else da_cond3 | da_cond3_i
+
+    # Combine conditions.
+    da_conds = da_cond1 & da_cond2 & da_cond3
+
+    da_strong_wind = da_conds.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+
+    return da_strong_wind
 
 
 def run():

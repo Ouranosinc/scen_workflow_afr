@@ -57,15 +57,19 @@ def load_params(p_ini: str):
     config = configparser.ConfigParser()
     config.read(p_ini)
 
+    def replace_right(s, old, new, occurrence):
+        li = s.rsplit(old, occurrence)
+        return new.join(li)
+
     def convert_to_1d(vals, type):
 
         if type == str:
             vals = ast.literal_eval(vals)
         elif type == bool:
-            vals = vals.replace("[", "").replace("]", "").split(",")
+            vals = replace_right(vals.replace("[", "", 1), "]", "", 1).split(",")
             vals = [True if val == 'True' else False for val in vals]
         else:
-            vals = vals.replace("[", "").replace("]", "").split(",")
+            vals = replace_right(vals.replace("[", "", 1), "]", "", 1).split(",")
             for i_val in range(len(vals)):
                 try:
                     vals[i_val] = int(vals[i_val])

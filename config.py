@@ -60,10 +60,10 @@ dim_longitude       = "longitude"
 dim_latitude        = "latitude"
 dim_time            = "time"
 
-# ==========================================================
+# ======================================================================================================================
 # TODO.CUSTOMIZATION.VARIABLE.BEGIN
 # Add new CORDEX AND ERA5* variables below.
-# ==========================================================
+# ======================================================================================================================
 
 # Variables (cordex).
 var_cordex_tas        = "tas"         # Temperature (daily mean).
@@ -93,9 +93,9 @@ var_era5_pev        = "pev"         # Potential evapotranspiration.
 var_era5_d2m        = "d2m"         # Dew temperature.
 var_era5_sh         = "sh"          # Specific humidity.
 
-# ==========================================================
+# ======================================================================================================================
 # TODO.CUSTOMIZATION.VARIABLE.END
-# ==========================================================
+# ======================================================================================================================
 
 # Directory names.
 # Reference data.
@@ -142,10 +142,10 @@ opt_calib_bias_meth_mae    = "mae"      # Mean absolute error.
 opt_calib_bias_meth_rmse   = "rmse"     # Root mean square error.
 opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 
-# ==========================================================
+# ======================================================================================================================
 # TODO.CUSTOMIZATION.INDEX.BEGIN
 # Add new index below.
-# ==========================================================
+# ======================================================================================================================
 
 # Temperature.
 idx_tx90p           = "tx90p"           # Number of days with Tmax > 90th percentile.
@@ -184,6 +184,7 @@ idx_drydays         = "drydays"         # Number of dry days (below a threshold)
 idx_rainstart       = "rainstart"       # Day of year where rain season starts = f(Pwet, Dwet, DOY, Pdry, Ddry, Dtot).
 idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOY).
 idx_raindur         = "raindur"         # Duration of the rain season = idx_rainend - idx_rainstart + 1.
+idx_strongwind      = "strongwind"      # Strong wind = f(WS, WSneg, Wdir, Wdirtol, months).
 
 # ==========================================================
 # TODO.CUSTOMIZATION.INDEX.END
@@ -448,14 +449,14 @@ def get_var_desc(var: str, set_name: str = "cordex"):
 def get_idx_desc(idx_name: str):
 
     """
-    ----------------------------------------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------------------------------------------
     Gets the description of an index.
 
     Parameters
     ----------
     idx_name : str
         Climate index.
-    ----------------------------------------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------------------------------------------
     """
 
     idx_desc = ""
@@ -463,10 +464,10 @@ def get_idx_desc(idx_name: str):
     # Extract thresholds.
     idx_threshs_loc = idx_threshs[idx_names.index(idx_name)]
 
-    # ==========================================================
+    # ==================================================================================================================
     # TODO.CUSTOMIZATION.INDEX.BEGIN
     # Copy the following code block.
-    # ==========================================================
+    # ==================================================================================================================
 
     # Temperature.
     if idx_name in [idx_txdaysabove, idx_tx90p]:
@@ -509,9 +510,6 @@ def get_idx_desc(idx_name: str):
     elif idx_name == idx_etr:
         idx_desc = "Écart extreme (Tmax-Tmin)"
 
-    elif idx_name == idx_dc:
-        idx_desc = "Code sécheresse"
-
     # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
         idx_desc = "Cumul préc " +\
@@ -538,9 +536,17 @@ def get_idx_desc(idx_name: str):
     elif idx_name == idx_raindur:
         idx_desc = "Durée de la saison des pluies (jours)"
 
-    # ==========================================================
+    # Temperature-precipitation.
+    elif idx_name == idx_dc:
+        idx_desc = "Code sécheresse"
+
+    # Wind.
+    elif idx_name == idx_strongwind:
+        idx_desc = "Nbr jours"
+
+    # ==================================================================================================================
     # TODO.CUSTOMIZATION.INDEX.END
-    # ==========================================================
+    # ==================================================================================================================
 
     return idx_desc
 
