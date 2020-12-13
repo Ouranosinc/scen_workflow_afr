@@ -471,9 +471,9 @@ def get_idx_desc(idx_name: str):
 
     # Temperature.
     if idx_name in [idx_txdaysabove, idx_tx90p]:
-        idx_desc = "Nbr jours où Tmax > " + str(idx_threshs_loc[0]) + " " + get_var_unit(var_cordex_tasmax)
+        idx_desc = "Nbr jours chauds (Tmax>" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ")"
     elif idx_name == idx_tropicalnights:
-        idx_desc = "Nbr jours où Tmin > " + str(idx_threshs_loc[0]) + " " + get_var_unit(var_cordex_tasmin)
+        idx_desc = "Nbr nuits chaudes (Tmin>" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
 
     elif idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen, idx_wsdi]:
         if idx_name == idx_hotspellfreq:
@@ -487,13 +487,13 @@ def get_idx_desc(idx_name: str):
         elif idx_name == idx_wsdi:
             idx_desc = "Indice durée pér chaudes"
         if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_wsdi]:
-            idx_desc += " (Tmax >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
-                str(idx_threshs_loc[1]) + " jours)"
+            idx_desc += " (Tmax≥" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
+                str(idx_threshs_loc[1]) + "j)"
         else:
             idx_desc += " (" +\
-                "Tmin >= " + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
-                "Tmax >= " + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
-                str(idx_threshs_loc[2]) + " jours)"
+                "Tmin≥" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
+                "Tmax≥" + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
+                str(idx_threshs_loc[2]) + "j)"
 
     elif idx_name == idx_txx:
         idx_desc = "Maximum de Tmax"
@@ -513,28 +513,29 @@ def get_idx_desc(idx_name: str):
     # Precipitation.
     elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
         idx_desc = "Cumul préc " +\
-            ("(1 jour)" if idx_name == idx_rx1day else "(5 jours)" if idx_name == idx_rx5day else "(total)")
+            ("(1j)" if idx_name == idx_rx1day else "(5j)" if idx_name == idx_rx5day else "(total)")
 
     elif idx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
         idx_desc = "Nbr jours"
         if idx_name == idx_cwd:
-            idx_desc += " consécutifs"
-        op = " >= "
-        if idx_name in [idx_cdd, idx_drydays]:
-            op = " < "
-        idx_desc += " où P" + op + str(idx_threshs_loc[0]) + " " + get_var_unit(var_cordex_pr)
+            idx_desc += " conséc"
+        idx_desc += " où P" + ("<" if idx_name in [idx_cdd, idx_drydays] else "≥") +\
+                    str(idx_threshs_loc[0]) + get_var_unit(var_cordex_pr)
 
     elif idx_name == idx_sdii:
         idx_desc = "Intensite moyenne P"
 
     if idx_name == idx_rainstart:
-        idx_desc = "Premier jour de la saison des pluies"
+        idx_desc = "Début saison pluie (ΣP≥" + str(idx_threshs_loc[0]) + unit_mm + "/" + \
+                   str(idx_threshs_loc[1]) + "j; sans P<" + str(idx_threshs_loc[3]) + "mm/j * " + \
+                   str(idx_threshs_loc[4]) + "j sur " + str(idx_threshs_loc[5]) + "j)"
 
     elif idx_name == idx_rainend:
-        idx_desc = "Dernier jour de la saison des pluies"
+        idx_desc = "Fin saison pluie (ΣP<" + str(idx_threshs_loc[0]) + unit_mm + " en " +\
+                   str(idx_threshs_loc[0]) + "/" + str(idx_threshs_loc[1]) + "j)"
 
     elif idx_name == idx_raindur:
-        idx_desc = "Durée de la saison des pluies (jours)"
+        idx_desc = "Durée saison pluie (j)"
 
     # Temperature-precipitation.
     elif idx_name == idx_dc:
@@ -542,7 +543,8 @@ def get_idx_desc(idx_name: str):
 
     # Wind.
     elif idx_name == idx_strongwind:
-        idx_desc = "Nbr jours"
+        idx_desc = "Nbr jours avec vent fort (V≥" + str(idx_threshs_loc[0]) + unit_ms1 + "; " + \
+                   str(idx_threshs_loc[2]) + "±" + str(idx_threshs_loc[3]) + "º; mois " + str(idx_threshs_loc[4]) + ")"
 
     # ==================================================================================================================
     # TODO.CUSTOMIZATION.INDEX.END
