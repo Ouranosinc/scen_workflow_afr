@@ -202,7 +202,18 @@ spd                 = 86400         # Number of seconds per day.
 d_KC                = 273.15        # Temperature difference between Kelvin and Celcius.
 
 # Files.
-file_sep            = ","           # File separator (in CSV files).
+f_sep               = ","           # File separator (only in CSV files containing observations).
+f_csv               = "csv"         # CSV file type (comma-separated values).
+f_png               = "png"         # PNG file type (image).
+f_tif               = "tif"         # TIF file type (image, potentially georeferenced).
+f_nc                = "nc"          # NetCDF file type.
+f_nc4               = "nc4"         # NetCDF v4 file type.
+f_ext_csv           = "." + f_csv   # CSV file extension.
+f_ext_png           = "." + f_png   # PNG file extension.
+f_ext_tif           = "." + f_tif   # TIF file extension.
+f_ext_nc            = "." + f_nc    # NetCDF file extension.
+f_ext_nc4           = "." + f_nc4   # NetCDF v4 file extension.
+f_ext_log           = ".log"        # LOG file extension.
 
 # Context --------------------------------------------------------------------------------------------------------------
 
@@ -347,8 +358,11 @@ opt_save_csv        = [False, False]  # If True, save results to CSV files [for 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
 # Plots.
-opt_plot            = [True, True]    # If True, actives plot generation [for scenarios, for indices].
-opt_plot_heat       = [False, False]  # If True, generate heat maps [for scenarios, for indices].
+opt_plot              = [True, True]    # If True, actives plot generation [for scenarios, for indices].
+opt_plot_heat         = [False, False]  # If True, generate heat maps [for scenarios, for indices].
+plot_heat_formats     = [f_png, f_tif]  # Plot heat formats.
+plot_heat_spatial_ref = ""              # Spatial reference (starts with: EPSG).
+plot_heat_res         = -1              # Heat map resolution.
 
 # Color associated with specific datasets (for consistency).
 col_sim_adj_ref     = "blue"        # Simulation (bias-adjusted) for the reference period.
@@ -689,7 +703,7 @@ def get_p_stn(var: str, stn: str):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    p = d_stn + var + "/" + var + "_" + stn + ".nc"
+    p = d_stn + var + "/" + var + "_" + stn + f_ext_nc
 
     return p
 
@@ -771,6 +785,6 @@ def get_p_obs(stn_name: str, var: str, category: str = ""):
     p = get_d_scen(stn_name, cat_obs) + var + "/" + var + "_" + stn_name
     if category != "":
         p = p + "_4qqmap"
-    p = p + ".nc"
+    p = p + f_ext_nc
 
     return p

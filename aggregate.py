@@ -239,7 +239,7 @@ def run():
     for var in vars:
 
         # Loop through files.
-        p_raw_lst = glob.glob(cfg.d_ra_raw + var + "/*.nc")
+        p_raw_lst = glob.glob(cfg.d_ra_raw + var + "/*" + cfg.f_ext_nc)
         p_raw_lst.sort()
         n_years = len(p_raw_lst)
         for i_raw in range(len(p_raw_lst)):

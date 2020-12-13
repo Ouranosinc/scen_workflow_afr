@@ -16,15 +16,22 @@ import matplotlib.ticker as mtick
 import numpy as np
 import numpy.polynomial.polynomial as poly
 import os.path
+import rioxarray as rio
 import seaborn as sns
 import simplejson
 import utils
 import warnings
 import xarray as xr
+import xesmf as xe
 from descartes import PolygonPatch
 from matplotlib import pyplot
 from matplotlib.lines import Line2D
 from scipy import signal
+
+# Package 'xesmf' can be installed with:
+#   conda install -c conda-forge xesmf
+#   pip install xesmf
+# Package 'rioxarray' must be added even if it's not explicitly used in order to have a 'rio' variable in DataArrays.
 
 
 # ======================================================================================================================
@@ -289,7 +296,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     f = plt.figure(figsize=(15, 6))
     f.add_subplot(211)
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.07, right=0.99, hspace=0.40, wspace=0.00)
-    sup_title = os.path.basename(p_fig).replace(".png", "") +\
+    sup_title = os.path.basename(p_fig).replace(cfg.f_ext_png, "") +\
         "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
     plt.suptitle(sup_title, fontsize=fs_sup_title)
 
@@ -700,58 +707,82 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Get title and label.
-    title, label = get_title_label(stn, var_or_idx, rcp, per)
+    # Export to GeoTIFF.
+    if cfg.f_tif in cfg.plot_heat_formats:
 
-    plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
+        # Increase resolution.
+        if cfg.plot_heat_res > 0:
+            lat_vals = np.arange(min(da.latitude), max(da.latitude), cfg.plot_heat_res)
+            lon_vals = np.arange(min(da.longitude), max(da.longitude), cfg.plot_heat_res)
+            da = da.rename({cfg.dim_latitude: cfg.dim_lat, cfg.dim_longitude: cfg.dim_lon})
+            da_out = xr.Dataset({cfg.dim_lat: ([cfg.dim_lat], lat_vals), cfg.dim_lon: ([cfg.dim_lon], lon_vals)})
+            da = xe.Regridder(da, da_out, "bilinear")(da)
 
-    # Using seaborn.
-    if map_package == "seaborn":
-        sns.set()
-        fig, ax = plt.subplots(figsize=(8, 5))
-        g = sns.heatmap(ax=ax, data=da, xticklabels=grid_x, yticklabels=grid_y)
-        if grid_x is not None:
-            x_labels = ['{:,.2f}'.format(i) for i in grid_x]
-            g.set_xticklabels(x_labels)
-        if grid_y is not None:
-            y_labels = ['{:,.2f}'.format(i) for i in grid_y]
-            g.set_yticklabels(y_labels)
+        # Export.
+        da.rio.set_crs("EPSG:4326")
+        da_utm = da
+        if cfg.plot_heat_spatial_ref != "EPSG:4326":
+            da_utm.rio.set_spatial_dims(cfg.dim_lon, cfg.dim_lat, inplace=True)
+            da_utm = da_utm.rio.reproject(cfg.plot_heat_spatial_ref)
+            da_utm.values[da_utm.values == -9999] = np.nan
+            da_utm = da_utm.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
+        da_utm.rio.to_raster(p_fig.replace(cfg.f_ext_png, cfg.f_ext_tif))
 
-    # Using matplotlib.
-    elif map_package == "matplotlib":
+    # Export to PNG.
+    if cfg.f_png in cfg.plot_heat_formats:
 
-        # Fonts.
-        fs           = 10
-        fs_sup_title = 9
+        # Get title and label.
+        title, label = get_title_label(stn, var_or_idx, rcp, per)
 
-        # Color mesh.
-        if (var_or_idx == cfg.var_cordex_uas) or (var_or_idx == cfg.var_cordex_vas):
-            cmap = "RdBu_r"
-            vmax_abs = max(abs(z_min), abs(z_max))
-            norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
-        else:
-            cmap = norm = None
-        mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                                  cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label), cmap=cmap, norm=norm)
-        if (z_min is not None) and (z_max is not None):
-            mesh.set_clim(z_min, z_max)
-        plt.title(title, fontsize=fs_sup_title)
-        plt.suptitle("")
-        plt.xlabel("Longitude (º)", fontsize=fs)
-        plt.ylabel("Latitude (º)", fontsize=fs)
-        plt.tick_params(axis="x", labelsize=fs)
-        plt.tick_params(axis="y", labelsize=fs)
-        plt.xlim(cfg.lon_bnds)
-        plt.ylim(cfg.lat_bnds)
+        plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
 
-        # Draw region boundary.
-        draw_region_boundary(mesh.axes)
+        # Using seaborn.
+        if map_package == "seaborn":
+            sns.set()
+            fig, ax = plt.subplots(figsize=(8, 5))
+            g = sns.heatmap(ax=ax, data=da, xticklabels=grid_x, yticklabels=grid_y)
+            if grid_x is not None:
+                x_labels = ['{:,.2f}'.format(i) for i in grid_x]
+                g.set_xticklabels(x_labels)
+            if grid_y is not None:
+                y_labels = ['{:,.2f}'.format(i) for i in grid_y]
+                g.set_yticklabels(y_labels)
 
-    # Save figure.
-    if p_fig != "":
-        utils.save_plot(plt, p_fig)
+        # Using matplotlib.
+        elif map_package == "matplotlib":
 
-    plt.close()
+            # Fonts.
+            fs           = 10
+            fs_sup_title = 9
+
+            # Color mesh.
+            if (var_or_idx == cfg.var_cordex_uas) or (var_or_idx == cfg.var_cordex_vas):
+                cmap = "RdBu_r"
+                vmax_abs = max(abs(z_min), abs(z_max))
+                norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
+            else:
+                cmap = norm = None
+            mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
+                                      cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label), cmap=cmap, norm=norm)
+            if (z_min is not None) and (z_max is not None):
+                mesh.set_clim(z_min, z_max)
+            plt.title(title, fontsize=fs_sup_title)
+            plt.suptitle("")
+            plt.xlabel("Longitude (º)", fontsize=fs)
+            plt.ylabel("Latitude (º)", fontsize=fs)
+            plt.tick_params(axis="x", labelsize=fs)
+            plt.tick_params(axis="y", labelsize=fs)
+            plt.xlim(cfg.lon_bnds)
+            plt.ylim(cfg.lat_bnds)
+
+            # Draw region boundary.
+            draw_region_boundary(mesh.axes)
+
+        # Save figure.
+        if p_fig != "":
+            utils.save_plot(plt, p_fig)
+
+        plt.close()
 
 
 def draw_region_boundary(ax):
@@ -1100,7 +1131,7 @@ def plot_ts_single(stn: str, var: str):
 
         # Format.
         plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
-        title = os.path.basename(p_fut).replace("4qqmap.nc", "verif_ts_single")
+        title = os.path.basename(p_fut).replace("4qqmap" + cfg.f_ext_nc, "verif_ts_single")
         plt.suptitle(title, fontsize=fs_title)
         plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
@@ -1110,7 +1141,7 @@ def plot_ts_single(stn: str, var: str):
         plt.tick_params(axis="y", labelsize=fs_axes)
 
         # Save plot.
-        p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_single", var) + title + ".png"
+        p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_single", var) + title + cfg.f_ext_png
         utils.save_plot(plt, p_fig)
 
         # Close plot.
@@ -1183,7 +1214,7 @@ def plot_ts_mosaic(stn: str, var: str):
         # Format.
         plt.xlabel("", fontsize=fs_axes)
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-        title = os.path.basename(p_list[i]).replace(".nc", "")
+        title = os.path.basename(p_list[i]).replace(cfg.f_ext_nc, "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
@@ -1193,7 +1224,7 @@ def plot_ts_mosaic(stn: str, var: str):
             plt.suptitle(sup_title, fontsize=fs_title)
 
     # Save plot.
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + ".png"
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + cfg.f_ext_png
     utils.save_plot(plt, p_fig)
 
     # Close plot.
@@ -1259,7 +1290,7 @@ def plot_monthly(stn: str, var: str):
         plt.xticks(np.arange(1, 13, 1))
         plt.xlabel("Mois", fontsize=fs_axes)
         plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-        title = os.path.basename(p_list[i]).replace(".nc", "")
+        title = os.path.basename(p_list[i]).replace(cfg.f_ext_nc, "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
@@ -1271,7 +1302,7 @@ def plot_monthly(stn: str, var: str):
     plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
 
     # Save plot.
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + ".png"
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + cfg.f_ext_png
     utils.save_plot(plt, p_fig)
 
     # Close plot.

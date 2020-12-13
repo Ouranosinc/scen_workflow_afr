@@ -49,24 +49,24 @@ def load_observations(var: str):
 
     # Station list file and station files.
     d_stn      = cfg.get_d_stn(var)
-    p_stn_info = glob.glob(d_stn + "../*.csv")
-    p_stn_list = glob.glob(d_stn + "*.csv")
+    p_stn_info = glob.glob(d_stn + "../*" + cfg.f_ext_csv)
+    p_stn_list = glob.glob(d_stn + "*" + cfg.f_ext_csv)
     p_stn_list.sort()
 
     # Compile data.
     for i in range(0, len(p_stn_list)):
 
-        stn = os.path.basename(p_stn_list[i]).replace(".nc", "").split("_")[1]
+        stn = os.path.basename(p_stn_list[i]).replace(cfg.f_ext_nc, "").split("_")[1]
 
         if not(stn in cfg.stns):
             continue
 
-        obs  = pd.read_csv(p_stn_list[i], sep=cfg.file_sep)
+        obs  = pd.read_csv(p_stn_list[i], sep=cfg.f_sep)
         time = pd.to_datetime(
             obs["annees"].astype("str") + "-" + obs["mois"].astype("str") + "-" + obs["jours"].astype("str"))
 
         # Find longitude and latitude.
-        lon_lat_data = pd.read_csv(p_stn_info[0], sep=cfg.file_sep)
+        lon_lat_data = pd.read_csv(p_stn_info[0], sep=cfg.f_sep)
         lon = float(lon_lat_data[lon_lat_data["station"] == stn][cfg.dim_lon])
         lat = float(lon_lat_data[lon_lat_data["station"] == stn][cfg.dim_lat])
 
@@ -180,7 +180,7 @@ def load_observations(var: str):
         ds.attrs[cfg.attrs_stn] = stn
 
         # Save data.
-        p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + ".nc"
+        p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + cfg.f_ext_nc
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
         utils.save_netcdf(ds, p_stn, desc=desc)
 
@@ -203,8 +203,8 @@ def load_reanalysis(var_ra: str):
     var = cfg.convert_var_name(var_ra)
 
     # Paths.
-    p_stn_list = list(glob.glob(cfg.d_ra_day + var_ra + "/*.nc"))
-    p_stn = cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + ".nc"
+    p_stn_list = list(glob.glob(cfg.d_ra_day + var_ra + "/*" + cfg.f_ext_nc))
+    p_stn = cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + cfg.f_ext_nc
     d_stn = os.path.dirname(p_stn)
     if not (os.path.isdir(d_stn)):
         os.makedirs(d_stn)
@@ -310,7 +310,7 @@ def extract(var: str, ds_stn: xr.Dataset, d_ref: str, d_fut: str, p_raw: str):
 
         # Projections.
         # Must use xr.open_dataset here, otherwise there is a problem in parallel mode.
-        p_proj = list(glob.glob(d_ref + var + "/*.nc"))[0]
+        p_proj = list(glob.glob(d_ref + var + "/*" + cfg.f_ext_nc))[0]
         try:
             ds_proj = xr.open_dataset(p_proj)
         except xcv.MissingDimensionsError:
@@ -777,7 +777,8 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
 
         # Generate time series only.
         if cfg.opt_plot[0]:
-            plot.plot_calib_ts(da_stn_xy, da_fut_xy, da_qqmap_xy, var, title, p_fig.replace(".png", "_ts.png"))
+            plot.plot_calib_ts(da_stn_xy, da_fut_xy, da_qqmap_xy, var, title,
+                               p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png))
 
     return ds_qqmap if (p_fig == "") else None
 
@@ -831,10 +832,10 @@ def generate():
         # Select file names for observation (or reanalysis).
         if not cfg.opt_ra:
             d_stn = cfg.get_d_stn(var)
-            p_stn_list = glob.glob(d_stn + "*.nc")
+            p_stn_list = glob.glob(d_stn + "*" + cfg.f_ext_nc)
             p_stn_list.sort()
         else:
-            p_stn_list = [cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + ".nc"]
+            p_stn_list = [cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + cfg.f_ext_nc]
 
         # Loop through stations.
         for i_stn in range(0, len(p_stn_list)):
@@ -842,7 +843,7 @@ def generate():
             # Station name.
             p_stn = p_stn_list[i_stn]
             if not cfg.opt_ra:
-                stn = os.path.basename(p_stn).replace(".nc", "").replace(var + "_", "")
+                stn = os.path.basename(p_stn).replace(cfg.f_ext_nc, "").replace(var + "_", "")
                 if not (stn in cfg.stns):
                     continue
             else:
@@ -921,7 +922,7 @@ def generate():
                         # Calculate the number of simulations processed (before generation).
                         # This quick verification is based on the QQMAP NetCDF file, but there are several other
                         # files that are generated. The 'completeness' verification is more complete in scalar mode.
-                        n_sim_proc_before = len(list(glob.glob(d_qqmap + "*.nc")))
+                        n_sim_proc_before = len(list(glob.glob(d_qqmap + "*" + cfg.f_ext_nc)))
 
                         # Scalar processing mode.
                         if cfg.n_proc == 1:
@@ -946,7 +947,7 @@ def generate():
                                 pass
 
                         # Calculate the number of simulations processed (after generation).
-                        n_sim_proc_after = len(list(glob.glob(d_qqmap + "*.nc")))
+                        n_sim_proc_after = len(list(glob.glob(d_qqmap + "*" + cfg.f_ext_nc)))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cfg.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
@@ -1001,8 +1002,8 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     utils.log("=")
 
     # Skip iteration if the variable 'var' is not available in the current directory.
-    p_sim_ref_list = list(glob.glob(d_sim_ref + "/" + var + "/*.nc"))
-    p_sim_fut_list = list(glob.glob(d_sim_fut + "/" + var + "/*.nc"))
+    p_sim_ref_list = list(glob.glob(d_sim_ref + "/" + var + "/*" + cfg.f_ext_nc))
+    p_sim_fut_list = list(glob.glob(d_sim_fut + "/" + var + "/*" + cfg.f_ext_nc))
 
     if (len(p_sim_ref_list) == 0) or (len(p_sim_fut_list) == 0):
         utils.log("Skipping iteration: data not available for simulation-variable.", True)
@@ -1011,9 +1012,9 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     # Files within CORDEX or CORDEX-NA.
     if "cordex" in d_sim_fut.lower():
         p_raw = d_raw + var + "_" + c[cfg.get_rank_inst()] + "_" +\
-                c[cfg.get_rank_gcm()].replace("*", "_") + ".nc"
+                c[cfg.get_rank_gcm()].replace("*", "_") + cfg.f_ext_nc
     elif len(d_sim_fut) == 3:
-        p_raw = d_raw + var + "_Ouranos_" + d_sim_fut + ".nc"
+        p_raw = d_raw + var + "_Ouranos_" + d_sim_fut + cfg.f_ext_nc
     else:
         p_raw = None
 
@@ -1037,8 +1038,8 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
     p_qqmap      = p_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
     p_qmf        = p_raw.replace(cfg.cat_raw, cfg.cat_qmf)
-    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
-    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
+    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + cfg.f_ext_nc
+    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + cfg.f_ext_nc
     p_obs        = cfg.get_p_obs(stn, var)
 
     # Step #3: Extraction.
@@ -1191,21 +1192,21 @@ def run():
                 utils.log("Processing: '" + var + "', '" + stn + "'", True)
 
                 # Path ofo NetCDF file containing station data.
-                p_stn = cfg.d_stn + var + "/" + var + "_" + stn + ".nc"
+                p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc
 
                 # Loop through raw NetCDF files.
-                p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*.nc"))
+                p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*" + cfg.f_ext_nc))
                 for i in range(len(p_raw_list)):
                     p_raw = p_raw_list[i]
 
                     # Path of NetCDF files.
                     p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
                     p_qqmap      = p_raw.replace(cfg.cat_raw, cfg.cat_qqmap)
-                    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + ".nc"
-                    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + ".nc"
+                    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + cfg.f_ext_nc
+                    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + cfg.f_ext_nc
 
                     # Extract simulations name.
-                    sim_name = os.path.basename(p_raw).replace(var + "_", "").replace(".nc", "")
+                    sim_name = os.path.basename(p_raw).replace(var + "_", "").replace(cfg.f_ext_nc, "")
 
                     # Calibration parameters.
                     df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
@@ -1216,14 +1217,16 @@ def run():
                     time_win = float(df_sel["time_win"])
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
-                    fn_fig = p_regrid_fut.split("/")[-1].replace("_4qqmap.nc", "_" + cfg.cat_fig_postprocess + ".png")
+                    fn_fig = p_regrid_fut.split("/")[-1].\
+                        replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
                     plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
-                        p_regrid_fut.split("/")[-1].replace("4qqmap.nc", cfg.cat_fig_workflow + ".png")
+                        p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc, cfg.cat_fig_workflow +
+                                                            cfg.f_ext_png)
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
         if not cfg.opt_save_csv[0]:
@@ -1248,7 +1251,7 @@ def run():
             # Get the minimum and maximum values in the statistics file.
             var = cfg.variables_cordex[i]
             p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, cfg.cat_scen + "/" + var) +\
-                var + "_" + cfg.obs_src + ".csv"
+                var + "_" + cfg.obs_src + cfg.f_ext_csv
             if not os.path.exists(p_stat):
                 z_min = z_max = None
             else:

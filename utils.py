@@ -230,7 +230,7 @@ def info_cordex(d_ds: str):
         # Extract variables and ensure that there is at least one NetCDF file available for each  one.
         vars_i = []
         for j in glob.glob(i + "*/"):
-            n_netcdf = len(glob.glob(j + "*.nc"))
+            n_netcdf = len(glob.glob(j + "*" + cfg.f_ext_nc))
             if n_netcdf > 0:
                 tokens_j = j.split("/")
                 var      = tokens_j[len(tokens_j) - 2]
@@ -464,7 +464,7 @@ def list_files(p: str) -> [str]:
     # r=root, d=directories, f = files
     for r, d, f in os.walk(p):
         for p in f:
-            if ".nc" in p:
+            if cfg.f_ext_nc in p:
                 p_list.append(os.path.join(r, p))
 
     # Sort.
@@ -592,7 +592,7 @@ def log(msg: str, indent=False):
     # Print to file.
     p_log = cfg.p_log
     if pid_current != cfg.pid:
-        p_log = p_log.replace(".log", "_" + str(pid_current) + ".log")
+        p_log = p_log.replace(cfg.f_ext_log, "_" + str(pid_current) + cfg.f_ext_log)
     if p_log != "":
         f = open(p_log, "a")
         f.writelines(ln + "\n")

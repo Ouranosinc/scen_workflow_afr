@@ -117,9 +117,9 @@ def generate(idx_name: str, idx_threshs: [float]):
             if rcp == cfg.rcp_ref:
                 if var_or_idx_list[0] in cfg.variables_cordex:
                     p_sim = cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx_list[0]) + var_or_idx_list[0] +\
-                            "_" + stn + ".nc"
+                            "_" + stn + cfg.f_ext_nc
                 else:
-                    p_sim = cfg.get_d_idx(cfg.obs_src, var_or_idx_list[0]) + var_or_idx_list[0] + "_ref.nc"
+                    p_sim = cfg.get_d_idx(cfg.obs_src, var_or_idx_list[0]) + var_or_idx_list[0] + "_ref" + cfg.f_ext_nc
                 if os.path.exists(p_sim) and (type(p_sim) is str):
                     p_sim = [p_sim]
             else:
@@ -127,7 +127,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx_list[0])
                 else:
                     d = cfg.get_d_idx(stn, var_or_idx_list[0])
-                p_sim = glob.glob(d + "*_" + rcp + ".nc")
+                p_sim = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
             if not p_sim:
                 continue
 
@@ -154,7 +154,7 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Determine file name.
                 if rcp == cfg.rcp_ref:
-                    p_idx = cfg.get_d_idx(stn, idx_name) + idx_name + "_ref.nc"
+                    p_idx = cfg.get_d_idx(stn, idx_name) + idx_name + "_ref" + cfg.f_ext_nc
                 else:
                     p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
                             os.path.basename(p_sim[i_sim]).replace(var_or_idx_list[0], idx_name)
@@ -757,7 +757,7 @@ def run():
             # Get the minimum and maximum values in the statistics file.
             idx = cfg.idx_names[i]
             p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, cfg.cat_idx + "/" + idx) +\
-                idx + "_" + cfg.obs_src + ".csv"
+                idx + "_" + cfg.obs_src + cfg.f_ext_csv
             if not os.path.exists(p_stat):
                 z_min = z_max = None
             else:

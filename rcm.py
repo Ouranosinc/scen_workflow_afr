@@ -66,15 +66,15 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
     if "cordex" in d_ref.lower():
 
         # Find the data at the requested timestep.
-        p_ref  = d_ref.replace("/*/", "/" + priority_timestep + "/") + var + "/*.nc"
-        p_fut  = d_fut.replace("/*/", "/" + priority_timestep + "/") + var + "/*.nc"
+        p_ref  = d_ref.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
+        p_fut  = d_fut.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
         p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
         # Since CORDEX-NA (once again) screwed up their directories, we need
         # to check in /raw/ as well.
         if not p_list:
-            p_ref  = d_ref.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*.nc"
-            p_fut  = d_fut.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*.nc"
+            p_ref  = d_ref.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
+            p_fut  = d_fut.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
             p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
         # If no data was found, search other time resolutions.
@@ -83,14 +83,14 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
             index_ts       = timestep_order.index(priority_timestep) + 1
 
             while not p_list and index_ts <= len(timestep_order)-1:
-                p_ref  = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*.nc"
-                p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*.nc"
+                p_ref  = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
+                p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
                 p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
                 if not p_list:
                     p_ref  = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
-                        cfg.cat_raw + "/" + var + "/*.nc"
+                        cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
                     p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
-                        cfg.cat_raw + "/" + var + "/*.nc"
+                        cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
                     p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
                 index_ts = index_ts + 1
 
@@ -111,7 +111,7 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
 
     elif len(d_ref) == 3:
 
-        suffix = "/series/" + ("[0-9]"*6) + "/" + var + "_*.nc"
+        suffix = "/series/" + ("[0-9]"*6) + "/" + var + "_*" + cfg.f_ext_nc
 
         # List files for the reference and future periods.
         p_ref_list = glob.glob(cfg.d_proj + d_ref + suffix)
@@ -143,9 +143,9 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
             ds_subset_tmp["rotated_pole"] = ds_tmp.rotated_pole
 
             # Save each year as a temporary NetCDF.
-            utils.save_netcdf(ds_subset_tmp, tmpdir + str(y) + ".nc")
+            utils.save_netcdf(ds_subset_tmp, tmpdir + str(y) + cfg.f_ext_nc)
 
-        p_list_new = sorted(glob.glob(tmpdir + ("[0-9]"*4) + ".nc"))
+        p_list_new = sorted(glob.glob(tmpdir + ("[0-9]"*4) + cfg.f_ext_nc))
         ds_subset = utils.open_netcdf(p_list_new, chunks={cfg.dim_time: 365})
 
         # Remove temporary files.

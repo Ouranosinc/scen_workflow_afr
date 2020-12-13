@@ -50,7 +50,7 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
     # Loop through simulation sets.
     for i in range(len(p_regrid_list)):
         p_regrid_tokens = p_regrid_list[i].split("/")
-        sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var + "_", "").replace(".nc", "")
+        sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var + "_", "").replace(cfg.f_ext_nc, "")
 
         # Skip iteration if it does not correspond to the specified simulation name.
         if (sim_name != "") and (sim_name != sim_name_i):
@@ -67,8 +67,8 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                     # NetCDF files.
                     p_stn        = cfg.get_p_stn(var, stn)
                     p_regrid     = p_regrid_list[i]
-                    p_regrid_ref = p_regrid.replace(".nc", "_ref_4qqmap.nc")
-                    p_regrid_fut = p_regrid.replace(".nc", "_4qqmap.nc")
+                    p_regrid_ref = p_regrid.replace(cfg.f_ext_nc, "_ref_4qqmap" + cfg.f_ext_nc)
+                    p_regrid_fut = p_regrid.replace(cfg.f_ext_nc, "_4qqmap" + cfg.f_ext_nc)
 
                     # If there is a single combination of calibration parameters, NetCDF files can be saved, so that
                     # they don't have to be created during post-process.
@@ -101,11 +101,11 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                         ds_stn = scen.perturbate(ds_stn, var)
 
                     # Path and title of calibration figure.
-                    fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + ".png"
+                    fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + cfg.f_ext_png
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var) + comb + "/" + fn_fig
-                    p_fig_ts = p_fig.replace(".png", "_ts.png")
+                    p_fig_ts = p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png)
 
                     # Calculate QQ and generate calibration plots.
                     msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\

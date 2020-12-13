@@ -86,7 +86,7 @@ def download_from_copernicus(p_base: str, obs_src: str, area: [float], var: str,
         var_code = "10m_v_component_of_wind"
 
     # Form file name.
-    fn = p_base + var + "/" + var + "_" + obs_src + "_hour_" + str(year) + ".nc"
+    fn = p_base + var + "/" + var + "_" + obs_src + "_hour_" + str(year) + cfg.f_ext_nc
     if os.path.exists(fn):
         return
     p = os.path.dirname(fn)
@@ -148,7 +148,7 @@ def download_merra2(p_base: str, set_version: str):
         else:
             set_name = "MERRA2_400.statD_2d_slv_Nx"
         url_template = "https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2/" + set_version + \
-                       "/<year>/<month>/" + set_name + ".<year><month><day>.nc4"
+                       "/<year>/<month>/" + set_name + ".<year><month><day>" + cfg.f_ext_nc4
 
         # Loop through months.
         for month in range(1, 13):
@@ -171,7 +171,7 @@ def download_merra2(p_base: str, set_version: str):
                 d = p_base + year_str + "/"
                 if not (os.path.isdir(d)):
                     os.makedirs(d)
-                p = d + "merra2_day_" + year_str + month_str + day_str + ".nc4"
+                p = d + "merra2_day_" + year_str + month_str + day_str + cfg.f_ext_nc4
 
                 # Download.
                 cmd = "wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --keep-session-cookies " +\
@@ -232,10 +232,10 @@ def run():
                         pass
 
                 # Verify if treatment is done. Files are sometimes forgotten.
-                years_processed = glob.glob(d_prefix + var + "/*.nc")
+                years_processed = glob.glob(d_prefix + var + "/*" + cfg.f_ext_nc)
                 years_processed.sort()
                 for i in range(len(years_processed)):
-                    years_processed[i] = int(years_processed[i].replace(".nc", "")[-4:])
+                    years_processed[i] = int(years_processed[i].replace(cfg.f_ext_nc, "")[-4:])
                 years_processed.sort()
                 done = (list(years) == years_processed)
 

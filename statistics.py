@@ -59,15 +59,15 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     # List files.
     if data_type == cfg.cat_obs:
         if var_or_idx in cfg.variables_cordex:
-            p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + stn + ".nc"]
+            p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + stn + cfg.f_ext_nc]
         else:
-            p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref.nc"]
+            p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref" + cfg.f_ext_nc]
     else:
         if var_or_idx in cfg.variables_cordex:
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
         else:
             d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
-        p_sim_list = glob.glob(d + "*_" + rcp + ".nc")
+        p_sim_list = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
 
     # Exit if there is not file corresponding to the criteria.
     if (len(p_sim_list) == 0) or \
@@ -254,7 +254,7 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
         for var_or_idx in var_or_idx_list:
 
             # Skip iteration if the file already exists.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, cat + "/" + var_or_idx) + var_or_idx + "_" + stn + ".csv"
+            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, cat + "/" + var_or_idx) + var_or_idx + "_" + stn + cfg.f_ext_csv
             if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
                 continue
 
@@ -379,7 +379,7 @@ def calc_ts(cat: str):
 
             # Files to be created.
             p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx + "_csv") + \
-                var_or_idx + "_" + stn + ".csv"
+                var_or_idx + "_" + stn + cfg.f_ext_csv
             if not (((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1]))) and\
                     (os.path.exists(p_csv) or cfg.opt_force_overwrite):
                 continue
@@ -394,15 +394,16 @@ def calc_ts(cat: str):
                 # List files.
                 if rcp == cfg.rcp_ref:
                     if var_or_idx in cfg.variables_cordex:
-                        p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + stn + ".nc"]
+                        p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) +
+                                      var_or_idx + "_" + stn + cfg.f_ext_nc]
                     else:
-                        p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref.nc"]
+                        p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref" + cfg.f_ext_nc]
                 else:
                     if var_or_idx in cfg.variables_cordex:
                         d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
                     else:
                         d = cfg.get_d_idx(stn, var_or_idx)
-                    p_sim_list = glob.glob(d + "*_" + rcp + ".nc")
+                    p_sim_list = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
 
                 # Exit if there is no file corresponding to the criteria.
                 if (len(p_sim_list) == 0) or \
@@ -538,12 +539,12 @@ def calc_ts(cat: str):
 
                     # Time series with simulations grouped by RCP scenario.
                     p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx) + \
-                                var_or_idx + "_" + stn + "_rcp.png"
+                                var_or_idx + "_" + stn + "_rcp" + cfg.f_ext_png
                     plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx,
                                  rcps, ylim, p_fig_rcp, 1)
 
                     # Time series showing individual simulations.
-                    p_fig_sim = p_fig_rcp.replace("_rcp.png", "_sim.png")
+                    p_fig_sim = p_fig_rcp.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
                     plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx,
                                  rcps, ylim, p_fig_sim, 2)
 
@@ -654,8 +655,8 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
 
         # Get information on stations.
         # TODO.YR: Coordinates should be embedded into ds_stat below.
-        p_stn = glob.glob(cfg.get_d_stn(cfg.var_cordex_tas) + "../*.csv")[0]
-        df = pd.read_csv(p_stn, sep=cfg.file_sep)
+        p_stn = glob.glob(cfg.get_d_stn(cfg.var_cordex_tas) + "../*" + cfg.f_ext_csv)[0]
+        df = pd.read_csv(p_stn, sep=cfg.f_sep)
 
         # Collect values for each station and determine overall boundaries.
         utils.log("Collecting emissions scenarios at each station.", True)
@@ -751,9 +752,10 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
 
         # Reference period.
         if var_or_idx in cfg.variables_cordex:
-            p_itp_ref = cfg.get_d_scen(cfg.obs_src, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + cfg.obs_src + ".nc"
+            p_itp_ref = cfg.get_d_scen(cfg.obs_src, cfg.cat_obs, var_or_idx) +\
+                        var_or_idx + "_" + cfg.obs_src + cfg.f_ext_nc
         else:
-            p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref.nc"
+            p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref" + cfg.f_ext_nc
         if rcp == cfg.rcp_ref:
             p_itp = p_itp_ref
             if not os.path.exists(p_itp):
@@ -768,7 +770,7 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
                 d = cfg.get_d_scen(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
             else:
                 d = cfg.get_d_scen(cfg.obs_src, cfg.cat_idx, var_or_idx)
-            p_sim_list = [i for i in glob.glob(d + "*.nc") if i != p_itp_ref]
+            p_sim_list = [i for i in glob.glob(d + "*" + cfg.f_ext_nc) if i != p_itp_ref]
 
             # Combine datasets.
             ds_itp = None
@@ -859,14 +861,14 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
         # Generate plot.
         stn = "stns" if not cfg.opt_ra else cfg.obs_src
         d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx)
-        fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + ".png"
+        fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + cfg.f_ext_png
         p_fig = d_fig + fn_fig
         if ((cat == cfg.cat_scen) and (cfg.opt_plot_heat[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot_heat[1])):
             plot.plot_heatmap(da_hor, stn, var_or_idx, grid_x, grid_y, rcp, per_hor, z_min, z_max, p_fig, "matplotlib")
 
         # Save to CSV.
         d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx + "_csv")
-        fn_csv = fn_fig.replace(".png", ".csv")
+        fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
         p_csv = d_csv + fn_csv
         if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
 
@@ -917,7 +919,7 @@ def conv_nc_csv(cat: str):
             for var_or_idx in var_or_idx_list:
 
                 # List NetCDF files.
-                p_list = list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*.nc"))
+                p_list = list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + cfg.f_ext_nc))
                 n_files = len(p_list)
                 if n_files == 0:
                     continue
@@ -937,7 +939,8 @@ def conv_nc_csv(cat: str):
                     while True:
 
                         # Calculate the number of files processed (before conversion).
-                        n_files_proc_before = len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*.csv")))
+                        n_files_proc_before =\
+                            len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*" + cfg.f_ext_csv)))
 
                         try:
                             utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
@@ -952,7 +955,8 @@ def conv_nc_csv(cat: str):
                             pass
 
                         # Calculate the number of files processed (after conversion).
-                        n_files_proc_after = len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*.csv")))
+                        n_files_proc_after =\
+                            len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*" + cfg.f_ext_csv)))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cfg.n_proc == 1) or (n_files_proc_before == n_files_proc_after):
@@ -978,7 +982,8 @@ def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
 
     # Paths.
     p = p_list[i_file]
-    p_csv = p.replace("/" + var_or_idx + "/", "/" + var_or_idx + "_csv/").replace(".nc", ".csv")
+    p_csv = p.replace("/" + var_or_idx + "/", "/" + var_or_idx + "_" + cfg.f_csv + "/").\
+        replace(cfg.f_ext_nc, cfg.f_ext_csv)
     if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
         return()
 

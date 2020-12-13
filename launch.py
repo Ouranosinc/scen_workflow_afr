@@ -116,7 +116,7 @@ def load_params(p_ini: str):
             elif key == "obs_src_password":
                 cfg.obs_src_password = ast.literal_eval(value)
             elif key == "file_sep":
-                cfg.file_sep = ast.literal_eval(value)
+                cfg.f_sep = ast.literal_eval(value)
             elif key == "stns":
                 cfg.stns = convert_to_1d(value, str)
 
@@ -139,6 +139,10 @@ def load_params(p_ini: str):
                 cfg.variables_cordex = convert_to_1d(value, str)
                 for var in cfg.variables_cordex:
                     cfg.variables_ra.append(cfg.convert_var_name(var))
+            elif key == "d_bounds":
+                cfg.d_bounds = ast.literal_eval(value)
+            elif key == "region":
+                cfg.region = ast.literal_eval(value)
 
             # DATA:
             elif key == "opt_download":
@@ -211,10 +215,12 @@ def load_params(p_ini: str):
                 cfg.opt_plot_heat = [False, False]
                 if cfg.opt_ra:
                     cfg.opt_plot_heat = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
-            elif key == "d_bounds":
-                cfg.d_bounds = ast.literal_eval(value)
-            elif key == "region":
-                cfg.region = ast.literal_eval(value)
+            elif key == "plot_heat_formats":
+                cfg.plot_heat_formats = convert_to_1d(value, str)
+            elif key == "plot_heat_spatial_ref":
+                cfg.plot_heat_spatial_ref = ast.literal_eval(value)
+            elif key == "plot_heat_res":
+                cfg.plot_heat_res = ast.literal_eval(value)
 
             # ENVIRONMENT:
             elif key == "n_proc":
