@@ -360,7 +360,7 @@ opt_save_csv        = [False, False]  # If True, save results to CSV files [for 
 # Plots.
 opt_plot              = [True, True]    # If True, actives plot generation [for scenarios, for indices].
 opt_plot_heat         = [False, False]  # If True, generate heat maps [for scenarios, for indices].
-plot_heat_formats     = [f_png, f_tif]  # Plot heat formats.
+plot_heat_formats     = [f_png]         # Plot heat formats.
 plot_heat_spatial_ref = ""              # Spatial reference (starts with: EPSG).
 plot_heat_res         = -1              # Heat map resolution.
 
