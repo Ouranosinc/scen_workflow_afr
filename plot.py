@@ -726,7 +726,13 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
             da_utm = da_utm.rio.reproject(cfg.plot_heat_spatial_ref)
             da_utm.values[da_utm.values == -9999] = np.nan
             da_utm = da_utm.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
-        da_utm.rio.to_raster(p_fig.replace(cfg.f_ext_png, cfg.f_ext_tif))
+
+        p_fig_tif = p_fig.replace(var_or_idx + "/", var_or_idx + "_" + cfg.f_tif + "/").\
+            replace(cfg.f_ext_png, cfg.f_ext_tif)
+        d = os.path.dirname(p_fig_tif)
+        if not (os.path.isdir(d)):
+            os.makedirs(d)
+        da_utm.rio.to_raster(p_fig_tif)
 
     # Export to PNG.
     if cfg.f_png in cfg.plot_heat_formats:
