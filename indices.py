@@ -769,11 +769,11 @@ def run():
                 z_max = max(vals)
 
             # Reference period.
-            statistics.calc_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
+            statistics.calc_heatmap(cfg.idx_names[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
 
             # Future period.
             for rcp in cfg.rcps:
-                statistics.calc_heatmap(cfg.idx_names[i], cfg.idx_threshs[i], rcp, cfg.per_hors, z_min, z_max)
+                statistics.calc_heatmap(cfg.idx_names[i], rcp, cfg.per_hors, z_min, z_max)
 
     else:
         utils.log(msg + " (not required)")

@@ -370,7 +370,6 @@ def calc_ts(cat: str):
         vars_or_idxs = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
         for i_var_or_idx in range(len(vars_or_idxs)):
             var_or_idx = vars_or_idxs[i_var_or_idx]
-            threshs = [] if cat == cfg.cat_scen else cfg.idx_threshs
 
             # Minimum and maximum values along the y-axis
             ylim = []
@@ -612,7 +611,7 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
     return ds_mean_min_max
 
 
-def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]], z_min: float, z_max: float):
+def calc_heatmap(var_or_idx: str, rcp: str, per_hors: [[int]], z_min: float, z_max: float):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -622,8 +621,6 @@ def calc_heatmap(var_or_idx: str, threshs: [float], rcp: str, per_hors: [[int]],
     ----------
     var_or_idx: str
         Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
-    threshs: [float]
-        Climate index thresholds.
     rcp: str
         Emission scenario.
     per_hors: [[int]]
