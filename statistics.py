@@ -843,9 +843,13 @@ def calc_heatmap(var_or_idx: str, rcp: str, per_hors: [[int]], z_min: float, z_m
 
             # Calculate mean or sum.
             if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                ds_hor = ds_hor.resample(time=cfg.freq_YS).mean()
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=Warning)
+                    ds_hor = ds_hor.resample(time=cfg.freq_YS).mean()
             else:
-                ds_hor = ds_hor.resample(time=cfg.freq_YS).sum()
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=FutureWarning)
+                    ds_hor = ds_hor.resample(time=cfg.freq_YS).sum()
             da_hor = ds_hor.mean(dim="time")[var_or_idx]
 
             # Eliminate negligible values (<1mm/year).

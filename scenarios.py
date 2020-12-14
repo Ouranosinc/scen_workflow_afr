@@ -381,7 +381,9 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
 
         # Interpolate.
         utils.log(msg, True)
-        ds_raw = ds_raw.resample(time="1D").mean(dim=cfg.dim_time, keep_attrs=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=Warning)
+            ds_raw = ds_raw.resample(time="1D").mean(dim=cfg.dim_time, keep_attrs=True)
 
         # Save NetCDF file (raw).
         desc = "/" + cfg.cat_raw + "/" + os.path.basename(p_raw)

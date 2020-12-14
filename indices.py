@@ -16,6 +16,7 @@ import statistics
 import utils
 import xarray as xr
 import xclim.indices as indices
+import warnings
 from typing import List
 from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
@@ -482,7 +483,9 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
             else:
                 cond[cond["time"] == t] = False
 
-        group = cond.resample(time=freq)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=Warning)
+            group = cond.resample(time=freq)
         max_l = group.map(rl.longest_run, dim="time")
 
         return max_l.where(max_l >= window, 0)
@@ -525,7 +528,9 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
             else:
                 cond[cond["time"] == t] = False
 
-        group = cond.resample(time=freq)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=Warning)
+            group = cond.resample(time=freq)
 
         return group.map(rl.windowed_run_count, args=(window,), dim="time")
 
@@ -580,7 +585,9 @@ def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p
 
     # Obtain the first day of each year where conditions apply.
     # Then remove errors.
-    da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
     da_start.values[(da_start.values < 0) | (da_start.values > 365)] = np.nan
 
     return da_start
@@ -621,7 +628,9 @@ def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy: in
     da_conds = da_cond1 & da_cond2
 
     # Obtain the first day of each year where conditions apply.
-    da_end = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_end = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
     da_end.values[(da_end.values < 0) | (da_end.values > 365)] = np.nan
 
     return da_end
@@ -667,7 +676,9 @@ def strong_wind(da_wind: xr.DataArray, da_windfromdir: xr.DataArray, thresh_ws: 
     # Combine conditions.
     da_conds = da_cond1 & da_cond2 & da_cond3
 
-    da_strong_wind = da_conds.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_strong_wind = da_conds.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
 
     return da_strong_wind
 

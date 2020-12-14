@@ -9,13 +9,14 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
+import clisops.core.subset as subset
 import datetime
 import glob
 import os
 import plot as plot
 import utils
 import xarray as xr
-import clisops.core.subset as subset
+import warnings
 
 
 def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
@@ -74,23 +75,33 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
                 if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_sh) or\
                    ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tas in cfg.variables_cordex)) or\
                    (var == cfg.var_era5_u10) or (var == cfg.var_era5_v10):
-                    ds_day = ds_hour.resample(time=cfg.freq_D).mean()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=Warning)
+                        ds_day = ds_hour.resample(time=cfg.freq_D).mean()
                     save = True
             elif stat == cfg.stat_min:
                 if (var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmin in cfg.variables_cordex):
-                    ds_day = ds_hour.resample(time=cfg.freq_D).min()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=Warning)
+                        ds_day = ds_hour.resample(time=cfg.freq_D).min()
                     save = True
             elif stat == cfg.stat_max:
                 if (var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmax in cfg.variables_cordex):
-                    ds_day = ds_hour.resample(time=cfg.freq_D).max()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=Warning)
+                        ds_day = ds_hour.resample(time=cfg.freq_D).max()
                     save = True
             elif stat == cfg.stat_sum:
                 if (var == cfg.var_era5_tp) or (var == cfg.var_era5_e) or (var == cfg.var_era5_pev) or\
                         (var == cfg.var_era5_ssrd):
                     if cfg.obs_src == cfg.obs_src_era5:
-                        ds_day = ds_hour.resample(time=cfg.freq_D).sum()
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", category=Warning)
+                            ds_day = ds_hour.resample(time=cfg.freq_D).sum()
                     else:
-                        ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=cfg.freq_D).sum()
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", category=Warning)
+                            ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=cfg.freq_D).sum()
                     save = True
 
             # Save NetCDF file.

@@ -105,7 +105,9 @@ def sfcwind_2_uas_vas(sfcwind: xr.DataArray, winddir: np.array, resample=None, n
     daily_avg_angle = 0.0
     if resample is not None:
 
-        sfcwind = sfcwind.resample(time=resample).mean(dim=cfg.dim_time, keep_attrs=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=Warning)
+            sfcwind = sfcwind.resample(time=resample).mean(dim=cfg.dim_time, keep_attrs=True)
 
         # TODO.MAB: Remove nb_per_day and calculate it.
 

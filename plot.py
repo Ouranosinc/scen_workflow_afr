@@ -594,11 +594,13 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
         if stat == cfg.stat_mean:
             stat_inner = cfg.stat_sum
-        da_obs       = da_obs.resample(time="1M").sum()
-        da_ref       = da_ref.resample(time="1M").sum()
-        da_fut       = da_fut.resample(time="1M").sum()
-        da_qqmap     = da_qqmap.resample(time="1M").sum()
-        da_qqmap_ref = da_qqmap_ref.resample(time="1M").sum()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=Warning)
+            da_obs       = da_obs.resample(time="1M").sum()
+            da_ref       = da_ref.resample(time="1M").sum()
+            da_fut       = da_fut.resample(time="1M").sum()
+            da_qqmap     = da_qqmap.resample(time="1M").sum()
+            da_qqmap_ref = da_qqmap_ref.resample(time="1M").sum()
 
     # Calculate statistics
     da_obs       = da_groupby(da_obs, stat_inner, quantile)
@@ -1265,8 +1267,10 @@ def plot_monthly(stn: str, var: str):
     p_list   = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
     ds_obs   = utils.open_netcdf(p_obs)
-    ds_plt   = ds_obs.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().groupby("time.month").\
-        mean()[var]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        ds_plt = ds_obs.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().\
+            groupby("time.month").mean()[var]
 
     # Plot.
     fs_title  = 6
@@ -1285,12 +1289,16 @@ def plot_monthly(stn: str, var: str):
         # Curves.
         ds = utils.open_netcdf(p_list[i])[var]
         if isinstance(ds.time[0].values, np.datetime64):
-            ds.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().groupby("time.month").mean().\
-                plot(color="blue")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                ds.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().\
+                    groupby("time.month").mean().plot(color="blue")
         ds = utils.open_netcdf(p_list[i])[var]
         if isinstance(ds.time[0].values, np.datetime64):
-            ds.sel(time=slice("2050-01-01", "2070-12-31")).resample(time="M").mean().groupby("time.month").mean().\
-                plot(color="green")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                ds.sel(time=slice("2050-01-01", "2070-12-31")).resample(time="M").mean().\
+                    groupby("time.month").mean().plot(color="green")
         ds_plt.plot(color="red")
 
         # Format.
