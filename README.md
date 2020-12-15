@@ -70,7 +70,11 @@ The following features are being implemented:
 - improved description during logging;
 - a few options differentiated between scenarios and indices tasks;
 - created 'scen' and 'idx' directories under 'stat';
-- created climate indices: 'rx1day', 'rx5day', 'cwd', 'sdii', 'prcptot'.
+- added an aggregation option that will allow examining wind gusts;
+- created several climate indices: etr, tx90p, heatwavemaxlen, heatwavetotlen, hotspellfreq, hotspellmaxlen,
+  tgg, tng, tnx, txdaysabove, txx, tropicalnights, wsdi, rx1day, rx5day, cdd, cwd, drydays, prcptot, r10mm, r20mm,
+  rainstart, rainend, raindur, rnnmm, sdii, wetdays, strongwind, dc;
+- added an option to export in georeferenced maps (GeoTIFF files).
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

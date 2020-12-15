@@ -70,8 +70,12 @@ var_cordex_tas        = "tas"         # Temperature (daily mean).
 var_cordex_tasmin     = "tasmin"      # Temperature (daily minimum).
 var_cordex_tasmax     = "tasmax"      # Temperature (daily maximum).
 var_cordex_pr         = "pr"          # Precipitation.
-var_cordex_uas        = "uas"         # Wind speed, eastward.
+var_cordex_uas        = "uas"         # Wind speed, eastward (daily mean).
+var_cordex_uasmin     = "uasmin"      # Wind speed, eastward (daily minimum).
+var_cordex_uasmax     = "uasmax"      # Wind speed, eastward (daily maximum).
 var_cordex_vas        = "vas"         # Wind speed, northward.
+var_cordex_vasmin     = "vasmin"      # Wind speed, northward (daily minimum).
+var_cordex_vasmax     = "vasmax"      # Wind speed, northward (daily maximum).
 var_cordex_ps         = "ps"          # Barometric pressure.
 var_cordex_rsds       = "rsds"        # Solar radiation.
 var_cordex_evapsbl    = "evapsbl"     # Evaporation.
@@ -80,12 +84,16 @@ var_cordex_huss       = "huss"        # Specific humidity.
 var_cordex_clt        = "clt"         # Cloud cover.
 
 # Variables (era5 and era5_land).
-var_era5_t2m        = "t2m"         # Temperature.
+var_era5_t2m        = "t2m"         # Temperature (hourly or daily mean).
 var_era5_t2mmin     = "t2mmin"      # Temperature (daily minimum).
 var_era5_t2mmax     = "t2mmax"      # Temperature (daily maximum).
 var_era5_tp         = "tp"          # Precipitation.
-var_era5_u10        = "u10"         # Wind speed, eastward.
-var_era5_v10        = "v10"         # Wind speed, northward.
+var_era5_u10        = "u10"         # Wind speed, eastward (hourly or daily mean).
+var_era5_u10min     = "u10min"      # Wind speed, eastward (daily minimum).
+var_era5_u10max     = "u10max"      # Wind speed, eastward (daily maximum).
+var_era5_v10        = "v10"         # Wind speed, northward (hourly or dailiy mean).
+var_era5_v10min     = "v10min"      # Wind speed, northward (daily minimum).
+var_era5_v10max     = "v10max"      # Wind speed, northward (daily maximum).
 var_era5_sp         = "sp"          # Barometric pressure.
 var_era5_ssrd       = "ssrd"        # Solar radiation.
 var_era5_e          = "e"           # Evaporation.
@@ -147,23 +155,22 @@ opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 # Add new index below.
 # ======================================================================================================================
 
-# Temperature.
+# Temperature indices.
+idx_etr             = "etr"             # Extreme temperature range = f(Tmin, Tmax).
 idx_tx90p           = "tx90p"           # Number of days with Tmax > 90th percentile.
 idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length = f(Tmax, n_days).
 idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length = f(Tmax, n_days).
 idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells = f(Tmin, Tmax, n_days).
 idx_hotspellmaxlen  = "hotspellmaxlen"  # Maximum hot spell length = f(Tmin, Tmax, n_days).
-idx_txdaysabove     = "txdaysabove"     # Number of days per year with Tmax above a threshold value.
-idx_txx             = "txx"             # Maximum of Tmax.
-idx_tnx             = "tnx"             # Maximum of Tmin.
 idx_tgg             = "tgg"             # Average temperature =f(Tmin, Tmax).
 idx_tng             = "tng"             # Average Tmin.
+idx_tnx             = "tnx"             # Maximum of Tmin.
+idx_txdaysabove     = "txdaysabove"     # Number of days per year with Tmax above a threshold value.
+idx_txx             = "txx"             # Maximum of Tmax.
 idx_tropicalnights  = "tropicalnights"  # Number of tropical nights = f(Tmin).
 idx_wsdi            = "wsdi"            # Warm spell duration index = f(Tmax, Tmax90p).
-idx_etr             = "etr"             # Extreme temperature range = f(Tmin, Tmax).
-idx_dc              = "dc"              # Drought code = f(Tmean,P,lat).
 
-# Precipitation.
+# Precipitation indices.
 # Regarding idx_rain* indices:
 # - Pwet is the daily precipitation amount required during the first Dwet consecutive days occurring at or after the
 #   DOY th day of year. There must not be a sequence of Ddry days with less than Pdry precipitation per day over the
@@ -172,19 +179,27 @@ idx_dc              = "dc"              # Drought code = f(Tmean,P,lat).
 #   DOY th day of year.
 idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
 idx_rx5day          = "rx5day"          # Highest 5-day precipitation amount.
-idx_cwd             = "cwd"             # Maximum number of consecutive wet days (above a threshold).
 idx_cdd             = "cdd"             # Maximum number of consecutive dry days (above a threshold).
-idx_sdii            = "sdii"            # Average daily precipitation intensity.
+idx_cwd             = "cwd"             # Maximum number of consecutive wet days (above a threshold).
+idx_drydays         = "drydays"         # Number of dry days (below a threshold).
 idx_prcptot         = "prcptot"         # Accumulated total precipitation.
 idx_r10mm           = "r10mm"           # Number of days with precipitation >= 10 mm.
 idx_r20mm           = "r20mm"           # Number of days with precipitation >= 20 mm.
-idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
-idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
-idx_drydays         = "drydays"         # Number of dry days (below a threshold).
 idx_rainstart       = "rainstart"       # Day of year where rain season starts = f(Pwet, Dwet, DOY, Pdry, Ddry, Dtot).
 idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOY).
 idx_raindur         = "raindur"         # Duration of the rain season = idx_rainend - idx_rainstart + 1.
+idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
+idx_sdii            = "sdii"            # Average daily precipitation intensity.
+idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
+
+# Wind indices.
+# WS = wind speed; WSneg = wind speed threshold under which wind is considered negligible; Wdir = wind direction
+# consider; Wdirtol = wind direction tolerance with respect to 'Wdir' (in both directions); months =
+# array of month numbers to consider.
 idx_strongwind      = "strongwind"      # Strong wind = f(WS, WSneg, Wdir, Wdirtol, months).
+
+# Temperature-precipiation indices.
+idx_dc              = "dc"              # Drought code = f(Tmean,P,lat).
 
 # ==========================================================
 # TODO.CUSTOMIZATION.INDEX.END
@@ -359,10 +374,10 @@ opt_save_csv        = [False, False]  # If True, save results to CSV files [for 
 
 # Plots.
 opt_plot              = [True, True]    # If True, actives plot generation [for scenarios, for indices].
-opt_plot_heat         = [False, False]  # If True, generate heat maps [for scenarios, for indices].
-plot_heat_formats     = [f_png]         # Plot heat formats.
-plot_heat_spatial_ref = ""              # Spatial reference (starts with: EPSG).
-plot_heat_res         = -1              # Heat map resolution.
+opt_map               = [False, False]  # If True, generate heat maps [for scenarios, for indices].
+opt_map_formats       = [f_png]         # Map formats.
+opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).
+opt_map_res           = -1              # Map resolution.
 
 # Color associated with specific datasets (for consistency).
 col_sim_adj_ref     = "blue"        # Simulation (bias-adjusted) for the reference period.
@@ -415,26 +430,28 @@ def get_var_desc(var: str, set_name: str = "cordex"):
 
     var_desc = ""
     if set_name == "cordex":
-        if var == var_cordex_tas:
-            var_desc = "Temp. moyenne"
-        elif var == var_cordex_tasmin:
-            var_desc = "Temp. minimale"
-        elif var == var_cordex_tasmax:
-            var_desc = "Temp. maximale"
+        if var in [var_cordex_tas, var_cordex_tasmin, var_cordex_tasmax]:
+            var_desc = "Température"
         elif var == var_cordex_ps:
             var_desc = "Pression barométrique"
         elif var == var_cordex_pr:
             var_desc = "Précipitation"
         elif var == var_cordex_rsds:
             var_desc = "Radiation solaire"
-        elif var == var_cordex_uas:
-            var_desc = "Vent (dir. est)"
-        elif var == var_cordex_vas:
-            var_desc = "Vent (dir. nord)"
+        elif var in [var_cordex_uas, var_cordex_uasmin, var_cordex_uasmax,
+                     var_cordex_vas, var_cordex_vasmin, var_cordex_vasmax]:
+            var_desc = "Vent" + \
+                " (dir. est)" if var in [var_cordex_uas, var_cordex_uasmin, var_cordex_uasmax] else " (dir. nord)"
         elif var == var_cordex_clt:
             var_desc = "Couvert nuageux"
         elif var == var_cordex_huss:
             var_desc = "Humidité spécifique"
+        if var in [var_cordex_tas, var_cordex_uas, var_cordex_vas]:
+            var_desc += " (moy)"
+        elif var in [var_cordex_tasmin, var_cordex_uasmin, var_cordex_vasmin]:
+            var_desc += " (min)"
+        else:
+            var_desc += " (max)"
     elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
         if var == var_era5_d2m:
             var_desc = "Point de rosée"
@@ -582,8 +599,9 @@ def convert_var_name(var: str):
 
     # Pairs.
     pairs = [[var_cordex_tas, var_era5_t2m], [var_cordex_tasmin, var_era5_t2mmin], [var_cordex_tasmax, var_era5_t2mmax],
-             [var_cordex_pr, var_era5_tp], [var_cordex_uas, var_era5_u10], [var_cordex_vas, var_era5_v10],
-             [var_cordex_ps, var_era5_sp], [var_cordex_rsds, var_era5_ssrd],
+             [var_cordex_pr, var_era5_tp], [var_cordex_uas, var_era5_u10], [var_cordex_uasmin, var_era5_u10min],
+             [var_cordex_uasmax, var_era5_u10max], [var_cordex_vas, var_era5_v10], [var_cordex_vasmin, var_era5_v10min],
+             [var_cordex_vasmax, var_era5_v10max], [var_cordex_ps, var_era5_sp], [var_cordex_rsds, var_era5_ssrd],
              [var_cordex_evapsbl, var_era5_e], [var_cordex_evapsblpot, var_era5_pev], [var_cordex_huss, var_era5_sh]]
 
     # Loop through pairs.
@@ -623,7 +641,8 @@ def get_var_unit(var: str, set_name: str = "cordex"):
             var_unit = unit_Pa
         elif var == var_cordex_pr:
             var_unit = unit_mm
-        elif (var == var_cordex_uas) or (var == var_cordex_vas):
+        elif (var == var_cordex_uas) or (var == var_cordex_uas) or (var == var_cordex_uas) or\
+             (var == var_cordex_vas) or (var == var_cordex_vas) or (var == var_cordex_vas):
             var_unit = unit_ms1
         elif var == var_cordex_clt:
             var_unit = unit_pct
@@ -634,7 +653,8 @@ def get_var_unit(var: str, set_name: str = "cordex"):
             var_unit = unit_deg
         elif var == var_era5_sp:
             var_unit = unit_Pa
-        elif (var == var_era5_u10) or (var == var_era5_v10):
+        elif (var == var_era5_u10) or (var == var_era5_u10min) or (var == var_era5_u10max) or\
+             (var == var_era5_v10) or (var == var_era5_v10min) or (var == var_era5_v10max):
             var_unit = unit_ms1
         elif var == var_era5_ssrd:
             var_unit = unit_Jm2

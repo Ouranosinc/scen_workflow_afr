@@ -1149,7 +1149,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (scenarios)"
-    if cfg.opt_stat[0] or (cfg.opt_ra and (cfg.opt_plot_heat[0] or cfg.opt_save_csv[0])):
+    if cfg.opt_stat[0] or (cfg.opt_ra and (cfg.opt_map[0] or cfg.opt_save_csv[0])):
         utils.log(msg)
         statistics.calc_stats(cfg.cat_scen)
     else:
@@ -1173,7 +1173,7 @@ def run():
 
     utils.log("=")
     msg = "Step #8   Generating diagrams and maps (scenarios)"
-    if cfg.opt_plot[0] or cfg.opt_plot_heat[0]:
+    if cfg.opt_plot[0] or cfg.opt_map[0]:
         utils.log(msg)
     else:
         utils.log(msg + not_req)
@@ -1244,7 +1244,7 @@ def run():
     # - calculation is very slow (something is wrong).
     utils.log("-")
     msg = "Step #8c  Generating heat maps (scenarios)"
-    if cfg.opt_ra and (cfg.opt_plot_heat[0] or cfg.opt_save_csv[0]):
+    if cfg.opt_ra and (cfg.opt_map[0] or cfg.opt_save_csv[0]):
 
         utils.log(msg)
 

@@ -60,7 +60,8 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
 
         # Output file name.
         var_stat = var + stat
-        if var == cfg.var_era5_t2m and ((stat == cfg.stat_min) or (stat == cfg.stat_max)):
+        if (var in [cfg.var_era5_t2m, cfg.var_era5_u10, cfg.var_era5_v10]) and\
+           ((stat == cfg.stat_min) or (stat == cfg.stat_max)):
             p_day_stat = dir_day + var_stat + "/" + fn_day.replace(var + "_", var_stat + "_")
         else:
             p_day_stat = dir_day + var + "/" + fn_day
@@ -80,13 +81,17 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
                         ds_day = ds_hour.resample(time=cfg.freq_D).mean()
                     save = True
             elif stat == cfg.stat_min:
-                if (var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmin in cfg.variables_cordex):
+                if ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmin in cfg.variables_cordex)) or\
+                   ((var == cfg.var_era5_u10) and (cfg.var_cordex_uasmin in cfg.variables_cordex)) or\
+                   ((var == cfg.var_era5_v10) and (cfg.var_cordex_vasmin in cfg.variables_cordex)):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
                         ds_day = ds_hour.resample(time=cfg.freq_D).min()
                     save = True
             elif stat == cfg.stat_max:
-                if (var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmax in cfg.variables_cordex):
+                if ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmax in cfg.variables_cordex)) or\
+                   ((var == cfg.var_era5_u10) and (cfg.var_cordex_uasmax in cfg.variables_cordex)) or\
+                   ((var == cfg.var_era5_v10) and (cfg.var_cordex_vasmax in cfg.variables_cordex)):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
                         ds_day = ds_hour.resample(time=cfg.freq_D).max()

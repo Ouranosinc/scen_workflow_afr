@@ -716,7 +716,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (indices)"
-    if cfg.opt_stat[1] or (cfg.opt_ra and (cfg.opt_plot_heat[1] or cfg.opt_save_csv[1])):
+    if cfg.opt_stat[1] or (cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1])):
         utils.log(msg)
         statistics.calc_stats(cfg.cat_idx)
     else:
@@ -740,7 +740,7 @@ def run():
 
     utils.log("=")
     msg = "Step #8   Generating diagrams and maps (indices)"
-    if cfg.opt_plot[1] or cfg.opt_plot_heat[1]:
+    if cfg.opt_plot[1] or cfg.opt_map[1]:
         utils.log(msg)
     else:
         utils.log(msg + not_req)
@@ -759,7 +759,7 @@ def run():
     # - calculation is very slow (something is wrong).
     utils.log("-")
     msg = "Step #8c  Generating heat maps (indices)"
-    if cfg.opt_ra and (cfg.opt_plot_heat[1] or cfg.opt_save_csv[1]):
+    if cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1]):
 
         utils.log(msg)
 

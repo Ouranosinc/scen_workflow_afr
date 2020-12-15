@@ -211,16 +211,16 @@ def load_params(p_ini: str):
             # VISUALIZATION:
             elif key == "opt_plot":
                 cfg.opt_plot = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
-            elif key == "opt_plot_heat":
-                cfg.opt_plot_heat = [False, False]
+            elif key == "opt_map":
+                cfg.opt_map = [False, False]
                 if cfg.opt_ra:
-                    cfg.opt_plot_heat = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
-            elif key == "plot_heat_formats":
-                cfg.plot_heat_formats = convert_to_1d(value, str)
-            elif key == "plot_heat_spatial_ref":
-                cfg.plot_heat_spatial_ref = ast.literal_eval(value)
-            elif key == "plot_heat_res":
-                cfg.plot_heat_res = ast.literal_eval(value)
+                    cfg.opt_map = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+            elif key == "opt_map_formats":
+                cfg.opt_map_formats = convert_to_1d(value, str)
+            elif key == "opt_map_spat_ref":
+                cfg.opt_map_spat_ref = ast.literal_eval(value)
+            elif key == "opt_map_res":
+                cfg.opt_map_res = ast.literal_eval(value)
 
             # ENVIRONMENT:
             elif key == "n_proc":

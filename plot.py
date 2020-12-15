@@ -710,13 +710,13 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
     """
 
     # Export to GeoTIFF.
-    if cfg.f_tif in cfg.plot_heat_formats:
+    if cfg.f_tif in cfg.opt_map_formats:
 
         # Increase resolution.
         da_tif = da
-        if cfg.plot_heat_res > 0:
-            lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cfg.plot_heat_res)
-            lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cfg.plot_heat_res)
+        if cfg.opt_map_res > 0:
+            lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cfg.opt_map_res)
+            lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cfg.opt_map_res)
             da_tif = da_tif.rename({cfg.dim_latitude: cfg.dim_lat, cfg.dim_longitude: cfg.dim_lon})
             da_grid = xr.Dataset({cfg.dim_lat: ([cfg.dim_lat], lat_vals), cfg.dim_lon: ([cfg.dim_lon], lon_vals)})
             with warnings.catch_warnings():
@@ -725,9 +725,9 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
 
         # Export.
         da_tif.rio.set_crs("EPSG:4326")
-        if cfg.plot_heat_spatial_ref != "EPSG:4326":
+        if cfg.opt_map_spat_ref != "EPSG:4326":
             da_tif.rio.set_spatial_dims(cfg.dim_lon, cfg.dim_lat, inplace=True)
-            da_tif = da_tif.rio.reproject(cfg.plot_heat_spatial_ref)
+            da_tif = da_tif.rio.reproject(cfg.opt_map_spat_ref)
             da_tif.values[da_tif.values == -9999] = np.nan
             da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
 
@@ -739,7 +739,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
         da_tif.rio.to_raster(p_fig_tif)
 
     # Export to PNG.
-    if cfg.f_png in cfg.plot_heat_formats:
+    if cfg.f_png in cfg.opt_map_formats:
 
         # Get title and label.
         title, label = get_title_label(stn, var_or_idx, rcp, per)
