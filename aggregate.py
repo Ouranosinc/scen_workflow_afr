@@ -336,7 +336,7 @@ def run():
                    ((not os.path.exists(p_raw_uv10)) or cfg.opt_force_overwrite):
                     gen_dataset_uv10(p_raw_u10, p_raw_v10, p_raw_uv10, n_years)
                 if os.path.exists(p_raw_uv10) and (not os.path.exists(p_day_uv10) or cfg.opt_force_overwrite):
-                    aggregate(p_raw_uv10, p_day_uv10, cfg.obs_src, cfg.var_era5_sh)
+                    aggregate(p_raw_uv10, p_day_uv10, cfg.obs_src, cfg.var_era5_uv10)
 
 
 if __name__ == "__main__":
