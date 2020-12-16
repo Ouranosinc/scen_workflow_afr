@@ -60,8 +60,8 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
 
         # Output file name.
         var_stat = var + stat
-        if (var in [cfg.var_era5_t2m, cfg.var_era5_u10, cfg.var_era5_v10]) and\
-           ((stat == cfg.stat_min) or (stat == cfg.stat_max)):
+        if (var in [cfg.var_era5_t2m, cfg.var_era5_u10, cfg.var_era5_v10, cfg.var_era5_uv10]) and\
+           (stat in [cfg.stat_min, cfg.stat_max]):
             p_day_stat = dir_day + var_stat + "/" + fn_day.replace(var + "_", var_stat + "_")
         else:
             p_day_stat = dir_day + var + "/" + fn_day
@@ -73,7 +73,7 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             ds_day = None
             save = False
             if stat == cfg.stat_mean:
-                if (var == cfg.var_era5_d2m) or (var == cfg.var_era5_sh) or\
+                if (var in [cfg.var_era5_d2m, cfg.var_era5_sh]) or\
                    ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tas in cfg.variables_cordex)) or\
                    (var == cfg.var_era5_u10) or (var == cfg.var_era5_v10):
                     with warnings.catch_warnings():
@@ -88,15 +88,13 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
                     save = True
             elif stat == cfg.stat_max:
                 if ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmax in cfg.variables_cordex)) or\
-                   ((var in [cfg.var_era5_u10, cfg.var_era5_v10]) and
-                   (cfg.var_cordex_sfcwindmax in cfg.variables_cordex)):
+                   ((var == cfg.var_era5_uv10) and (cfg.var_cordex_sfcwindmax in cfg.variables_cordex)):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
                         ds_day = ds_hour.resample(time=cfg.freq_D).max()
                     save = True
             elif stat == cfg.stat_sum:
-                if (var == cfg.var_era5_tp) or (var == cfg.var_era5_e) or (var == cfg.var_era5_pev) or\
-                        (var == cfg.var_era5_ssrd):
+                if (var in [cfg.var_era5_tp, cfg.var_era5_e, cfg.var_era5_pev]) or (var == cfg.var_era5_ssrd):
                     if cfg.obs_src == cfg.obs_src_era5:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=Warning)
