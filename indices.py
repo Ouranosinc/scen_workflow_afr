@@ -77,9 +77,11 @@ def generate(idx_name: str, idx_threshs: [float]):
         var_or_idx_list.append(cfg.var_cordex_pr)
 
     # Wind.
-    elif idx_name == cfg.idx_strongwind:
+    elif idx_name == cfg.idx_wgdaysabove:
         var_or_idx_list.append(cfg.var_cordex_uas)
         var_or_idx_list.append(cfg.var_cordex_vas)
+    elif idx_name == cfg.idx_wxdaysabove:
+        var_or_idx_list.append(cfg.var_cordex_sfcwindmax)
 
     # ==================================================================================================================
     # TODO.CUSTOMIZATION.INDEX.END
@@ -206,7 +208,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
                        ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
                        ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)) or \
-                       ((idx_name == cfg.idx_strongwind) and (i == 0)):
+                       ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 0)):
 
                         if "p" in str(idx_thresh):
                             idx_thresh = float(idx_thresh.replace("p", "")) / 100.0
@@ -218,11 +220,14 @@ def generate(idx_name: str, idx_threshs: [float]):
                                 elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
                                     idx_thresh =\
                                         ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_thresh).values.ravel()[0]
-                                elif idx_name == cfg.idx_strongwind:
-                                    da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
-                                    da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
-                                    da_wind, da_windfromdir = indices.uas_vas_2_sfcwind(da_uas, da_vas)
-                                    idx_thresh = da_wind.quantile(idx_thresh).values.ravel()[0]
+                                elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
+                                    if idx_name == cfg.idx_wgdaysabove:
+                                        da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
+                                        da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
+                                        da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas)
+                                    else:
+                                        da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
+                                    idx_thresh = da_vv.quantile(idx_thresh).values.ravel()[0]
                                 idx_thresh = float(round(idx_thresh, 2))
                                 cfg.idx_threshs[cfg.idx_names.index(idx_name)][i] = idx_thresh
                             else:
@@ -241,15 +246,15 @@ def generate(idx_name: str, idx_threshs: [float]):
                                       cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
                         idx_threshs_str.append(str(idx_thresh) + " mm/day")
 
-                    elif (idx_name == cfg.idx_strongwind) and (i == 1):
+                    elif (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 1):
                         idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_ms1)
 
-                    elif not ((idx_name == cfg.idx_strongwind) and (i == 4)):
+                    elif not ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4)):
                         idx_threshs_str.append(str(idx_thresh))
 
                     # Split lists --------------------------------------------------------------------------------------
 
-                    if (idx_name == cfg.idx_strongwind) and (i == 4):
+                    if (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4):
                         if idx_threshs[i] == "nan":
                             idx_threshs_str.append(idx_threshs[i])
                         else:
@@ -396,17 +401,21 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Wind -------------------------------------------------------------------------------------------------
 
-                elif idx_name == cfg.idx_strongwind:
-                    da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
-                    da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
-                    thresh_ws = float(idx_threshs_str[0])
-                    thresh_wsneg = idx_threshs_str[1]
-                    thresh_wdir = float(idx_threshs_str[2])
-                    thresh_wdir_tol = float(idx_threshs_str[3])
+                elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
+                    thresh_vv = float(idx_threshs_str[0])
+                    thresh_vv_neg = idx_threshs_str[1]
+                    thresh_dd = float(idx_threshs_str[2])
+                    thresh_dd_tol = float(idx_threshs_str[3])
                     thresh_months = None if (idx_threshs_str[4] == "nan") else idx_threshs_str[4]
-                    da_wind, da_windfromdir = indices.uas_vas_2_sfcwind(da_uas, da_vas, thresh_wsneg)
-                    da_idx = xr.DataArray(
-                        strong_wind(da_wind, da_windfromdir, thresh_ws, thresh_wdir, thresh_wdir_tol, thresh_months))
+                    if idx_name == cfg.idx_wgdaysabove:
+                        da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
+                        da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
+                        da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas, thresh_vv_neg)
+                    else:
+                        da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
+                        da_dd = None
+                    da_idx =\
+                        xr.DataArray(strong_wind(da_vv, da_dd, thresh_vv, thresh_dd, thresh_dd_tol, thresh_months))
                     idx_units = cfg.unit_1
 
                 da_idx.attrs[cfg.attrs_units] = idx_units
@@ -447,7 +456,7 @@ def generate(idx_name: str, idx_threshs: [float]):
 
 
 def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasmin: str = "22.0 degC",
-    thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+                         thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -492,7 +501,7 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
 
 
 def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasmin: str = "22.0 degC",
-    thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+                           thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -636,8 +645,8 @@ def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy: in
     return da_end
 
 
-def strong_wind(da_wind: xr.DataArray, da_windfromdir: xr.DataArray, thresh_ws: float, thresh_wdir: float=None,
-                thresh_wdir_tol: float=45, months: List[int]=None) -> xr.DataArray:
+def strong_wind(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, thresh_dd: float = None,
+                thresh_dd_tol: float = 45, months: List[int] = None) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -645,15 +654,15 @@ def strong_wind(da_wind: xr.DataArray, da_windfromdir: xr.DataArray, thresh_ws: 
 
     Parameters
     ----------
-    da_wind : xr.DataArray
+    da_vv : xr.DataArray
         Wind speed (m s-1).
-    da_windfromdir : xr.DataArray
+    da_dd : xr.DataArray
         Direction for which the wind is coming from (degrees).
-    thresh_ws: float
+    thresh_vv: float
         Threshold related to 'da_wind' (m s-1).
-    thresh_wdir: float
+    thresh_dd: float
         Threshold related to 'da_windfromdir' (degrees).
-    thresh_wdir_tol: float
+    thresh_dd_tol: float
         Threshold tolerance related to 'da_windfromdir' (degrees).
     months: [int]
         List of months.
@@ -661,16 +670,16 @@ def strong_wind(da_wind: xr.DataArray, da_windfromdir: xr.DataArray, thresh_ws: 
     """
 
     # Condition #1: Wind speed.
-    da_cond1 = da_wind > thresh_ws
+    da_cond1 = da_vv > thresh_vv
 
     # Condition #2: Wind direction.
-    da_cond2 = (da_windfromdir - thresh_wdir <= thresh_wdir_tol) if thresh_wdir is not None else True
+    da_cond2 = (da_dd - thresh_dd <= thresh_dd_tol) if thresh_dd is not None else True
 
     # Condition #3: Month.
     da_cond3 = True
     if months is not None:
         for i in range(len(months)):
-            da_cond3_i = da_wind.time.dt.month == months[i]
+            da_cond3_i = da_vv.time.dt.month == months[i]
             da_cond3 = da_cond3_i if i == 0 else da_cond3 | da_cond3_i
 
     # Combine conditions.

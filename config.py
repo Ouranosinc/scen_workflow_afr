@@ -70,12 +70,9 @@ var_cordex_tas        = "tas"         # Temperature (daily mean).
 var_cordex_tasmin     = "tasmin"      # Temperature (daily minimum).
 var_cordex_tasmax     = "tasmax"      # Temperature (daily maximum).
 var_cordex_pr         = "pr"          # Precipitation.
-var_cordex_uas        = "uas"         # Wind speed, eastward (daily mean).
-var_cordex_uasmin     = "uasmin"      # Wind speed, eastward (daily minimum).
-var_cordex_uasmax     = "uasmax"      # Wind speed, eastward (daily maximum).
+var_cordex_uas        = "uas"         # Wind speed, eastward.
 var_cordex_vas        = "vas"         # Wind speed, northward.
-var_cordex_vasmin     = "vasmin"      # Wind speed, northward (daily minimum).
-var_cordex_vasmax     = "vasmax"      # Wind speed, northward (daily maximum).
+var_cordex_sfcwindmax = "sfcwindmax"  # Wind speed (daily maximum).
 var_cordex_ps         = "ps"          # Barometric pressure.
 var_cordex_rsds       = "rsds"        # Solar radiation.
 var_cordex_evapsbl    = "evapsbl"     # Evaporation.
@@ -94,6 +91,7 @@ var_era5_u10max     = "u10max"      # Wind speed, eastward (daily maximum).
 var_era5_v10        = "v10"         # Wind speed, northward (hourly or dailiy mean).
 var_era5_v10min     = "v10min"      # Wind speed, northward (daily minimum).
 var_era5_v10max     = "v10max"      # Wind speed, northward (daily maximum).
+var_era5_uv10       = "uv10"        # Wind speed (hourly or daily mean).
 var_era5_sp         = "sp"          # Barometric pressure.
 var_era5_ssrd       = "ssrd"        # Solar radiation.
 var_era5_e          = "e"           # Evaporation.
@@ -193,10 +191,13 @@ idx_sdii            = "sdii"            # Average daily precipitation intensity.
 idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
 
 # Wind indices.
+# Regarding idx_wxdaysabove and idx_wgdaysabove:
 # WS = wind speed; WSneg = wind speed threshold under which wind is considered negligible; Wdir = wind direction
 # consider; Wdirtol = wind direction tolerance with respect to 'Wdir' (in both directions); months =
 # array of month numbers to consider.
-idx_strongwind      = "strongwind"      # Strong wind = f(WS, WSneg, Wdir, Wdirtol, months).
+# In other cases: = f(WS, WSneg, Wdir, Wdirtol, months).
+idx_wgdaysabove     = "wgdaysabove"     # Number of days per year with Wmean above a threshold value.
+idx_wxdaysabove     = "wxdaysabove"     # Number of days per year with Wmax above a threshold value.
 
 # Temperature-precipiation indices.
 idx_dc              = "dc"              # Drought code = f(Tmean,P,lat).
@@ -438,19 +439,19 @@ def get_var_desc(var: str, set_name: str = "cordex"):
             var_desc = "Précipitation"
         elif var == var_cordex_rsds:
             var_desc = "Radiation solaire"
-        elif var in [var_cordex_uas, var_cordex_uasmin, var_cordex_uasmax,
-                     var_cordex_vas, var_cordex_vasmin, var_cordex_vasmax]:
-            var_desc = "Vent" + \
-                " (dir. est)" if var in [var_cordex_uas, var_cordex_uasmin, var_cordex_uasmax] else " (dir. nord)"
+        elif var in [var_cordex_uas, var_cordex_vas, var_cordex_sfcwindmax]:
+            var_desc = "Vent"
+            if var == var_cordex_uas:
+                var_desc += " (dir. est)"
+            elif var == var_cordex_vas:
+                var_desc += " (dir. nord)"
         elif var == var_cordex_clt:
             var_desc = "Couvert nuageux"
         elif var == var_cordex_huss:
             var_desc = "Humidité spécifique"
         if var in [var_cordex_tas, var_cordex_uas, var_cordex_vas]:
             var_desc += " (moy)"
-        elif var in [var_cordex_tasmin, var_cordex_uasmin, var_cordex_vasmin]:
-            var_desc += " (min)"
-        else:
+        elif var == var_cordex_sfcwindmax:
             var_desc += " (max)"
     elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
         if var == var_era5_d2m:
@@ -573,7 +574,7 @@ def get_idx_desc(idx_name: str):
         idx_desc = "Code sécheresse"
 
     # Wind.
-    elif idx_name == idx_strongwind:
+    elif idx_name == idx_wgdaysabove:
         idx_desc = "Nbr jours avec vent fort (V≥" + str(idx_threshs_loc[0]) + unit_ms1 + "; " + \
                    str(idx_threshs_loc[2]) + "±" + str(idx_threshs_loc[3]) + "º; mois " + str(idx_threshs_loc[4]) + ")"
 
@@ -599,9 +600,8 @@ def convert_var_name(var: str):
 
     # Pairs.
     pairs = [[var_cordex_tas, var_era5_t2m], [var_cordex_tasmin, var_era5_t2mmin], [var_cordex_tasmax, var_era5_t2mmax],
-             [var_cordex_pr, var_era5_tp], [var_cordex_uas, var_era5_u10], [var_cordex_uasmin, var_era5_u10min],
-             [var_cordex_uasmax, var_era5_u10max], [var_cordex_vas, var_era5_v10], [var_cordex_vasmin, var_era5_v10min],
-             [var_cordex_vasmax, var_era5_v10max], [var_cordex_ps, var_era5_sp], [var_cordex_rsds, var_era5_ssrd],
+             [var_cordex_pr, var_era5_tp], [var_cordex_uas, var_era5_u10], [var_cordex_vas, var_era5_v10],
+             [var_cordex_sfcwindmax, var_era5_uv10max], [var_cordex_ps, var_era5_sp], [var_cordex_rsds, var_era5_ssrd],
              [var_cordex_evapsbl, var_era5_e], [var_cordex_evapsblpot, var_era5_pev], [var_cordex_huss, var_era5_sh]]
 
     # Loop through pairs.
@@ -641,8 +641,7 @@ def get_var_unit(var: str, set_name: str = "cordex"):
             var_unit = unit_Pa
         elif var == var_cordex_pr:
             var_unit = unit_mm
-        elif (var == var_cordex_uas) or (var == var_cordex_uas) or (var == var_cordex_uas) or\
-             (var == var_cordex_vas) or (var == var_cordex_vas) or (var == var_cordex_vas):
+        elif (var == var_cordex_uas) or (var == var_cordex_vas) or (var == var_cordex_sfcwindmax):
             var_unit = unit_ms1
         elif var == var_cordex_clt:
             var_unit = unit_pct

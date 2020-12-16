@@ -81,17 +81,15 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
                         ds_day = ds_hour.resample(time=cfg.freq_D).mean()
                     save = True
             elif stat == cfg.stat_min:
-                if ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmin in cfg.variables_cordex)) or\
-                   ((var == cfg.var_era5_u10) and (cfg.var_cordex_uasmin in cfg.variables_cordex)) or\
-                   ((var == cfg.var_era5_v10) and (cfg.var_cordex_vasmin in cfg.variables_cordex)):
+                if (var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmin in cfg.variables_cordex):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
                         ds_day = ds_hour.resample(time=cfg.freq_D).min()
                     save = True
             elif stat == cfg.stat_max:
                 if ((var == cfg.var_era5_t2m) and (cfg.var_cordex_tasmax in cfg.variables_cordex)) or\
-                   ((var == cfg.var_era5_u10) and (cfg.var_cordex_uasmax in cfg.variables_cordex)) or\
-                   ((var == cfg.var_era5_v10) and (cfg.var_cordex_vasmax in cfg.variables_cordex)):
+                   ((var in [cfg.var_era5_u10, cfg.var_era5_v10]) and
+                   (cfg.var_cordex_sfcwindmax in cfg.variables_cordex)):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
                         ds_day = ds_hour.resample(time=cfg.freq_D).max()
@@ -212,11 +210,11 @@ def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
     """
 
     # Load datasets.
-    ds_d2m = utils.open_netcdf(p_d2m, chunks={cfg.dim_time: n_years})[cfg.var_era5_d2m]
-    ds_sp  = utils.open_netcdf(p_sp, chunks={cfg.dim_time: n_years})[cfg.var_era5_sp]
+    da_d2m = utils.open_netcdf(p_d2m, chunks={cfg.dim_time: n_years})[cfg.var_era5_d2m]
+    da_sp  = utils.open_netcdf(p_sp, chunks={cfg.dim_time: n_years})[cfg.var_era5_sp]
 
     # Calculate specific humidity values.
-    da_sh = calc_spec_humidity(ds_d2m - cfg.d_KC, ds_sp / 100.0)
+    da_sh = calc_spec_humidity(da_d2m - cfg.d_KC, da_sp / 100.0)
 
     # Update meta information.
     da_sh.name = cfg.var_era5_sh
@@ -227,6 +225,43 @@ def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
 
     # Save NetCDF file.
     utils.save_netcdf(da_sh, p_sh)
+
+
+def gen_dataset_uv10(p_u10: str, p_v10: str, p_uv10: str, n_years: int):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate a dataset for the variable "specific humidity".
+
+    Parameters
+    ----------
+    p_u10 : str
+        Path of hourly dataset containing u-component wind.
+    p_v10 : str
+        Path of hourly dataset containing v-component wind.
+    p_uv10 : str
+        Path of hourly dataset containing wind.
+    n_years : int
+        Number of years in the datasets.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Load datasets.
+    da_u10 = utils.open_netcdf(p_u10, chunks={cfg.dim_time: n_years})[cfg.var_era5_u10]
+    da_v10  = utils.open_netcdf(p_v10, chunks={cfg.dim_time: n_years})[cfg.var_era5_v10]
+
+    # Calculate specific humidity values.
+    da_uv10 = ((da_u10 ** 2) + (da_v10 ** 2)) ** 0.5
+
+    # Update meta information.
+    da_uv10.name = cfg.var_era5_uv10
+    da_uv10.attrs[cfg.attrs_lname] = "wind"
+    da_uv10.attrs[cfg.attrs_units] = cfg.unit_ms1
+    da_uv10.attrs[cfg.attrs_lname] = "wind"
+    da_uv10.attrs[cfg.attrs_units] = cfg.unit_ms1
+
+    # Save NetCDF file.
+    utils.save_netcdf(da_uv10, p_uv10)
 
 
 def run():
@@ -246,6 +281,9 @@ def run():
         elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
             if cfg.var_era5_t2m not in vars:
                 vars.append(cfg.var_era5_t2m)
+        elif var == cfg.var_cordex_sfcwindmax:
+            vars.append(cfg.var_era5_u10)
+            vars.append(cfg.var_era5_v10)
         else:
             var_ra = cfg.convert_var_name(var)
             if var_ra is not None:
@@ -276,13 +314,29 @@ def run():
                 else:
                     p_raw_sp  = p_raw
                     p_raw_d2m = p_raw.replace(cfg.var_era5_sp, cfg.var_era5_d2m)
-                p_raw_sh  = p_raw_sp.replace(cfg.var_era5_sp, cfg.var_era5_sh)
-                p_day_sh  = cfg.d_ra_day + os.path.basename(p_raw_sh).replace("hour", "day")
+                p_raw_sh = p_raw_sp.replace(cfg.var_era5_sp, cfg.var_era5_sh)
+                p_day_sh = cfg.d_ra_day + os.path.basename(p_raw_sh).replace("hour", "day")
                 if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and\
                    ((not os.path.exists(p_raw_sh)) or cfg.opt_force_overwrite):
                     gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
                 if os.path.exists(p_raw_sh) and (not os.path.exists(p_day_sh) or cfg.opt_force_overwrite):
                     aggregate(p_raw_sh, p_day_sh, cfg.obs_src, cfg.var_era5_sh)
+
+            # Calculate wind speed.
+            if (var == cfg.var_era5_u10) or (var == cfg.var_era5_v10):
+                if var == cfg.var_era5_u10:
+                    p_raw_u10 = p_raw
+                    p_raw_v10 = p_raw.replace(cfg.var_era5_u10, cfg.var_era5_v10)
+                else:
+                    p_raw_v10 = p_raw
+                    p_raw_u10 = p_raw.replace(cfg.var_era5_v10, cfg.var_era5_u10)
+                p_raw_uv10 = p_raw_v10.replace(cfg.var_era5_v10, cfg.var_era5_uv10)
+                p_day_uv10 = cfg.d_ra_day + os.path.basename(p_raw_uv10).replace("hour", "day")
+                if os.path.exists(p_raw_u10) and os.path.exists(p_raw_v10) and\
+                   ((not os.path.exists(p_raw_uv10)) or cfg.opt_force_overwrite):
+                    gen_dataset_uv10(p_raw_u10, p_raw_v10, p_raw_uv10, n_years)
+                if os.path.exists(p_raw_uv10) and (not os.path.exists(p_day_uv10) or cfg.opt_force_overwrite):
+                    aggregate(p_raw_uv10, p_day_uv10, cfg.obs_src, cfg.var_era5_sh)
 
 
 if __name__ == "__main__":

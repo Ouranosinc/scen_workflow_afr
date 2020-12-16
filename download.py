@@ -84,6 +84,9 @@ def download_from_copernicus(p_base: str, obs_src: str, area: [float], var: str,
     # Equivalent to cfg.var_cordex_vas.
     elif var == cfg.var_era5_v10:
         var_code = "10m_v_component_of_wind"
+    # Equivalent to cfg.var_cordex_sfcwindmax.
+    elif var == cfg.var_era5_uv10:
+        var_code = "10m_wind"
 
     # Form file name.
     fn = p_base + var + "/" + var + "_" + obs_src + "_hour_" + str(year) + cfg.f_ext_nc

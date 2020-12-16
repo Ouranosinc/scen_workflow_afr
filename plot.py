@@ -746,7 +746,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
 
         plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
 
-        # Using seaborn.
+        # Using seaborn (not tested).
         if map_package == "seaborn":
             sns.set()
             fig, ax = plt.subplots(figsize=(8, 5))
@@ -766,14 +766,15 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
             fs_sup_title = 9
 
             # Color mesh.
-            if (var_or_idx == cfg.var_cordex_uas) or (var_or_idx == cfg.var_cordex_vas):
+            if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
                 cmap = "RdBu_r"
                 vmax_abs = max(abs(z_min), abs(z_max))
                 norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
             else:
                 cmap = norm = None
             mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                                      cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label), cmap=cmap, norm=norm)
+                                      cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
+                                      cmap=cmap, norm=norm)
             if (z_min is not None) and (z_max is not None):
                 mesh.set_clim(z_min, z_max)
             plt.title(title, fontsize=fs_sup_title)
@@ -936,7 +937,7 @@ def get_title_label(stn: str, var_or_idx: str, rcp: str = None, per: [int] = Non
         elif var_or_idx in [cfg.idx_rainstart, cfg.idx_rainend]:
             label = "Jour de l'année"
 
-        elif var_or_idx == cfg.idx_strongwind:
+        elif var_or_idx == cfg.idx_wgdaysabove:
             label += "Nbr jours"
 
     # ==================================================================================================================

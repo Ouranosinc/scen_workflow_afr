@@ -73,7 +73,7 @@ The following features are being implemented:
 - added an aggregation option that will allow examining wind gusts;
 - created several climate indices: etr, tx90p, heatwavemaxlen, heatwavetotlen, hotspellfreq, hotspellmaxlen,
   tgg, tng, tnx, txdaysabove, txx, tropicalnights, wsdi, rx1day, rx5day, cdd, cwd, drydays, prcptot, r10mm, r20mm,
-  rainstart, rainend, raindur, rnnmm, sdii, wetdays, strongwind, dc;
+  rainstart, rainend, raindur, rnnmm, sdii, wetdays, wgdaysabove, dc;
 - added an option to export in georeferenced maps (GeoTIFF files).
 
 ## Contributing

@@ -2,10 +2,6 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Production of climate scenarios.
 #
-# TODO.MAB: Build a function that verifies the amount of data that is available in a dataset using:
-#           ds.notnull().groupby('time.year').sum('time') or
-#           xclim.core.checks.missing_[pct|any|wmo]
-
 # Contributors:
 # 1. rousseau.yannick@ouranos.ca (current)
 # 2. marc-andre.bourgault@ggr.ulaval.ca (second)
@@ -74,12 +70,10 @@ def load_observations(var: str):
 
         if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmax, cfg.var_cordex_tasmin]:
 
+            # Extract temperature.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
-
-            data = obs[stn].values
-            data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
-            da = xr.DataArray(data_xarray,
-                              coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+            arr = np.expand_dims(np.expand_dims(obs[stn].values, axis=1), axis=2)
+            da = xr.DataArray(arr, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
 
             # Create DataArray.
             da.name = var
@@ -92,17 +86,14 @@ def load_observations(var: str):
             # Create dataset.
             ds = da.to_dataset()
 
-        # Precipitation ------------------------------------------------------------------------------------------------
+        # Precipitation, evaporation, evapotranspiration ---------------------------------------------------------------
 
         elif var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
 
+            # Extract variable and convert from mm to kg m-2 s-1.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
-
-            # Conversion from mm to kg m-2 s-1.
-            data = obs[stn].values / cfg.spd
-            data_xarray = np.expand_dims(np.expand_dims(data, axis=1), axis=2)
-            da = xr.DataArray(data_xarray,
-                              coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+            arr = np.expand_dims(np.expand_dims(obs[stn].values / cfg.spd, axis=1), axis=2)
+            da = xr.DataArray(arr, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
 
             # Create DataArray.
             da.name = var
@@ -110,8 +101,7 @@ def load_observations(var: str):
             da.attrs[cfg.attrs_lname] = "Precipitation"
             da.attrs[cfg.attrs_units] = cfg.unit_kgm2s1
             da.attrs[cfg.attrs_gmap] = "regular_lon_lat"
-            da.attrs[cfg.attrs_comments] = \
-                "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
+            da.attrs[cfg.attrs_comments] = "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
 
             # Create dataset.
             ds = da.to_dataset()
@@ -120,30 +110,23 @@ def load_observations(var: str):
 
         elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
 
+            # Extract wind direction (dd).
             obs_dd = pd.DataFrame(data=np.array(obs.iloc[:, 3:].drop("vv", axis=1)), index=time, columns=[stn])
+            arr_dd = np.expand_dims(np.expand_dims(obs_dd[stn].values, axis=1), axis=2)
+            da_dd = xr.DataArray(arr_dd, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+
+            # Extract wind velocity (vv).
             obs_vv = pd.DataFrame(data=np.array(obs.iloc[:, 3:].drop("dd", axis=1)), index=time, columns=[stn])
-
-            # Direction or DD.
-            data_dd        = obs_dd[stn].values
-            data_xarray_dd = np.expand_dims(np.expand_dims(data_dd, axis=1), axis=2)
-            windfromdir    = xr.DataArray(data_xarray_dd,
-                                          coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
-
-            # Velocity or VV.
-            data_vv        = obs_vv[stn].values
-            data_xarray_vv = np.expand_dims(np.expand_dims(data_vv, axis=1), axis=2)
-            wind           = xr.DataArray(data_xarray_vv,
-                                          coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
-            wind.attrs[cfg.attrs_units] = cfg.unit_ms1
+            arr_vv = np.expand_dims(np.expand_dims(obs_vv[stn].values, axis=1), axis=2)
+            da_vv = xr.DataArray(arr_vv, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+            da_vv.attrs[cfg.attrs_units] = cfg.unit_ms1
 
             # Calculate wind components.
-            uas, vas = utils.sfcwind_2_uas_vas(wind, windfromdir)
+            da_uas, da_vas = utils.sfcwind_2_uas_vas(da_vv, da_dd)
 
-            if var == cfg.var_cordex_uas:
-                data_xarray = uas
-            else:
-                data_xarray = vas
-            da = xr.DataArray(data_xarray, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+            # Create DataArray.
+            da = da_uas if var == cfg.var_cordex_uas else da_vas
+            da = xr.DataArray(da, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
             da.name = var
             if var == cfg.var_cordex_uas:
                 da.attrs[cfg.attrs_sname] = "eastward_wind"
@@ -151,6 +134,23 @@ def load_observations(var: str):
             else:
                 da.attrs[cfg.attrs_sname] = "northward_wind"
                 da.attrs[cfg.attrs_lname] = "Northward near-surface wind"
+            da.attrs[cfg.attrs_units] = cfg.unit_ms1
+            da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
+
+            # Create dataset.
+            ds = da.to_dataset()
+
+        elif var == cfg.var_cordex_sfcwindmax:
+
+            # Extract wind velocity.
+            obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
+            arr = np.expand_dims(np.expand_dims(obs[stn].values, axis=1), axis=2)
+            da = xr.DataArray(arr, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
+
+            # Create DataArray.
+            da.name = var
+            da.attrs[cfg.attrs_sname] = "wind"
+            da.attrs[cfg.attrs_lname] = "near-surface wind"
             da.attrs[cfg.attrs_units] = cfg.unit_ms1
             da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
 
@@ -169,12 +169,12 @@ def load_observations(var: str):
 
         # Create dataset and add attributes.
         ds["regular_lon_lat"] = da
-        ds.lon.attrs[cfg.attrs_sname] = "longitude"
-        ds.lon.attrs[cfg.attrs_lname] = "longitude"
+        ds.lon.attrs[cfg.attrs_sname] = cfg.dim_longitude
+        ds.lon.attrs[cfg.attrs_lname] = cfg.dim_longitude
         ds.lon.attrs[cfg.attrs_units] = "degrees_east"
         ds.lon.attrs[cfg.attrs_axis]  = "X"
-        ds.lat.attrs[cfg.attrs_sname] = "latitude"
-        ds.lat.attrs[cfg.attrs_lname] = "latitude"
+        ds.lat.attrs[cfg.attrs_sname] = cfg.dim_latitude
+        ds.lat.attrs[cfg.attrs_lname] = cfg.dim_latitude
         ds.lat.attrs[cfg.attrs_units] = "degrees_north"
         ds.lat.attrs[cfg.attrs_axis]  = "Y"
         ds.attrs[cfg.attrs_stn] = stn
@@ -215,10 +215,12 @@ def load_reanalysis(var_ra: str):
         ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time)
 
         # Rename variables.
-        if var_ra == cfg.var_era5_t2mmin:
+        if var_ra in [cfg.var_era5_t2mmin, cfg.var_era5_t2mmax]:
             var_ra = cfg.var_era5_t2m
-        elif var_ra == cfg.var_era5_t2mmax:
-            var_ra = cfg.var_era5_t2m
+        elif var_ra in [cfg.var_era5_u10min, cfg.var_era5_u10max]:
+            var_ra = cfg.var_era5_u10
+        elif var_ra in [cfg.var_era5_v10min, cfg.var_era5_v10max]:
+            var_ra = cfg.var_era5_v10
         ds[var] = ds[var_ra]
         del ds[var_ra]
 
@@ -244,13 +246,16 @@ def load_reanalysis(var_ra: str):
                 ds[var].attrs[cfg.attrs_sname] = "evapotranspiration_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Evapotranspiration"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_kgm2s1
-        elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
+        elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
             if var == cfg.var_cordex_uas:
                 ds[var].attrs[cfg.attrs_sname] = "eastward_wind"
                 ds[var].attrs[cfg.attrs_lname] = "Eastward near-surface wind"
-            else:
+            elif var == cfg.var_cordex_vas:
                 ds[var].attrs[cfg.attrs_sname] = "northward_wind"
                 ds[var].attrs[cfg.attrs_lname] = "Northward near-surface wind"
+            else:
+                ds[var].attrs[cfg.attrs_sname] = "wind"
+                ds[var].attrs[cfg.attrs_lname] = "near-surface wind"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_ms1
         elif var == cfg.var_cordex_rsds:
             ds[var].attrs[cfg.attrs_sname] = "surface_solar_radiation_downwards"
@@ -523,7 +528,6 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
     """
 
     ds_fut = utils.open_netcdf(p_regrid)
-    ds_regrid_ref = None
 
     # Observations -----------------------------------------------------------------------------------------------------
 
@@ -1265,11 +1269,11 @@ def run():
                 z_max = max(vals)
 
             # Reference period.
-            statistics.calc_heatmap(cfg.variables_cordex[i], [], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
+            statistics.calc_heatmap(cfg.variables_cordex[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
 
             # Future period.
             for rcp in cfg.rcps:
-                statistics.calc_heatmap(cfg.variables_cordex[i], [], rcp, cfg.per_hors, z_min, z_max)
+                statistics.calc_heatmap(cfg.variables_cordex[i], rcp, cfg.per_hors, z_min, z_max)
 
     else:
         utils.log(msg + " (not required)")
