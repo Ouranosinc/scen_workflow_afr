@@ -573,20 +573,30 @@ def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p
     # Eliminate negative values.
     da_pr.values[da_pr.values < 0] = 0
 
-    # Condition #1: Identify the sart of all sequences of 'd_wet' consecutive days with a sum of at least 'p_wet' in
+    # Length of dimensions.
+    n_t = len(da_pr[cfg.dim_time])
+    n_lat = len(da_pr[cfg.dim_latitude])
+    n_lon = len(da_pr[cfg.dim_longitude])
+
+    # Condition #1: Flag the start of all sequences of 'd_wet' consecutive days with a sum of at least 'p_wet' in
     # precipitation.
     p_wet = convert_units_to(str(p_wet) + " mm/day", da_pr)
     da_cond1 = xr.DataArray(da_pr.rolling(time=d_wet).sum() >= p_wet)
 
-    # Condition #2: Identify the last day of all sequences of 'd_dry' consecutive days with less than 'p_dry' in
-    # precipitation. Then identify each day within a 'd_tot' sequence in which there is a at least one dry period.
+    # Condition #2: Flag the last day of all sequences of 'd_dry' consecutive days with less than 'p_dry' in
+    # precipitation on each day. Then identify each day within a 'd_tot' sequence in which there is at least one dry
+    # period.
     p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
-    da_cond2 = xr.DataArray(da_pr.rolling(time=d_dry).max() < p_dry)
-    n_t = len(da_cond2[cfg.dim_time])
+    da_cond2 = da_cond1
+    da_cond2[:, :, :] = True
     for t in range(n_t):
-        da_cond2[t, :, :] = np.nan if (t > n_t - d_tot - 1) else (da_cond2[t+1:(t+d_tot+1)].sum(dim=cfg.dim_time) < 1)
+        for j in range(1, d_tot - d_dry + 1):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                da_cond2[t] = da_cond2[t] &\
+                    ((da_pr >= p_dry)[t + j:(t + j + d_dry)].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time) > 0)[0]
 
-    # Condition #3: Identify days at or after 'doy'.
+    # Condition #3: Flag days at or after 'doy'.
     da_cond3 = (da_pr.time.dt.dayofyear >= doy)
 
     # Combine the 3 conditions.
