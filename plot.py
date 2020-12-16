@@ -937,7 +937,7 @@ def get_title_label(stn: str, var_or_idx: str, rcp: str = None, per: [int] = Non
         elif var_or_idx in [cfg.idx_rainstart, cfg.idx_rainend]:
             label = "Jour de l'année"
 
-        elif var_or_idx == cfg.idx_wgdaysabove:
+        elif var_or_idx in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
             label += "Nbr jours"
 
     # ==================================================================================================================

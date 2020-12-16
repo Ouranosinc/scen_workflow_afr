@@ -576,8 +576,9 @@ def get_idx_desc(idx_name: str):
         idx_desc = "Code sécheresse"
 
     # Wind.
-    elif idx_name == idx_wgdaysabove:
-        idx_desc = "Nbr jours avec vent fort (V≥" + str(idx_threshs_loc[0]) + unit_ms1 + "; " + \
+    elif idx_name in [idx_wgdaysabove, idx_wxdaysabove]:
+        idx_desc = "Nbr jours avec vent fort (V" + ("moy" if idx_name == idx_wgdaysabove else "max") +\
+                   str(idx_threshs_loc[0]) + unit_ms1 + "; " +\
                    str(idx_threshs_loc[2]) + "±" + str(idx_threshs_loc[3]) + "º; mois " + str(idx_threshs_loc[4]) + ")"
 
     # ==================================================================================================================
