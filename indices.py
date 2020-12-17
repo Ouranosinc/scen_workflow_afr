@@ -382,7 +382,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     p_dry = float(idx_threshs_str[3])
                     d_dry = int(idx_threshs_str[4])
                     d_tot = int(idx_threshs_str[5])
-                    da_idx = xr.DataArray(rain_season_start(da_pr, p_wet, d_wet, doy, p_dry, d_dry, d_tot))
+                    da_idx = xr.DataArray(rain_start_2(da_pr, p_wet, d_wet, doy, p_dry, d_dry, d_tot))
                     idx_units = cfg.unit_1
 
                 elif idx_name == cfg.idx_rainend:
@@ -391,7 +391,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     et_rate = float(idx_threshs_str[1])
                     doy_a = int(idx_threshs_str[2])
                     doy_b = int(idx_threshs_str[3])
-                    da_idx = xr.DataArray(rain_season_end(da_pr, p_stock, et_rate, doy_a, doy_b))
+                    da_idx = xr.DataArray(rain_end(da_pr, p_stock, et_rate, doy_a, doy_b))
                     idx_units = cfg.unit_1
 
                 elif idx_name == cfg.idx_raindur:
@@ -545,8 +545,8 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
         return group.map(rl.windowed_run_count, args=(window,), dim="time")
 
 
-def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry: float, d_dry: int, d_tot: int)\
-                      -> xr.DataArray:
+def rain_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry: float, d_dry: int, d_tot: int)\
+               -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -574,12 +574,12 @@ def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p
     # Eliminate negative values.
     da_pr.values[da_pr.values < 0] = 0
 
-    # Length of dimensions.
-    n_t = len(da_pr[cfg.dim_time])
-
     # Unit conversion.
     p_wet = convert_units_to(str(p_wet) + " mm/day", da_pr)
     p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
+
+    # Length of dimensions.
+    n_t = len(da_pr[cfg.dim_time])
 
     # Determiner if 't' is the first day of the rain season.
     da_cond = da_pr.copy()
@@ -605,7 +605,71 @@ def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p
     return da_start
 
 
-def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, doy_b: int) -> xr.DataArray:
+def rain_start_2(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry: float, d_dry: int, d_tot: int)\
+                 -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the first day of the rain season.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray:
+        Precipitation data.
+    p_wet : float
+        Daily precipitation amount required in first 'd_wet' days.
+    d_wet: int
+        Number of days with precipitation at season start (related to 'p_wet').
+    doy: int
+        Day of year after which the season starts.
+    p_dry: float
+        Daily precipitation amount under which precipitation is considered negligible.
+    d_dry: int
+        Maximum number of days in a dry period embedded into the period of 'd_tot' days.
+    d_tot: int
+        Number of days (after the first 'd_wet' days) after which a dry season is searched for.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+    # Eliminate negative values.
+
+    da_pr.values[da_pr.values < 0] = 0
+
+    # Unit conversion.
+    p_wet = convert_units_to(str(p_wet) + " mm/day", da_pr)
+    p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
+
+    # Length of dimensions.
+    n_t = len(da_pr[cfg.dim_time])
+
+    # Condition #1: Flag the first day of each series of 'd_wet' days with a total of 'p_wet' in precipitation.
+    da_cond1 = xr.DataArray(da_pr.rolling(time=d_wet).sum() >= p_wet)
+    da_cond1[0:(n_t-d_wet), :, :] = da_cond1[d_wet:n_t, :, :].values
+    da_cond1[(n_t-d_wet):n_t] = False
+
+    # Condition #2: Flag days that are not followed by a sequence of 'd_dry' consecutive days over the next 'd_wet' +
+    # 'd_tot' days. These days must also consider 'doy'.
+    da_cond2 = da_cond1.copy()
+    da_cond2[:, :, :] = True
+    for t in range(n_t):
+        if (da_pr[t].time.dt.dayofyear >= doy) and (t < n_t - d_dry):
+            t1 = t + d_wet
+            t2 = t1 + d_dry
+            da_t = (da_pr[t1:t2, :, :].max(dim=cfg.dim_time) >= p_dry)
+            da_cond2[t] = da_cond2[t] & da_t
+
+    # Combine conditions.
+    da_conds = da_cond1 & da_cond2
+
+    # Obtain the first day of each year where conditions apply.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+    da_start.values[(da_start.values < 0) | (da_start.values > 365)] = np.nan
+
+    return da_start
+
+
+def rain_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, doy_b: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
