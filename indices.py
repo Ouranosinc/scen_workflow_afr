@@ -545,12 +545,13 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
         return group.map(rl.windowed_run_count, args=(window,), dim="time")
 
 
-def rain_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry: float, d_dry: int, d_tot: int)\
+def rain_start_1(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry: float, d_dry: int, d_tot: int)\
                -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Determine the first day of the rain season.
+    This algorithm is very slow.
 
     Parameters
     ----------
@@ -611,6 +612,7 @@ def rain_start_2(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry:
     """
     --------------------------------------------------------------------------------------------------------------------
     Determine the first day of the rain season.
+    This algorithm is fast.
 
     Parameters
     ----------
