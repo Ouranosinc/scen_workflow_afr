@@ -186,7 +186,7 @@ idx_prcptot         = "prcptot"         # Accumulated total precipitation.
 idx_r10mm           = "r10mm"           # Number of days with precipitation >= 10 mm.
 idx_r20mm           = "r20mm"           # Number of days with precipitation >= 20 mm.
 idx_rainstart       = "rainstart"       # Day of year where rain season starts = f(Pwet, Dwet, DOY, Pdry, Ddry, Dtot).
-idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOY).
+idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOYa, DOYb).
 idx_raindur         = "raindur"         # Duration of the rain season = idx_rainend - idx_rainstart + 1.
 idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
 idx_sdii            = "sdii"            # Average daily precipitation intensity.
