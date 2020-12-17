@@ -581,33 +581,25 @@ def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p
     p_wet = convert_units_to(str(p_wet) + " mm/day", da_pr)
     p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
 
-    # Condition #1: Flag the start of all sequences of 'd_wet' consecutive days with a sum of at least 'p_wet' in
-    # precipitation.
-
-    da_cond1 = xr.DataArray(da_pr.rolling(time=d_wet).sum() >= p_wet)
-    # Condition #2: Flag the last day of all sequences of 'd_dry' consecutive days with less than 'p_dry' in
-    # precipitation on each day. Then identify each day within a 'd_tot' sequence in which there is at least one dry
-    # period.
-    da_cond2 = da_cond1
-    da_cond2[:, :, :] = True
-    for t in range(n_t - (d_tot - d_dry)):
-        for j in range(1, d_tot - d_dry + 1):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=Warning)
-                da_cond2[t] = da_cond2[t] &\
-                    ((da_pr >= p_dry)[(t + j):(t + j + d_dry)].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time) > 0)[0]
-
-    # Condition #3: Flag days at or after 'doy'.
-    da_cond3 = (da_pr.time.dt.dayofyear >= doy)
-
-    # Combine the 3 conditions.
-    da_conds = da_cond1 & da_cond2 & da_cond3
+    # Determiner if 't' is the first day of the rain season.
+    da_cond = da_pr.copy()
+    da_cond[:, :, :] = False
+    for t in range(n_t - d_wet - d_dry):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=Warning)
+            da_cond1 = (da_pr[t:(t + d_wet), :, :].sum(dim=cfg.dim_time) >= p_wet)
+        if (da_pr[t, :, :].time.dt.dayofyear >= doy) and (da_cond1[:, :].sum() > 0):
+            for j in range(1, d_tot - d_dry + 1):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=Warning)
+                    da_cond2 = ((da_pr >= p_dry)[(t + j):(t + j + d_dry)].
+                                resample(time=cfg.freq_YS).sum(dim=cfg.dim_time) > 0)[0]
+                    da_cond[t] = (da_cond[t] > 0) | (da_cond1 & da_cond2)
 
     # Obtain the first day of each year where conditions apply.
-    # Then remove errors.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
-        da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+        da_start = da_cond.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
     da_start.values[(da_start.values < 0) | (da_start.values > 365)] = np.nan
 
     return da_start
@@ -637,11 +629,6 @@ def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: 
     # Eliminate negative values.
     da_pr.values[da_pr.values < 0] = 0
 
-    # Length of dimensions.
-    lon_vals, lat_vals = utils.get_coordinates(da_pr, True)
-    n_lat = len(lat_vals)
-    n_lon = len(lon_vals)
-
     # Unit conversion.
     p_stock = convert_units_to(str(p_stock) + " mm/day", da_pr)
     et_rate = convert_units_to(str(et_rate) + " mm/day", da_pr)
@@ -658,25 +645,26 @@ def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: 
     # Extract years.
     years = utils.extract_years(da_end)
 
-    # Loop through coordinates and years.
-    for i_lat in range(n_lat):
-        for i_lon in range(n_lon):
-            for y in range(len(years)):
+    for y in range(len(years)):
 
-                # Extract values.
-                years_str = [str(years[y]) + "-01-01", str(years[y]) + "-12-31"]
-                da_y = da_pr.sel(time=slice(years_str[0], years_str[1]))
+        # Extract values.
+        years_str = [str(years[y]) + "-01-01", str(years[y]) + "-12-31"]
+        da_y = da_pr.sel(time=slice(years_str[0], years_str[1]))
 
-                # Look for the last day in a day sequence that results into water exhaustion.
-                day_y = doy_b
-                for i in range(doy_a - 1, doy_b - n_et):
-                    for j in range(i + n_et, doy_b):
-                        val_ij = da_y[i:j, i_lat, i_lon].sum() - (j - i + 1) * et_rate
-                        if (val_ij < -p_stock) and (j < day_y):
-                            day_y = j
+        # Look for the last day in a day sequence that results into water exhaustion.
+        da_end_y = da_end[y, :, :].copy()
+        da_end_y[:, :] = doy_b
+        for i in range(doy_a - 1, doy_b - n_et):
+            for j in range(i + n_et, doy_b):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=Warning)
+                    da_ij = da_y[i:j].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time).squeeze() - (j - i + 1) * et_rate
+                da_better = (da_ij < -p_stock) & (j < da_end_y)
+                da_not_better = (da_ij >= -p_stock) | (j >= da_end_y)
+                da_end_y = (da_better * j) + (da_not_better * da_end_y)
 
-                # Save result.
-                da_end[y, i_lat, i_lon] = day_y
+        # Save result.
+        da_end[y] = da_end_y
 
     return da_end
 
