@@ -648,7 +648,9 @@ def rain_season_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: 
 
     # DataArray that will hold results (one value per year).
     # The calculation is not relevant; only the resulting structure is needed.
-    da_end = da_pr.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_end = da_pr.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
 
     # Calculate the minimum number of days that is required for evapotranspiration (assuming no rain).
     n_et = int(p_stock / et_rate)
