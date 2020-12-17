@@ -575,8 +575,6 @@ def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p
 
     # Length of dimensions.
     n_t = len(da_pr[cfg.dim_time])
-    n_lat = len(da_pr[cfg.dim_latitude])
-    n_lon = len(da_pr[cfg.dim_longitude])
 
     # Condition #1: Flag the start of all sequences of 'd_wet' consecutive days with a sum of at least 'p_wet' in
     # precipitation.
@@ -589,12 +587,12 @@ def rain_season_start(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p
     p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
     da_cond2 = da_cond1
     da_cond2[:, :, :] = True
-    for t in range(n_t):
+    for t in range(n_t - (d_tot - d_dry)):
         for j in range(1, d_tot - d_dry + 1):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
                 da_cond2[t] = da_cond2[t] &\
-                    ((da_pr >= p_dry)[t + j:(t + j + d_dry)].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time) > 0)[0]
+                    ((da_pr >= p_dry)[(t + j):(t + j + d_dry)].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time) > 0)[0]
 
     # Condition #3: Flag days at or after 'doy'.
     da_cond3 = (da_pr.time.dt.dayofyear >= doy)
