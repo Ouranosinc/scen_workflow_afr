@@ -391,7 +391,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     et_rate = float(idx_threshs_str[1])
                     doy_a = int(idx_threshs_str[2])
                     doy_b = int(idx_threshs_str[3])
-                    da_idx = xr.DataArray(rain_end(da_pr, p_stock, et_rate, doy_a, doy_b))
+                    da_idx = xr.DataArray(rain_end_2(da_pr, p_stock, et_rate, doy_a, doy_b))
                     idx_units = cfg.unit_1
 
                 elif idx_name == cfg.idx_raindur:
@@ -671,7 +671,7 @@ def rain_start_2(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry:
     return da_start
 
 
-def rain_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, doy_b: int) -> xr.DataArray:
+def rain_end_1(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, doy_b: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -699,14 +699,14 @@ def rain_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, do
     p_stock = convert_units_to(str(p_stock) + " mm/day", da_pr)
     et_rate = convert_units_to(str(et_rate) + " mm/day", da_pr)
 
+    # Calculate the minimum number of days that is required for evapotranspiration (assuming no rain).
+    n_et = int(p_stock / et_rate)
+
     # DataArray that will hold results (one value per year).
-    # The calculation is not relevant; only the resulting structure is needed.
+    # Only the resulting structure is needed.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
         da_end = da_pr.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
-
-    # Calculate the minimum number of days that is required for evapotranspiration (assuming no rain).
-    n_et = int(p_stock / et_rate)
 
     # Extract years.
     years = utils.extract_years(da_end)
@@ -727,10 +727,92 @@ def rain_end(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, do
                     da_ij = da_y[i:j].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time).squeeze() - (j - i + 1) * et_rate
                 da_better = (da_ij < -p_stock) & (j < da_end_y)
                 da_not_better = (da_ij >= -p_stock) | (j >= da_end_y)
-                da_end_y = (da_better * j) + (da_not_better * da_end_y)
+                da_end_y = (da_better * (j + 1)) + (da_not_better * da_end_y)
 
         # Save result.
         da_end[y] = da_end_y
+
+    return da_end
+
+
+def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, doy_b: int) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the last day of the rain season.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray:
+        Precipitation data.
+    p_stock : float
+        Amount of precipitation to evaporate (mm).
+    et_rate: int
+        Evapotranspiration rate (mm/day).
+    doy_a: int
+        First day of year at or after which the season ends.
+    doy_b: int
+        Last day of year at or before which the season ends.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Eliminate negative values.
+    da_pr.values[da_pr.values < 0] = 0
+
+    # Unit conversion.
+    p_stock = convert_units_to(str(p_stock) + " mm/day", da_pr)
+    et_rate = convert_units_to(str(et_rate) + " mm/day", da_pr)
+
+    # Length of dimensions.
+    n_t = len(da_pr[cfg.dim_time])
+
+    # Calculate the minimum number of days that is required for evapotranspiration (assuming no rain).
+    n_et = int(p_stock / et_rate)
+
+    # DataArray that will hold results (one value per year).
+    # Only the resulting structure is needed.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_end = da_pr.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
+        da_end[:, :, :] = 0
+
+    # Loop through combinations of intervals.
+    t1_prev_y = -1
+    da_end_y = None
+    for t1 in range(n_t - n_et):
+
+        # Day of year and year of 't1'.
+        t1_doy = int(da_pr[t1].time.dt.dayofyear.values)
+        t1_y = int(da_pr[t1].time.dt.year.values)
+
+        # Initialize the array that will hold annual results.
+        da_end_y = da_end[da_end.time.dt.year == t1_y].squeeze().copy() if t1_y != t1_prev_y else t1_y
+
+        # Determine the range of cells to evaluate.
+        t2_min = max(doy_a, t1 + n_et)
+        if doy_a <= doy_b:
+            t2_max = min(doy_b, t2_min + 365 - t1_doy - n_et + 1)
+        else:
+            t2_max = min(t2_min + (365 - doy_a - 1) + doy_b - 1, n_t)
+
+        # Loop through ranges.
+        for t2 in range(t2_min, t2_max):
+
+            # Day of year and year of 't1'.
+            t2_doy = int(da_pr[t2].time.dt.dayofyear.values)
+            t2_y = int(da_pr[t2].time.dt.year.values)
+
+            # Examine the current 't1'-'t2' combination.
+            if (doy_a == doy_b) or\
+               ((doy_a < doy_b) and (t1_doy >= doy_a) and (t2_doy <= doy_b)) or\
+               ((doy_a > doy_b) and (t1_y == t2_y) and (t2_doy <= doy_a)) or\
+               ((doy_a > doy_b) and (t1_y < t2_y) and (t2_doy <= doy_b)):
+                da_t1t2 = (da_pr[t1:t2, :, :].sum(dim=cfg.dim_time) - (t2 - t1 + 1) * et_rate)
+                da_better     = (da_t1t2 < -p_stock) & ((da_end_y == 0) | (t2 < da_end_y))
+                da_not_better = (da_t1t2 >= -p_stock) | ((da_end_y == 0) | (t2 >= da_end_y))
+                da_end_y = (da_better * (t2 + 1)) + (da_not_better * da_end_y)
+
+        da_end[da_end.time.dt.year == t1_y] = da_end_y
 
     return da_end
 
