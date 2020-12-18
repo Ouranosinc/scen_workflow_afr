@@ -777,7 +777,9 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
         da_end[:, :, :] = -1
 
     # Loop through combinations of intervals.
+    da_end_y = None
     t1_prev_y = -1
+    t_first_doy = 0
     for t1 in range(n_t - n_et):
 
         # Day of year and year of 't1'.
@@ -785,12 +787,15 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
         t1_y = int(da_pr[t1].time.dt.year.values)
 
         # Initialize the array that will hold annual results.
-        da_end_y = da_end[da_end.time.dt.year == t1_y].squeeze().copy() if t1_y != t1_prev_y else t1_y
+        if (da_end_y is None) or (t1_y != t1_prev_y):
+            da_end_y = da_end[da_end.time.dt.year == t1_y].squeeze().copy()
+            t_first_doy = t1
+        t1_prev_y = t1_y
 
         # Determine the range of cells to evaluate.
-        t2_min = max(doy_a, t1 + n_et)
+        t2_min = max(t_first_doy + doy_a - 1, t1 + n_et)
         if doy_a <= doy_b:
-            t2_max = min(doy_b, t2_min + 365 - t1_doy - n_et + 1)
+            t2_max = min(t_first_doy + doy_b - 1, t2_min + 365 - t1_doy - n_et + 1)
         else:
             t2_max = min(t2_min + (365 - doy_a - 1) + doy_b - 1, n_t)
 
@@ -807,9 +812,9 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
                ((doy_a > doy_b) and (t1_y == t2_y) and (t2_doy <= doy_a)) or\
                ((doy_a > doy_b) and (t1_y < t2_y) and (t2_doy <= doy_b)):
                 da_t1t2 = (da_pr[t1:t2, :, :].sum(dim=cfg.dim_time) - (t2 - t1 + 1) * et_rate)
-                da_better     = (da_t1t2 < -p_stock) & ((da_end_y == -1) | (t2 < da_end_y))
-                da_not_better = (da_t1t2 >= -p_stock) | ((da_end_y == -1) | (t2 >= da_end_y))
-                da_end_y = (da_better * (t2 + 1)) + (da_not_better * da_end_y)
+                da_better     = (da_t1t2 < -p_stock) & ((da_end_y == -1) | (t2_doy < da_end_y))
+                da_not_better = (da_t1t2 >= -p_stock) | ((da_end_y == -1) | (t2_doy >= da_end_y))
+                da_end_y = (da_better * t2_doy) + (da_not_better * da_end_y)
 
         da_end[da_end.time.dt.year == t1_y] = da_end_y
 
