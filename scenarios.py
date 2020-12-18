@@ -221,6 +221,8 @@ def load_reanalysis(var_ra: str):
             var_ra = cfg.var_era5_u10
         elif var_ra in [cfg.var_era5_v10min, cfg.var_era5_v10max]:
             var_ra = cfg.var_era5_v10
+        elif var_ra == cfg.var_era5_uv10max:
+            var_ra = cfg.var_era5_uv10
         ds[var] = ds[var_ra]
         del ds[var_ra]
 
