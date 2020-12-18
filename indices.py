@@ -255,11 +255,10 @@ def generate(idx_name: str, idx_threshs: [float]):
                     # Split lists --------------------------------------------------------------------------------------
 
                     if (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4):
-                        if idx_threshs[i] == "nan":
-                            idx_threshs_str.append(idx_threshs[i])
-                        else:
-                            items = idx_threshs[i].replace("[", "").replace("]", "").split(";")
-                            idx_threshs_str.append([int(i) for i in items])
+                        if str(idx_threshs[i]) == "nan":
+                            idx_threshs[i] = str(list(range(1, 13))).replace("'", "")
+                        items = idx_threshs[i].replace("[", "").replace(", ", ";").replace("]", "").split(";")
+                        idx_threshs_str.append([int(i) for i in items])
 
                 # Exit loop if the file already exists (reference file only).
                 if (rcp == cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
@@ -407,7 +406,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                     thresh_vv_neg = idx_threshs_str[1]
                     thresh_dd = float(idx_threshs_str[2])
                     thresh_dd_tol = float(idx_threshs_str[3])
-                    thresh_months = None if (idx_threshs_str[4] == "nan") else idx_threshs_str[4]
+                    thresh_months = idx_threshs_str[4]
                     if idx_name == cfg.idx_wgdaysabove:
                         da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
                         da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
@@ -849,7 +848,10 @@ def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, 
     da_cond1 = da_vv > thresh_vv
 
     # Condition #2: Wind direction.
-    da_cond2 = (da_dd - thresh_dd <= thresh_dd_tol) if thresh_dd is not None else True
+    if da_dd is None:
+        da_cond2 = True
+    else:
+        da_cond2 = (da_dd - thresh_dd <= thresh_dd_tol) if thresh_dd is not None else True
 
     # Condition #3: Month.
     da_cond3 = True
