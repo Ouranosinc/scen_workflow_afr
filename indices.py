@@ -246,7 +246,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                                       cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
                         idx_threshs_str.append(str(idx_thresh) + " mm/day")
 
-                    elif (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 1):
+                    elif (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i <= 1):
                         idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_ms1)
 
                     elif not ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4)):
