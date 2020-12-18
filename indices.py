@@ -416,7 +416,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                         da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
                         da_dd = None
                     da_idx =\
-                        xr.DataArray(wgdaysabove(da_vv, da_dd, thresh_vv, thresh_dd, thresh_dd_tol, thresh_months))
+                        xr.DataArray(wind_days_above(da_vv, da_dd, thresh_vv, thresh_dd, thresh_dd_tol, thresh_months))
                     idx_units = cfg.unit_1
 
                 da_idx.attrs[cfg.attrs_units] = idx_units
@@ -821,8 +821,8 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
     return da_end
 
 
-def wgdaysabove(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, thresh_dd: float = None,
-                thresh_dd_tol: float = 45, months: List[int] = None) -> xr.DataArray:
+def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, thresh_dd: float = None,
+                    thresh_dd_tol: float = 45, months: List[int] = None) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
