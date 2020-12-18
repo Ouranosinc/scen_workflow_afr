@@ -577,7 +577,7 @@ def get_idx_desc(idx_name: str):
 
     # Wind.
     elif idx_name in [idx_wgdaysabove, idx_wxdaysabove]:
-        idx_desc = "Nbr jours avec vent fort (V" + ("moy" if idx_name == idx_wgdaysabove else "max") +\
+        idx_desc = "Nbr jours avec vent fort (V" + ("moy" if idx_name == idx_wgdaysabove else "max") + "≥" +\
                    str(idx_threshs_loc[0]) + unit_ms1
         if str(idx_threshs_loc[2]) != "nan":
             idx_desc += "; " + str(idx_threshs_loc[2]) + "±" + str(idx_threshs_loc[3]) + "º"
