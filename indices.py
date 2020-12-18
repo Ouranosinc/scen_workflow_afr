@@ -774,11 +774,10 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
         da_end = da_pr.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
-        da_end[:, :, :] = 0
+        da_end[:, :, :] = -1
 
     # Loop through combinations of intervals.
     t1_prev_y = -1
-    da_end_y = None
     for t1 in range(n_t - n_et):
 
         # Day of year and year of 't1'.
@@ -808,8 +807,8 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
                ((doy_a > doy_b) and (t1_y == t2_y) and (t2_doy <= doy_a)) or\
                ((doy_a > doy_b) and (t1_y < t2_y) and (t2_doy <= doy_b)):
                 da_t1t2 = (da_pr[t1:t2, :, :].sum(dim=cfg.dim_time) - (t2 - t1 + 1) * et_rate)
-                da_better     = (da_t1t2 < -p_stock) & ((da_end_y == 0) | (t2 < da_end_y))
-                da_not_better = (da_t1t2 >= -p_stock) | ((da_end_y == 0) | (t2 >= da_end_y))
+                da_better     = (da_t1t2 < -p_stock) & ((da_end_y == -1) | (t2 < da_end_y))
+                da_not_better = (da_t1t2 >= -p_stock) | ((da_end_y == -1) | (t2 >= da_end_y))
                 da_end_y = (da_better * (t2 + 1)) + (da_not_better * da_end_y)
 
         da_end[da_end.time.dt.year == t1_y] = da_end_y
