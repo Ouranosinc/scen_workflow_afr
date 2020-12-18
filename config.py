@@ -582,7 +582,7 @@ def get_idx_desc(idx_name: str):
         if str(idx_threshs_loc[2]) != "nan":
             idx_desc += "; " + str(idx_threshs_loc[2]) + "±" + str(idx_threshs_loc[3]) + "º"
         if (str(idx_threshs_loc[4]) != "nan") and (str(idx_threshs_loc[4]) != str(list(range(1, 13)))):
-            idx_desc += "; mois " + str(idx_threshs_loc[4])
+            idx_desc += "; mois " + str(idx_threshs_loc[4]) + "]"
         idx_desc += ")"
 
     # ==================================================================================================================
