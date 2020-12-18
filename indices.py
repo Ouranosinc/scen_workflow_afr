@@ -246,7 +246,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                                       cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
                         idx_threshs_str.append(str(idx_thresh) + " mm/day")
 
-                    elif (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i <= 1):
+                    elif (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 1):
                         idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_ms1)
 
                     elif not ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4)):
@@ -416,7 +416,7 @@ def generate(idx_name: str, idx_threshs: [float]):
                         da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
                         da_dd = None
                     da_idx =\
-                        xr.DataArray(strong_wind(da_vv, da_dd, thresh_vv, thresh_dd, thresh_dd_tol, thresh_months))
+                        xr.DataArray(wgdaysabove(da_vv, da_dd, thresh_vv, thresh_dd, thresh_dd_tol, thresh_months))
                     idx_units = cfg.unit_1
 
                 da_idx.attrs[cfg.attrs_units] = idx_units
@@ -821,7 +821,7 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
     return da_end
 
 
-def strong_wind(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, thresh_dd: float = None,
+def wgdaysabove(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, thresh_dd: float = None,
                 thresh_dd_tol: float = 45, months: List[int] = None) -> xr.DataArray:
 
     """
@@ -863,9 +863,9 @@ def strong_wind(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, thre
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
-        da_strong_wind = da_conds.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+        da_wgdaysabove = da_conds.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
 
-    return da_strong_wind
+    return da_wgdaysabove
 
 
 def run():
