@@ -766,7 +766,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
             fs_sup_title = 9
 
             # Color mesh.
-            if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
+            if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
                 cmap = "RdBu_r"
                 vmax_abs = max(abs(z_min), abs(z_max))
                 norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
