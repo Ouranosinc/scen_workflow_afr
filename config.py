@@ -565,7 +565,7 @@ def get_idx_desc(idx_name: str):
                    str(idx_threshs_loc[4]) + "j sur " + str(idx_threshs_loc[5]) + "j)"
 
     elif idx_name == idx_rainend:
-        idx_desc = "Fin saison pluie (ΣP<" + str(idx_threshs_loc[0]) + unit_mm + " en " +\
+        idx_desc = "Fin saison pluie (Σ(P-ETP)<-" + str(idx_threshs_loc[0]) + unit_mm + " en ≥" +\
                    str(idx_threshs_loc[0]) + "/" + str(idx_threshs_loc[1]) + "j)"
 
     elif idx_name == idx_raindur:
