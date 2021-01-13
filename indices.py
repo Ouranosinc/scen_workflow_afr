@@ -11,11 +11,11 @@ import config as cfg
 import glob
 import numpy as np
 import os.path
-import pandas as pd
 import statistics
 import utils
 import xarray as xr
 import xclim.indices as indices
+import xclim.indices.generic as indices_gen
 import warnings
 from typing import List
 from xclim.indices import run_length as rl
@@ -50,11 +50,11 @@ def generate(idx_name: str, idx_threshs: [float]):
     var_or_idx_list = []
 
     # Temperature.
-    if idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
+    if idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights, cfg.idx_tngmonthsbelow]:
         var_or_idx_list.append(cfg.var_cordex_tasmin)
 
-    elif idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txx,
-                      cfg.idx_wsdi]:
+    elif idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txg,
+                      cfg.idx_txx, cfg.idx_wsdi]:
         var_or_idx_list.append(cfg.var_cordex_tasmax)
 
     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_tgg, cfg.idx_etr]:
@@ -205,7 +205,8 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                     if (idx_name == cfg.idx_tx90p) or ((idx_name == cfg.idx_wsdi) and (i == 0)):
                         idx_thresh = "90p"
-                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
+                    if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tngmonthsbelow, cfg.idx_tx90p,
+                                     cfg.idx_tropicalnights]) or\
                        ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
                        ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)) or \
                        ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 0)):
@@ -274,6 +275,16 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
+                elif idx_name == cfg.idx_tngmonthsbelow:
+                    da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
+                    thresh_tasmin = float(idx_threshs_str[0])
+                    if da_tasmin.attrs[cfg.attrs_units] != cfg.unit_C:
+                        thresh_tasmin += cfg.d_KC
+                    da_idx = xr.DataArray(indices.tn_mean(da_tasmin, freq=cfg.freq_MS))
+                    da_idx = xr.DataArray(indices_gen.threshold_count(da_idx, "<", thresh_tasmin, cfg.freq_YS))
+                    da_idx = da_idx.astype(float)
+                    idx_units = cfg.unit_1
+
                 elif idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]:
                     da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
                     thresh_tasmax = idx_threshs_str[0]
@@ -305,9 +316,12 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_idx = da_idx.astype(int)
                     idx_units = cfg.unit_1
 
-                elif idx_name == cfg.idx_txx:
+                elif idx_name in [cfg.idx_txg, cfg.idx_txx]:
                     da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
-                    da_idx = xr.DataArray(indices.tx_max(da_tasmax))
+                    if idx_name == cfg.idx_txg:
+                        da_idx = xr.DataArray(indices.tx_mean(da_tasmax))
+                    else:
+                        da_idx = xr.DataArray(indices.tx_max(da_tasmax))
                     idx_units = cfg.unit_C
 
                 elif idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
@@ -947,31 +961,9 @@ def run():
     utils.log("-")
     msg = "Step #8c  Generating heat maps (indices)"
     if cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1]):
-
         utils.log(msg)
-
         for i in range(len(cfg.idx_names)):
-
-            # Get the minimum and maximum values in the statistics file.
-            idx = cfg.idx_names[i]
-            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, cfg.cat_idx + "/" + idx) +\
-                idx + "_" + cfg.obs_src + cfg.f_ext_csv
-            if not os.path.exists(p_stat):
-                z_min = z_max = None
-            else:
-                df_stats = pd.read_csv(p_stat, sep=",")
-                vals = df_stats[(df_stats["stat"] == cfg.stat_min) |
-                                (df_stats["stat"] == cfg.stat_max) |
-                                (df_stats["stat"] == "none")]["val"]
-                z_min = min(vals)
-                z_max = max(vals)
-
-            # Reference period.
-            statistics.calc_heatmap(cfg.idx_names[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
-
-            # Future period.
-            for rcp in cfg.rcps:
-                statistics.calc_heatmap(cfg.idx_names[i], rcp, cfg.per_hors, z_min, z_max)
+            statistics.calc_heatmap(cfg.idx_names[i])
 
     else:
         utils.log(msg + " (not required)")

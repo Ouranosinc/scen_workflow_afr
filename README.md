@@ -63,7 +63,7 @@ The following feature was added:
 The following change was made:
 - relocated heat maps under directory stn/fig/scen/maps. 
 
-### Upcoming version
+### v1.1.2
 
 The following features are being implemented:
 - possibility to enable/disable plot generation independently in scenarios and indices;
@@ -75,6 +75,12 @@ The following features are being implemented:
   tgg, tng, tnx, txdaysabove, txx, tropicalnights, wsdi, rx1day, rx5day, cdd, cwd, drydays, prcptot, r10mm, r20mm,
   rainstart, rainend, raindur, rnnmm, sdii, wetdays, wgdaysabove, dc;
 - added an option to export in georeferenced maps (GeoTIFF files).
+
+### Upcoming version
+
+The following features are being implemented:
+- fixed colour scale in maps (based on map content rather than statistics);
+- created several climate indices: txg and tngmonthsbelow.
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

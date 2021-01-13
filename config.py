@@ -135,6 +135,7 @@ dtype_64            = "datetime64[ns]"
 
 # Data frequency.
 freq_D              = "D"           # Daily.
+freq_MS             = "MS"          # Monthly.
 freq_YS             = "YS"          # Annual.
 
 # Scenarios.
@@ -162,11 +163,13 @@ idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length = f(Tmax, n_d
 idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length = f(Tmax, n_days).
 idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells = f(Tmin, Tmax, n_days).
 idx_hotspellmaxlen  = "hotspellmaxlen"  # Maximum hot spell length = f(Tmin, Tmax, n_days).
-idx_tgg             = "tgg"             # Average temperature =f(Tmin, Tmax).
-idx_tng             = "tng"             # Average Tmin.
+idx_tgg             = "tgg"             # Mean = f(Tmin, Tmax).
+idx_tng             = "tng"             # Mean of Tmin.
+idx_tngmonthsbelow  = "tngmonthsbelow"  # Number of months per year with mean(Tmin) below a threshold value.
 idx_tnx             = "tnx"             # Maximum of Tmin.
-idx_txdaysabove     = "txdaysabove"     # Number of days per year with Tmax above a threshold value.
+idx_txg             = "txg"             # Mean of Tmax.
 idx_txx             = "txx"             # Maximum of Tmax.
+idx_txdaysabove     = "txdaysabove"     # Number of days per year with Tmax above a threshold value.
 idx_tropicalnights  = "tropicalnights"  # Number of tropical nights = f(Tmin).
 idx_wsdi            = "wsdi"            # Warm spell duration index = f(Tmax, Tmax90p).
 
@@ -189,7 +192,7 @@ idx_rainstart       = "rainstart"       # Day of year where rain season starts =
 idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOYa, DOYb).
 idx_raindur         = "raindur"         # Duration of the rain season = idx_rainend - idx_rainstart + 1.
 idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
-idx_sdii            = "sdii"            # Average daily precipitation intensity.
+idx_sdii            = "sdii"            # Mean daily precipitation intensity.
 idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
 
 # Wind indices.
@@ -508,6 +511,9 @@ def get_idx_desc(idx_name: str):
         idx_desc = "Nbr jours chauds (Tmax>" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ")"
     elif idx_name == idx_tropicalnights:
         idx_desc = "Nbr nuits chaudes (Tmin>" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
+    elif idx_name == idx_tngmonthsbelow:
+        idx_desc =\
+            "Nbr mois frais (moy(Tmin,mensuelle)<" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
 
     elif idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen, idx_wsdi]:
         if idx_name == idx_hotspellfreq:
@@ -529,17 +535,20 @@ def get_idx_desc(idx_name: str):
                 "Tmax≥" + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
                 str(idx_threshs_loc[2]) + "j)"
 
-    elif idx_name == idx_txx:
-        idx_desc = "Maximum de Tmax"
-
-    elif idx_name == idx_tnx:
-        idx_desc = "Maximum de Tmin"
-
     elif idx_name == idx_tgg:
         idx_desc = "Moyenne de (Tmin+Tmax)/2"
 
     elif idx_name == idx_tng:
         idx_desc = "Moyenne de Tmin"
+
+    elif idx_name == idx_tnx:
+        idx_desc = "Maximum de Tmin"
+
+    elif idx_name == idx_txg:
+        idx_desc = "Moyenne de Tmax"
+
+    elif idx_name == idx_txx:
+        idx_desc = "Maximum de Tmax"
 
     elif idx_name == idx_etr:
         idx_desc = "Écart extreme (Tmax-Tmin)"

@@ -1251,31 +1251,9 @@ def run():
     utils.log("-")
     msg = "Step #8c  Generating heat maps (scenarios)"
     if cfg.opt_ra and (cfg.opt_map[0] or cfg.opt_save_csv[0]):
-
         utils.log(msg)
-
         for i in range(len(cfg.variables_cordex)):
-
-            # Get the minimum and maximum values in the statistics file.
-            var = cfg.variables_cordex[i]
-            p_stat = cfg.get_d_scen(cfg.obs_src, cfg.cat_stat, cfg.cat_scen + "/" + var) +\
-                var + "_" + cfg.obs_src + cfg.f_ext_csv
-            if not os.path.exists(p_stat):
-                z_min = z_max = None
-            else:
-                df_stats = pd.read_csv(p_stat, sep=",")
-                vals = df_stats[(df_stats["stat"] == cfg.stat_min) |
-                                (df_stats["stat"] == cfg.stat_max) |
-                                (df_stats["stat"] == "none")]["val"]
-                z_min = min(vals)
-                z_max = max(vals)
-
-            # Reference period.
-            statistics.calc_heatmap(cfg.variables_cordex[i], cfg.rcp_ref, [cfg.per_ref], z_min, z_max)
-
-            # Future period.
-            for rcp in cfg.rcps:
-                statistics.calc_heatmap(cfg.variables_cordex[i], rcp, cfg.per_hors, z_min, z_max)
+            statistics.calc_heatmap(cfg.variables_cordex[i])
 
     else:
         utils.log(msg + " (not required)")
