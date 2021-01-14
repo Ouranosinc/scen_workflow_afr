@@ -79,8 +79,12 @@ The following features are being implemented:
 ### Upcoming version
 
 The following features are being implemented:
-- fixed colour scale in maps (based on map content rather than statistics);
-- created several climate indices: txg and tngmonthsbelow.
+- created several climate indices: txg and tngmonthsbelow;
+- added the possibility to add a line corresponding to the 90th percentile in time series (for the index 'prcptot')
+
+The following bugs were fixed:
+- colour scale in maps (based on map content rather than statistics);
+- legend in time series.
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

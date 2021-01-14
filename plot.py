@@ -985,6 +985,12 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     # Get title and label.
     title, label = get_title_label(stn, var_or_idx)
 
+    # Add precision in title.
+    y_thresh = None
+    if var_or_idx == cfg.idx_prcptot:
+        y_thresh = cfg.idx_threshs[cfg.idx_names.index(var_or_idx)][0]
+        title += " (seuil à " + str(int(round(y_thresh, 0))) + cfg.unit_mm + ")"
+
     # Fonts.
     fs_sup_title = 9
 
@@ -1069,10 +1075,19 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         legend_list.append("RCP 4,5")
     if cfg.rcp_85 in rcps:
         legend_list.append("RCP 8,5")
-    custom_lines = [Line2D([0], [0], color="black", lw=4), Line2D([0], [0], color="blue", lw=4),
-                    Line2D([0], [0], color="green", lw=4), Line2D([0], [0], color="red", lw=4)]
+    custom_lines = [Line2D([0], [0], color="black", lw=4)]
+    if cfg.rcp_26 in rcps:
+        custom_lines.append(Line2D([0], [0], color="blue", lw=4))
+    if cfg.rcp_45 in rcps:
+        custom_lines.append(Line2D([0], [0], color="green", lw=4))
+    if cfg.rcp_85 in rcps:
+        custom_lines.append(Line2D([0], [0], color="red", lw=4))
     ax.legend(custom_lines, legend_list, loc="upper left", frameon=False)
     plt.ylim(ylim[0], ylim[1])
+
+    # Add horizontal line.
+    if y_thresh is not None:
+        plt.axhline(y=y_thresh, color="black", linestyle="dashed", label=str(y_thresh))
 
     # Save figure.
     if p_fig != "":
