@@ -367,8 +367,9 @@ df_calib            = None          # Pandas dataframe.
 # Indices.
 opt_idx             = True          # If True, calculate indices.
 idx_resol           = 0.05          # Spatial resolution for mapping.
+idx_codes           = []            # Index codes.
 idx_names           = []            # Index names.
-idx_threshs         = []            # Index thresholds.
+idx_params          = []            # Index parameters.
 
 # Step 7 - Statistics --------------------------------------------------------------------------------------------------
 
@@ -483,6 +484,27 @@ def get_var_desc(var: str, set_name: str = "cordex"):
     return var_desc
 
 
+def get_idx_name(idx_code: str) -> str:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Extract index name.
+
+    Parameters:
+    idx_code : str
+        Index code.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    pos = idx_code.rfind("_")
+    if pos >= 0:
+        tokens = idx_code.split("_")
+        if tokens[len(tokens) - 1].isdigit():
+            return idx_code[0:pos]
+
+    return idx_code
+
+
 def get_idx_desc(idx_name: str):
 
     """
@@ -499,7 +521,7 @@ def get_idx_desc(idx_name: str):
     idx_desc = ""
 
     # Extract thresholds.
-    idx_threshs_loc = idx_threshs[idx_names.index(idx_name)]
+    idx_params_loc = idx_params[idx_names.index(idx_name)]
 
     # ==================================================================================================================
     # TODO.CUSTOMIZATION.INDEX.BEGIN
@@ -508,12 +530,12 @@ def get_idx_desc(idx_name: str):
 
     # Temperature.
     if idx_name in [idx_txdaysabove, idx_tx90p]:
-        idx_desc = "Nbr jours chauds (Tmax>" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ")"
+        idx_desc = "Nbr jours chauds (Tmax>" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmax) + ")"
     elif idx_name == idx_tropicalnights:
-        idx_desc = "Nbr nuits chaudes (Tmin>" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
+        idx_desc = "Nbr nuits chaudes (Tmin>" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
     elif idx_name == idx_tngmonthsbelow:
         idx_desc =\
-            "Nbr mois frais (moy(Tmin,mensuelle)<" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
+            "Nbr mois frais (moy(Tmin,mensuelle)<" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
 
     elif idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen, idx_wsdi]:
         if idx_name == idx_hotspellfreq:
@@ -527,13 +549,13 @@ def get_idx_desc(idx_name: str):
         elif idx_name == idx_wsdi:
             idx_desc = "Indice durée pér chaudes"
         if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_wsdi]:
-            idx_desc += " (Tmax≥" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
-                str(idx_threshs_loc[1]) + "j)"
+            idx_desc += " (Tmax≥" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
+                str(idx_params_loc[1]) + "j)"
         else:
             idx_desc += " (" +\
-                "Tmin≥" + str(idx_threshs_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
-                "Tmax≥" + str(idx_threshs_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
-                str(idx_threshs_loc[2]) + "j)"
+                "Tmin≥" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
+                "Tmax≥" + str(idx_params_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
+                str(idx_params_loc[2]) + "j)"
 
     elif idx_name == idx_tgg:
         idx_desc = "Moyenne de (Tmin+Tmax)/2"
@@ -563,19 +585,19 @@ def get_idx_desc(idx_name: str):
         if idx_name == idx_cwd:
             idx_desc += " conséc"
         idx_desc += " où P" + ("<" if idx_name in [idx_cdd, idx_drydays] else "≥") +\
-                    str(idx_threshs_loc[0]) + get_var_unit(var_cordex_pr)
+                    str(idx_params_loc[0]) + get_var_unit(var_cordex_pr)
 
     elif idx_name == idx_sdii:
         idx_desc = "Intensite moyenne P"
 
     if idx_name == idx_rainstart:
-        idx_desc = "Début saison pluie (ΣP≥" + str(idx_threshs_loc[0]) + unit_mm + "/" + \
-                   str(idx_threshs_loc[1]) + "j; sans P<" + str(idx_threshs_loc[3]) + "mm/j * " + \
-                   str(idx_threshs_loc[4]) + "j sur " + str(idx_threshs_loc[5]) + "j)"
+        idx_desc = "Début saison pluie (ΣP≥" + str(idx_params_loc[0]) + unit_mm + "/" + \
+                   str(idx_params_loc[1]) + "j; sans P<" + str(idx_params_loc[3]) + "mm/j * " + \
+                   str(idx_params_loc[4]) + "j sur " + str(idx_params_loc[5]) + "j)"
 
     elif idx_name == idx_rainend:
-        idx_desc = "Fin saison pluie (Σ(P-ETP)<-" + str(idx_threshs_loc[0]) + unit_mm + " en ≥" +\
-                   str(idx_threshs_loc[0]) + "/" + str(idx_threshs_loc[1]) + "j)"
+        idx_desc = "Fin saison pluie (Σ(P-ETP)<-" + str(idx_params_loc[0]) + unit_mm + " en ≥" +\
+                   str(idx_params_loc[0]) + "/" + str(idx_params_loc[1]) + "j)"
 
     elif idx_name == idx_raindur:
         idx_desc = "Durée saison pluie (j)"
@@ -587,11 +609,11 @@ def get_idx_desc(idx_name: str):
     # Wind.
     elif idx_name in [idx_wgdaysabove, idx_wxdaysabove]:
         idx_desc = "Nbr jours avec vent fort (V" + ("moy" if idx_name == idx_wgdaysabove else "max") + "≥" +\
-                   str(idx_threshs_loc[0]) + unit_ms1
-        if str(idx_threshs_loc[2]) != "nan":
-            idx_desc += "; " + str(idx_threshs_loc[2]) + "±" + str(idx_threshs_loc[3]) + "º"
-        if (str(idx_threshs_loc[4]) != "nan") and (str(idx_threshs_loc[4]) != str(list(range(1, 13)))):
-            idx_desc += "; mois " + str(idx_threshs_loc[4]) + "]"
+                   str(idx_params_loc[0]) + unit_ms1
+        if str(idx_params_loc[2]) != "nan":
+            idx_desc += "; " + str(idx_params_loc[2]) + "±" + str(idx_params_loc[3]) + "º"
+        if (str(idx_params_loc[4]) != "nan") and (str(idx_params_loc[4]) != str(list(range(1, 13)))):
+            idx_desc += "; mois " + str(idx_params_loc[4]) + "]"
         idx_desc += ")"
 
     # ==================================================================================================================

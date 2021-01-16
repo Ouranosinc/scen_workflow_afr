@@ -190,15 +190,18 @@ def load_params(p_ini: str):
             # INDICES:
             elif key == "opt_idx":
                 cfg.opt_idx = ast.literal_eval(value)
-            elif key == "idx_names":
-                cfg.idx_names = convert_to_1d(value, str)
-            elif key == "idx_threshs":
-                cfg.idx_threshs = convert_to_2d(value, float)
+            elif key == "idx_codes":
+                cfg.idx_codes = convert_to_1d(value, str)
+                for i in range(len(cfg.idx_codes)):
+                    idx_name = cfg.get_idx_name(str(cfg.idx_codes[i]))
+                    cfg.idx_names.append(idx_name)
+            elif key == "idx_params":
+                cfg.idx_params = convert_to_2d(value, float)
                 for i in range(len(cfg.idx_names)):
                     if cfg.idx_names[i] == cfg.idx_r10mm:
-                        cfg.idx_threshs[i] = [10]
+                        cfg.idx_params[i] = [10]
                     elif cfg.idx_names[i] == cfg.idx_r20mm:
-                        cfg.idx_threshs[i] = [20]
+                        cfg.idx_params[i] = [20]
 
             # STATISTICS:
             elif key == "opt_stat":
@@ -288,7 +291,7 @@ def main():
     utils.log("Project                : " + cfg.project)
     utils.log("Variables (CORDEX)     : " + str(cfg.variables_cordex))
     for i in range(len(cfg.idx_names)):
-        utils.log("Climate index #" + str(i + 1) + "       : " + cfg.idx_names[i] + str(cfg.idx_threshs[i]))
+        utils.log("Climate index #" + str(i + 1) + "       : " + cfg.idx_names[i] + str(cfg.idx_params[i]))
     if cfg.opt_ra:
         utils.log("Reanalysis set         : " + cfg.obs_src)
         utils.log("Variables (reanalysis) : " + str(cfg.variables_ra))

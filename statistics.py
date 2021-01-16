@@ -23,7 +23,7 @@ from scipy.interpolate import griddata
 from typing import Union
 
 
-def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx: str, rcp: str, hor: [int],
+def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_code: str, rcp: str, hor: [int],
               use_bounds: bool, stat: str, q: float = -1) -> Union[xr.Dataset, None]:
 
     """
@@ -40,8 +40,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
         Frequency (output): cfg.freq_D=daily; cfg.freq_YS=annual
     stn : str
         Station.
-    var_or_idx : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
+    var_or_idx_code : str
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
     rcp : str
         Emission scenario: {cfg.rcp_26, cfg.rcp_45, cfg_rcp_85, "*"}
     hor : [int]
@@ -56,17 +56,20 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
+    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.get_idx_name(var_or_idx_code)
+
     # List files.
     if data_type == cfg.cat_obs:
         if var_or_idx in cfg.variables_cordex:
             p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) + var_or_idx + "_" + stn + cfg.f_ext_nc]
         else:
-            p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref" + cfg.f_ext_nc]
+            p_sim_list = [cfg.get_d_idx(stn, var_or_idx_code) + var_or_idx + "_ref" + cfg.f_ext_nc]
     else:
         if var_or_idx in cfg.variables_cordex:
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
         else:
-            d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
+            d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx_code)
         p_sim_list = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
 
     # Exit if there is not file corresponding to the criteria.
@@ -223,7 +226,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx:
     return ds_stat
 
 
-def calc_stats(cat: str, var_or_idx_list: [str] = None):
+def calc_stats(cat: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -233,8 +236,6 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
     ----------
     cat : str
         Category: cfg.cat_scen is for climate scenarios or cfg.cat_idx for climate indices.
-    var_or_idx_list : [str]
-        List of variables or indices.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -249,23 +250,24 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
     for stn in stns:
 
         # Loop through variables (or indices).
-        if var_or_idx_list is None:
-            var_or_idx_list = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
-        for var_or_idx in var_or_idx_list:
+        var_or_idx_list = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
+        for i_var_or_idx in range(len(var_or_idx_list)):
+            var_or_idx = var_or_idx_list[i_var_or_idx]
+            var_or_idx_code = var_or_idx if cat == cfg.cat_scen else cfg.idx_codes[i_var_or_idx]
 
             # Skip iteration if the file already exists.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, cat + "/" + var_or_idx) + var_or_idx + "_" + stn + cfg.f_ext_csv
+            p_csv =\
+                cfg.get_d_scen(stn, cfg.cat_stat, cat + "/" + var_or_idx_code) + var_or_idx + "_" + stn + cfg.f_ext_csv
             if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
                 continue
 
             # Containers.
-            stn_list        = []
-            var_or_idx_list = []
-            rcp_list        = []
-            hor_list        = []
-            stat_list       = []
-            q_list          = []
-            val_list        = []
+            stn_list             = []
+            rcp_list             = []
+            hor_list             = []
+            stat_list            = []
+            q_list               = []
+            val_list             = []
 
             # Loop through emission scenarios.
             for rcp in rcps:
@@ -277,7 +279,7 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
                     if cat == cfg.cat_scen:
                         d = os.path.dirname(cfg.get_p_obs(stn, var_or_idx))
                     else:
-                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
+                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx_code)
                 else:
                     hors = cfg.per_hors
                     if cat == cfg.cat_scen:
@@ -285,12 +287,12 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
                         d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
                     else:
                         cat_rcp = cfg.cat_idx
-                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx)
+                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx_code)
 
                 if not os.path.isdir(d):
                     continue
 
-                utils.log("Processing: '" + stn + "', '" + var_or_idx + "', '" + rcp + "'", True)
+                utils.log("Processing: '" + stn + "', '" + var_or_idx_code + "', '" + rcp + "'", True)
 
                 # Loop through statistics.
                 stats = [cfg.stat_mean]
@@ -306,7 +308,7 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
 
                         # Calculate statistics.
                         hor = [min(min(hors)), max(max(hors))]
-                        ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx, rcp, hor, True, stat, q)
+                        ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx_code, rcp, hor, True, stat, q)
                         if ds_stat is None:
                             continue
 
@@ -325,7 +327,6 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
 
                             # Add row.
                             stn_list.append(stn)
-                            var_or_idx_list.append(var_or_idx)
                             rcp_list.append(rcp)
                             hor_list.append(str(hor[0]) + "-" + str(hor[1]))
                             if cat_rcp == cfg.cat_obs:
@@ -338,8 +339,8 @@ def calc_stats(cat: str, var_or_idx_list: [str] = None):
             if len(stn_list) > 0:
 
                 # Build pandas dataframe.
-                dict_pd = {"stn": stn_list, ("var" if cat == cfg.cat_scen else "idx"): var_or_idx_list, "rcp": rcp_list,
-                           "hor": hor_list, "stat": stat_list, "q": q_list, "val": val_list}
+                dict_pd = {"stn": stn_list, ("var" if cat == cfg.cat_scen else "idx"): [var_or_idx] * len(stn_list),
+                           "rcp": rcp_list, "hor": hor_list, "stat": stat_list, "q": q_list, "val": val_list}
                 df = pd.DataFrame(dict_pd)
 
                 # Save file.
@@ -367,17 +368,18 @@ def calc_ts(cat: str):
     for stn in stns:
 
         # Loop through variables.
-        vars_or_idxs = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
-        for i_var_or_idx in range(len(vars_or_idxs)):
-            var_or_idx = vars_or_idxs[i_var_or_idx]
+        var_or_idx_list = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
+        for i_var_or_idx in range(len(var_or_idx_list)):
+            var_or_idx = var_or_idx_list[i_var_or_idx]
+            var_or_idx_code = var_or_idx if cat == cfg.cat_scen else cfg.idx_codes[i_var_or_idx]
 
             # Minimum and maximum values along the y-axis
             ylim = []
 
-            utils.log("Processing: '" + stn + "', '" + var_or_idx + "'", True)
+            utils.log("Processing: '" + stn + "', '" + var_or_idx_code + "'", True)
 
             # Files to be created.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx + "_csv") + \
+            p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx_code + "_csv") + \
                 var_or_idx + "_" + stn + cfg.f_ext_csv
             if not (((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1]))) and\
                     (os.path.exists(p_csv) or cfg.opt_force_overwrite):
@@ -396,12 +398,12 @@ def calc_ts(cat: str):
                         p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) +
                                       var_or_idx + "_" + stn + cfg.f_ext_nc]
                     else:
-                        p_sim_list = [cfg.get_d_idx(stn, var_or_idx) + var_or_idx + "_ref" + cfg.f_ext_nc]
+                        p_sim_list = [cfg.get_d_idx(stn, var_or_idx_code) + var_or_idx + "_ref" + cfg.f_ext_nc]
                 else:
                     if var_or_idx in cfg.variables_cordex:
                         d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
                     else:
-                        d = cfg.get_d_idx(stn, var_or_idx)
+                        d = cfg.get_d_idx(stn, var_or_idx_code)
                     p_sim_list = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
 
                 # Exit if there is no file corresponding to the criteria.
@@ -537,7 +539,7 @@ def calc_ts(cat: str):
                 if ((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1])):
 
                     # Time series with simulations grouped by RCP scenario.
-                    p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx) + \
+                    p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx_code) + \
                                 var_or_idx + "_" + stn + "_rcp" + cfg.f_ext_png
                     plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx,
                                  rcps, ylim, p_fig_rcp, 1)
@@ -611,7 +613,7 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
     return ds_mean_min_max
 
 
-def calc_heatmap(var_or_idx: str):
+def calc_heatmap(var_or_idx_code: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -619,24 +621,25 @@ def calc_heatmap(var_or_idx: str):
 
     Parameters
     ----------
-    var_or_idx: str
-        Rank of climate variable or index.
+    var_or_idx_code: str
+        Climate index code.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
+    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.get_idx_name(var_or_idx_code)
+    rcps = [cfg.rcp_ref] + cfg.rcps
 
     utils.log("Calculating maps.", True)
 
     # Calculate maps ---------------------------------------------------------------------------------------------------
 
-    cat = cfg.cat_scen if var_or_idx in cfg.variables_cordex else cfg.cat_idx
-    rcps = [cfg.rcp_ref] + cfg.rcps
-
     # Reference period.
-    arr_ds_map = [calc_heatmap_rcp(var_or_idx, cfg.rcp_ref)]
+    arr_ds_map = [calc_heatmap_rcp(var_or_idx_code, cfg.rcp_ref)]
 
     # Future period.
     for rcp in cfg.rcps:
-        arr_ds_map.append(calc_heatmap_rcp(var_or_idx, rcp))
+        arr_ds_map.append(calc_heatmap_rcp(var_or_idx_code, rcp))
 
     # Determine xy boundaries.
     if not cfg.opt_ra:
@@ -696,7 +699,7 @@ def calc_heatmap(var_or_idx: str):
 
             # Generate plot.
             stn = "stns" if not cfg.opt_ra else cfg.obs_src
-            d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx)
+            d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code)
             fn_fig = var_or_idx + "_" + rcps[i] + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + cfg.f_ext_png
             p_fig = d_fig + fn_fig
             if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
@@ -704,7 +707,7 @@ def calc_heatmap(var_or_idx: str):
                                   "matplotlib")
 
             # Save to CSV.
-            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx + "_csv")
+            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "_csv")
             fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
             p_csv = d_csv + fn_csv
             if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
@@ -727,7 +730,7 @@ def calc_heatmap(var_or_idx: str):
                 utils.save_csv(df, p_csv)
 
 
-def calc_heatmap_rcp(var_or_idx: str, rcp: str) -> xr.Dataset:
+def calc_heatmap_rcp(var_or_idx_code: str, rcp: str) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -735,17 +738,17 @@ def calc_heatmap_rcp(var_or_idx: str, rcp: str) -> xr.Dataset:
 
     Parameters
     ----------
-    var_or_idx: str
-        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
+    var_or_idx_code: str
+        Climate variable (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
     rcp: str
         Emission scenario.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Determine category.
-    cat = cfg.cat_scen if var_or_idx in cfg.variables_cordex else cfg.cat_idx
+    cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
+    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.get_idx_name(var_or_idx_code)
 
-    utils.log("Processing: '" + var_or_idx + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
+    utils.log("Processing: '" + var_or_idx_code + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
 
     # Number of years and stations.
     if rcp == cfg.rcp_ref:
@@ -778,10 +781,10 @@ def calc_heatmap_rcp(var_or_idx: str, rcp: str) -> xr.Dataset:
 
             # Calculate statistics.
             if rcp == cfg.rcp_ref:
-                ds_stat = calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None, False,
+                ds_stat = calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx_code, rcp, None, False,
                                     cfg.stat_mean)
             else:
-                ds_stat = calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx, rcp, None, False,
+                ds_stat = calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx_code, rcp, None, False,
                                     cfg.stat_mean)
             if ds_stat is None:
                 continue
@@ -860,7 +863,7 @@ def calc_heatmap_rcp(var_or_idx: str, rcp: str) -> xr.Dataset:
             p_itp_ref = cfg.get_d_scen(cfg.obs_src, cfg.cat_obs, var_or_idx) +\
                         var_or_idx + "_" + cfg.obs_src + cfg.f_ext_nc
         else:
-            p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx) + var_or_idx + "_ref" + cfg.f_ext_nc
+            p_itp_ref = cfg.get_d_idx(cfg.obs_src, var_or_idx_code) + var_or_idx + "_ref" + cfg.f_ext_nc
         if rcp == cfg.rcp_ref:
             p_itp = p_itp_ref
             if not os.path.exists(p_itp):
@@ -874,7 +877,7 @@ def calc_heatmap_rcp(var_or_idx: str, rcp: str) -> xr.Dataset:
             if cat == cfg.cat_scen:
                 d = cfg.get_d_scen(cfg.obs_src, cfg.cat_qqmap, var_or_idx)
             else:
-                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_idx, var_or_idx)
+                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_idx, var_or_idx_code)
             p_sim_list = [i for i in glob.glob(d + "*" + cfg.f_ext_nc) if i != p_itp_ref]
 
             # Combine datasets.
@@ -962,21 +965,23 @@ def conv_nc_csv(cat: str):
 
             # Loop through variables or indices.
             var_or_idx_list = cfg.variables_cordex if cat != cfg.cat_idx else cfg.idx_names
-            for var_or_idx in var_or_idx_list:
+            for i_var_or_idx in range(len(var_or_idx_list)):
+                var_or_idx = cfg.idx_names[i_var_or_idx]
+                var_or_idx_code = cfg.idx_codes[i_var_or_idx]
 
                 # List NetCDF files.
-                p_list = list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + cfg.f_ext_nc))
+                p_list = list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx_code) + cfg.f_ext_nc))
                 n_files = len(p_list)
                 if n_files == 0:
                     continue
                 p_list.sort()
 
-                utils.log("Processing: '" + stn + "', '" + var_or_idx + "'", True)
+                utils.log("Processing: '" + stn + "', '" + var_or_idx_code + "'", True)
 
                 # Scalar processing mode.
                 if cfg.n_proc == 1:
                     for i_file in range(n_files):
-                        conv_nc_csv_single(p_list, var_or_idx, i_file)
+                        conv_nc_csv_single(p_list, var_or_idx_code, i_file)
 
                 # Parallel processing mode.
                 else:
@@ -986,7 +991,7 @@ def conv_nc_csv(cat: str):
 
                         # Calculate the number of files processed (before conversion).
                         n_files_proc_before =\
-                            len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*" + cfg.f_ext_csv)))
+                            len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx_code) + "*" + cfg.f_ext_csv)))
 
                         try:
                             utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
@@ -1002,14 +1007,14 @@ def conv_nc_csv(cat: str):
 
                         # Calculate the number of files processed (after conversion).
                         n_files_proc_after =\
-                            len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx) + "*" + cfg.f_ext_csv)))
+                            len(list(glob.glob(cfg.get_d_scen(stn, cat, var_or_idx_code) + "*" + cfg.f_ext_csv)))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cfg.n_proc == 1) or (n_files_proc_before == n_files_proc_after):
                             break
 
 
-def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
+def conv_nc_csv_single(p_list: [str], var_or_idx_code: str, i_file: int):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1019,16 +1024,18 @@ def conv_nc_csv_single(p_list: [str], var_or_idx: str, i_file: int):
     ----------
     p_list : [str]
         List of paths.
-    var_or_idx : str
-        Variable or index.
+    var_or_idx_code : str
+        Climate variable or index code.
     i_file : int
         Rank of file in 'p_list'.
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.get_idx_name(var_or_idx_code)
+
     # Paths.
     p = p_list[i_file]
-    p_csv = p.replace("/" + var_or_idx + "/", "/" + var_or_idx + "_" + cfg.f_csv + "/").\
+    p_csv = p.replace("/" + var_or_idx_code + "/", "/" + var_or_idx_code + "_" + cfg.f_csv + "/").\
         replace(cfg.f_ext_nc, cfg.f_ext_csv)
     if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
         return()

@@ -23,19 +23,21 @@ from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to
 
 
-def generate(idx_name: str, idx_threshs: [float]):
+def generate(idx_code: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Calculate a time series.
 
     Parameters:
-    idx_name : str
-        Index name.
-    idx_threshs : [float]
-        Threshold values associated with each indicator.
+    idx_code : str
+        Index code (contains 'idx_name' and an identifier).
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Obtain complete index name, index name and index parameters.
+    idx_name   = cfg.get_idx_name(idx_code)
+    idx_params = cfg.idx_params[cfg.idx_codes.index(idx_code)]
 
     # Emission scenarios.
     rcps = [cfg.rcp_ref] + cfg.rcps
@@ -109,7 +111,7 @@ def generate(idx_name: str, idx_threshs: [float]):
         # Loop through emissions scenarios.
         for rcp in rcps:
 
-            utils.log("Processing: '" + idx_name + "', '" + stn + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
+            utils.log("Processing: '" + idx_code + "', '" + stn + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
 
             # Analysis of simulation files -----------------------------------------------------------------------------
 
@@ -157,9 +159,9 @@ def generate(idx_name: str, idx_threshs: [float]):
 
                 # Determine file name.
                 if rcp == cfg.rcp_ref:
-                    p_idx = cfg.get_d_idx(stn, idx_name) + idx_name + "_ref" + cfg.f_ext_nc
+                    p_idx = cfg.get_d_idx(stn, idx_code) + idx_name + "_ref" + cfg.f_ext_nc
                 else:
-                    p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_name) +\
+                    p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_code) +\
                             os.path.basename(p_sim[i_sim]).replace(var_or_idx_list[0], idx_name)
 
                 # Exit loop if the file already exists (simulations files only; not reference file).
@@ -197,30 +199,30 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_tx90p = percentile_doy(ds_var_or_idx[0][cfg.var_cordex_tasmax], per=0.9)
 
                 # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
-                idx_threshs_str = []
-                for i in range(len(idx_threshs)):
-                    idx_thresh = idx_threshs[i]
+                idx_params_str = []
+                for i in range(len(idx_params)):
+                    idx_param = idx_params[i]
 
                     # Convert thresholds (percentile to absolute value) ------------------------------------------------
 
                     if (idx_name == cfg.idx_tx90p) or ((idx_name == cfg.idx_wsdi) and (i == 0)):
-                        idx_thresh = "90p"
+                        idx_param = "90p"
                     if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tngmonthsbelow, cfg.idx_tx90p,
                                      cfg.idx_tropicalnights]) or\
                        ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
                        ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)) or \
                        ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 0)):
 
-                        if "p" in str(idx_thresh):
-                            idx_thresh = float(idx_thresh.replace("p", "")) / 100.0
+                        if "p" in str(idx_param):
+                            idx_param = float(idx_param.replace("p", "")) / 100.0
                             if rcp == cfg.rcp_ref:
                                 if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen,
                                                  cfg.idx_wsdi]) or (i == 1):
-                                    idx_thresh =\
-                                        ds_var_or_idx[i][cfg.var_cordex_tasmax].quantile(idx_thresh).values.ravel()[0]
+                                    idx_param =\
+                                        ds_var_or_idx[i][cfg.var_cordex_tasmax].quantile(idx_param).values.ravel()[0]
                                 elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
-                                    idx_thresh =\
-                                        ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_thresh).values.ravel()[0]
+                                    idx_param =\
+                                        ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_param).values.ravel()[0]
                                 elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
                                     if idx_name == cfg.idx_wgdaysabove:
                                         da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
@@ -228,38 +230,38 @@ def generate(idx_name: str, idx_threshs: [float]):
                                         da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas)
                                     else:
                                         da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
-                                    idx_thresh = da_vv.quantile(idx_thresh).values.ravel()[0]
-                                idx_thresh = float(round(idx_thresh, 2))
-                                cfg.idx_threshs[cfg.idx_names.index(idx_name)][i] = idx_thresh
+                                    idx_param = da_vv.quantile(idx_param).values.ravel()[0]
+                                idx_param = float(round(idx_param, 2))
+                                cfg.idx_params[cfg.idx_names.index(idx_name)][i] = idx_param
                             else:
-                                idx_thresh = cfg.idx_threshs[cfg.idx_names.index(idx_name)][i]
+                                idx_param = cfg.idx_params[cfg.idx_names.index(idx_name)][i]
 
                     # Combine threshold and unit -----------------------------------------------------------------------
 
                     if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
                        ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
                        ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)):
-                        idx_ref = str(idx_thresh) + " " + cfg.unit_C
-                        idx_fut = str(idx_thresh + cfg.d_KC) + " " + cfg.unit_K
-                        idx_threshs_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
+                        idx_ref = str(idx_param) + " " + cfg.unit_C
+                        idx_fut = str(idx_param + cfg.d_KC) + " " + cfg.unit_K
+                        idx_params_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
 
                     elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
                                       cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
-                        idx_threshs_str.append(str(idx_thresh) + " mm/day")
+                        idx_params_str.append(str(idx_param) + " mm/day")
 
                     elif (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 1):
-                        idx_threshs_str.append(str(idx_thresh) + " " + cfg.unit_ms1)
+                        idx_params_str.append(str(idx_param) + " " + cfg.unit_ms1)
 
                     elif not ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4)):
-                        idx_threshs_str.append(str(idx_thresh))
+                        idx_params_str.append(str(idx_param))
 
                     # Split lists --------------------------------------------------------------------------------------
 
                     if (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4):
-                        if str(idx_threshs[i]) == "nan":
-                            idx_threshs[i] = str(list(range(1, 13))).replace("'", "")
-                        items = idx_threshs[i].replace("[", "").replace(", ", ";").replace("]", "").split(";")
-                        idx_threshs_str.append([int(i) for i in items])
+                        if str(idx_params[i]) == "nan":
+                            idx_params[i] = str(list(range(1, 13))).replace("'", "")
+                        items = idx_params[i].replace("[", "").replace(", ", ";").replace("]", "").split(";")
+                        idx_params_str.append([int(i) for i in items])
 
                 # Exit loop if the file already exists (reference file only).
                 if not ((rcp == cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite)):
@@ -269,49 +271,49 @@ def generate(idx_name: str, idx_threshs: [float]):
                     da_idx = None
                     if idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]:
                         da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
-                        thresh_tasmax = idx_threshs_str[0]
-                        da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, thresh_tasmax).values)
+                        param_tasmax = idx_params_str[0]
+                        da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, param_tasmax).values)
                         da_idx = da_idx.astype(int)
                         idx_units = cfg.unit_1
 
                     elif idx_name == cfg.idx_tngmonthsbelow:
                         da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
-                        thresh_tasmin = float(idx_threshs_str[0])
+                        param_tasmin = float(idx_params_str[0])
                         if da_tasmin.attrs[cfg.attrs_units] != cfg.unit_C:
-                            thresh_tasmin += cfg.d_KC
+                            param_tasmin += cfg.d_KC
                         da_idx = xr.DataArray(indices.tn_mean(da_tasmin, freq=cfg.freq_MS))
-                        da_idx = xr.DataArray(indices_gen.threshold_count(da_idx, "<", thresh_tasmin, cfg.freq_YS))
+                        da_idx = xr.DataArray(indices_gen.threshold_count(da_idx, "<", param_tasmin, cfg.freq_YS))
                         da_idx = da_idx.astype(float)
                         idx_units = cfg.unit_1
 
                     elif idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]:
                         da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
-                        thresh_tasmax = idx_threshs_str[0]
-                        thresh_ndays = int(float(idx_threshs_str[1]))
+                        param_tasmax = idx_params_str[0]
+                        param_ndays = int(float(idx_params_str[1]))
                         if idx_name == cfg.idx_hotspellfreq:
                             da_idx = xr.DataArray(
-                                indices.hot_spell_frequency(da_tasmax, thresh_tasmax, thresh_ndays).values)
+                                indices.hot_spell_frequency(da_tasmax, param_tasmax, param_ndays).values)
                         elif idx_name == cfg.idx_hotspellmaxlen:
                             da_idx = xr.DataArray(
-                                indices.hot_spell_max_length(da_tasmax, thresh_tasmax, thresh_ndays).values)
+                                indices.hot_spell_max_length(da_tasmax, param_tasmax, param_ndays).values)
                         else:
                             da_idx = xr.DataArray(
-                                indices.warm_spell_duration_index(da_tasmax, da_tx90p, thresh_ndays).values)
+                                indices.warm_spell_duration_index(da_tasmax, da_tx90p, param_ndays).values)
                         da_idx = da_idx.astype(int)
                         idx_units = cfg.unit_1
 
                     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
                         da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
                         da_tasmax = ds_var_or_idx[1][cfg.var_cordex_tasmax]
-                        thresh_tasmin = idx_threshs_str[0]
-                        thresh_tasmax = idx_threshs_str[1]
-                        window = int(float(idx_threshs_str[2]))
+                        param_tasmin = idx_params_str[0]
+                        param_tasmax = idx_params_str[1]
+                        window = int(float(idx_params_str[2]))
                         if idx_name == cfg.idx_heatwavemaxlen:
                             da_idx = xr.DataArray(
-                                heat_wave_max_length(da_tasmin, da_tasmax, thresh_tasmin, thresh_tasmax, window).values)
+                                heat_wave_max_length(da_tasmin, da_tasmax, param_tasmin, param_tasmax, window).values)
                         else:
                             da_idx = xr.DataArray(heat_wave_total_length(
-                                da_tasmin, da_tasmax, thresh_tasmin, thresh_tasmax, window).values)
+                                da_tasmin, da_tasmax, param_tasmin, param_tasmax, window).values)
                         da_idx = da_idx.astype(int)
                         idx_units = cfg.unit_1
 
@@ -332,8 +334,8 @@ def generate(idx_name: str, idx_threshs: [float]):
                             da_idx = xr.DataArray(indices.tn_mean(da_tasmin))
                             idx_units = cfg.unit_C
                         else:
-                            thresh_tasmin = idx_threshs_str[0]
-                            da_idx = xr.DataArray(indices.tropical_nights(da_tasmin, thresh_tasmin))
+                            param_tasmin = idx_params_str[0]
+                            da_idx = xr.DataArray(indices.tropical_nights(da_tasmin, param_tasmin))
                             idx_units = cfg.unit_1
 
                     elif idx_name in [cfg.idx_tgg, cfg.idx_etr]:
@@ -370,39 +372,39 @@ def generate(idx_name: str, idx_threshs: [float]):
                     elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
                                       cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_sdii]:
                         da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
-                        thresh_pr = idx_threshs_str[0]
+                        param_pr = idx_params_str[0]
                         if idx_name in cfg.idx_cwd:
                             da_idx = xr.DataArray(
-                                indices.maximum_consecutive_wet_days(da_pr, thresh_pr, cfg.freq_YS))
+                                indices.maximum_consecutive_wet_days(da_pr, param_pr, cfg.freq_YS))
                         elif idx_name in cfg.idx_cdd:
                             da_idx = xr.DataArray(
-                                indices.maximum_consecutive_dry_days(da_pr, thresh_pr, cfg.freq_YS))
+                                indices.maximum_consecutive_dry_days(da_pr, param_pr, cfg.freq_YS))
                         elif idx_name in [cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-                            da_idx = xr.DataArray(indices.wetdays(da_pr, thresh_pr, cfg.freq_YS))
+                            da_idx = xr.DataArray(indices.wetdays(da_pr, param_pr, cfg.freq_YS))
                         elif idx_name == cfg.idx_drydays:
-                            da_idx = xr.DataArray(indices.dry_days(da_pr, thresh_pr, cfg.freq_YS))
+                            da_idx = xr.DataArray(indices.dry_days(da_pr, param_pr, cfg.freq_YS))
                         elif idx_name == cfg.idx_sdii:
-                            da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, thresh_pr))
+                            da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, param_pr))
                         da_idx = da_idx.astype(int)
                         idx_units = cfg.unit_1
 
                     elif idx_name == cfg.idx_rainstart:
                         da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
-                        p_wet = float(idx_threshs_str[0])
-                        d_wet = int(idx_threshs_str[1])
-                        doy = int(idx_threshs_str[2])
-                        p_dry = float(idx_threshs_str[3])
-                        d_dry = int(idx_threshs_str[4])
-                        d_tot = int(idx_threshs_str[5])
+                        p_wet = float(idx_params_str[0])
+                        d_wet = int(idx_params_str[1])
+                        doy = int(idx_params_str[2])
+                        p_dry = float(idx_params_str[3])
+                        d_dry = int(idx_params_str[4])
+                        d_tot = int(idx_params_str[5])
                         da_idx = xr.DataArray(rain_start_2(da_pr, p_wet, d_wet, doy, p_dry, d_dry, d_tot))
                         idx_units = cfg.unit_1
 
                     elif idx_name == cfg.idx_rainend:
                         da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
-                        p_stock = float(idx_threshs_str[0])
-                        et_rate = float(idx_threshs_str[1])
-                        doy_a = int(idx_threshs_str[2])
-                        doy_b = int(idx_threshs_str[3])
+                        p_stock = float(idx_params_str[0])
+                        et_rate = float(idx_params_str[1])
+                        doy_a = int(idx_params_str[2])
+                        doy_b = int(idx_params_str[3])
                         da_idx = xr.DataArray(rain_end_2(da_pr, p_stock, et_rate, doy_a, doy_b))
                         idx_units = cfg.unit_1
 
@@ -415,20 +417,20 @@ def generate(idx_name: str, idx_threshs: [float]):
                     # Wind ---------------------------------------------------------------------------------------------
 
                     elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
-                        thresh_vv = float(idx_threshs_str[0])
-                        thresh_vv_neg = idx_threshs_str[1]
-                        thresh_dd = float(idx_threshs_str[2])
-                        thresh_dd_tol = float(idx_threshs_str[3])
-                        thresh_months = idx_threshs_str[4]
+                        param_vv = float(idx_params_str[0])
+                        param_vv_neg = idx_params_str[1]
+                        param_dd = float(idx_params_str[2])
+                        param_dd_tol = float(idx_params_str[3])
+                        param_months = idx_params_str[4]
                         if idx_name == cfg.idx_wgdaysabove:
                             da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
                             da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
-                            da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas, thresh_vv_neg)
+                            da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas, param_vv_neg)
                         else:
                             da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
                             da_dd = None
                         da_idx = xr.DataArray(
-                            wind_days_above(da_vv, da_dd, thresh_vv, thresh_dd, thresh_dd_tol, thresh_months))
+                            wind_days_above(da_vv, da_dd, param_vv, param_dd, param_dd_tol, param_months))
                         idx_units = cfg.unit_1
 
                     da_idx.attrs[cfg.attrs_units] = idx_units
@@ -471,15 +473,15 @@ def generate(idx_name: str, idx_threshs: [float]):
                 if (rcp == cfg.rcp_ref) and (idx_name == cfg.idx_prcptot):
                     ds_idx = utils.open_netcdf(p_idx)
                     da_idx = ds_idx.mean(dim=[cfg.dim_longitude, cfg.dim_latitude])[idx_name]
-                    thresh_pr = cfg.idx_threshs[cfg.idx_names.index(idx_name)][0]
-                    if "p" in thresh_pr:
-                        thresh_pr = float(thresh_pr.replace("p", "")) / 100.0
-                        cfg.idx_threshs[cfg.idx_names.index(idx_name)][0] = \
-                            float(round(da_idx.quantile(thresh_pr).values.ravel()[0], 2))
+                    param_pr = cfg.idx_params[cfg.idx_codes.index(idx_code)][0]
+                    if "p" in str(param_pr):
+                        param_pr = float(param_pr.replace("p", "")) / 100.0
+                        cfg.idx_params[cfg.idx_codes.index(idx_code)][0] = \
+                            float(round(da_idx.quantile(param_pr).values.ravel()[0], 2))
 
 
-def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasmin: str = "22.0 degC",
-                         thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tasmin: str = "22.0 degC",
+                         param_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -487,8 +489,8 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
-    thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
+    param_tasmin = convert_units_to(param_tasmin, tasmin)
+    param_tasmax = convert_units_to(param_tasmax, tasmax)
 
     # Adjust calendars.
     if tasmin.time.dtype != tasmax.time.dtype:
@@ -500,7 +502,7 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
     n_tasmax = len(tasmax[cfg.dim_time])
 
     if n_tasmin == n_tasmax:
-        return indices.heat_wave_max_length(tasmin, tasmax, thresh_tasmin, thresh_tasmax, window, freq)
+        return indices.heat_wave_max_length(tasmin, tasmax, param_tasmin, param_tasmax, window, freq)
 
     # Calculate manually.
     else:
@@ -511,7 +513,7 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
         for t in cond.time:
             if (t.values in tasmin["time"]) and (t.values in tasmax["time"]):
                 cond[cond["time"] == t] =\
-                    (tasmin[tasmin["time"] == t] > thresh_tasmin) & (tasmax[tasmax["time"] == t] > thresh_tasmax)
+                    (tasmin[tasmin["time"] == t] > param_tasmin) & (tasmax[tasmax["time"] == t] > param_tasmax)
             else:
                 cond[cond["time"] == t] = False
 
@@ -523,8 +525,8 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasm
         return max_l.where(max_l >= window, 0)
 
 
-def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_tasmin: str = "22.0 degC",
-                           thresh_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tasmin: str = "22.0 degC",
+                           param_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -532,8 +534,8 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    thresh_tasmin = convert_units_to(thresh_tasmin, tasmin)
-    thresh_tasmax = convert_units_to(thresh_tasmax, tasmax)
+    param_tasmin = convert_units_to(param_tasmin, tasmin)
+    param_tasmax = convert_units_to(param_tasmax, tasmax)
 
     # Adjust calendars.
     if tasmin.time.dtype != tasmax.time.dtype:
@@ -545,7 +547,7 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
     n_tasmax = len(tasmax[cfg.dim_time])
 
     if n_tasmin == n_tasmax:
-        return indices.heat_wave_total_length(tasmin, tasmax, thresh_tasmin, thresh_tasmax, window, freq)
+        return indices.heat_wave_total_length(tasmin, tasmax, param_tasmin, param_tasmax, window, freq)
 
     # Calculate manually.
     else:
@@ -556,7 +558,7 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, thresh_ta
         for t in cond.time:
             if (t.values in tasmin["time"]) and (t.values in tasmax["time"]):
                 cond[cond["time"] == t] =\
-                    (tasmin[tasmin["time"] == t] > thresh_tasmin) & (tasmax[tasmax["time"] == t] > thresh_tasmax)
+                    (tasmin[tasmin["time"] == t] > param_tasmin) & (tasmax[tasmax["time"] == t] > param_tasmax)
             else:
                 cond[cond["time"] == t] = False
 
@@ -843,8 +845,8 @@ def rain_end_2(da_pr: xr.DataArray, p_stock: float, et_rate: float, doy_a: int, 
     return da_end
 
 
-def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, thresh_dd: float = None,
-                    thresh_dd_tol: float = 45, months: List[int] = None) -> xr.DataArray:
+def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, param_vv: float, param_dd: float = None,
+                    param_dd_tol: float = 45, months: List[int] = None) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -856,25 +858,25 @@ def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, thresh_vv: float, 
         Wind speed (m s-1).
     da_dd : xr.DataArray
         Direction for which the wind is coming from (degrees).
-    thresh_vv: float
-        Threshold related to 'da_wind' (m s-1).
-    thresh_dd: float
-        Threshold related to 'da_windfromdir' (degrees).
-    thresh_dd_tol: float
-        Threshold tolerance related to 'da_windfromdir' (degrees).
+    param_vv: float
+        Parameter related to 'da_wind' (m s-1).
+    param_dd: float
+        Parameter related to 'da_windfromdir' (degrees).
+    param_dd_tol: float
+        Parameter tolerance related to 'da_windfromdir' (degrees).
     months: [int]
         List of months.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Condition #1: Wind speed.
-    da_cond1 = da_vv > thresh_vv
+    da_cond1 = da_vv > param_vv
 
     # Condition #2: Wind direction.
     if da_dd is None:
         da_cond2 = True
     else:
-        da_cond2 = (da_dd - thresh_dd <= thresh_dd_tol) if thresh_dd is not None else True
+        da_cond2 = (da_dd - param_dd <= param_dd_tol) if param_dd is not None else True
 
     # Condition #3: Month.
     da_cond3 = True
@@ -910,8 +912,8 @@ def run():
     msg = "Step #6   Calculating indices"
     if cfg.opt_idx:
         utils.log(msg)
-        for i in range(0, len(cfg.idx_names)):
-            generate(cfg.idx_names[i], cfg.idx_threshs[i])
+        for i in range(0, len(cfg.idx_codes)):
+            generate(cfg.idx_codes[i])
     else:
         utils.log(msg + not_req)
 
@@ -971,8 +973,8 @@ def run():
     msg = "Step #8c  Generating heat maps (indices)"
     if cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1]):
         utils.log(msg)
-        for i in range(len(cfg.idx_names)):
-            statistics.calc_heatmap(cfg.idx_names[i])
+        for i in range(len(cfg.idx_codes)):
+            statistics.calc_heatmap(cfg.idx_codes[i])
 
     else:
         utils.log(msg + " (not required)")

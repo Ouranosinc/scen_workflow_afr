@@ -16,7 +16,7 @@ import matplotlib.ticker as mtick
 import numpy as np
 import numpy.polynomial.polynomial as poly
 import os.path
-import rioxarray as rio
+import rioxarray as rio  # Do not delete this line: see comment below.
 import seaborn as sns
 import simplejson
 import utils
@@ -950,7 +950,7 @@ def get_title_label(stn: str, var_or_idx: str, rcp: str = None, per: [int] = Non
 
 
 def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
-            stn: str, var_or_idx: str, rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
+            stn: str, var_or_idx_code: str, rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -968,8 +968,8 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         Dataset for RCP 8.5.
     stn : str
         Station name.
-    var_or_idx : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
+    var_or_idx_code : str
+        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
     rcps : [str]
         Emission scenarios.
     ylim : [int]
@@ -982,14 +982,16 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.get_idx_name(var_or_idx_code)
+
     # Get title and label.
     title, label = get_title_label(stn, var_or_idx)
 
     # Add precision in title.
-    y_thresh = None
+    y_param = None
     if var_or_idx == cfg.idx_prcptot:
-        y_thresh = cfg.idx_threshs[cfg.idx_names.index(var_or_idx)][0]
-        title += " (seuil à " + str(int(round(y_thresh, 0))) + cfg.unit_mm + ")"
+        y_param = cfg.idx_params[cfg.idx_names.index(var_or_idx)][0]
+        title += " (seuil à " + str(int(round(y_param, 0))) + cfg.unit_mm + ")"
 
     # Fonts.
     fs_sup_title = 9
@@ -1086,8 +1088,8 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     plt.ylim(ylim[0], ylim[1])
 
     # Add horizontal line.
-    if y_thresh is not None:
-        plt.axhline(y=y_thresh, color="black", linestyle="dashed", label=str(y_thresh))
+    if y_param is not None:
+        plt.axhline(y=y_param, color="black", linestyle="dashed", label=str(y_param))
 
     # Save figure.
     if p_fig != "":
