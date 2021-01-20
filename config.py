@@ -180,6 +180,7 @@ idx_wsdi            = "wsdi"            # Warm spell duration index = f(Tmax, Tm
 #   following Dtot days.
 # - Pstock is the amount of precipitation that must evaporate at a rate of ETrate per day occurring at or after the
 #   DOY th day of year.
+# - per = period over which to combine data {"1d" = one day, "tot" = total}
 idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
 idx_rx5day          = "rx5day"          # Highest 5-day precipitation amount.
 idx_cdd             = "cdd"             # Maximum number of consecutive dry days (above a threshold).
@@ -194,6 +195,7 @@ idx_raindur         = "raindur"         # Duration of the rain season = idx_rain
 idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
 idx_sdii            = "sdii"            # Mean daily precipitation intensity.
 idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
+idx_drydurtot       = "drydurtot"       # Total length of dry period = f(Ddry, Pdry, per, DOYa, DOYb).
 
 # Wind indices.
 # Regarding idx_wxdaysabove and idx_wgdaysabove:
@@ -601,6 +603,13 @@ def get_idx_desc(idx_name: str):
 
     elif idx_name == idx_raindur:
         idx_desc = "Durée saison pluie (j)"
+
+    elif idx_name == idx_drydurtot:
+        idx_desc = "Durée totale périodes sèches (j; <" + str(idx_params_loc[0]) + "mm/j * " +\
+                   str(idx_params_loc[1]) + "j"
+        if (idx_params_loc[2] == "day") and (str(idx_params_loc[3]) != "nan") and (str(idx_params_loc[4]) != "nan"):
+            idx_desc += "; jours " + str(idx_params_loc[3]) + " à "  + str(idx_params_loc[4]) + " de l'année"
+        idx_desc += ")"
 
     # Temperature-precipitation.
     elif idx_name == idx_dc:

@@ -23,6 +23,45 @@ from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to
 
 
+def create_mask(stn: str, var: str = None) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate a mask, based on climate scenarios for the temperature or precipitation variable.
+    All values with a value are attributed a value of 1. Other values are assigned 'nan'.
+
+    Parameters
+    ----------
+    stn : str
+        Station name.
+    var : str, optional
+        Imposed variable name.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    da_mask = None
+
+    f_list = glob.glob(cfg.get_d_scen(stn, cfg.cat_obs, var if var is not None else "*") + "/*" + cfg.f_ext_nc)
+    for i in range(len(f_list)):
+
+        # Open NetCDF file.
+        ds = utils.open_netcdf(f_list[i])
+        var = list(ds.data_vars)[0]
+        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.var_cordex_pr]:
+
+            # Flag 'nan' values.
+            if var == cfg.var_cordex_pr:
+                p_dry_error = convert_units_to(str(0.000001) + " mm/day", ds[var])
+                ds[var].values[(ds[var].values > 0) & (ds[var].values <= p_dry_error)] = np.nan
+
+            # Create mask.
+            da_mask = ds[var][0] * 0 + 1
+
+            break
+
+    return da_mask
+
+
 def generate(idx_code: str):
 
     """
@@ -66,7 +105,7 @@ def generate(idx_code: str):
     # Precipitation.
     elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
                       cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays, cfg.idx_drydays, cfg.idx_rainstart,
-                      cfg.idx_rainend]:
+                      cfg.idx_rainend, cfg.idx_drydurtot]:
         var_or_idx_list.append(cfg.var_cordex_pr)
 
     elif idx_name == cfg.idx_raindur:
@@ -107,6 +146,12 @@ def generate(idx_code: str):
 
         # Variable that holds the 90th percentile of tasmax for the reference period.
         da_tx90p = None
+
+        # Create mask.
+        da_mask = None
+        if stn == cfg.obs_src_era5_land:
+            # TODO: Remove the second argument after regenerating scenarios for temperature variables.
+            da_mask = create_mask(stn, cfg.var_cordex_pr)
 
         # Loop through emissions scenarios.
         for rcp in rcps:
@@ -414,6 +459,18 @@ def generate(idx_code: str):
                         da_idx = da_rainend - da_rainstart
                         idx_units = cfg.unit_1
 
+                    elif idx_name == cfg.idx_drydurtot:
+                        da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
+                        p_dry = float(idx_params_str[0])
+                        d_dry = int(idx_params_str[1])
+                        per = idx_params_str[2]
+                        doy_a = idx_params_str[3]
+                        doy_a = None if (str(doy_a) == "nan") else int(doy_a)
+                        doy_b = idx_params_str[4]
+                        doy_b = None if (str(doy_b) == "nan") else int(doy_b)
+                        da_idx = xr.DataArray(tot_duration_dry_periods(da_pr,  p_dry, d_dry, per, doy_a, doy_b))
+                        idx_units = cfg.unit_1
+
                     # Wind ---------------------------------------------------------------------------------------------
 
                     elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
@@ -438,6 +495,11 @@ def generate(idx_code: str):
                     # ======================================================================================================
                     # TODO.CUSTOMIZATION.INDEX.END
                     # ======================================================================================================
+
+                    # Apply mask.
+                    if da_mask is not None:
+                        for t in range(len(da_idx.time)):
+                            da_idx[t] = da_idx[t] * da_mask.values
 
                     # Create dataset.
                     da_idx.name = idx_name
@@ -569,6 +631,72 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tas
         return group.map(rl.windowed_run_count, args=(window,), dim="time")
 
 
+def tot_duration_dry_periods(da_pr: xr.DataArray,  p_dry: float, d_dry: int, per: str, doy_a: int, doy_b: int)\
+        -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the total duration of dry periods. A dry period occurs if precipitation amount is less than 'p_dry' during
+    'd_dry' consecutive days.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray:
+        Precipitation data.
+    p_dry: float
+        Daily precipitation amount under which precipitation is considered negligible.
+    d_dry: int
+        Maximum number of days in a dry period embedded into the period of 'd_tot' days.
+    per: str
+        Period over which to combine data {"1d" = one day, "tot" = total}.
+    doy_a: int
+        First day of year to consider.
+    doy_b: int
+        Last day of year to consider.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Eliminate negative values.
+    da_pr.values[da_pr.values < 0] = 0
+
+    # Unit conversion. The exact value seems to be 0.0000008 mm/day (instead of 0.000001 mm/day).
+    p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
+
+    # Condition #1: Days that belong to a dry period.
+    da_cond1 = da_pr.copy()
+    da_cond1 = da_cond1.astype(bool)
+    da_cond1[:, :, :] = False
+    n_t = len(da_pr[cfg.dim_time])
+    for t in range(n_t - d_dry):
+        if per == "1d":
+            da_t = (da_pr[t:(t + d_dry), :, :] < p_dry).sum(dim=cfg.dim_time) == d_dry
+        else:
+            da_t = da_pr[t:(t + d_dry), :, :].sum(dim=cfg.dim_time) < p_dry
+        da_cond1[t:(t + d_dry), :, :] = da_cond1[t:(t + d_dry), :, :] | da_t
+
+    # Condition #2 : Days that are between 'doy_a' and 'doy_b'.
+    da_cond2 = da_pr.copy()
+    da_cond2 = da_cond2.astype(bool)
+    da_cond2[:, :, :] = True
+    if (doy_a is not None) and (doy_b is not None):
+        if doy_b >= doy_a:
+            cond2 = (da_pr.time.dt.dayofyear >= doy_a) & (da_pr.time.dt.dayofyear <= doy_b)
+        else:
+            cond2 = (da_pr.time.dt.dayofyear <= doy_b) | (da_pr.time.dt.dayofyear >= doy_a)
+        for t in range(n_t):
+            da_cond2[t, :, :] = cond2[t]
+
+    # Combine conditions.
+    da_conds = da_cond1 & da_cond2
+
+    # Calculate the number of dry days per year.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_idx = da_conds.astype(float).resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+
+    return da_idx
+
+
 def rain_start_1(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry: float, d_dry: int, d_tot: int)\
                -> xr.DataArray:
 
@@ -603,12 +731,10 @@ def rain_start_1(da_pr: xr.DataArray, p_wet: float, d_wet: int, doy: int, p_dry:
     p_wet = convert_units_to(str(p_wet) + " mm/day", da_pr)
     p_dry = convert_units_to(str(p_dry) + " mm/day", da_pr)
 
-    # Length of dimensions.
-    n_t = len(da_pr[cfg.dim_time])
-
     # Determiner if 't' is the first day of the rain season.
     da_cond = da_pr.copy()
     da_cond[:, :, :] = False
+    n_t = len(da_pr[cfg.dim_time])
     for t in range(n_t - d_wet - d_dry):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)

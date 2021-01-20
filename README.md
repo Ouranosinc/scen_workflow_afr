@@ -79,7 +79,8 @@ The following features are being implemented:
 ### Upcoming version
 
 The following features are being implemented:
-- created several climate indices: txg and tngmonthsbelow;
+- created several climate indices: txg, tngmonthsbelow, drydurtot ('1d' and 'tot' calculation modes);
+- applying a mask on generated indices to remove values if located outside ERA5Land domain;
 - added the possibility to add a line corresponding to the 90th percentile in time series (for the index 'prcptot')
 
 The following bugs were fixed:
