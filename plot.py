@@ -57,7 +57,7 @@ def plot_year(ds_hour: xr.Dataset, ds_day: xr.Dataset, set_name: str, var: str):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var_desc_unit = cfg.get_var_desc(var, set_name)  + " [" + cfg.get_var_unit(var, set_name) + "]"
+    var_desc_unit = cfg.get_desc(var, set_name)  + " [" + cfg.get_unit(var, set_name) + "]"
 
     fs = 10
     f = plt.figure(figsize=(10, 3))
@@ -97,7 +97,7 @@ def plot_dayofyear(ds_day, set_name, var, date):
     """
 
     # Variable.
-    var_desc = cfg.get_var_desc(var, set_name) + " (" + cfg.get_var_unit(var, set_name) + ")"
+    var_desc = cfg.get_desc(var, set_name) + " (" + cfg.get_unit(var, set_name) + ")"
 
     # Data.
     ds_day_sel = ds_day.sel(time=date)
@@ -171,8 +171,8 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
                 da_qqmap = utils.squeeze_lon_lat(da_qqmap)
 
     # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
 
     # Conversion coefficient.
     coef = 1
@@ -246,8 +246,8 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     """
 
     # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
 
     # Load datasets.
     da_ref = utils.open_netcdf(p_regrid_ref)[var]
@@ -376,8 +376,8 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     """
 
     # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
 
     # Quantile ---------------------------------------------------------------------------------------------------------
 
@@ -512,8 +512,8 @@ def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataA
         da_qqmap[cfg.dim_time] = utils.reset_calendar(da_qqmap)
 
     # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
 
     fs_sup_title = 8
     fs_legend = 8
@@ -742,7 +742,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
     if cfg.f_png in cfg.opt_map_formats:
 
         # Get title and label.
-        title, label = get_title_label(stn, var_or_idx, rcp, per)
+        title = cfg.get_plot_title(stn, var_or_idx, rcp, per)
+        label = cfg.get_plot_ylabel(var_or_idx)
 
         plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
 
@@ -858,97 +859,6 @@ def draw_region_boundary(ax):
     plot_feature(coordinates, myplot)
 
 
-def get_title_label(stn: str, var_or_idx: str, rcp: str = None, per: [int] = None):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Get title and label.
-
-    Parameters
-    ----------
-    stn : str
-        Station name.
-    var_or_idx : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
-    rcp: str
-        RCP emission scenario.
-    per: [int, int], Optional
-        Period of interest, for instance, [1981, 2010].
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if var_or_idx in cfg.variables_cordex:
-
-        title = cfg.get_var_desc(var_or_idx) + "\n(" + stn.capitalize() + \
-                ("" if rcp is None else ", " + rcp) + \
-                ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
-        title += ")"
-        label = cfg.get_var_desc(var_or_idx) + " (" + cfg.get_var_unit(var_or_idx) + ")"
-
-    # ==================================================================================================================
-    # TODO.CUSTOMIZATION.INDEX.BEGIN
-    # Generate title and label.
-    # ==================================================================================================================
-
-    else:
-
-        title = cfg.get_idx_desc(var_or_idx) + "\n(" + stn.capitalize() + \
-                ("" if rcp is None else ", " + rcp) + \
-                ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
-        title += ")"
-        label = ""
-
-        # Temperature.
-        if var_or_idx in [cfg.idx_txdaysabove, cfg.idx_tngmonthsbelow, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen,
-                          cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_tropicalnights, cfg.idx_tx90p]:
-            label = "Nbr"
-            if var_or_idx == cfg.idx_tngmonthsbelow:
-                label += " mois"
-            elif var_or_idx != cfg.idx_hotspellfreq:
-                label += " jours"
-
-        elif var_or_idx == cfg.idx_txx:
-            label = cfg.get_var_desc(cfg.var_cordex_tasmax) + " (" + cfg.get_var_unit(cfg.var_cordex_tasmax) + ")"
-
-        elif var_or_idx in [cfg.idx_tnx, cfg.idx_tng]:
-            label = cfg.get_var_desc(cfg.var_cordex_tasmin) + " (" + cfg.get_var_unit(cfg.var_cordex_tasmin) + ")"
-
-        elif var_or_idx == cfg.idx_tgg:
-            label = cfg.get_var_desc(cfg.var_cordex_tas) + " (" + cfg.get_var_unit(cfg.var_cordex_tas) + ")"
-
-        elif var_or_idx == cfg.idx_etr:
-            label = "Écart de température (" + cfg.get_var_unit(cfg.var_cordex_tas) + ")"
-
-        elif var_or_idx == cfg.idx_wsdi:
-            label = "Indice"
-
-        elif var_or_idx == cfg.idx_dc:
-            label = "Code"
-
-        # Precipitation.
-        elif var_or_idx in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays,
-                            cfg.idx_drydays, cfg.idx_raindur]:
-            label = "Nbr jours"
-
-        elif var_or_idx in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii, cfg.idx_prcptot]:
-            label = cfg.get_var_desc(cfg.var_cordex_pr) + " (" + cfg.get_var_unit(cfg.var_cordex_pr)
-            if var_or_idx == cfg.idx_sdii:
-                label += "/day"
-            label += ")"
-
-        elif var_or_idx in [cfg.idx_rainstart, cfg.idx_rainend]:
-            label = "Jour de l'année"
-
-        elif var_or_idx in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove, cfg.idx_drydurtot]:
-            label += "Nbr jours"
-
-    # ==================================================================================================================
-    # TODO.CUSTOMIZATION.INDEX.END
-    # ==================================================================================================================
-
-    return title, label
-
-
 def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
             stn: str, var_or_idx_code: str, rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
 
@@ -982,10 +892,11 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.get_idx_name(var_or_idx_code)
+    var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.extract_idx(var_or_idx_code)
 
     # Get title and label.
-    title, label = get_title_label(stn, var_or_idx)
+    title = cfg.get_plot_title(stn, var_or_idx)
+    label = cfg.get_plot_ylabel(var_or_idx)
 
     # Add precision in title.
     y_param = None
@@ -1121,8 +1032,8 @@ def plot_ts_single(stn: str, var: str):
     utils.log("Processing (single): '" + stn + "', '" + var + "'", True)
 
     # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
 
     # Paths and NetCDF files.
     d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
@@ -1196,8 +1107,8 @@ def plot_ts_mosaic(stn: str, var: str):
     utils.log("Processing (mosaic): '" + stn + "', '" + var + "'", True)
 
     # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
 
     # Conversion coefficient.
     coef = 1
@@ -1279,8 +1190,8 @@ def plot_monthly(stn: str, var: str):
     utils.log("Processing (monthly): variable = " + var + "; station = " + stn, True)
 
     # Weather variable description and unit.
-    var_desc = cfg.get_var_desc(var)
-    var_unit = cfg.get_var_unit(var)
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
 
     # NetCDF files.
     d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)

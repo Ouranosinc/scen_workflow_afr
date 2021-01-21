@@ -193,7 +193,7 @@ def load_params(p_ini: str):
             elif key == "idx_codes":
                 cfg.idx_codes = convert_to_1d(value, str)
                 for i in range(len(cfg.idx_codes)):
-                    idx_name = cfg.get_idx_name(str(cfg.idx_codes[i]))
+                    idx_name = cfg.extract_idx(str(cfg.idx_codes[i]))
                     cfg.idx_names.append(idx_name)
             elif key == "idx_params":
                 cfg.idx_params = convert_to_2d(value, float)

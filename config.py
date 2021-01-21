@@ -18,6 +18,9 @@ obs_src_era5        = "era5"        # ERA5.
 obs_src_era5_land   = "era5_land"   # ERA5-Land.
 obs_src_merra2      = "merra2"      # Merra2.
 
+# Projection data.
+prj_src_cordex      = "cordex"      # CORDEX.
+
 # Emission scenarios.
 rcp_ref             = "ref"         # Reference period.
 rcp_26              = "rcp26"       # Future period RCP 2.6.
@@ -40,12 +43,13 @@ attrs_kind          = "kind"
 # Units.
 unit_C              = "C"
 unit_K              = "K"
-unit_kgm2s1         = "kg m-2 s-1"
+unit_kg_m2s1        = "kg m-2 s-1"
 unit_m              = "m"
 unit_mm             = "mm"
-unit_ms1            = "m s-1"
+unit_mm_d           = "mm d-1"
+unit_m_s1           = "m s-1"
 unit_1              = "1"
-unit_Jm2            = "J m-2"
+unit_J_m2           = "J m-2"
 unit_Pa             = "Pa"
 unit_deg            = "°"
 unit_pct            = "%"
@@ -192,6 +196,7 @@ idx_r20mm           = "r20mm"           # Number of days with precipitation >= 2
 idx_rainstart       = "rainstart"       # Day of year where rain season starts = f(Pwet, Dwet, DOY, Pdry, Ddry, Dtot).
 idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOYa, DOYb).
 idx_raindur         = "raindur"         # Duration of the rain season = idx_rainend - idx_rainstart + 1.
+idx_rainqty         = "rainqty"         # Quantity received during rain season = f(idx_rainstart, idx_rainend).
 idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
 idx_sdii            = "sdii"            # Mean daily precipitation intensity.
 idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
@@ -422,71 +427,7 @@ def get_rank_gcm():
     return get_rank_inst() + 1
 
 
-def get_var_desc(var: str, set_name: str = "cordex"):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Gets the description of a variable.
-
-    Parameters
-    ----------
-    var : str
-        Variable.
-    set_name : str
-        Station name.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    var_desc = ""
-    if set_name == "cordex":
-        if var in [var_cordex_tas, var_cordex_tasmin, var_cordex_tasmax]:
-            var_desc = "Température"
-        elif var == var_cordex_ps:
-            var_desc = "Pression barométrique"
-        elif var == var_cordex_pr:
-            var_desc = "Précipitation"
-        elif var == var_cordex_rsds:
-            var_desc = "Radiation solaire"
-        elif var in [var_cordex_uas, var_cordex_vas, var_cordex_sfcwindmax]:
-            var_desc = "Vent"
-            if var == var_cordex_uas:
-                var_desc += " (dir. est)"
-            elif var == var_cordex_vas:
-                var_desc += " (dir. nord)"
-        elif var == var_cordex_clt:
-            var_desc = "Couvert nuageux"
-        elif var == var_cordex_huss:
-            var_desc = "Humidité spécifique"
-        if var in [var_cordex_tas, var_cordex_uas, var_cordex_vas]:
-            var_desc += " (moy)"
-        elif var == var_cordex_sfcwindmax:
-            var_desc += " (max)"
-    elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
-        if var == var_era5_d2m:
-            var_desc = "Point de rosée"
-        elif var == var_era5_t2m:
-            var_desc = "Température"
-        elif var == var_era5_sp:
-            var_desc = "Pression barométrique"
-        elif var == var_era5_tp:
-            var_desc = "Précipitation"
-        elif var == var_era5_u10:
-            var_desc = "Vent (dir. est)"
-        elif var == var_era5_v10:
-            var_desc = "Vent (dir. nord)"
-        elif var == var_era5_ssrd:
-            var_desc = "Radiation solaire"
-        elif var == var_era5_e:
-            var_desc = "Évaporation"
-        elif var == var_era5_pev:
-            var_desc = "Évapotranspiration potentielle"
-        elif var == var_era5_sh:
-            var_desc = "Humidité spécifique"
-
-    return var_desc
-
-
-def get_idx_name(idx_code: str) -> str:
+def extract_idx(idx_code: str) -> str:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -507,7 +448,7 @@ def get_idx_name(idx_code: str) -> str:
     return idx_code
 
 
-def get_idx_desc(idx_name: str):
+def get_desc(var_or_idx: str, set_name: str = "cordex"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -515,121 +456,275 @@ def get_idx_desc(idx_name: str):
 
     Parameters
     ----------
-    idx_name : str
-        Climate index.
+    var_or_idx : str
+        Climate variable or index.
+    set_name : str
+        Station name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    idx_desc = ""
+    desc = ""
 
-    # Extract thresholds.
-    idx_params_loc = idx_params[idx_names.index(idx_name)]
+    # CORDEX.
+    if var_or_idx in variables_cordex:
 
-    # ==================================================================================================================
-    # TODO.CUSTOMIZATION.INDEX.BEGIN
-    # Copy the following code block.
-    # ==================================================================================================================
+        if var_or_idx in [var_cordex_tas, var_cordex_tasmin, var_cordex_tasmax]:
+            desc = "Température"
+        elif var_or_idx == var_cordex_ps:
+            desc = "Pression barométrique"
+        elif var_or_idx == var_cordex_pr:
+            desc = "Précipitation"
+        elif var_or_idx == var_cordex_rsds:
+            desc = "Radiation solaire"
+        elif var_or_idx in [var_cordex_uas, var_cordex_vas, var_cordex_sfcwindmax]:
+            desc = "Vent"
+            if var_or_idx == var_cordex_uas:
+                desc += " (dir. est)"
+            elif var_or_idx == var_cordex_vas:
+                desc += " (dir. nord)"
+        elif var_or_idx == var_cordex_clt:
+            desc = "Couvert nuageux"
+        elif var_or_idx == var_cordex_huss:
+            desc = "Humidité spécifique"
+        if var_or_idx in [var_cordex_tas, var_cordex_uas, var_cordex_vas]:
+            desc += " (moy)"
+        elif var_or_idx == var_cordex_sfcwindmax:
+            desc += " (max)"
 
-    # Temperature.
-    if idx_name in [idx_txdaysabove, idx_tx90p]:
-        idx_desc = "Nbr jours chauds (Tmax>" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmax) + ")"
-    elif idx_name == idx_tropicalnights:
-        idx_desc = "Nbr nuits chaudes (Tmin>" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
-    elif idx_name == idx_tngmonthsbelow:
-        idx_desc =\
-            "Nbr mois frais (moy(Tmin,mensuelle)<" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmin) + ")"
+    # ERA5 and ERA5-Land.
+    elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
+        if var_or_idx == var_era5_d2m:
+            desc = "Point de rosée"
+        elif var_or_idx == var_era5_t2m:
+            desc = "Température"
+        elif var_or_idx == var_era5_sp:
+            desc = "Pression barométrique"
+        elif var_or_idx == var_era5_tp:
+            desc = "Précipitation"
+        elif var_or_idx == var_era5_u10:
+            desc = "Vent (dir. est)"
+        elif var_or_idx == var_era5_v10:
+            desc = "Vent (dir. nord)"
+        elif var_or_idx == var_era5_ssrd:
+            desc = "Radiation solaire"
+        elif var_or_idx == var_era5_e:
+            desc = "Évaporation"
+        elif var_or_idx == var_era5_pev:
+            desc = "Évapotranspiration potentielle"
+        elif var_or_idx == var_era5_sh:
+            desc = "Humidité spécifique"
 
-    elif idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen, idx_wsdi]:
-        if idx_name == idx_hotspellfreq:
-            idx_desc = "Nbr pér chaudes"
-        elif idx_name == idx_hotspellmaxlen:
-            idx_desc = "Durée max pér chaudes"
-        elif idx_name == idx_heatwavemaxlen:
-            idx_desc = "Durée max vagues chaleur"
-        elif idx_name == idx_heatwavetotlen:
-            idx_desc = "Durée tot vagues chaleur"
-        elif idx_name == idx_wsdi:
-            idx_desc = "Indice durée pér chaudes"
-        if idx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_wsdi]:
-            idx_desc += " (Tmax≥" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmax) + ", " +\
-                str(idx_params_loc[1]) + "j)"
-        else:
-            idx_desc += " (" +\
-                "Tmin≥" + str(idx_params_loc[0]) + get_var_unit(var_cordex_tasmin) + ", " + \
-                "Tmax≥" + str(idx_params_loc[1]) + get_var_unit(var_cordex_tasmax) + ", " + \
-                str(idx_params_loc[2]) + "j)"
+    # Index.
+    else:
 
-    elif idx_name == idx_tgg:
-        idx_desc = "Moyenne de (Tmin+Tmax)/2"
+        # Extract thresholds.
+        idx_params_loc = idx_params[idx_names.index(var_or_idx)]
 
-    elif idx_name == idx_tng:
-        idx_desc = "Moyenne de Tmin"
+        # ==================================================================================================================
+        # TODO.CUSTOMIZATION.INDEX.BEGIN
+        # ==================================================================================================================
 
-    elif idx_name == idx_tnx:
-        idx_desc = "Maximum de Tmin"
+        # Temperature.
+        if var_or_idx in [idx_txdaysabove, idx_tx90p]:
+            desc = "Nbr jours chauds (Tmax>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmax) + ")"
+        elif var_or_idx == idx_tropicalnights:
+            desc = "Nbr nuits chaudes (Tmin>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
+        elif var_or_idx == idx_tngmonthsbelow:
+            desc = "Nbr mois frais (moy(Tmin,mensuelle)<" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
 
-    elif idx_name == idx_txg:
-        idx_desc = "Moyenne de Tmax"
+        elif var_or_idx in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen, idx_wsdi]:
+            if var_or_idx == idx_hotspellfreq:
+                desc = "Nbr pér chaudes"
+            elif var_or_idx == idx_hotspellmaxlen:
+                desc = "Durée max pér chaudes"
+            elif var_or_idx == idx_heatwavemaxlen:
+                desc = "Durée max vagues chaleur"
+            elif var_or_idx == idx_heatwavetotlen:
+                desc = "Durée tot vagues chaleur"
+            elif var_or_idx == idx_wsdi:
+                desc = "Indice durée pér chaudes"
+            if var_or_idx in [idx_hotspellfreq, idx_hotspellmaxlen, idx_wsdi]:
+                desc += " (Tmax≥" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmax) + ", " +\
+                    str(idx_params_loc[1]) + "j)"
+            else:
+                desc += " (" +\
+                    "Tmin≥" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ", " + \
+                    "Tmax≥" + str(idx_params_loc[1]) + get_unit(var_cordex_tasmax) + ", " + \
+                    str(idx_params_loc[2]) + "j)"
 
-    elif idx_name == idx_txx:
-        idx_desc = "Maximum de Tmax"
+        elif var_or_idx == idx_tgg:
+            desc = "Moyenne de (Tmin+Tmax)/2"
 
-    elif idx_name == idx_etr:
-        idx_desc = "Écart extreme (Tmax-Tmin)"
+        elif var_or_idx == idx_tng:
+            desc = "Moyenne de Tmin"
 
-    # Precipitation.
-    elif idx_name in [idx_rx1day, idx_rx5day, idx_prcptot]:
-        idx_desc = "Cumul préc " +\
-            ("(1j)" if idx_name == idx_rx1day else "(5j)" if idx_name == idx_rx5day else "(total)")
+        elif var_or_idx == idx_tnx:
+            desc = "Maximum de Tmin"
 
-    elif idx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
-        idx_desc = "Nbr jours"
-        if idx_name == idx_cwd:
-            idx_desc += " conséc"
-        idx_desc += " où P" + ("<" if idx_name in [idx_cdd, idx_drydays] else "≥") +\
-                    str(idx_params_loc[0]) + get_var_unit(var_cordex_pr)
+        elif var_or_idx == idx_txg:
+            desc = "Moyenne de Tmax"
 
-    elif idx_name == idx_sdii:
-        idx_desc = "Intensite moyenne P"
+        elif var_or_idx == idx_txx:
+            desc = "Maximum de Tmax"
 
-    if idx_name == idx_rainstart:
-        idx_desc = "Début saison pluie (ΣP≥" + str(idx_params_loc[0]) + unit_mm + "/" + \
-                   str(idx_params_loc[1]) + "j; sans P<" + str(idx_params_loc[3]) + "mm/j * " + \
-                   str(idx_params_loc[4]) + "j sur " + str(idx_params_loc[5]) + "j)"
+        elif var_or_idx == idx_etr:
+            desc = "Écart extreme (Tmax-Tmin)"
 
-    elif idx_name == idx_rainend:
-        idx_desc = "Fin saison pluie (Σ(P-ETP)<-" + str(idx_params_loc[0]) + unit_mm + " en ≥" +\
-                   str(idx_params_loc[0]) + "/" + str(idx_params_loc[1]) + "j)"
+        # Precipitation.
+        elif var_or_idx in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty]:
+            desc = "Cumul préc " +\
+                ("(1j)" if var_or_idx == idx_rx1day else "(5j)" if var_or_idx == idx_rx5day else "(total)")
 
-    elif idx_name == idx_raindur:
-        idx_desc = "Durée saison pluie (j)"
+        elif var_or_idx in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
+            desc = "Nbr jours"
+            if var_or_idx == idx_cwd:
+                desc += " conséc"
+            desc += " où P" + ("<" if var_or_idx in [idx_cdd, idx_drydays] else "≥") +\
+                    str(idx_params_loc[0]) + get_unit(var_cordex_pr)
 
-    elif idx_name == idx_drydurtot:
-        idx_desc = "Durée totale périodes sèches (j; <" + str(idx_params_loc[0]) + "mm/j * " +\
-                   str(idx_params_loc[1]) + "j"
-        if (idx_params_loc[2] == "day") and (str(idx_params_loc[3]) != "nan") and (str(idx_params_loc[4]) != "nan"):
-            idx_desc += "; jours " + str(idx_params_loc[3]) + " à "  + str(idx_params_loc[4]) + " de l'année"
-        idx_desc += ")"
+        elif var_or_idx == idx_sdii:
+            desc = "Intensite moyenne P"
 
-    # Temperature-precipitation.
-    elif idx_name == idx_dc:
-        idx_desc = "Code sécheresse"
+        if var_or_idx == idx_rainstart:
+            desc = "Début saison pluie (ΣP≥" + str(idx_params_loc[0]) + unit_mm + "/" + \
+                       str(idx_params_loc[1]) + "j; sans P<" + str(idx_params_loc[3]) + "mm/j * " + \
+                       str(idx_params_loc[4]) + "j sur " + str(idx_params_loc[5]) + "j)"
 
-    # Wind.
-    elif idx_name in [idx_wgdaysabove, idx_wxdaysabove]:
-        idx_desc = "Nbr jours avec vent fort (V" + ("moy" if idx_name == idx_wgdaysabove else "max") + "≥" +\
-                   str(idx_params_loc[0]) + unit_ms1
-        if str(idx_params_loc[2]) != "nan":
-            idx_desc += "; " + str(idx_params_loc[2]) + "±" + str(idx_params_loc[3]) + "º"
-        if (str(idx_params_loc[4]) != "nan") and (str(idx_params_loc[4]) != str(list(range(1, 13)))):
-            idx_desc += "; mois " + str(idx_params_loc[4]) + "]"
-        idx_desc += ")"
+        elif var_or_idx == idx_rainend:
+            desc = "Fin saison pluie (Σ(P-ETP)<-" + str(idx_params_loc[0]) + unit_mm + " en ≥" +\
+                       str(idx_params_loc[0]) + "/" + str(idx_params_loc[1]) + "j)"
 
-    # ==================================================================================================================
-    # TODO.CUSTOMIZATION.INDEX.END
-    # ==================================================================================================================
+        elif var_or_idx == idx_raindur:
+            desc = "Durée saison pluie (j)"
 
-    return idx_desc
+        elif var_or_idx == idx_drydurtot:
+            desc = "Durée totale périodes sèches (j; <" + str(idx_params_loc[0]) + "mm/j * " +\
+                       str(idx_params_loc[1]) + "j"
+            if (idx_params_loc[2] == "day") and (str(idx_params_loc[3]) != "nan") and (str(idx_params_loc[4]) != "nan"):
+                desc += "; jours " + str(idx_params_loc[3]) + " à "  + str(idx_params_loc[4]) + " de l'année"
+            desc += ")"
+
+        # Temperature-precipitation.
+        elif var_or_idx == idx_dc:
+            desc = "Code sécheresse"
+
+        # Wind.
+        elif var_or_idx in [idx_wgdaysabove, idx_wxdaysabove]:
+            desc = "Nbr jours avec vent fort (V" + ("moy" if var_or_idx == idx_wgdaysabove else "max") + "≥" +\
+                       str(idx_params_loc[0]) + unit_m_s1
+            if str(idx_params_loc[2]) != "nan":
+                desc += "; " + str(idx_params_loc[2]) + "±" + str(idx_params_loc[3]) + "º"
+            if (str(idx_params_loc[4]) != "nan") and (str(idx_params_loc[4]) != str(list(range(1, 13)))):
+                desc += "; mois " + str(idx_params_loc[4]) + "]"
+            desc += ")"
+
+        # ==============================================================================================================
+        # TODO.CUSTOMIZATION.INDEX.END
+        # ==============================================================================================================
+
+    return desc
+
+
+def get_plot_title(stn: str, var_or_idx: str, rcp: str = None, per: [int] = None):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get plot title.
+
+    Parameters
+    ----------
+    stn : str
+        Station name.
+    var_or_idx : str
+        Climate variable or index.
+    rcp: str
+        RCP emission scenario.
+    per: [int, int], Optional
+        Period of interest, for instance, [1981, 2010].
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    title = get_desc(var_or_idx) + "\n(" + stn.capitalize() + \
+        ("" if rcp is None else ", " + rcp) + \
+        ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
+    title += ")"
+
+    return title
+
+
+def get_plot_ylabel(var_or_idx: str):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get plot y-label.
+
+    Parameters
+    ----------
+    var_or_idx : str
+        Climate variable or index.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if var_or_idx in variables_cordex:
+
+        ylabel = get_desc(var_or_idx) + " (" + get_unit(var_or_idx) + ")"
+
+    else:
+
+        # ==============================================================================================================
+        # TODO.CUSTOMIZATION.INDEX.BEGIN
+        # ==============================================================================================================
+
+        ylabel = ""
+
+        # Temperature.
+        if var_or_idx in [idx_txdaysabove, idx_tngmonthsbelow, idx_hotspellfreq, idx_hotspellmaxlen,
+                          idx_heatwavemaxlen, idx_heatwavetotlen, idx_tropicalnights, idx_tx90p]:
+            ylabel = "Nbr"
+            if var_or_idx == idx_tngmonthsbelow:
+                ylabel += " mois"
+            elif var_or_idx != idx_hotspellfreq:
+                ylabel += " jours"
+
+        elif var_or_idx == idx_txx:
+            ylabel = get_desc(var_cordex_tasmax) + " (" + get_unit(var_cordex_tasmax) + ")"
+
+        elif var_or_idx in [idx_tnx, idx_tng]:
+            ylabel = get_desc(var_cordex_tasmin) + " (" + get_unit(var_cordex_tasmin) + ")"
+
+        elif var_or_idx == idx_tgg:
+            ylabel = get_desc(var_cordex_tas) + " (" + get_unit(var_cordex_tas) + ")"
+
+        elif var_or_idx == idx_etr:
+            ylabel = "Écart de température (" + get_unit(var_cordex_tas) + ")"
+
+        elif var_or_idx == idx_wsdi:
+            ylabel = "Indice"
+
+        elif var_or_idx == idx_dc:
+            ylabel = "Code"
+
+        # Precipitation.
+        elif var_or_idx in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays, idx_raindur]:
+            ylabel = "Nbr jours"
+
+        elif var_or_idx in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty, idx_sdii]:
+            ylabel = get_desc(var_cordex_pr) + " (" + get_unit(var_cordex_pr)
+            if var_or_idx == idx_sdii:
+                ylabel += "/day"
+            ylabel += ")"
+
+        elif var_or_idx in [idx_rainstart, idx_rainend]:
+            ylabel = "Jour de l'année"
+
+        elif var_or_idx in [idx_wgdaysabove, idx_wxdaysabove, idx_drydurtot]:
+            ylabel += "Nbr jours"
+
+        # ==============================================================================================================
+        # TODO.CUSTOMIZATION.INDEX.END
+        # ==============================================================================================================
+
+    return ylabel
 
 
 def convert_var_name(var: str):
@@ -665,7 +760,7 @@ def convert_var_name(var: str):
     return None
 
 
-def get_var_unit(var: str, set_name: str = "cordex"):
+def get_unit(var_or_idx: str, set_name: str = prj_src_cordex):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -673,43 +768,68 @@ def get_var_unit(var: str, set_name: str = "cordex"):
 
     Parameters
     ----------
-    var : str
-        Variable.
+    var_or_idx : str
+        Climate or variable or index.
     set_name : str
         Station name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var_unit = ""
-    if set_name == "cordex":
-        if (var == var_cordex_tas) or (var == var_cordex_tasmin) or (var == var_cordex_tasmax):
-            var_unit = unit_deg + unit_C
-        elif var == var_cordex_rsds:
-            var_unit = unit_Pa
-        elif var == var_cordex_pr:
-            var_unit = unit_mm
-        elif (var == var_cordex_uas) or (var == var_cordex_vas) or (var == var_cordex_sfcwindmax):
-            var_unit = unit_ms1
-        elif var == var_cordex_clt:
-            var_unit = unit_pct
-        elif var == var_cordex_huss:
-            var_unit = unit_1
-    elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
-        if (var == var_era5_d2m) or (var == var_era5_t2m):
-            var_unit = unit_deg
-        elif var == var_era5_sp:
-            var_unit = unit_Pa
-        elif (var == var_era5_u10) or (var == var_era5_u10min) or (var == var_era5_u10max) or\
-             (var == var_era5_v10) or (var == var_era5_v10min) or (var == var_era5_v10max):
-            var_unit = unit_ms1
-        elif var == var_era5_ssrd:
-            var_unit = unit_Jm2
-        elif (var == var_era5_tp) or (var == var_era5_e) or (var == var_era5_pev):
-            var_unit = unit_m
-        elif var == var_era5_sh:
-            var_unit = unit_1
+    unit = ""
 
-    return var_unit
+    if var_or_idx in variables_cordex:
+        if (var_or_idx == var_cordex_tas) or (var_or_idx == var_cordex_tasmin) or (var_or_idx == var_cordex_tasmax):
+            unit = unit_deg + unit_C
+        elif var_or_idx == var_cordex_rsds:
+            unit = unit_Pa
+        elif var_or_idx == var_cordex_pr:
+            unit = unit_mm
+        elif (var_or_idx == var_cordex_uas) or (var_or_idx == var_cordex_vas) or (var_or_idx == var_cordex_sfcwindmax):
+            unit = unit_m_s1
+        elif var_or_idx == var_cordex_clt:
+            unit = unit_pct
+        elif var_or_idx == var_cordex_huss:
+            unit = unit_1
+
+    elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
+        if (var_or_idx == var_era5_d2m) or (var_or_idx == var_era5_t2m):
+            unit = unit_deg
+        elif var_or_idx == var_era5_sp:
+            unit = unit_Pa
+        elif (var_or_idx == var_era5_u10) or (var_or_idx == var_era5_u10min) or (var_or_idx == var_era5_u10max) or\
+             (var_or_idx == var_era5_v10) or (var_or_idx == var_era5_v10min) or (var_or_idx == var_era5_v10max):
+            unit = unit_m_s1
+        elif var_or_idx == var_era5_ssrd:
+            unit = unit_J_m2
+        elif (var_or_idx == var_era5_tp) or (var_or_idx == var_era5_e) or (var_or_idx == var_era5_pev):
+            unit = unit_m
+        elif var_or_idx == var_era5_sh:
+            unit = unit_1
+
+    else:
+
+        # ==============================================================================================================
+        # TODO.CUSTOMIZATION.INDEX.BEGIN
+        # ==============================================================================================================
+
+        if var_or_idx in [idx_txdaysabove, idx_tx90p, idx_tropicalnights, idx_tngmonthsbelow, idx_hotspellfreq,
+                          idx_wsdi, idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays,
+                          idx_rainstart, idx_rainend, idx_dc, idx_wgdaysabove, idx_wxdaysabove]:
+            unit = unit_1
+        elif var_or_idx in [idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen]:
+            unit = unit_d
+        elif var_or_idx in [idx_tgg, idx_tng, idx_tnx, idx_txg, idx_txx, idx_etr, idx_raindur, idx_drydurtot]:
+            unit = unit_C
+        elif var_or_idx in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty]:
+            unit = unit_mm
+        elif var_or_idx in [idx_sdii]:
+            unit = unit_mm_d
+
+        # ==============================================================================================================
+        # TODO.CUSTOMIZATION.INDEX.END
+        # ==============================================================================================================
+
+    return unit
 
 
 def get_rcp_desc(rcp: str):
@@ -774,7 +894,7 @@ def get_p_stn(var: str, stn: str):
     return p
 
 
-def get_d_scen(stn: str, category: str, var: str = ""):
+def get_d_scen(stn: str, cat: str, var: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -784,7 +904,7 @@ def get_d_scen(stn: str, category: str, var: str = ""):
     ----------
     stn : str
         Station.
-    category : str
+    cat : str
         Category.
     var : str, optional
         Variable.
@@ -794,12 +914,11 @@ def get_d_scen(stn: str, category: str, var: str = ""):
     d = d_res
     if stn != "":
         d = d + cat_stn + "/" + stn + ("_" + region if region != "" else "") + "/"
-    if category != "":
+    if cat != "":
         d = d
-        if (category == cat_obs) or (category == cat_raw) or (category == cat_regrid) or (category == cat_qqmap) or\
-           (category == cat_qmf):
+        if (cat == cat_obs) or (cat == cat_raw) or (cat == cat_regrid) or (cat == cat_qqmap) or (cat == cat_qmf):
             d = d + cat_scen + "/"
-        d = d + category + "/"
+        d = d + cat + "/"
     if var != "":
         d = d + var + "/"
 
@@ -831,7 +950,7 @@ def get_d_idx(stn: str, var: str = ""):
     return d
 
 
-def get_p_obs(stn_name: str, var: str, category: str = ""):
+def get_p_obs(stn_name: str, var: str, cat: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -843,13 +962,13 @@ def get_p_obs(stn_name: str, var: str, category: str = ""):
         Localisation.
     var : str
         Variable.
-    category : str, optional
+    cat : str, optional
         Category.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     p = get_d_scen(stn_name, cat_obs) + var + "/" + var + "_" + stn_name
-    if category != "":
+    if cat != "":
         p = p + "_4qqmap"
     p = p + f_ext_nc
 

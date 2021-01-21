@@ -99,7 +99,7 @@ def load_observations(var: str):
             da.name = var
             da.attrs[cfg.attrs_sname] = "precipitation_flux"
             da.attrs[cfg.attrs_lname] = "Precipitation"
-            da.attrs[cfg.attrs_units] = cfg.unit_kgm2s1
+            da.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
             da.attrs[cfg.attrs_gmap] = "regular_lon_lat"
             da.attrs[cfg.attrs_comments] = "station data converted from Total Precip (mm) using a density of 1000 kg/m³"
 
@@ -119,7 +119,7 @@ def load_observations(var: str):
             obs_vv = pd.DataFrame(data=np.array(obs.iloc[:, 3:].drop("dd", axis=1)), index=time, columns=[stn])
             arr_vv = np.expand_dims(np.expand_dims(obs_vv[stn].values, axis=1), axis=2)
             da_vv = xr.DataArray(arr_vv, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
-            da_vv.attrs[cfg.attrs_units] = cfg.unit_ms1
+            da_vv.attrs[cfg.attrs_units] = cfg.unit_m_s1
 
             # Calculate wind components.
             da_uas, da_vas = utils.sfcwind_2_uas_vas(da_vv, da_dd)
@@ -134,7 +134,7 @@ def load_observations(var: str):
             else:
                 da.attrs[cfg.attrs_sname] = "northward_wind"
                 da.attrs[cfg.attrs_lname] = "Northward near-surface wind"
-            da.attrs[cfg.attrs_units] = cfg.unit_ms1
+            da.attrs[cfg.attrs_units] = cfg.unit_m_s1
             da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
 
             # Create dataset.
@@ -151,7 +151,7 @@ def load_observations(var: str):
             da.name = var
             da.attrs[cfg.attrs_sname] = "wind"
             da.attrs[cfg.attrs_lname] = "near-surface wind"
-            da.attrs[cfg.attrs_units] = cfg.unit_ms1
+            da.attrs[cfg.attrs_units] = cfg.unit_m_s1
             da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
 
             # Create dataset.
@@ -247,7 +247,7 @@ def load_reanalysis(var_ra: str):
             elif var == cfg.var_cordex_evapsblpot:
                 ds[var].attrs[cfg.attrs_sname] = "evapotranspiration_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Evapotranspiration"
-            ds[var].attrs[cfg.attrs_units] = cfg.unit_kgm2s1
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
         elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
             if var == cfg.var_cordex_uas:
                 ds[var].attrs[cfg.attrs_sname] = "eastward_wind"
@@ -258,11 +258,11 @@ def load_reanalysis(var_ra: str):
             else:
                 ds[var].attrs[cfg.attrs_sname] = "wind"
                 ds[var].attrs[cfg.attrs_lname] = "near-surface wind"
-            ds[var].attrs[cfg.attrs_units] = cfg.unit_ms1
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_m_s1
         elif var == cfg.var_cordex_rsds:
             ds[var].attrs[cfg.attrs_sname] = "surface_solar_radiation_downwards"
             ds[var].attrs[cfg.attrs_lname] = "Surface solar radiation downwards"
-            ds[var].attrs[cfg.attrs_units] = cfg.unit_Jm2
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_J_m2
         elif var == cfg.var_cordex_huss:
             ds[var].attrs[cfg.attrs_sname] = "specific_humidity"
             ds[var].attrs[cfg.attrs_lname] = "Specific humidity"
@@ -731,7 +731,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         da_qmf       = ds_qmf[var]
 
         def convert_units(da: xr.DataArray, units: str) -> xr.DataArray:
-            if (da.units == cfg.unit_kgm2s1) and (units == cfg.unit_mm):
+            if (da.units == cfg.unit_kg_m2s1) and (units == cfg.unit_mm):
                 da = da * cfg.spd
                 da.attrs[cfg.attrs_units] = units
             elif (da.units == cfg.unit_K) and (units == cfg.unit_C):

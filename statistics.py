@@ -57,7 +57,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
     """
 
     cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
-    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.get_idx_name(var_or_idx_code)
+    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.extract_idx(var_or_idx_code)
 
     # List files.
     if data_type == cfg.cat_obs:
@@ -463,7 +463,7 @@ def calc_ts(cat: str):
                             ds = ds - cfg.d_KC
                             ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
                     elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                        if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1:
+                        if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
                             ds = ds * cfg.spd
                             ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
 
@@ -627,7 +627,7 @@ def calc_heatmap(var_or_idx_code: str):
     """
 
     cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
-    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.get_idx_name(var_or_idx_code)
+    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.extract_idx(var_or_idx_code)
     rcps = [cfg.rcp_ref] + cfg.rcps
 
     utils.log("Calculating maps.", True)
@@ -746,7 +746,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str) -> xr.Dataset:
     """
 
     cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
-    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.get_idx_name(var_or_idx_code)
+    var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.extract_idx(var_or_idx_code)
 
     utils.log("Processing: '" + var_or_idx_code + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
 
@@ -914,7 +914,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str) -> xr.Dataset:
             ds_itp = ds_itp - cfg.d_KC
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
         elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
-             (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1):
+             (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
             ds_itp = ds_itp * cfg.spd
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
         else:
@@ -1031,7 +1031,7 @@ def conv_nc_csv_single(p_list: [str], var_or_idx_code: str, i_file: int):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.get_idx_name(var_or_idx_code)
+    var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.extract_idx(var_or_idx_code)
 
     # Paths.
     p = p_list[i_file]
@@ -1076,7 +1076,7 @@ def conv_nc_csv_single(p_list: [str], var_or_idx_code: str, i_file: int):
 
     # Convert values to more practical units (if required).
     if (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and\
-       (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kgm2s1):
+       (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
         for i in range(n_time):
             val_list[i] = val_list[i] * cfg.spd
     elif (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
