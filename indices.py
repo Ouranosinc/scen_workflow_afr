@@ -393,7 +393,9 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         if idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]:
             da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
             param_tasmax = idx_params_str[0]
-            da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, param_tasmax).values)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, param_tasmax).values)
             da_idx = da_idx.astype(int)
             idx_units = cfg.unit_1
 
@@ -402,8 +404,10 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             param_tasmin = float(idx_params_str[0])
             if da_tasmin.attrs[cfg.attrs_units] != cfg.unit_C:
                 param_tasmin += cfg.d_KC
-            da_idx = xr.DataArray(indices.tn_mean(da_tasmin, freq=cfg.freq_MS))
-            da_idx = xr.DataArray(indices_gen.threshold_count(da_idx, "<", param_tasmin, cfg.freq_YS))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                da_idx = xr.DataArray(indices.tn_mean(da_tasmin, freq=cfg.freq_MS))
+                da_idx = xr.DataArray(indices_gen.threshold_count(da_idx, "<", param_tasmin, cfg.freq_YS))
             da_idx = da_idx.astype(float)
             idx_units = cfg.unit_1
 
@@ -440,20 +444,25 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
         elif idx_name in [cfg.idx_txg, cfg.idx_txx]:
             da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
-            if idx_name == cfg.idx_txg:
-                da_idx = xr.DataArray(indices.tx_mean(da_tasmax))
-            else:
-                da_idx = xr.DataArray(indices.tx_max(da_tasmax))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                if idx_name == cfg.idx_txg:
+                    da_idx = xr.DataArray(indices.tx_mean(da_tasmax))
+                else:
+                    da_idx = xr.DataArray(indices.tx_max(da_tasmax))
             idx_units = cfg.unit_C
 
         elif idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights]:
             da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
-            if idx_name == cfg.idx_tnx:
-                da_idx = xr.DataArray(indices.tn_max(da_tasmin))
-                idx_units = cfg.unit_C
-            elif idx_name == cfg.idx_tng:
-                da_idx = xr.DataArray(indices.tn_mean(da_tasmin))
-                idx_units = cfg.unit_C
+            if idx_name in [cfg.idx_tnx, cfg.idx_tng]:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=Warning)
+                    if idx_name == cfg.idx_tnx:
+                        da_idx = xr.DataArray(indices.tn_max(da_tasmin))
+                        idx_units = cfg.unit_C
+                    elif idx_name == cfg.idx_tng:
+                        da_idx = xr.DataArray(indices.tn_mean(da_tasmin))
+                        idx_units = cfg.unit_C
             else:
                 param_tasmin = idx_params_str[0]
                 da_idx = xr.DataArray(indices.tropical_nights(da_tasmin, param_tasmin))
@@ -462,12 +471,12 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         elif idx_name in [cfg.idx_tgg, cfg.idx_etr]:
             da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
             da_tasmax = ds_var_or_idx[1][cfg.var_cordex_tasmax]
-            if idx_name == cfg.idx_tgg:
-                da_idx = xr.DataArray(indices.tg_mean(indices.tas(da_tasmin, da_tasmax)))
-            else:
-                # TODO: xclim function does not seem to be working (values are much too low).
-                # da_idx = xr.DataArray(indices.extreme_temperature_range(da_tasmin, da_tasmax))
-                da_idx = xr.DataArray(indices.tx_max(da_tasmax) - indices.tn_min(da_tasmin))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                if idx_name == cfg.idx_tgg:
+                    da_idx = xr.DataArray(indices.tg_mean(indices.tas(da_tasmin, da_tasmax)))
+                else:
+                    da_idx = xr.DataArray(indices.tx_max(da_tasmax) - indices.tn_min(da_tasmin))
             idx_units = cfg.unit_C
 
         elif idx_name == cfg.idx_dc:
@@ -484,12 +493,14 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
         elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:
             da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
-            if idx_name == cfg.idx_rx1day:
-                da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS))
-            elif idx_name == cfg.idx_rx5day:
-                da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS))
-            else:
-                da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=cfg.freq_YS))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                if idx_name == cfg.idx_rx1day:
+                    da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS))
+                elif idx_name == cfg.idx_rx5day:
+                    da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS))
+                else:
+                    da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=cfg.freq_YS))
             idx_units = da_idx.attrs[cfg.attrs_units]
 
         elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
@@ -503,7 +514,9 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
                 da_idx = xr.DataArray(
                     indices.maximum_consecutive_dry_days(da_pr, param_pr, cfg.freq_YS))
             elif idx_name in [cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wetdays]:
-                da_idx = xr.DataArray(indices.wetdays(da_pr, param_pr, cfg.freq_YS))
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=Warning)
+                    da_idx = xr.DataArray(indices.wetdays(da_pr, param_pr, cfg.freq_YS))
             elif idx_name == cfg.idx_drydays:
                 da_idx = xr.DataArray(indices.dry_days(da_pr, param_pr, cfg.freq_YS))
             elif idx_name == cfg.idx_sdii:
@@ -590,26 +603,27 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         # Convert to float. This is required to ensure that 'nan' values are not transformed into integers.
         da_idx = da_idx.astype(float)
 
+        # Rename dimensions.
+        if "dim_0" in list(da_idx.dims):
+            da_idx = da_idx.rename_dims({"dim_0": cfg.dim_time})
+            da_idx = da_idx.rename_dims({"dim_1": cfg.dim_latitude, "dim_2": cfg.dim_longitude})
+        elif (cfg.dim_lat in list(da_idx.dims)) or (cfg.dim_lon in list(da_idx.dims)):
+            da_idx = da_idx.rename_dims({cfg.dim_lat: cfg.dim_latitude, cfg.dim_lon: cfg.dim_longitude})
+        elif (cfg.dim_rlat in list(da_idx.dims)) or (cfg.dim_rlon in list(da_idx.dims)):
+            da_idx = da_idx.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+        elif (cfg.dim_latitude not in list(da_idx.dims)) and (cfg.dim_longitude not in list(da_idx.dims)):
+            da_idx = da_idx.expand_dims(longitude=1)
+            da_idx = da_idx.expand_dims(latitude=1)
+
         # Apply mask.
         if da_mask is not None:
-            for t in range(len(da_idx.time)):
-                da_idx[t] = da_idx[t] * da_mask.values
+            for t in range(len(da_idx[cfg.dim_time])):
+                da_idx[t] *= da_idx[t] * da_mask
 
         # Create dataset.
         da_idx.name = idx_name
         ds_idx = da_idx.to_dataset()
         ds_idx.attrs[cfg.attrs_units] = idx_units
-        if "dim_0" in list(ds_idx.dims):
-            ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
-        if "dim_1" in list(ds_idx.dims):
-            ds_idx = ds_idx.rename_dims({"dim_1": cfg.dim_lat, "dim_2": cfg.dim_lon})
-        elif (cfg.dim_lat in list(ds_idx.dims)) or (cfg.dim_lon in list(ds_idx.dims)):
-            ds_idx = ds_idx.rename_dims({cfg.dim_lat: cfg.dim_latitude, cfg.dim_lon: cfg.dim_longitude})
-        elif (cfg.dim_rlat in list(ds_idx.dims)) or (cfg.dim_rlon in list(ds_idx.dims)):
-            ds_idx = ds_idx.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-        else:
-            ds_idx = ds_idx.expand_dims(lon=1)
-            ds_idx = ds_idx.expand_dims(lat=1)
         ds_idx.attrs[cfg.attrs_sname] = idx_name
         ds_idx.attrs[cfg.attrs_lname] = idx_name
         ds_idx = utils.copy_coordinates(ds_var_or_idx[0], ds_idx)
