@@ -976,29 +976,40 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
         year_list = utils.extract_date_field(da_pr, "year")
         doy_list = utils.extract_date_field(da_pr, "doy")
 
-        # Loop through time steps.
+        # Holds current and following rain seasons.
+        da_rainstart1_t = None
+        da_rainstart2_t = None
+
+        # Calculate conditions at each time step.
+        doy_prev = 365
         for t in range(n_t - int(dt) - 1):
 
             year = year_list[t]
             doy = doy_list[t]
 
-            # Condition #1: Within search interval (doy_a and doy_b).
+            # Condition #1: Rain season ends within imposed interval (doy_a and doy_b).
             if doy_b > -1:
                 cond1 = (((doy_a <= doy_b) & (doy >= doy_a) & (doy <= doy_b)) |
                          ((doy_a > doy_b) & ((doy >= doy_a) | (doy <= doy_b))))
             else:
                 cond1 = (doy >= doy_a)
-            if not cond1:
-                continue
 
             # Condition #2: Rain season can't start before the beginning of this season and can't stop after the
             # beginning of the following rain season.
-            da_rainstart1_t = da_rainstart1[da_rainstart1[cfg.dim_time].dt.year == year].squeeze()
+            # Extract rain season starts for the current year.
+            if doy_prev > doy:
+                da_rainstart1_t = da_rainstart1[da_rainstart1[cfg.dim_time].dt.year == year].squeeze()
+                da_rainstart2_t = None
+                if da_rainstart2 is not None:
+                    da_rainstart2_t = da_rainstart2[da_rainstart2[cfg.dim_time].dt.year == year].squeeze()
+            # Calculate condition.
             da_cond2 = (doy > da_rainstart1_t)
-            da_rainstart2_t = None
             if da_rainstart2 is not None:
-                da_rainstart2_t = da_rainstart2[da_rainstart2[cfg.dim_time].dt.year == year].squeeze()
                 da_cond2 = da_cond2 & (doy < da_rainstart2_t)
+
+            doy_prev = doy
+            if not cond1:
+                continue
 
             # Condition #3: Current precipitation exceeds threshold.
             da_cond3 = da_pr[t] >= pr
@@ -1010,9 +1021,25 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
 
             # Combine conditions.
             da_conds[t] = xr.DataArray(cond1 & da_cond2 & da_cond3 & da_cond4).astype(float) * doy
-            if da_rainstart2 is not None:
-                da_conds.values[da_conds.values == 0] = 366
-                da_conds[t] = np.minimum(da_conds[t], da_rainstart2_t)
+
+        # Replace each zero with a large value.
+        if da_rainstart2_t is not None:
+            t1 = t2 = -1
+            doy_prev = 365
+            for t in range(n_t):
+                # Find time step associated with first and last days of year.
+                doy = doy_list[t]
+                doy_next = 1 if (t == n_t - 1) else doy_list[t + 1]
+                if doy_prev > doy:
+                    t1 = t
+                elif doy_next < doy:
+                    t2 = t
+                # Remove zeros.
+                if (t1 > -1) and (t2 > -1):
+                    da_conds[t1:(t2+1)].values[da_conds[t1:(t2+1)].values == 0] = 1000
+                    da_conds[t1:(t2+1)] = np.minimum(da_conds[t1:(t2+1)], da_rainstart2_t)
+                    t1 = t2 = -1
+                doy_prev = doy
 
         # Summarize by year.
         if da_rainstart2 is None:
