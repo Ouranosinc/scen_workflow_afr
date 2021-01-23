@@ -603,8 +603,10 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
         if "dim_1" in list(ds_idx.dims):
             ds_idx = ds_idx.rename_dims({"dim_1": cfg.dim_lat, "dim_2": cfg.dim_lon})
-        elif (cfg.dim_latitude in list(ds_idx.dims)) or (cfg.dim_longitude in list(ds_idx.dims)):
-            ds_idx.rename_dims({cfg.dim_latitude: cfg.dim_lat, cfg.dim_longitude: cfg.dim_lon})
+        elif (cfg.dim_lat in list(ds_idx.dims)) or (cfg.dim_lon in list(ds_idx.dims)):
+            ds_idx = ds_idx.rename_dims({cfg.dim_lat: cfg.dim_latitude, cfg.dim_lon: cfg.dim_longitude})
+        elif (cfg.dim_rlat in list(ds_idx.dims)) or (cfg.dim_rlon in list(ds_idx.dims)):
+            ds_idx = ds_idx.rename_dims({cfg.dim_rlat: cfg.dim_latitude, cfg.dim_rlon: cfg.dim_longitude})
         else:
             ds_idx = ds_idx.expand_dims(lon=1)
             ds_idx = ds_idx.expand_dims(lat=1)
