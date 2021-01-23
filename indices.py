@@ -1079,8 +1079,10 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
         doy = int(da_pr[cfg.dim_time][t].dt.dayofyear)
 
         # Extract start and end days of rain season.
-        da_start = da_rainstart[np.array(years_idx) == str(y)].squeeze()
-        da_end = da_rainend[np.array(years_idx) == str(y)].squeeze()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=FutureWarning)
+            da_start = da_rainstart[np.array(years_idx) == str(y)].squeeze()
+            da_end = da_rainend[np.array(years_idx) == str(y)].squeeze()
 
         # Condition.
         da_cond = (((da_start <= da_end) & ((doy < da_start) | (doy > da_end))) |
