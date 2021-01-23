@@ -618,7 +618,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         # Apply mask.
         if da_mask is not None:
             for t in range(len(da_idx[cfg.dim_time])):
-                da_idx[t] *= da_idx[t] * da_mask
+                da_idx[t] = da_idx[t] * da_mask
 
         # Create dataset.
         da_idx.name = idx_name
