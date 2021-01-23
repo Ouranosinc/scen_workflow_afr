@@ -499,7 +499,7 @@ def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
     # Data array has 3 dimensions, with unknown ranking.
     else:
         vals = ds[var].values.shape[0]
-        i_time = list(ds[var].dims).index("time")
+        i_time = list(ds[var].dims).index(cfg.dim_time)
         ds[var].values = ds[var].values +\
             np.random.rand(vals if i_time == 0 else 1, vals if i_time == 1 else 1, vals if i_time == 2 else 1) * d_val
 
@@ -927,7 +927,7 @@ def generate():
                     # Loop until all simulations have been processed.
                     while True:
 
-                        # Calculate the number of simulations processed (before generation).
+                        # Calculate the number of processed files (before generation).
                         # This quick verification is based on the QQMAP NetCDF file, but there are several other
                         # files that are generated. The 'completeness' verification is more complete in scalar mode.
                         n_sim_proc_before = len(list(glob.glob(d_qqmap + "*" + cfg.f_ext_nc)))
@@ -954,7 +954,7 @@ def generate():
                                 utils.log(str(e))
                                 pass
 
-                        # Calculate the number of simulations processed (after generation).
+                        # Calculate the number of processed files (after generation).
                         n_sim_proc_after = len(list(glob.glob(d_qqmap + "*" + cfg.f_ext_nc)))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.

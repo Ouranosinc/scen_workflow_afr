@@ -81,7 +81,10 @@ The following features are being implemented:
 The following features are being implemented:
 - created several climate indices: txg, tngmonthsbelow, drydurtot ('1d' and 'tot' calculation modes);
 - applying a mask on generated indices to remove values if located outside ERA5Land domain;
-- added the possibility to add a line corresponding to the 90th percentile in time series (for the index 'prcptot')
+- added the possibility to add a line corresponding to the 90th percentile in time series (for the index 'prcptot');
+- enabled parallel processing during the calculation of climate indices;
+- enabled dependency between consecutive rain seasons; 
+- added a second calculation method for 'rainend' index ('event'); the existing method was named 'depletion').
 
 The following bugs were fixed:
 - colour scale in maps (based on map content rather than statistics);

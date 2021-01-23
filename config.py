@@ -925,7 +925,7 @@ def get_d_scen(stn: str, cat: str, var: str = ""):
     return d
 
 
-def get_d_idx(stn: str, var: str = ""):
+def get_d_idx(stn: str, idx_name: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -935,8 +935,8 @@ def get_d_idx(stn: str, var: str = ""):
     ----------
     stn : str
         Station.
-    var : str, optional
-        Variable.
+    idx_name : str, optional
+        Index name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -944,8 +944,8 @@ def get_d_idx(stn: str, var: str = ""):
     if stn != "":
         d = d + cat_stn + "/" + stn + ("_" + region if region != "" else "") + "/"
     d = d + cat_idx + "/"
-    if var != "":
-        d = d + var + "/"
+    if idx_name != "":
+        d = d + idx_name + "/"
 
     return d
 
@@ -971,5 +971,36 @@ def get_p_obs(stn_name: str, var: str, cat: str = ""):
     if cat != "":
         p = p + "_4qqmap"
     p = p + f_ext_nc
+
+    return p
+
+
+def get_equivalent_idx_path(p: str, var_or_idx_a: str, var_or_idx_b: str, stn: str, rcp: str) -> str:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    # Determine the equivalent path for another variable or index..
+
+    Parameters
+    ----------
+    p : str
+        Path associated with 'var_or_idx_a'.
+    var_or_idx_a : str
+        Climate variable or index to be replaced.
+    var_or_idx_b : str
+        Climate variable or index to replace with.
+    stn : str
+        Station name.
+    rcp : str
+        Emission scenario.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if extract_idx(var_or_idx_b) not in variables_cordex:
+        if rcp == rcp_ref:
+            p = p.replace(cat_scen + "/" + cat_obs + "/" + var_or_idx_a, cat_idx + "/" + var_or_idx_b)
+            p = p.replace("_" + stn, "_" + rcp_ref)
+        p = p.replace(cat_scen + "/" + cat_qqmap + "/" + var_or_idx_a, cat_idx + "/" + var_or_idx_b)
+    p = p.replace(var_or_idx_a, extract_idx(var_or_idx_b))
 
     return p

@@ -327,27 +327,64 @@ def extract_date(val: pd.DatetimeIndex) -> [int]:
     return [year, month, day]
 
 
-def extract_years(ds: Union[xr.DataArray, xr.Dataset]) -> [int]:
+def extract_date_field(ds: Union[xr.DataArray, xr.Dataset], field: str = None) -> [int]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Extract years.
+    Extract year, month, day and doy (dayofyear) for each time step.
 
     Parameters
     ----------
     ds : Union[xr.DataArray, xr.Dataset]
         DataArray or Dataset
+    field : str, optional
+        Field = {'year','month','day','doy'}
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    res = []
+
+    # Loop through days.
     time_list = list(ds.time.values)
     for i in range(len(time_list)):
-        try:
-            time_list[i] = time_list[i].year
-        except:
-            time_list[i] = str(time_list[i])[0:4]
 
-    return time_list
+        # Extract fields.
+        try:
+            year  = time_list[i].year
+            month = time_list[i].month
+            day   = time_list[i].day
+            doy   = time_list[i].dayofyear
+        except:
+            year  = int(str(time_list[i])[0:4])
+            month = int(str(time_list[i])[5:7])
+            day   = int(str(time_list[i])[8:10])
+            doy = day
+            doy += 31 if month > 1 else 0
+            doy += 28 if (month > 2) and (year % 4 > 0) else 0
+            doy += 29 if (month > 2) and (year % 4 == 0) else 0
+            doy += 31 if month > 3 else 0
+            doy += 30 if month > 4 else 0
+            doy += 31 if month > 5 else 0
+            doy += 30 if month > 6 else 0
+            doy += 31 if month > 7 else 0
+            doy += 31 if month > 8 else 0
+            doy += 30 if month > 9 else 0
+            doy += 31 if month > 10 else 0
+            doy += 30 if month > 11 else 0
+
+        # Add field(s) to list.
+        if field == "year":
+            res.append(year)
+        elif field == "month":
+            res.append(month)
+        elif field == "day":
+            res.append(day)
+        elif field == "doy":
+            res.append(doy)
+        else:
+            res.append([year, month, day, doy])
+
+    return res
 
 
 def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, freq=cfg.freq_D) -> pd.DatetimeIndex:

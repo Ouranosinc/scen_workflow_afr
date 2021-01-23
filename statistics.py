@@ -501,11 +501,11 @@ def calc_ts(cat: str):
                     # Extract years.
                     years = []
                     if cfg.rcp_26 in rcps:
-                        years = utils.extract_years(ds_rcp_26_grp[0])
+                        years = utils.extract_date_field(ds_rcp_26_grp[0], "year")
                     elif cfg.rcp_45 in rcps:
-                        years = utils.extract_years(ds_rcp_45_grp[0])
+                        years = utils.extract_date_field(ds_rcp_45_grp[0], "year")
                     elif cfg.rcp_85 in rcps:
-                        years = utils.extract_years(ds_rcp_85_grp[0])
+                        years = utils.extract_date_field(ds_rcp_85_grp[0], "year")
 
                     # Initialize pandas dataframe.
                     dict_pd = {"year": years}
@@ -515,7 +515,7 @@ def calc_ts(cat: str):
                     # Add values.
                     for rcp in rcps:
                         if rcp == cfg.rcp_ref:
-                            years = utils.extract_years(ds_ref)
+                            years = utils.extract_date_field(ds_ref, "year")
                             vals = ds_ref[var_or_idx].values
                             for i in range(len(vals)):
                                 df[cfg.rcp_ref][df["year"] == years[i]] = vals[i]
