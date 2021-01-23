@@ -653,7 +653,9 @@ def calc_heatmap(var_or_idx_code: str):
     # Calculate the overall minimum and maximum values (considering all maps for the current 'var_or_idx'.
     z_min = z_max = -1
     for i in range(len(arr_ds_map)):
-        vals = arr_ds_map[i][var_or_idx].mean(dim=cfg.dim_time)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            vals = arr_ds_map[i][var_or_idx].mean(dim=cfg.dim_time)
         z_min_i = float(vals.min())
         z_max_i = float(vals.max())
         if i == 0:
@@ -675,27 +677,22 @@ def calc_heatmap(var_or_idx_code: str):
         per_hors = [cfg.per_ref] if i == 0 else cfg.per_hors
         for per_hor in per_hors:
 
+            # Select period.
+            years_str = [str(per_hor[0]) + "-01-01", str(per_hor[1]) + "-12-31"]
+            ds_hor = ds_map.sel(time=slice(years_str[0], years_str[1]))
+
+            # Calculate mean or sum.
             with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-
-                # Select period.
-                years_str = [str(per_hor[0]) + "-01-01", str(per_hor[1]) + "-12-31"]
-                ds_hor = ds_map.sel(time=slice(years_str[0], years_str[1]))
-
-                # Calculate mean or sum.
+                warnings.simplefilter("ignore", category=Warning)
                 if var_or_idx not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", category=Warning)
-                        ds_hor = ds_hor.resample(time=cfg.freq_YS).mean()
+                    ds_hor = ds_hor.resample(time=cfg.freq_YS).mean()
                 else:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", category=FutureWarning)
-                        ds_hor = ds_hor.resample(time=cfg.freq_YS).sum()
+                    ds_hor = ds_hor.resample(time=cfg.freq_YS).sum()
                 da_hor = ds_hor.mean(dim=cfg.dim_time)[var_or_idx]
 
-                # Eliminate negligible values (<1mm/year).
-                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                    da_hor = da_hor.where(da_hor.values >= 1)
+            # Eliminate negligible values (<1mm/year).
+            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                da_hor = da_hor.where(da_hor.values >= 1)
 
             # Squeeze dataset to remove 'lat' and 'lon'.
             da_hor = da_hor.squeeze()
