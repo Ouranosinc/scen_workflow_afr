@@ -998,7 +998,7 @@ def get_equivalent_idx_path(p: str, var_or_idx_a: str, var_or_idx_b: str, stn: s
     """
 
     # Converting index to index.
-    if (extract_idx(var_or_idx_b) not in variables_cordex) and (extract_idx(var_or_idx_b) not in variables_cordex):
+    if (extract_idx(var_or_idx_a) not in variables_cordex) and (extract_idx(var_or_idx_b) not in variables_cordex):
         p = p.replace(extract_idx(var_or_idx_a), extract_idx(var_or_idx_b))
 
     # Converting variable to index.

@@ -19,6 +19,7 @@ import plot
 import utils
 import warnings
 import xarray as xr
+from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
 from typing import Union
 
@@ -518,7 +519,9 @@ def calc_ts(cat: str):
                             years = utils.extract_date_field(ds_ref, "year")
                             vals = ds_ref[var_or_idx].values
                             for i in range(len(vals)):
-                                df[cfg.rcp_ref][df["year"] == years[i]] = vals[i]
+                                with warnings.catch_warnings():
+                                    warnings.simplefilter("ignore", category=SettingWithCopyWarning)
+                                    df[cfg.rcp_ref][df["year"] == years[i]] = vals[i]
                         elif rcp == cfg.rcp_26:
                             df[cfg.rcp_26 + "_min"] = ds_rcp_26_grp[0][var_or_idx].values
                             df[cfg.rcp_26 + "_moy"] = ds_rcp_26_grp[1][var_or_idx].values

@@ -282,7 +282,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         p_idx = cfg.get_d_idx(stn, idx_code) + idx_name + "_ref" + cfg.f_ext_nc
     else:
         p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_code) +\
-                os.path.basename(p_sim[i_sim]).replace(var_or_idx_list[0], idx_name)
+                os.path.basename(p_sim[i_sim]).replace(cfg.extract_idx(var_or_idx_list[0]), idx_name)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
     if (rcp != cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
@@ -606,13 +606,16 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             ds_idx = ds_idx.rename_dims({"dim_0": cfg.dim_time})
         if "dim_1" in list(ds_idx.dims):
             ds_idx = ds_idx.rename_dims({"dim_1": cfg.dim_lat, "dim_2": cfg.dim_lon})
+        elif (cfg.dim_latitude in list(ds_idx.dims)) or (cfg.dim_longitude in list(ds_idx.dims)):
+            ds_idx.rename_dims({cfg.dim_latitude: cfg.dim_lat, cfg.dim_longitude: cfg.dim_lon})
         else:
             ds_idx = ds_idx.expand_dims(lon=1)
             ds_idx = ds_idx.expand_dims(lat=1)
         ds_idx.attrs[cfg.attrs_sname] = idx_name
         ds_idx.attrs[cfg.attrs_lname] = idx_name
         ds_idx = utils.copy_coordinates(ds_var_or_idx[0], ds_idx)
-        ds_idx[idx_name] = utils.copy_coordinates(ds_var_or_idx[0][var_or_idx_list[0]], ds_idx[idx_name])
+        ds_idx[idx_name] =\
+            utils.copy_coordinates(ds_var_or_idx[0][cfg.extract_idx(var_or_idx_list[0])], ds_idx[idx_name])
         ds_idx = ds_idx.squeeze()
 
         # Adjust calendar.
