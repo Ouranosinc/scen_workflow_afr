@@ -51,7 +51,7 @@ def create_mask(stn: str) -> xr.DataArray:
 
             # Flag 'nan' values.
             # if var == cfg.var_cordex_pr:
-            #     p_dry_error = convert_units_to(str(0.000001) + " mm/day", ds[var])
+            #     p_dry_error = convert_units_to(str(0.0000008) + " mm/day", ds[var])
             #     ds[var].values[(ds[var].values > 0) & (ds[var].values <= p_dry_error)] = np.nan
 
             # Create mask.
