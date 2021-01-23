@@ -112,8 +112,8 @@ def generate(idx_code: str):
     if idx_name in [cfg.idx_rainend, cfg.idx_raindur, cfg.idx_rainqty]:
         var_or_idx_list.append(idx_code.replace(idx_name, cfg.idx_rainstart))
 
-        if (idx_name == cfg.idx_rainend) and not str(idx_params[5]).isdigit():
-            var_or_idx_list.append(idx_params[5])
+        if (idx_name == cfg.idx_rainend) and (str(idx_params[6]) != "nan"):
+            var_or_idx_list.append(str(idx_params[6]))
 
         if idx_name in [cfg.idx_raindur, cfg.idx_rainqty]:
             var_or_idx_list.append(idx_code.replace(idx_name, cfg.idx_rainend))
@@ -533,10 +533,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             etp   = -1.0 if str(idx_params_str[2]) == "nan" else float(idx_params_str[2])
             dt    = -1.0 if str(idx_params_str[3]) == "nan" else float(idx_params_str[3])
             doy_a = int(idx_params_str[4])
-            if da_rainstart2 is None:
-                doy_b = int(idx_params_str[5])
-            else:
-                doy_b = -1
+            doy_b = int(idx_params_str[5])
             da_idx = xr.DataArray(rain_end(da_pr, da_rainstart1, da_rainstart2, meth, pr, etp, dt, doy_a, doy_b))
             idx_units = cfg.unit_1
 
@@ -991,11 +988,8 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
             doy = doy_list[t]
 
             # Condition #1: Rain season ends within imposed interval (doy_a and doy_b).
-            if doy_b > -1:
-                cond1 = (((doy_a <= doy_b) & (doy >= doy_a) & (doy <= doy_b)) |
-                         ((doy_a > doy_b) & ((doy >= doy_a) | (doy <= doy_b))))
-            else:
-                cond1 = (doy >= doy_a)
+            cond1 = (((doy_a <= doy_b) & (doy >= doy_a) & (doy <= doy_b)) |
+                     ((doy_a > doy_b) & ((doy >= doy_a) | (doy <= doy_b))))
 
             # Condition #2: Rain season can't start before the beginning of this season and can't stop after the
             # beginning of the following rain season.
@@ -1039,7 +1033,7 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
                     t2 = t
                 # Remove zeros.
                 if (t1 > -1) and (t2 > -1):
-                    da_conds[t1:(t2+1)].values[da_conds[t1:(t2+1)].values == 0] = 1000
+                    da_conds[t1:(t2+1)].values[da_conds[t1:(t2+1)].values == 0] = doy_b
                     da_conds[t1:(t2+1)] = np.minimum(da_conds[t1:(t2+1)], da_rainstart2_t)
                     t1 = t2 = -1
                 doy_prev = doy
