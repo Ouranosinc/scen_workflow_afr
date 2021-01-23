@@ -1046,7 +1046,7 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
 
         # Summarize by year.
         if da_rainstart2 is None:
-            da_conds.values[da_conds.values == 0] = np.nan
+            da_conds.values[da_conds.values == 0] = doy_b
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
             da_end = da_conds.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
