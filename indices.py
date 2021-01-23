@@ -1073,8 +1073,14 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
 
     # Eliminate negative values.
     da_pr.values[da_pr.values < 0] = 0
+
+    # Convert units.
     if da_pr.attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
         da_pr.values *= cfg.spd
+
+    # Rename coordinates.
+    if (cfg.dim_rlat in list(da_pr.dims)) or (cfg.dim_rlon in list(da_pr.dims)):
+        da_pr = da_pr.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
 
     # Extract years.
     years_idx = utils.extract_date_field(da_rainstart.time, "year")
