@@ -1071,11 +1071,17 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Eliminate negative values.
+    da_pr.values[da_pr.values < 0] = 0
+    if da_pr.attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
+        da_pr.values *= cfg.spd
+
     # Extract years.
     years_idx = utils.extract_date_field(da_rainstart.time, "year")
 
     # Discard precipitation amounts that are not happening during rain season.
-    for t in range(len(da_pr[cfg.dim_time])):
+    n_t = len(da_pr[cfg.dim_time])
+    for t in range(n_t):
 
         # Extract year and day of year.
         y = int(da_pr[cfg.dim_time][t].dt.year)
