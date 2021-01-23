@@ -903,6 +903,10 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
     # Eliminate negative values.
     da_pr.values[da_pr.values < 0] = 0
 
+    # Rename coordinates.
+    if (cfg.dim_rlat in list(da_pr.dims)) or (cfg.dim_rlon in list(da_pr.dims)):
+        da_pr = da_pr.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+
     # Unit conversion.
     pr  = convert_units_to(str(pr) + " mm/day", da_pr)
     etp = convert_units_to(str(etp) + " mm/day", da_pr)
