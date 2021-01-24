@@ -605,10 +605,10 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
         # Rename dimensions.
         if "dim_0" in list(da_idx.dims):
-            da_idx = da_idx.rename_dims({"dim_0": cfg.dim_time})
-            da_idx = da_idx.rename_dims({"dim_1": cfg.dim_latitude, "dim_2": cfg.dim_longitude})
+            da_idx = da_idx.rename({"dim_0": cfg.dim_time})
+            da_idx = da_idx.rename({"dim_1": cfg.dim_latitude, "dim_2": cfg.dim_longitude})
         elif (cfg.dim_lat in list(da_idx.dims)) or (cfg.dim_lon in list(da_idx.dims)):
-            da_idx = da_idx.rename_dims({cfg.dim_lat: cfg.dim_latitude, cfg.dim_lon: cfg.dim_longitude})
+            da_idx = da_idx.rename({cfg.dim_lat: cfg.dim_latitude, cfg.dim_lon: cfg.dim_longitude})
         elif (cfg.dim_rlat in list(da_idx.dims)) or (cfg.dim_rlon in list(da_idx.dims)):
             da_idx = da_idx.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
         elif (cfg.dim_latitude not in list(da_idx.dims)) and (cfg.dim_longitude not in list(da_idx.dims)):
