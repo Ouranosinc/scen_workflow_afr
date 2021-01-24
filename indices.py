@@ -220,7 +220,10 @@ def generate(idx_code: str):
                     n_sim_proc_before = len(list(glob.glob(d_idx + "*" + cfg.f_ext_nc)))
 
                     # Scalar processing mode.
-                    if cfg.n_proc == 1:
+                    scalar_required = False
+                    if idx_name == cfg.idx_prcptot:
+                        scalar_required = not str(idx_params[0]).isdigit()
+                    if (cfg.n_proc == 1) or scalar_required:
                         for i_sim in range(n_sim):
                             generate_single(idx_code, idx_params, var_or_idx_list, p_sim, stn, rcp, da_mask, i_sim)
 
@@ -328,7 +331,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
         if (idx_name == cfg.idx_tx90p) or ((idx_name == cfg.idx_wsdi) and (i == 0)):
             idx_param = "90p"
-        if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tngmonthsbelow, cfg.idx_tx90p,
+        if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tngmonthsbelow, cfg.idx_tx90p, cfg.idx_prcptot,
                          cfg.idx_tropicalnights]) or\
            ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
            ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)) or \
@@ -339,11 +342,14 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
                 if rcp == cfg.rcp_ref:
                     if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen,
                                      cfg.idx_wsdi]) or (i == 1):
-                        idx_param =\
-                            ds_var_or_idx[i][cfg.var_cordex_tasmax].quantile(idx_param).values.ravel()[0]
+                        idx_param = ds_var_or_idx[i][cfg.var_cordex_tasmax].quantile(idx_param).values.ravel()[0]
                     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
-                        idx_param =\
-                            ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_param).values.ravel()[0]
+                        idx_param = ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_param).values.ravel()[0]
+                    elif idx_name == cfg.idx_prcptot:
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", category=FutureWarning)
+                            idx_param = ds_var_or_idx[i][cfg.var_cordex_pr].resample(time=cfg.freq_YS).\
+                                sum(dim=cfg.dim_time).quantile(idx_param).values.ravel()[0] * cfg.spd
                     elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
                         if idx_name == cfg.idx_wgdaysabove:
                             da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
