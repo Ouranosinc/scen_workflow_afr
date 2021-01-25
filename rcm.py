@@ -99,13 +99,12 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
                                combine="by_coords")
         ds_subset = ds.sel(rlat=slice(min(lat_bnds), max(lat_bnds)), rlon=slice(min(lon_bnds), max(lon_bnds))).\
             sel(time=slice(str(min(all_yr)), str(max(all_yr))))
+        # Rotated_pole gets borked during subset.
         try:
             grid = ds[var].attrs[cfg.attrs_gmap]
-            # Rotated_pole gets borked during subset.
             ds_subset[grid] = ds[grid]
         except Exception as e:
             utils.log("Warning: Could not overwrite grid mapping:", True)
-            logging.exception(e)
 
     # CRCM5-Ouranos ----------------------------------------------------------------------------------------------------
 

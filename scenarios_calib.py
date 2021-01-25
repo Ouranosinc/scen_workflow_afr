@@ -121,21 +121,19 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
 
                     # Error --------------------------------------------------------------------------------------------
 
+                    # Calculate the error between observations and simulation for the reference period.
+                    ds_regrid_ref = utils.open_netcdf(p_regrid_ref)
+                    bias_err_current = utils.calc_error(ds_stn[var].values.ravel(), ds_regrid_ref[var].values.ravel())
+
                     # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
                     # selected method.
-                    if cfg.opt_calib_auto:
-
-                        # Calculate the error between observations and simulation for the reference period.
-                        ds_regrid_ref = utils.open_netcdf(p_regrid_ref)
-                        bias_err_current =\
-                            utils.calc_error(ds_stn[var].values.ravel(), ds_regrid_ref[var].values.ravel())
-
-                        if (bias_err_best < 0) or (bias_err_current < bias_err_best):
-                            col_names = ["nq", "up_qmf", "time_win", "bias_err"]
-                            col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
-                            cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
-                                             (cfg.df_calib["stn"] == stn) &
-                                             (cfg.df_calib["var"] == var), col_names] = col_values
+                    if (not cfg.opt_calib_auto) or\
+                       (cfg.opt_calib_auto and ((bias_err_best < 0) or (bias_err_current < bias_err_best))):
+                        col_names = ["nq", "up_qmf", "time_win", "bias_err"]
+                        col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
+                        cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                                         (cfg.df_calib["stn"] == stn) &
+                                         (cfg.df_calib["var"] == var), col_names] = col_values
 
         # Update calibration file.
         if cfg.opt_calib_auto and os.path.exists(cfg.p_calib):

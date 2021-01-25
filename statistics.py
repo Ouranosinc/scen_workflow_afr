@@ -656,6 +656,8 @@ def calc_heatmap(var_or_idx_code: str):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
             vals = arr_ds_map[i][var_or_idx].mean(dim=cfg.dim_time)
+        if var_or_idx in (cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot):
+            vals = vals * 365.0
         z_min_i = float(vals.min())
         z_max_i = float(vals.max())
         if i == 0:
