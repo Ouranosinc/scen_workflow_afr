@@ -293,21 +293,24 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
     # Load datasets (one per variable or index).
     ds_var_or_idx = []
-    for j_var_or_idx in range(0, len(var_or_idx_list)):
-        var_or_idx_j = var_or_idx_list[j_var_or_idx]
+    for i_var_or_idx in range(0, len(var_or_idx_list)):
+        var_or_idx_i = var_or_idx_list[i_var_or_idx]
 
         # Open dataset.
-        p_sim_j = cfg.get_equivalent_idx_path(p_sim[i_sim], var_or_idx_list[0], var_or_idx_j, stn, rcp)
+        p_sim_j = cfg.get_equivalent_idx_path(p_sim[i_sim], var_or_idx_list[0], var_or_idx_i, stn, rcp)
         ds = utils.open_netcdf(p_sim_j)
 
         # Adjust temperature units.
-        if cfg.extract_idx(var_or_idx_j) in\
+        if cfg.extract_idx(var_or_idx_i) in\
                 [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-            if ds[var_or_idx_j].attrs[cfg.attrs_units] == cfg.unit_K:
-                ds[var_or_idx_j] = ds[var_or_idx_j] - cfg.d_KC
+            if ds[var_or_idx_i].attrs[cfg.attrs_units] == cfg.unit_K:
+                ds[var_or_idx_i] = ds[var_or_idx_i] - cfg.d_KC
             elif rcp == cfg.rcp_ref:
-                ds[var_or_idx_j][cfg.attrs_units] = cfg.unit_C
-            ds[var_or_idx_j].attrs[cfg.attrs_units] = cfg.unit_C
+                ds[var_or_idx_i][cfg.attrs_units] = cfg.unit_C
+            ds[var_or_idx_i].attrs[cfg.attrs_units] = cfg.unit_C
+
+        # Apply mask.
+        ds[var_or_idx_i] = utils.apply_mask(ds[var_or_idx_i], da_mask)
 
         ds_var_or_idx.append(ds)
 
@@ -340,16 +343,19 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             if "p" in str(idx_param):
                 idx_param = float(idx_param.replace("p", "")) / 100.0
                 if rcp == cfg.rcp_ref:
-                    if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen,
-                                     cfg.idx_wsdi]) or (i == 1):
+                    # Calculate percentile.
+                    if (idx_name in [cfg.idx_tx90p, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) or\
+                       (i == 1):
                         idx_param = ds_var_or_idx[i][cfg.var_cordex_tasmax].quantile(idx_param).values.ravel()[0]
                     elif idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]:
                         idx_param = ds_var_or_idx[i][cfg.var_cordex_tasmin].quantile(idx_param).values.ravel()[0]
                     elif idx_name == cfg.idx_prcptot:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=FutureWarning)
-                            idx_param = ds_var_or_idx[i][cfg.var_cordex_pr].resample(time=cfg.freq_YS).\
-                                sum(dim=cfg.dim_time).quantile(idx_param).values.ravel()[0] * cfg.spd
+                            da_i = ds_var_or_idx[i][cfg.var_cordex_pr].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+                        dim = utils.get_coord_names(ds_var_or_idx[i])
+                        idx_param =\
+                            da_i.sum(dim=dim).quantile(idx_param).values.ravel()[0] / float(da_mask.sum()) * cfg.spd
                     elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
                         if idx_name == cfg.idx_wgdaysabove:
                             da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
@@ -358,6 +364,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
                         else:
                             da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
                         idx_param = da_vv.quantile(idx_param).values.ravel()[0]
+                    # Round value and save it.
                     idx_param = float(round(idx_param, 2))
                     cfg.idx_params[cfg.idx_names.index(idx_name)][i] = idx_param
                 else:
@@ -623,8 +630,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
         # Apply mask.
         if da_mask is not None:
-            for t in range(len(da_idx[cfg.dim_time])):
-                da_idx[t] = da_idx[t] * da_mask
+            da_idx = utils.apply_mask(da_idx, da_mask)
 
         # Create dataset.
         da_idx.name = idx_name

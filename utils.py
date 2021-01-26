@@ -1143,3 +1143,46 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
             log("Unable to use a mask.", True)
 
     return ds
+
+
+def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Apply a mask.
+
+    Parameters
+    ----------
+    da: xr.DataArray
+        Dataset or DataArray on which to apply the mask.
+    da_mask: xr.DataArray
+        Mask (contains 0, 1 and nan).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    da = da[0:len(da[cfg.dim_time])] * da_mask
+
+    return da
+
+
+def get_coord_names(ds: xr.Dataset) -> set:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get coordinate names (dictionary).
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if cfg.dim_lat in ds.dims:
+        coord_dict = {cfg.dim_lat, cfg.dim_lon}
+    elif cfg.dim_rlat in ds.dims:
+        coord_dict = {cfg.dim_rlat, cfg.dim_rlon}
+    else:
+        coord_dict = {cfg.dim_latitude, cfg.dim_longitude}
+
+    return coord_dict
