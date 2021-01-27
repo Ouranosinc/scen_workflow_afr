@@ -347,6 +347,7 @@ opt_calib_bias      = True          # If True, examines bias correction.
 opt_calib_bias_meth = "rrmse"       # Error quantification method (select one of the following methods).
 opt_calib_coherence = False         # If True, examines physical coherence.
 opt_calib_qqmap     = True          # If true, calculate qqmap.
+opt_calib_perturb   = []            # Perturbation: list of [variable,value]. "*" applies to all variables.
 
 # Bias parameters.
 # The parameter 'time_win' is the number of days before and after any given day (15 days before and after = 30 days).

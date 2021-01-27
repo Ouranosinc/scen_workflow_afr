@@ -177,6 +177,8 @@ def load_params(p_ini: str):
                 cfg.opt_calib_bias_meth = ast.literal_eval(value)
             elif key == "opt_calib_qqmap":
                 cfg.opt_calib_qqmap = ast.literal_eval(value)
+            elif key == "opt_calib_perturb":
+                cfg.opt_calib_perturb = convert_to_2d(value, float)
             elif key == "nq_default":
                 cfg.nq_default = int(value)
                 cfg.nq_calib = [cfg.nq_default]

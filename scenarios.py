@@ -470,7 +470,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
         utils.log(msg + " (not required)", True)
 
 
-def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
+def perturbate(ds: xr.Dataset, var: str) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -482,8 +482,6 @@ def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
         Dataset.
     var: str
         Variable.
-    d_val: float
-        Perturbation.
 
     Returns
     -------
@@ -491,6 +489,14 @@ def perturbate(ds: xr.Dataset, var: str, d_val: float = 1e-12) -> xr.Dataset:
         Perturbed dataset.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Get perturbation value.
+    d_val = 1e-12
+    if cfg.opt_calib_perturb is not None:
+        for i in range(len(cfg.opt_calib_perturb)):
+            if var == cfg.opt_calib_perturb[i][0]:
+                d_val = float(cfg.opt_calib_perturb[i][1])
+                break
 
     # Data array has a single dimension.
     if len(ds[var].dims) == 1:
@@ -535,13 +541,13 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
 
     if (not os.path.exists(p_obs)) or cfg.opt_force_overwrite:
 
-        # Drop February 29th and keep reference period.
+        # Drop February 29th and select reference period.
         ds_obs = utils.remove_feb29(ds_stn)
         ds_obs = utils.sel_period(ds_obs, cfg.per_ref)
 
         # Add small perturbation.
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            ds_obs = perturbate(ds_obs, var)
+        # if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+        #     ds_obs = perturbate(ds_obs, var)
 
         # Save NetCDF file.
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_obs)
@@ -868,14 +874,14 @@ def generate():
             d_fig_postprocess = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var)
             d_fig_workflow    = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var)
 
-            # Load station data now to avoid competing processes (in parallel mode).
+            # Load station data, drop February 29th and select reference period.
             ds_stn = utils.open_netcdf(p_stn)
-            # Drop February 29th and select reference period.
             ds_stn = utils.remove_feb29(ds_stn)
             ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
+
             # Add small perturbation.
-            if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                ds_stn = perturbate(ds_stn, var)
+            # if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+            #     ds_stn = perturbate(ds_stn, var)
 
             # Create directories (required because of parallel processing).
             if not (os.path.isdir(d_stn)):
@@ -1100,10 +1106,16 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
                               (cfg.df_calib["stn"] == stn) &
                               (cfg.df_calib["var"] == var)]
-    nq       = float(df_sel["nq"])
-    up_qmf   = float(df_sel["up_qmf"])
-    time_win = float(df_sel["time_win"])
-    bias_err = float(df_sel["bias_err"])
+    if df_sel is not None:
+        nq       = float(df_sel["nq"])
+        up_qmf   = float(df_sel["up_qmf"])
+        time_win = float(df_sel["time_win"])
+        bias_err = float(df_sel["bias_err"])
+    else:
+        nq       = float(cfg.nq_default)
+        up_qmf   = float(cfg.up_qmf_default)
+        time_win = float(cfg.time_win_default)
+        bias_err = float(cfg.bias_err_default)
 
     # Display calibration parameters.
     msg = "Selected parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + \

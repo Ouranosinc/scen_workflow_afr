@@ -91,14 +91,13 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                             utils.log(msg + p_regrid_fut, True)
                         continue
 
-                    # Load station data.
+                    # Load station data, drop February 29th, and select reference period.
                     ds_stn = utils.open_netcdf(p_stn)
-                    # Drop February 29th and select reference period.
                     ds_stn = utils.remove_feb29(ds_stn)
                     ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
                     # Add small perturbation.
-                    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                        ds_stn = scen.perturbate(ds_stn, var)
+                    # if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                    #     ds_stn = scen.perturbate(ds_stn, var)
 
                     # Path and title of calibration figure.
                     fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + cfg.f_ext_png
@@ -121,9 +120,13 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
 
                     # Error --------------------------------------------------------------------------------------------
 
+                    # Extract the reference period from the adjusted simulation.
+                    ds_qqmap_ref = utils.open_netcdf(p_qqmap)
+                    ds_qqmap_ref = utils.remove_feb29(ds_qqmap_ref)
+                    ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cfg.per_ref)
+
                     # Calculate the error between observations and simulation for the reference period.
-                    ds_regrid_ref = utils.open_netcdf(p_regrid_ref)
-                    bias_err_current = utils.calc_error(ds_stn[var].values.ravel(), ds_regrid_ref[var].values.ravel())
+                    bias_err_current = utils.calc_error(ds_stn[var].values.ravel(), ds_qqmap_ref[var].values.ravel())
 
                     # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
                     # selected method.
@@ -131,13 +134,11 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                        (cfg.opt_calib_auto and ((bias_err_best < 0) or (bias_err_current < bias_err_best))):
                         col_names = ["nq", "up_qmf", "time_win", "bias_err"]
                         col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
-                        cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
-                                         (cfg.df_calib["stn"] == stn) &
-                                         (cfg.df_calib["var"] == var), col_names] = col_values
-
-        # Update calibration file.
-        if cfg.opt_calib_auto and os.path.exists(cfg.p_calib):
-            cfg.df_calib.to_csv(cfg.p_calib)
+                        calib_row = (cfg.df_calib["sim_name"] == sim_name) &\
+                                    (cfg.df_calib["stn"] == stn) &\
+                                    (cfg.df_calib["var"] == var)
+                        cfg.df_calib.loc[calib_row, col_names] = col_values
+                        cfg.df_calib.to_csv(cfg.p_calib)
 
 
 def init_calib_params():
