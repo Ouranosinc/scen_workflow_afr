@@ -1160,12 +1160,34 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Get coordinates names.
+    dims_data = get_coord_names(da)
+    dims_mask = get_coord_names(da_mask)
+
+    # Record units.
+    units = None
+    if cfg.attrs_units in da.attrs:
+        units = da.attrs[cfg.attrs_units]
+
+    # Rename spatial dimensions.
+    if dims_data != dims_mask:
+        da = da.rename({list(dims_data)[0]: list(dims_mask)[0], list(dims_data)[1]: list(dims_mask)[1]})
+
+    # Apply mask.
     da = da[0:len(da[cfg.dim_time])] * da_mask
+
+    # Restore spatial dimensions.
+    if dims_data != dims_mask:
+        da = da.rename({list(dims_mask)[0]: list(dims_data)[0], list(dims_mask)[1]: list(dims_data)[1]})
+
+    # Restore units.
+    if units is not None:
+        da.attrs[cfg.attrs_units] = units
 
     return da
 
 
-def get_coord_names(ds: xr.Dataset) -> set:
+def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> set:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1173,14 +1195,14 @@ def get_coord_names(ds: xr.Dataset) -> set:
 
     Parameters
     ----------
-    ds: xr.Dataset
+    ds_or_da: Union[xr.Dataset, xr.DataArray]
         Dataset.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if cfg.dim_lat in ds.dims:
+    if cfg.dim_lat in ds_or_da.dims:
         coord_dict = {cfg.dim_lat, cfg.dim_lon}
-    elif cfg.dim_rlat in ds.dims:
+    elif cfg.dim_rlat in ds_or_da.dims:
         coord_dict = {cfg.dim_rlat, cfg.dim_rlon}
     else:
         coord_dict = {cfg.dim_latitude, cfg.dim_longitude}
