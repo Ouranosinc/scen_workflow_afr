@@ -310,7 +310,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             ds[var_or_idx_i].attrs[cfg.attrs_units] = cfg.unit_C
 
         # Apply mask.
-        ds[var_or_idx_i] = utils.apply_mask(ds[var_or_idx_i], da_mask)
+        ds[var_or_idx_i] = utils.apply_mask(ds[cfg.extract_idx(var_or_idx_i)], da_mask)
 
         ds_var_or_idx.append(ds)
 
