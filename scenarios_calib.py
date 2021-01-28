@@ -109,7 +109,7 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                     # Calculate QQ and generate calibration plots.
                     msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
                           ", time_win=" + str(time_win) + " is "
-                    if not (os.path.exists(p_fig) or os.path.exists(p_fig_ts)) or cfg.opt_force_overwrite:
+                    if not (os.path.exists(p_fig) and os.path.exists(p_fig_ts)) or cfg.opt_force_overwrite:
                         utils.log(msg + "running", True)
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=RuntimeWarning)
