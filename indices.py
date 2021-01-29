@@ -182,7 +182,26 @@ def generate(idx_code: str):
             if not p_sim:
                 continue
 
-            # Ensure that simulations are available for all other variables (than the first one).
+            # Remove simulations that are included in the exceptions lists.
+            p_sim_filter = []
+            for p in p_sim:
+                found = False
+                # List of simulation exceptions.
+                for e in cfg.sim_excepts:
+                    if e.replace(cfg.f_ext_nc, "") in p:
+                        found = True
+                        break
+                # List of variable-simulation exceptions.
+                for e in cfg.var_sim_excepts:
+                    if e.replace(cfg.f_ext_nc, "") in p:
+                        found = True
+                        break
+                # Add simulation.
+                if not found:
+                    p_sim_filter.append(p)
+            p_sim = p_sim_filter
+
+            # Ensure that simulations are available for other variables than the first one.
             utils.log("Verifying data availability (based on NetCDF files).", True)
             if len(var_or_idx_list) > 1:
                 p_sim_fix = []

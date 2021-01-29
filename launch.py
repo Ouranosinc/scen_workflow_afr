@@ -276,6 +276,8 @@ def main():
 
     # Calibration file.
     cfg.p_calib = cfg.d_res + cfg.p_calib
+    if cfg.region != "":
+        cfg.p_calib = cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.region + cfg.f_ext_csv)
     d = os.path.dirname(cfg.p_calib)
     if not (os.path.isdir(d)):
         os.makedirs(d)

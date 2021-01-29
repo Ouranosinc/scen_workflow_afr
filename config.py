@@ -530,7 +530,7 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
         elif var_or_idx == idx_tropicalnights:
             desc = "Nbr nuits chaudes (Tmin>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
         elif var_or_idx == idx_tngmonthsbelow:
-            desc = "Nbr mois frais (moy(Tmin,mensuelle)<" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
+            desc = "Nbr mois frais (μ(Tmin,mois)<" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
 
         elif var_or_idx in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen, idx_wsdi]:
             if var_or_idx == idx_hotspellfreq:
@@ -572,33 +572,37 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
 
         # Precipitation.
         elif var_or_idx in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty]:
-            desc = "Cumul préc " +\
+            desc = "Cumul P " +\
                 ("(1j)" if var_or_idx == idx_rx1day else "(5j)" if var_or_idx == idx_rx5day else "(total)")
 
         elif var_or_idx in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
             desc = "Nbr jours"
             if var_or_idx == idx_cwd:
-                desc += " conséc"
+                desc += " consécutifs"
             desc += " où P" + ("<" if var_or_idx in [idx_cdd, idx_drydays] else "≥") +\
                     str(idx_params_loc[0]) + get_unit(var_cordex_pr)
 
         elif var_or_idx == idx_sdii:
-            desc = "Intensite moyenne P"
+            desc = "Intensité moyenne P"
 
         if var_or_idx == idx_rainstart:
-            desc = "Début saison pluie (ΣP≥" + str(idx_params_loc[0]) + unit_mm + "/" + \
+            desc = "Début saison pluie (ΣP≥" + str(idx_params_loc[0]) + unit_mm + " en " + \
                        str(idx_params_loc[1]) + "j; sans P<" + str(idx_params_loc[3]) + "mm/j * " + \
                        str(idx_params_loc[4]) + "j sur " + str(idx_params_loc[5]) + "j)"
 
         elif var_or_idx == idx_rainend:
-            desc = "Fin saison pluie (Σ(P-ETP)<-" + str(idx_params_loc[0]) + unit_mm + " en ≥" +\
-                       str(idx_params_loc[0]) + "/" + str(idx_params_loc[1]) + "j)"
+            if idx_params_loc[0] == "depletion":
+                desc = "Fin saison pluie (Σ(P-ETP)<" + str(idx_params_loc[1]) + unit_mm + " en ≥" +\
+                       str(idx_params_loc[1]) + "/" + str(idx_params_loc[2]) + "j)"
+            else:
+                desc = "Fin saison pluie (P<" + str(idx_params_loc[1]) + unit_mm + "/j pendant " +\
+                       str(idx_params_loc[3]) + "j)"
 
         elif var_or_idx == idx_raindur:
-            desc = "Durée saison pluie (j)"
+            desc = "Durée saison pluie"
 
         elif var_or_idx == idx_drydurtot:
-            desc = "Durée totale périodes sèches (j; <" + str(idx_params_loc[0]) + "mm/j * " +\
+            desc = "Durée totale périodes sèches (P<" + str(idx_params_loc[0]) + "mm/j * " +\
                        str(idx_params_loc[1]) + "j"
             if (idx_params_loc[2] == "day") and (str(idx_params_loc[3]) != "nan") and (str(idx_params_loc[4]) != "nan"):
                 desc += "; jours " + str(idx_params_loc[3]) + " à "  + str(idx_params_loc[4]) + " de l'année"
@@ -610,7 +614,7 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
 
         # Wind.
         elif var_or_idx in [idx_wgdaysabove, idx_wxdaysabove]:
-            desc = "Nbr jours avec vent fort (V" + ("moy" if var_or_idx == idx_wgdaysabove else "max") + "≥" +\
+            desc = "Durée totale vent fort (V" + ("moy" if var_or_idx == idx_wgdaysabove else "max") + "≥" +\
                        str(idx_params_loc[0]) + unit_m_s1
             if str(idx_params_loc[2]) != "nan":
                 desc += "; " + str(idx_params_loc[2]) + "±" + str(idx_params_loc[3]) + "º"
@@ -644,10 +648,13 @@ def get_plot_title(stn: str, var_or_idx: str, rcp: str = None, per: [int] = None
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    title = get_desc(var_or_idx) + "\n(" + stn.capitalize() + \
-        ("" if rcp is None else ", " + rcp) + \
-        ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
-    title += ")"
+    # Format items.
+    stn_str = (str.upper(stn).replace("_", "") if opt_ra else stn.capitalize())
+    rcp_str = ("" if rcp is None else
+               ", " + ("référence" if rcp == rcp_ref else str.upper(rcp)[0:3] + rcp[3] + "." + rcp[4]))
+    per_str = ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
+
+    title = get_desc(var_or_idx) + "\n(" + stn_str + rcp_str + per_str + ")"
 
     return title
 
