@@ -901,7 +901,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     # Add precision in title.
     y_param = None
     if var_or_idx == cfg.idx_prcptot:
-        y_param = float(cfg.idx_params[cfg.idx_names.index(var_or_idx)][0])
+        y_param = float(cfg.idx_params[cfg.idx_codes.index(var_or_idx_code)][0])
         title += " (seuil à " + str(int(round(y_param, 0))) + cfg.unit_mm + ")"
 
     # Fonts.

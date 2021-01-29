@@ -544,12 +544,12 @@ def calc_ts(cat: str):
                     # Time series with simulations grouped by RCP scenario.
                     p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx_code) + \
                                 var_or_idx + "_" + stn + "_rcp" + cfg.f_ext_png
-                    plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx,
+                    plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx_code,
                                  rcps, ylim, p_fig_rcp, 1)
 
                     # Time series showing individual simulations.
                     p_fig_sim = p_fig_rcp.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
-                    plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx,
+                    plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx_code,
                                  rcps, ylim, p_fig_sim, 2)
 
 
