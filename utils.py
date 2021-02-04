@@ -1307,10 +1307,10 @@ def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Da
     # Interpolate.
     ds_or_da_lon = ds_or_da.interpolate_na(dim=cfg.dim_longitude, method="linear")
     ds_or_da_lat = ds_or_da.interpolate_na(dim=cfg.dim_latitude, method="linear")
-    ds_or_da_lon.values[np.isnan(ds_or_da_lon.values)] = ds_or_da_lat.values[np.isnan(ds_or_da_lon.values)]
-    ds_or_da_lat.values[np.isnan(ds_or_da_lat.values)] = ds_or_da_lon.values[np.isnan(ds_or_da_lat.values)]
     for t in range(len(ds_or_da[cfg.dim_time])):
-        ds_or_da[t, :, :] = (ds_or_da_lon[t, :, :] + ds_or_da_lat[t, :, :]) / 2.0
+        ds_or_da[t] = (ds_or_da_lon[t] + ds_or_da_lat[t]) / 2.0
+        ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lon[t].values[np.isnan(ds_or_da[t].values)]
+        ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lat[t].values[np.isnan(ds_or_da[t].values)]
 
     # Flip values again.
     if not lon_monotonic_inc:
