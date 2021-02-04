@@ -19,7 +19,7 @@ import xarray as xr
 import xclim.indices as indices
 import xclim.indices.generic as indices_gen
 import warnings
-from typing import List
+from typing import Union, List
 from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to
@@ -648,6 +648,10 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             da_idx = da_idx.expand_dims(longitude=1)
             da_idx = da_idx.expand_dims(latitude=1)
 
+        # Interpolate (to remove nan values).
+        if np.isnan(da_idx).astype(int).max() > 0:
+            da_idx = utils.interpolate_na_fix(da_idx)
+
         # Apply mask.
         if da_mask is not None:
             da_idx = utils.apply_mask(da_idx, da_mask)
@@ -817,7 +821,7 @@ def tot_duration_dry_periods(da_pr: xr.DataArray,  pr_dry: float, dt_dry: int, p
         if per == "1d":
             da_t = xr.DataArray(da_pr[t:(t + dt_dry), :, :] < pr_dry).sum(dim=cfg.dim_time) == dt_dry
         else:
-            da_t = da_pr[t:(t + dt_dry), :, :].sum(dim=cfg.dim_time) < pr_dry
+            da_t = xr.DataArray(da_pr[t:(t + dt_dry), :, :].sum(dim=cfg.dim_time)) < pr_dry
         da_cond1[t:(t + dt_dry), :, :] = da_cond1[t:(t + dt_dry), :, :] | da_t
 
     # Condition #2 : Days that are between 'doy_a' and 'doy_b'.
@@ -1018,6 +1022,9 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
 
     # Event method -----------------------------------------------------------------------------------------------------
 
+    # TODO: Ideally, the algorithm should not depend on user-specified boundaries (doy_a and doy_b). This could be
+    #       problematic if the climate changes substantially.
+
     else:
 
         # Combined conditions.
@@ -1028,37 +1035,26 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
         year_list = utils.extract_date_field(da_pr, "year")
         doy_list = utils.extract_date_field(da_pr, "doy")
 
-        # Holds current and following rain seasons.
-        da_rainstart1_t = None
-        da_rainstart2_t = None
-
         # Calculate conditions at each time step.
-        doy_prev = 365
-        for t in range(n_t - int(dt) - 1):
+        for t in range(n_t):
 
-            year = year_list[t]
-            doy = doy_list[t]
+            year     = year_list[t]
+            doy      = doy_list[t]
 
-            # Condition #1: Rain season ends within imposed interval (doy_a and doy_b).
-            cond1 = (((doy_a <= doy_b) & (doy >= doy_a) & (doy <= doy_b)) |
-                     ((doy_a > doy_b) & ((doy >= doy_a) | (doy <= doy_b))))
+            # Condition #1: Rain season ends within imposed boundaries (doy_a and doy_b).
+            case_1 = (doy_a <= doy_b) & (doy >= doy_a) & (doy <= doy_b)
+            case_2 = (doy_a > doy_b) & (doy >= doy_a)
+            case_3 = (doy_a > doy_b) & (doy <= doy_b)
+            cond1 = case_1 | case_2 | case_3
 
-            # Condition #2: Rain season can't start before the beginning of this season and can't stop after the
-            # beginning of the following rain season.
-            # Extract rain season starts for the current year.
-            if doy_prev > doy:
-                da_rainstart1_t = da_rainstart1[da_rainstart1[cfg.dim_time].dt.year == year].squeeze()
-                da_rainstart2_t = None
-                if da_rainstart2 is not None:
-                    da_rainstart2_t = da_rainstart2[da_rainstart2[cfg.dim_time].dt.year == year].squeeze()
-            # Calculate condition.
-            da_cond2 = (doy > da_rainstart1_t)
+            # Condition #2a: Rain season can't stop before it begins.
+            da_rainstart1_t = da_rainstart1[da_rainstart1[cfg.dim_time].dt.year == year].squeeze()
+            da_cond2a = ((case_1 | case_2) & (doy > da_rainstart1_t)) | (case_3 & (doy < da_rainstart1_t))
+            # Condition #2b: Rain season can't stop after the beginning of the following rain season.
+            da_cond2b = True
             if da_rainstart2 is not None:
-                da_cond2 = da_cond2 & (doy < da_rainstart2_t)
-
-            doy_prev = doy
-            if not cond1:
-                continue
+                da_rainstart2_t = da_rainstart2[da_rainstart2[cfg.dim_time].dt.year == year].squeeze()
+                da_cond2b = ((case_1 | case_3) & (doy < da_rainstart2_t)) | (case_2 & (doy > da_rainstart2_t))
 
             # Condition #3: Current precipitation exceeds threshold.
             da_cond3 = da_pr[t] >= pr
@@ -1066,33 +1062,14 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
             # Condition #4: No precipitation exceeding threshold in the next 'dt' days.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                da_cond4 = (da_pr[(t+1):(t+int(dt)+1)].max(dim=cfg.dim_time) < pr)
+                da_cond4 = (da_pr[(t+1):(t+int(dt)+1)].max(dim=cfg.dim_time) < pr) if (t < n_t - int(dt) - 1) else False
 
             # Combine conditions.
-            da_conds[t] = xr.DataArray(cond1 & da_cond2 & da_cond3 & da_cond4).astype(float) * doy
-
-        # Replace each zero with a large value.
-        if da_rainstart2_t is not None:
-            t1 = t2 = -1
-            doy_prev = 365
-            for t in range(n_t):
-                # Find time step associated with first and last days of year.
-                doy = doy_list[t]
-                doy_next = 1 if (t == n_t - 1) else doy_list[t + 1]
-                if doy_prev > doy:
-                    t1 = t
-                elif doy_next < doy:
-                    t2 = t
-                # Remove zeros.
-                if (t1 > -1) and (t2 > -1):
-                    da_conds[t1:(t2+1)].values[da_conds[t1:(t2+1)].values == 0] = doy_b
-                    da_conds[t1:(t2+1)] = np.minimum(da_conds[t1:(t2+1)], da_rainstart2_t)
-                    t1 = t2 = -1
-                doy_prev = doy
+            da_conds[t] = xr.DataArray(cond1 & da_cond2a & da_cond2b & da_cond3 & da_cond4)
+            da_conds[t].values[da_conds[t].values == 0] = np.nan
+            da_conds[t] = da_conds[t].astype(float) * doy
 
         # Summarize by year.
-        if da_rainstart2 is None:
-            da_conds.values[da_conds.values == 0] = doy_b
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
             da_end = da_conds.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)

@@ -27,7 +27,6 @@ import xarray as xr
 import xarray.core.variable as xcv
 import warnings
 from qm import train, predict
-from scipy.interpolate import griddata
 
 
 def load_observations(var: str):
@@ -410,46 +409,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
         # Method 1: Convert data to a new grid.
         if cfg.opt_ra:
 
-            # Get longitude and latitude values.
-            if cfg.dim_lon in ds_stn.dims:
-                lon_vals = ds_stn.lon.values.ravel()
-                lat_vals = ds_stn.lat.values.ravel()
-                lon_shp = ds_stn.lon.shape[0]
-                lat_shp = ds_stn.lat.shape[0]
-            else:
-                lon_vals = ds_stn.longitude.values.ravel()
-                lat_vals = ds_stn.latitude.values.ravel()
-                lon_shp = ds_stn.longitude.shape[0]
-                lat_shp = ds_stn.latitude.shape[0]
-
-            # Create new mesh.
-            new_grid = np.meshgrid(lon_vals, lat_vals)
-            if np.min(new_grid[0]) > 0:
-                new_grid[0] -= 360
-            t_len = len(ds_raw.time)
-            arr_regrid = np.empty((t_len, lat_shp, lon_shp))
-            for t in range(0, t_len):
-                arr_regrid[t, :, :] = griddata(
-                    (ds_raw.lon.values.ravel(), ds_raw.lat.values.ravel()),
-                    ds_raw[var][t, :, :].values.ravel(),
-                    (new_grid[0], new_grid[1]),
-                    fill_value=np.nan, method="linear")
-
-            # Create data array and dataset.
-            if not cfg.opt_ra:
-                da_regrid = xr.DataArray(arr_regrid,
-                                         coords={cfg.dim_time: ds_raw.time[0:t_len],
-                                                 cfg.dim_lat: float(lat_vals),
-                                                 cfg.dim_lon: float(lon_vals)},
-                                         dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_raw.attrs)
-            else:
-                da_regrid = xr.DataArray(arr_regrid,
-                                         coords=[(cfg.dim_time, ds_raw.time[0:t_len]),
-                                                 (cfg.dim_lat, lat_vals),
-                                                 (cfg.dim_lon, lon_vals)],
-                                         dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_raw.attrs)
-            ds_regrid = da_regrid.to_dataset(name=var)
-            ds_regrid[var].attrs[cfg.attrs_units] = ds_raw[var].attrs[cfg.attrs_units]
+            ds_regrid = utils.regrid(ds_raw, ds_stn, var)
 
         # Method 2: Take nearest information.
         else:

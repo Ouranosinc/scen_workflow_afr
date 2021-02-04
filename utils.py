@@ -24,6 +24,7 @@ from cmath import rect, phase
 from collections import defaultdict
 from itertools import compress
 from math import radians, degrees, sqrt
+from scipy.interpolate import griddata
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import Union, List, Tuple
 
@@ -1208,3 +1209,113 @@ def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> set:
         coord_dict = {cfg.dim_latitude, cfg.dim_longitude}
 
     return coord_dict
+
+
+def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Perform grid change.
+
+    Parameters
+    ----------
+    ds_data: xr.Dataset
+        Dataset containing data.
+    ds_grid: xr.Dataset
+        Dataset containing grid
+    var: str
+        Climate variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Get longitude and latitude values (data).
+    if cfg.dim_lon in ds_data.dims:
+        data_lon_vals = ds_data.lon.values.ravel()
+        data_lat_vals = ds_data.lat.values.ravel()
+    elif cfg.dim_rlon in ds_data.dims:
+        data_lon_vals = ds_data.rlon.values.ravel()
+        data_lat_vals = ds_data.rlat.values.ravel()
+    else:
+        data_lon_vals = ds_data.longitude.values.ravel()
+        data_lat_vals = ds_data.latitude.values.ravel()
+
+    # Get longitude and latitude values (grid).
+    if cfg.dim_lon in ds_grid.dims:
+        grid_lon_vals = ds_grid.lon.values.ravel()
+        grid_lat_vals = ds_grid.lat.values.ravel()
+        grid_lon_shp = ds_grid.lon.shape[0]
+        grid_lat_shp = ds_grid.lat.shape[0]
+    elif cfg.dim_rlon in ds_grid.dims:
+        grid_lon_vals = ds_grid.rlon.values.ravel()
+        grid_lat_vals = ds_grid.rlat.values.ravel()
+        grid_lon_shp = ds_grid.rlon.shape[0]
+        grid_lat_shp = ds_grid.rlat.shape[0]
+    else:
+        grid_lon_vals = ds_grid.longitude.values.ravel()
+        grid_lat_vals = ds_grid.latitude.values.ravel()
+        grid_lon_shp = ds_grid.longitude.shape[0]
+        grid_lat_shp = ds_grid.latitude.shape[0]
+
+    # Create new mesh.
+    new_grid = np.meshgrid(grid_lon_vals, grid_lat_vals)
+    if np.min(new_grid[0]) > 0:
+        new_grid[0] -= 360
+    t_len = len(ds_data.time)
+    arr_regrid = np.empty((t_len, grid_lat_shp, grid_lon_shp))
+    for t in range(0, t_len):
+        arr_regrid[t, :, :] = griddata((data_lon_vals, data_lat_vals), ds_data[var][t, :, :].values.ravel(),
+                                       (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
+
+    # Create data array and dataset.
+    da_regrid = xr.DataArray(arr_regrid,
+                             coords=[(cfg.dim_time, ds_data.time[0:t_len]),
+                                     (cfg.dim_lat, grid_lat_vals),
+                                     (cfg.dim_lon, grid_lon_vals)],
+                             dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
+    ds_regrid = da_regrid.to_dataset(name=var)
+    ds_regrid[var].attrs[cfg.attrs_units] = ds_data[var].attrs[cfg.attrs_units]
+
+    return ds_regrid
+
+
+def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dataset, xr.DataArray]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Interpolate values considering both longitude and latitude.
+    This is a wrapper of the np.interp that only works with monotonically increasing coordinates.
+
+    Parameters
+    ----------
+    ds_or_da: Union[xr.Dataset, xr.DataArray]
+        Dataset or data array.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Extract coordinates and determine if they are increasing.
+    lon_vals = ds_or_da[cfg.dim_longitude]
+    lat_vals = ds_or_da[cfg.dim_latitude]
+    lon_monotonic_inc = bool(lon_vals[0] < lon_vals[len(lon_vals) - 1])
+    lat_monotonic_inc = bool(lat_vals[0] < lat_vals[len(lat_vals) - 1])
+
+    # Flip values.
+    if not lon_monotonic_inc:
+        ds_or_da = ds_or_da.sortby(cfg.dim_longitude, ascending=True)
+    if not lat_monotonic_inc:
+        ds_or_da = ds_or_da.sortby(cfg.dim_latitude, ascending=True)
+
+    # Interpolate.
+    ds_or_da_lon = ds_or_da.interpolate_na(dim=cfg.dim_longitude, method="linear")
+    ds_or_da_lat = ds_or_da.interpolate_na(dim=cfg.dim_latitude, method="linear")
+    ds_or_da_lon.values[np.isnan(ds_or_da_lon.values)] = ds_or_da_lat.values[np.isnan(ds_or_da_lon.values)]
+    ds_or_da_lat.values[np.isnan(ds_or_da_lat.values)] = ds_or_da_lon.values[np.isnan(ds_or_da_lat.values)]
+    for t in range(len(ds_or_da[cfg.dim_time])):
+        ds_or_da[t, :, :] = (ds_or_da_lon[t, :, :] + ds_or_da_lat[t, :, :]) / 2.0
+
+    # Flip values again.
+    if not lon_monotonic_inc:
+        ds_or_da = ds_or_da.sortby(cfg.dim_longitude, ascending=False)
+    if not lat_monotonic_inc:
+        ds_or_da = ds_or_da.sortby(cfg.dim_latitude, ascending=False)
+
+    return ds_or_da

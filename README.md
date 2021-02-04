@@ -85,7 +85,8 @@ The following features are being implemented:
 - enabled parallel processing during the calculation of climate indices;
 - enabled dependency between consecutive rain seasons; 
 - added a second calculation method for 'rainend' index ('event'); the existing method was named 'depletion');
-- an index is no longer calculated if it belongs to an exception list.
+- an index is no longer calculated if it belongs to an exception list;
+- now interpolating values to replace nan values in climate indices (especially for rain season).
 
 The following bugs were fixed:
 - colour scale in maps (based on map content rather than statistics);

@@ -86,7 +86,8 @@ def load_params(p_ini: str):
         vals_new = []
         vals = vals[1:(len(vals) - 1)].split("],")
         for i_val in range(len(vals)):
-            vals_new.append(convert_to_1d(vals[i_val], type))
+            val_i = convert_to_1d(vals[i_val], type)
+            vals_new.append(val_i)
 
         return vals_new
 
@@ -293,18 +294,20 @@ def main():
     utils.log("=")
     utils.log("Country                : " + cfg.country)
     utils.log("Project                : " + cfg.project)
-    utils.log("Variables (CORDEX)     : " + str(cfg.variables_cordex))
-    for i in range(len(cfg.idx_names)):
-        utils.log("Climate index #" + str(i + 1) + "       : " + cfg.idx_names[i] + str(cfg.idx_params[i]))
+    utils.log("Variables (CORDEX)     : " + str(cfg.variables_cordex).replace("'", ""))
+    n_i = len(cfg.idx_names)
+    for i in range(n_i):
+        params_i = str(cfg.idx_params[i]).replace("'", "").replace("(", "[").replace(")", "]").replace("\\n", "")
+        utils.log("Climate index #" + ("0" if i < 9 else "") + str(i + 1) + "      : " + params_i)
     if cfg.opt_ra:
         utils.log("Reanalysis set         : " + cfg.obs_src)
-        utils.log("Variables (reanalysis) : " + str(cfg.variables_ra))
+        utils.log("Variables (reanalysis) : " + str(cfg.variables_ra).replace("'", ""))
     else:
         utils.log("Stations               : " + str(cfg.stns))
-    utils.log("Emission scenarios     : " + str(cfg.rcps))
+    utils.log("Emission scenarios     : " + str(cfg.rcps).replace("'", ""))
     utils.log("Reference period       : " + str(cfg.per_ref))
     utils.log("Future period          : " + str(cfg.per_fut))
-    utils.log("Horizons               : " + str(cfg.per_hors))
+    utils.log("Horizons               : " + str(cfg.per_hors).replace("'", ""))
     if (cfg.region != "") and cfg.opt_ra:
         utils.log("Region                 : " + cfg.region)
 

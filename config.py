@@ -693,7 +693,7 @@ def get_plot_ylabel(var_or_idx: str):
             elif var_or_idx != idx_hotspellfreq:
                 ylabel += " jours"
 
-        elif var_or_idx == idx_txx:
+        elif var_or_idx in [idx_txx, idx_txg]:
             ylabel = get_desc(var_cordex_tasmax) + " (" + get_unit(var_cordex_tasmax) + ")"
 
         elif var_or_idx in [idx_tnx, idx_tng]:
