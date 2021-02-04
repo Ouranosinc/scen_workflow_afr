@@ -1049,12 +1049,12 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
 
             # Condition #2a: Rain season can't stop before it begins.
             da_rainstart1_t = da_rainstart1[da_rainstart1[cfg.dim_time].dt.year == year].squeeze()
-            da_cond2a = ((case_1 | case_2) & (doy > da_rainstart1_t)) | (case_3 & (doy < da_rainstart1_t))
+            da_cond2a = ((case_1 | case_2) & (doy >= da_rainstart1_t)) | (case_3 & (doy <= da_rainstart1_t))
             # Condition #2b: Rain season can't stop after the beginning of the following rain season.
             da_cond2b = True
             if da_rainstart2 is not None:
                 da_rainstart2_t = da_rainstart2[da_rainstart2[cfg.dim_time].dt.year == year].squeeze()
-                da_cond2b = ((case_1 | case_3) & (doy < da_rainstart2_t)) | (case_2 & (doy > da_rainstart2_t))
+                da_cond2b = ((case_1 | case_3) & (doy <= da_rainstart2_t)) | (case_2 & (doy >= da_rainstart2_t))
 
             # Condition #3: Current precipitation exceeds threshold.
             da_cond3 = da_pr[t] >= pr
@@ -1073,6 +1073,10 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
             da_end = da_conds.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
+
+        # Replace 'nan' values with rain start.
+        for t in range(len(da_end)):
+            da_end[t].values[np.isnan(da_end[t].values)] = da_rainstart1[t].values[np.isnan(da_end[t].values)]
 
     return da_end
 
