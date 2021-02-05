@@ -486,10 +486,6 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
             desc = "Couvert nuageux"
         elif var_or_idx == var_cordex_huss:
             desc = "Humidité spécifique"
-        if var_or_idx in [var_cordex_tas, var_cordex_uas, var_cordex_vas]:
-            desc += " (moy)"
-        elif var_or_idx == var_cordex_sfcwindmax:
-            desc += " (max)"
 
     # ERA5 and ERA5-Land.
     elif (set_name == obs_src_era5) or (set_name == obs_src_era5_land):
