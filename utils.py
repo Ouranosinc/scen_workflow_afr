@@ -1308,7 +1308,7 @@ def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Da
 
     # Interpolate, layer by layer (limit=1).
     for t in range(len(ds_or_da[cfg.dim_time])):
-        n_i = max(ds_or_da[t].longitude, ds_or_da[t].latitude)
+        n_i = max(len(ds_or_da[t].longitude), len(ds_or_da[t].latitude))
         for i in range(n_i):
             df_t = ds_or_da[t].to_pandas()
             ds_or_da_lat_t = ds_or_da[t].copy()
