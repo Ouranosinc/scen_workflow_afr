@@ -587,6 +587,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             da_rainstart = ds_var_or_idx[0][cfg.idx_rainstart]
             da_rainend   = ds_var_or_idx[1][cfg.idx_rainend]
             da_idx = da_rainend - da_rainstart
+            da_idx.values[da_idx.values < 0] = 0
             idx_units = cfg.unit_1
 
         elif idx_name == cfg.idx_rainqty:
