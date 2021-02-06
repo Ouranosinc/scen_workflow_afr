@@ -1090,7 +1090,7 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
         # 'doy_b'.
         for t in range(len(da_end[cfg.dim_time])):
             if da_rainstart2 is not None:
-                sel = (np.isnan(da_end[t].values)) and (np.isnan(da_rainstart1[t].values) is False)
+                sel = (np.isnan(da_end[t].values)) & (np.isnan(da_rainstart1[t].values).astype(int) == 0)
                 da_end[t].values[sel] = da_rainstart2[t].values[sel] - 1
             da_end[t].values[da_end[t].values >= doy_b] = doy_b - 1
 
