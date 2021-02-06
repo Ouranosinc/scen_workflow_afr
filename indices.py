@@ -1124,7 +1124,8 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
             da_end = da_rainend[np.array(years_idx) == str(y)].squeeze()
 
         # Condition.
-        da_cond = (((da_start <= da_end) & (doy >= da_start) & (doy <= da_end)) |
+        da_cond = (da_end > da_start) &\
+                  (((da_start <= da_end) & (doy >= da_start) & (doy <= da_end)) |
                    ((da_start > da_end) & ((doy <= da_start) | (doy >= da_end))))
 
         # Discard values.
