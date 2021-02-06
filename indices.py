@@ -1111,6 +1111,7 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
 
     # Discard precipitation amounts that are not happening during rain season.
     n_t = len(da_pr[cfg.dim_time])
+    doy_prev = 365
     for t in range(n_t):
 
         # Extract year and day of year.
@@ -1118,10 +1119,11 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
         doy = int(da_pr[cfg.dim_time][t].dt.dayofyear)
 
         # Extract start and end days of rain season.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=FutureWarning)
-            da_start = da_rainstart[np.array(years_idx) == str(y)].squeeze()
-            da_end = da_rainend[np.array(years_idx) == str(y)].squeeze()
+        if doy < doy_prev:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=FutureWarning)
+                da_start = da_rainstart[np.array(years_idx) == str(y)].squeeze()
+                da_end = da_rainend[np.array(years_idx) == str(y)].squeeze()
 
         # Condition.
         da_cond = (da_end > da_start) &\
@@ -1130,6 +1132,8 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
 
         # Discard values.
         da_pr[t] = da_pr[t] * da_cond.astype(float)
+
+        doy_prev = doy
 
     # Sum by year.
     with warnings.catch_warnings():
