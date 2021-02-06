@@ -1283,7 +1283,9 @@ def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Da
     """
     --------------------------------------------------------------------------------------------------------------------
     Interpolate values considering both longitude and latitude.
-    This is a wrapper of the np.interp that only works with monotonically increasing coordinates.
+    This is a wrapper of the pandas DataFrame interpolate function.
+    The idea behind flip is that the x-axis (latitude or longitude steps) must be monotonically increasing when
+    using the xr.interpolate_na function (not used anymore).
 
     Parameters
     ----------
@@ -1304,15 +1306,22 @@ def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Da
     if not lat_monotonic_inc:
         ds_or_da = ds_or_da.sortby(cfg.dim_latitude, ascending=True)
 
-    # Interpolate.
-    ds_or_da_lon = ds_or_da.interpolate_na(dim=cfg.dim_longitude, method="linear")
-    ds_or_da_lat = ds_or_da.interpolate_na(dim=cfg.dim_latitude, method="linear")
+    # Interpolate, layer by layer (limit=1).
     for t in range(len(ds_or_da[cfg.dim_time])):
-        ds_or_da[t] = (ds_or_da_lon[t] + ds_or_da_lat[t]) / 2.0
-        ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lon[t].values[np.isnan(ds_or_da[t].values)]
-        ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lat[t].values[np.isnan(ds_or_da[t].values)]
+        while True:
+            df_t = ds_or_da[t].to_pandas()
+            ds_or_da_lat_t = ds_or_da[t].copy()
+            ds_or_da_lon_t = ds_or_da[t].copy()
+            ds_or_da_lat_t.values = df_t.interpolate(axis=0, limit=1, limit_direction="both")
+            ds_or_da_lon_t.values = df_t.interpolate(axis=1, limit=1, limit_direction="both")
+            ds_or_da[t] = (ds_or_da_lon_t + ds_or_da_lat_t) / 2.0
+            ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lon_t.values[np.isnan(ds_or_da[t].values)]
+            ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lat_t.values[np.isnan(ds_or_da[t].values)]
+            n_nan = np.isnan(ds_or_da[t].values).astype(float).sum()
+            if n_nan == 0:
+                break
 
-    # Flip values again.
+    # Unflip values.
     if not lon_monotonic_inc:
         ds_or_da = ds_or_da.sortby(cfg.dim_longitude, ascending=False)
     if not lat_monotonic_inc:

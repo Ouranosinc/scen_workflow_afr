@@ -1074,10 +1074,6 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
             warnings.simplefilter("ignore", category=Warning)
             da_end = da_conds.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
 
-        # Replace 'nan' values with rain start.
-        for t in range(len(da_end)):
-            da_end[t].values[np.isnan(da_end[t].values)] = da_rainstart1[t].values[np.isnan(da_end[t].values)]
-
     return da_end
 
 
