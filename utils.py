@@ -1228,50 +1228,42 @@ def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Get longitude and latitude values (data).
-    if cfg.dim_lon in ds_data.dims:
-        data_lon_vals = ds_data.lon.values.ravel()
-        data_lat_vals = ds_data.lat.values.ravel()
-    elif cfg.dim_rlon in ds_data.dims:
-        data_lon_vals = ds_data.rlon.values.ravel()
-        data_lat_vals = ds_data.rlat.values.ravel()
-    else:
-        data_lon_vals = ds_data.longitude.values.ravel()
-        data_lat_vals = ds_data.latitude.values.ravel()
-
     # Get longitude and latitude values (grid).
-    if cfg.dim_lon in ds_grid.dims:
-        grid_lon_vals = ds_grid.lon.values.ravel()
-        grid_lat_vals = ds_grid.lat.values.ravel()
-        grid_lon_shp = ds_grid.lon.shape[0]
-        grid_lat_shp = ds_grid.lat.shape[0]
-    elif cfg.dim_rlon in ds_grid.dims:
-        grid_lon_vals = ds_grid.rlon.values.ravel()
-        grid_lat_vals = ds_grid.rlat.values.ravel()
-        grid_lon_shp = ds_grid.rlon.shape[0]
-        grid_lat_shp = ds_grid.rlat.shape[0]
+    if cfg.dim_rlon in ds_grid.dims:
+        grid_lon = ds_grid.rlon.values
+        grid_lat = ds_grid.rlat.values
+    elif cfg.dim_lon in ds_grid.variables:
+        grid_lon = ds_grid.lon.values[1]
+        grid_lat = ds_grid.lat.values[0]
     else:
-        grid_lon_vals = ds_grid.longitude.values.ravel()
-        grid_lat_vals = ds_grid.latitude.values.ravel()
-        grid_lon_shp = ds_grid.longitude.shape[0]
-        grid_lat_shp = ds_grid.latitude.shape[0]
+        grid_lon = ds_grid.longitude.values
+        grid_lat = ds_grid.latitude.values
+
+    # Get longitude and latitude values (data).
+    if cfg.dim_rlon in ds_data.dims:
+        data_lon = np.array(list(ds_data.rlon.values) * len(ds_data.rlat.values))
+        data_lat = np.array(list(ds_data.rlat.values) * len(ds_data.rlon.values))
+    elif cfg.dim_lon in ds_data.variables:
+        data_lon = ds_data.lon.values.ravel()
+        data_lat = ds_data.lat.values.ravel()
+    else:
+        data_lon = ds_data.longitude.values
+        data_lat = ds_data.latitude.values
 
     # Create new mesh.
-    new_grid = np.meshgrid(grid_lon_vals, grid_lat_vals)
+    new_grid = np.meshgrid(grid_lon, grid_lat)
     if np.min(new_grid[0]) > 0:
         new_grid[0] -= 360
     t_len = len(ds_data.time)
-    arr_regrid = np.empty((t_len, grid_lat_shp, grid_lon_shp))
+    arr_regrid = np.empty((t_len, len(grid_lat), len(grid_lon)))
     for t in range(0, t_len):
-        arr_regrid[t, :, :] = griddata((data_lon_vals, data_lat_vals), ds_data[var][t, :, :].values.ravel(),
+        arr_regrid[t, :, :] = griddata((data_lon, data_lat), ds_data[var][t, :, :].values.ravel(),
                                        (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
 
     # Create data array and dataset.
     da_regrid = xr.DataArray(arr_regrid,
-                             coords=[(cfg.dim_time, ds_data.time[0:t_len]),
-                                     (cfg.dim_lat, grid_lat_vals),
-                                     (cfg.dim_lon, grid_lon_vals)],
-                             dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
+        coords=[(cfg.dim_time, ds_data.time[0:t_len]), (cfg.dim_lat, grid_lat), (cfg.dim_lon, grid_lon)],
+        dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
     ds_regrid = da_regrid.to_dataset(name=var)
     ds_regrid[var].attrs[cfg.attrs_units] = ds_data[var].attrs[cfg.attrs_units]
 
