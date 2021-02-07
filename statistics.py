@@ -589,7 +589,9 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
     for i_time in range(n_time):
         vals = []
         for ds in ds_list:
-            vals.append(float(ds[var_or_idx][i_time].values))
+            val = float(ds[var_or_idx][i_time].values)
+            if not np.isnan(val):
+                vals.append(val)
         arr_vals_mean.append(np.array(vals).mean())
         arr_vals_min.append(min(np.array(vals)))
         arr_vals_max.append(max(np.array(vals)))
