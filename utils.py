@@ -1186,7 +1186,10 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
         da.attrs[cfg.attrs_units] = units
 
     # Drop coordinates.
-    da = da.reset_coords(names=cfg.dim_time, drop=True)
+    try:
+        da = da.reset_coords(names=cfg.dim_time, drop=True)
+    except:
+        pass
 
     return da
 
