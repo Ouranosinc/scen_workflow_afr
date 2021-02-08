@@ -1185,6 +1185,9 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
     if units is not None:
         da.attrs[cfg.attrs_units] = units
 
+    # Drop coordinates.
+    da = da.reset_coords(names=cfg.dim_time, drop=True)
+
     return da
 
 
@@ -1321,3 +1324,40 @@ def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Da
         ds_or_da = ds_or_da.sortby(cfg.dim_latitude, ascending=False)
 
     return ds_or_da
+
+
+def create_mask(stn: str) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate a mask, based on climate scenarios for the temperature or precipitation variable.
+    All values with a value are attributed a value of 1. Other values are assigned 'nan'.
+
+    Parameters
+    ----------
+    stn : str
+        Station name.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    da_mask = None
+
+    f_list = glob.glob(cfg.get_d_scen(stn, cfg.cat_obs) + "*/*" + cfg.f_ext_nc)
+    for i in range(len(f_list)):
+
+        # Open NetCDF file.
+        ds = open_netcdf(f_list[i])
+        var = list(ds.data_vars)[0]
+        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+
+            # Flag 'nan' values.
+            # if var == cfg.var_cordex_pr:
+            #     p_dry_error = convert_units_to(str(0.0000008) + " mm/day", ds[var])
+            #     ds[var].values[(ds[var].values > 0) & (ds[var].values <= p_dry_error)] = np.nan
+
+            # Create mask.
+            da_mask = ds[var][0] * 0 + 1
+
+            break
+
+    return da_mask

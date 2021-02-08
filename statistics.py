@@ -21,7 +21,7 @@ import warnings
 import xarray as xr
 from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
-from typing import Union
+from typing import Union, List
 
 
 def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_code: str, rcp: str, hor: [int],
@@ -616,6 +616,63 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
         ds_mean_min_max.append(ds)
 
     return ds_mean_min_max
+
+
+def calc_mean_min_max_monthly(ds: xr.Dataset, stn: str, var: str) -> List[xr.Dataset]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate monthly values (mean, min, max).
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+        Dataset.
+    stn: str
+        Station.
+    var: str
+        Climate variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Initialize array of results.
+    ds_list = []
+
+    # Extract data for the current month.
+    da_m = ds[var].rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+    da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
+
+    # Apply mask.
+    if stn == cfg.obs_src_era5_land:
+        da_mask = utils.create_mask(stn)
+        da_m = utils.apply_mask(da_m, da_mask)
+
+    # Summarize data per month.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+            da_mean = da_m.resample(time="M").sum().groupby("time.month").mean()
+            da_min  = da_m.resample(time="M").sum().groupby("time.month").min()
+            da_max  = da_m.resample(time="M").sum().groupby("time.month").max()
+        else:
+            da_mean = da_m.resample(time="M").mean().groupby("time.month").mean()
+            da_min  = da_m.resample(time="M").mean().groupby("time.month").min()
+            da_max  = da_m.resample(time="M").mean().groupby("time.month").max()
+
+    # Create dataset
+    da_mean.name = da_min.name = da_max.name = var
+    for i in range(3):
+        if i == 0:
+            ds_m = da_mean.to_dataset()
+        elif i == 1:
+            ds_m = da_min.to_dataset()
+        else:
+            ds_m = da_max.to_dataset()
+        ds_m[var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
+        ds_list.append(ds_m)
+
+    return ds_list
 
 
 def calc_heatmap(var_or_idx_code: str):

@@ -33,7 +33,6 @@ def run():
             try:
                 plot.plot_ts_single(stn, var)
                 plot.plot_ts_mosaic(stn, var)
-                plot.plot_monthly(stn, var)
             except FileExistsError:
                 utils.log("Unable to locate the required files!", True)
                 pass

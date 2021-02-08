@@ -27,6 +27,7 @@ from descartes import PolygonPatch
 from matplotlib import pyplot
 from matplotlib.lines import Line2D
 from scipy import signal
+from typing import Union, List
 
 # Package 'xesmf' can be installed with:
 #   conda install -c conda-forge xesmf
@@ -1172,7 +1173,7 @@ def plot_ts_mosaic(stn: str, var: str):
     plt.close()
 
 
-def plot_monthly(stn: str, var: str):
+def plot_monthly(ds_list: List[xr.Dataset], stn: str, var: str, title: str, p_fig: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1180,77 +1181,52 @@ def plot_monthly(stn: str, var: str):
 
     Parameters:
     ----------
+    ds_list: List[xr.Dataset]
+        List of datasets (mean, minimum and maximum).
     stn: str
         Station name.
     var: str
         Weather variable.
+    title: str
+        Plot title.
+    p_fig: str
+        Path of figure
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("Processing (monthly): variable = " + var + "; station = " + stn, True)
-
     # Weather variable description and unit.
-    var_desc = cfg.get_desc(var)
+    var_desc = cfg.get_desc(var) + " (" + str.upper(var) + ")"
     var_unit = cfg.get_unit(var)
 
-    # NetCDF files.
-    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
-    p_list   = utils.list_files(d_regrid)
-    p_obs    = cfg.get_p_obs(stn, var)
-    ds_obs   = utils.open_netcdf(p_obs)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=Warning)
-        ds_plt = ds_obs.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().\
-            groupby("time.month").mean()[var]
-
     # Plot.
-    fs_title  = 6
-    fs_legend = 6
-    fs_axes   = 6
-    plt.figure(figsize=(15, 15))
-    plt.subplots_adjust(top=0.96, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.30)
+    fs_title  = 8
+    fs_legend = 8
+    fs_axes   = 8
 
-    # Loop through simulation sets.
-    sup_title = ""
-    for i in range(int(len(p_list) / 3)):
-
-        # Plot.
-        plt.subplot(7, 7, i + 1)
-
-        # Curves.
-        ds = utils.open_netcdf(p_list[i])[var]
-        if isinstance(ds.time[0].values, np.datetime64):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=Warning)
-                ds.sel(time=slice("1980-01-01", "2010-12-31")).resample(time="M").mean().\
-                    groupby("time.month").mean().plot(color="blue")
-        ds = utils.open_netcdf(p_list[i])[var]
-        if isinstance(ds.time[0].values, np.datetime64):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=Warning)
-                ds.sel(time=slice("2050-01-01", "2070-12-31")).resample(time="M").mean().\
-                    groupby("time.month").mean().plot(color="green")
-        ds_plt.plot(color="red")
-
-        # Format.
-        plt.xlim([1, 12])
-        plt.xticks(np.arange(1, 13, 1))
-        plt.xlabel("Mois", fontsize=fs_axes)
-        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
-        title = os.path.basename(p_list[i]).replace(cfg.f_ext_nc, "")
-        plt.title(title, fontsize=fs_title)
-        plt.tick_params(axis="x", labelsize=fs_axes)
-        plt.tick_params(axis="y", labelsize=fs_axes)
-        if i == 0:
-            sup_title = title + "_verif_monthly"
-            plt.suptitle(sup_title, fontsize=fs_title)
+    # Draw curve (mean values) and shadow (zone between minimum and maximum values).
+    f, ax = plt.subplots()
+    f.set_size_inches(4, 3)
+    plt.subplots_adjust(top=0.93, bottom=0.13, left=0.13, right=0.97, hspace=0.10, wspace=0.10)
+    ax.plot(range(1, 13), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
+    ax.fill_between(np.array(range(1, 13)), list(ds_list[1][var].values), list(ds_list[2][var].values),
+                    color="grey", alpha=0.25)
 
     # Format.
-    plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
+    plt.xlim([1, 12])
+    plt.xticks(np.arange(1, 13, 1))
+    plt.xlabel("Mois", fontsize=fs_axes)
+    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.title(title, fontsize=fs_title)
+    plt.tick_params(axis="x", labelsize=fs_axes)
+    plt.tick_params(axis="y", labelsize=fs_axes)
+    plt.suptitle("", fontsize=fs_title)
+
+    # Format.
+    plt.legend(["Moyenne", "Étendue des valeurs"], fontsize=fs_legend)
 
     # Save plot.
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/monthly", var) + sup_title + cfg.f_ext_png
-    utils.save_plot(plt, p_fig)
+    if p_fig != "":
+        utils.save_plot(plt, p_fig)
 
     # Close plot.
     plt.close()

@@ -1201,13 +1201,39 @@ def run():
                         replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
-                    plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+                    # plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
-                        p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc, cfg.cat_fig_workflow +
-                                                            cfg.f_ext_png)
-                    plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+                        p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc,
+                                                            cfg.cat_fig_workflow + cfg.f_ext_png)
+                    # plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
+                    ds = utils.open_netcdf(p_qqmap).sel(time=slice(str(cfg.per_ref[0]), str(cfg.per_ref[1]) + "-12-31"))
+                    ds_monthly_list = statistics.calc_mean_min_max_monthly(ds, stn, var)
+                    for j in range(3):
+                        if (var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
+                           (ds_monthly_list[j][var].attrs[cfg.attrs_units] == cfg.unit_K):
+                            ds_monthly_list[j] = ds_monthly_list[j] - cfg.d_KC
+                        elif (var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
+                             (ds_monthly_list[j][var].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
+                            ds_monthly_list[j] = ds_monthly_list[j] * cfg.spd
+                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_monthly, var) + \
+                        p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc,
+                                                            cfg.cat_fig_monthly + cfg.f_ext_png)
+                    title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_monthly)
+                    plot.plot_monthly(ds_monthly_list, stn, var, title, p_fig)
+
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
+                    if cfg.opt_save_csv[0]:
+                        p_csv = p_fig.replace("/" + var + "/", "/" + var + "_csv/").replace(cfg.f_ext_png, cfg.f_ext_csv)
+                        dict_pd = {"month": range(1, 13),
+                                   "mean": list(ds_monthly_list[0][var].values),
+                                   "min": list(ds_monthly_list[1][var].values),
+                                   "max": list(ds_monthly_list[2][var].values), var: [var] * 12}
+                        df = pd.DataFrame(dict_pd)
+                        utils.save_csv(df, p_csv)
 
         if not cfg.opt_save_csv[0]:
             utils.log("-")
