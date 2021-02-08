@@ -1212,12 +1212,22 @@ def run():
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
                     title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_monthly)
-                    gen_monthly(p_qqmap, stn, var, title)
+                    gen_plot_freq(p_qqmap, stn, var, cfg.freq_MS, title)
+
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
+                    title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_daily)
+                    gen_plot_freq(p_qqmap, stn, var, cfg.freq_D, title)
 
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
-                title = var + "_" + cfg.rcp_ref + cfg.f_ext_nc
-                gen_monthly(p_stn, stn, var, title)
+                title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_monthly
+                gen_plot_freq(p_stn, stn, var, cfg.freq_MS, title)
+
+                # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
+                # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
+                title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_daily
+                gen_plot_freq(p_stn, stn, var, cfg.freq_D, title)
 
         if not cfg.opt_save_csv[0]:
             utils.log("-")
@@ -1241,11 +1251,11 @@ def run():
         utils.log(msg + " (not required)")
 
 
-def gen_monthly(p: str, stn: str, var: str, title: str):
+def gen_plot_freq(p: str, stn: str, var: str, freq: str, title: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Generate monthly plots.
+    Generate monthly plots (for the reference period).
 
     Parameters
     ----------
@@ -1255,31 +1265,45 @@ def gen_monthly(p: str, stn: str, var: str, title: str):
         Station.
     var: str
         Climate variable.
+    freq: str
+        Frequency.
     title: str
         Plot title.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds = utils.open_netcdf(p).sel(time=slice(str(cfg.per_ref[0]), str(cfg.per_ref[1]) + "-12-31"))
-    ds_monthly_list = statistics.calc_mean_min_max_monthly(ds, stn, var)
+    # Extract data.
+    ds = utils.open_netcdf(p)
+    ds = utils.sel_period(ds, cfg.per_ref)
+    if freq == cfg.freq_D:
+        ds = utils.remove_feb29(ds)
+
+    # Calculate statistics.
+    ds_list = statistics.calc_mean_min_max_freq(ds, stn, var, freq)
+
+    # Convert units.
     for j in range(3):
         if (var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and \
-                (ds_monthly_list[j][var].attrs[cfg.attrs_units] == cfg.unit_K):
-            ds_monthly_list[j] = ds_monthly_list[j] - cfg.d_KC
+                (ds_list[j][var].attrs[cfg.attrs_units] == cfg.unit_K):
+            ds_list[j] = ds_list[j] - cfg.d_KC
         elif (var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
-                (ds_monthly_list[j][var].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
-            ds_monthly_list[j] = ds_monthly_list[j] * cfg.spd
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_monthly, var) + title + cfg.f_ext_png
+                (ds_list[j][var].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
+            ds_list[j] = ds_list[j] * cfg.spd
 
-    plot.plot_monthly(ds_monthly_list, stn, var, title, p_fig)
+    # Generate plot.
+    n = 12 if freq == cfg.freq_MS else 365
+    cat_fig = cfg.cat_fig_monthly if n == 12 else cfg.cat_fig_daily
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat_fig, var) + title + cfg.f_ext_png
+    plot.plot_freq(ds_list, stn, var, freq, title, p_fig)
 
+    # Generate CSV file.
     if cfg.opt_save_csv[0]:
-        p_csv = p_fig.replace("/" + var + "/", "/" + var + "_csv/"). \
+        p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/"). \
             replace(cfg.f_ext_png, cfg.f_ext_csv)
-        dict_pd = {"month": range(1, 13),
-                   "mean": list(ds_monthly_list[0][var].values),
-                   "min": list(ds_monthly_list[1][var].values),
-                   "max": list(ds_monthly_list[2][var].values), var: [var] * 12}
+        dict_pd = {("month" if n == 12 else "day"): range(1, n + 1),
+                   "mean": list(ds_list[0][var].values),
+                   "min": list(ds_list[1][var].values),
+                   "max": list(ds_list[2][var].values), var: [var] * n}
         df = pd.DataFrame(dict_pd)
         utils.save_csv(df, p_csv)
 

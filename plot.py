@@ -1173,7 +1173,7 @@ def plot_ts_mosaic(stn: str, var: str):
     plt.close()
 
 
-def plot_monthly(ds_list: List[xr.Dataset], stn: str, var: str, title: str, p_fig: str):
+def plot_freq(ds_list: List[xr.Dataset], stn: str, var: str, freq: str, title: str, p_fig: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1187,6 +1187,8 @@ def plot_monthly(ds_list: List[xr.Dataset], stn: str, var: str, title: str, p_fi
         Station name.
     var: str
         Weather variable.
+    freq: str
+        Frequency.
     title: str
         Plot title.
     p_fig: str
@@ -1203,18 +1205,35 @@ def plot_monthly(ds_list: List[xr.Dataset], stn: str, var: str, title: str, p_fi
     fs_legend = 8
     fs_axes   = 8
 
+    # Number of values on the x-axis.
+    n = len(list(ds_list[0][var].values))
+
     # Draw curve (mean values) and shadow (zone between minimum and maximum values).
     f, ax = plt.subplots()
-    f.set_size_inches(4, 3)
-    plt.subplots_adjust(top=0.93, bottom=0.13, left=0.13, right=0.97, hspace=0.10, wspace=0.10)
-    ax.plot(range(1, 13), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
-    ax.fill_between(np.array(range(1, 13)), list(ds_list[1][var].values), list(ds_list[2][var].values),
-                    color="grey", alpha=0.25)
+
+    if freq == cfg.freq_MS:
+        f.set_size_inches(4, 3)
+        plt.subplots_adjust(top=0.93, bottom=0.13, left=0.13, right=0.97, hspace=0.10, wspace=0.10)
+        ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
+        ax.fill_between(np.array(range(1, n + 1)), list(ds_list[1][var].values), list(ds_list[2][var].values),
+                        color="grey", alpha=0.25)
+    else:
+        f.set_size_inches(12, 3)
+        plt.subplots_adjust(top=0.93, bottom=0.13, left=0.04, right=0.99, hspace=0.10, wspace=0.10)
+        bar_width = 1.0
+        plt.bar(range(1, n + 1), list(ds_list[2][var].values), width=bar_width, color="red")
+        plt.bar(range(1, n + 1), list(ds_list[0][var].values), width=bar_width, color="blue")
+        plt.bar(range(1, n + 1), list(ds_list[1][var].values), width=bar_width, color="white")
+        ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
 
     # Format.
-    plt.xlim([1, 12])
-    plt.xticks(np.arange(1, 13, 1))
-    plt.xlabel("Mois", fontsize=fs_axes)
+    plt.xlim([1, n])
+    if freq == cfg.freq_D:
+        y_lim_lower = min(list(ds_list[1][var].values))
+        y_lim_upper = max(list(ds_list[2][var].values))
+        plt.ylim([y_lim_lower, y_lim_upper])
+    plt.xticks(np.arange(1, n + 1, 1 if n == 1 else 30))
+    plt.xlabel("Mois" if n == 12 else "Journée", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.title(title, fontsize=fs_title)
     plt.tick_params(axis="x", labelsize=fs_axes)
@@ -1222,7 +1241,10 @@ def plot_monthly(ds_list: List[xr.Dataset], stn: str, var: str, title: str, p_fi
     plt.suptitle("", fontsize=fs_title)
 
     # Format.
-    plt.legend(["Moyenne", "Étendue des valeurs"], fontsize=fs_legend)
+    if n == 12:
+        plt.legend(["Moyenne", "Étendue des valeurs"], fontsize=fs_legend)
+    else:
+        plt.legend(["Moyenne", ">Moyenne", "<Moyenne"], fontsize=fs_legend)
 
     # Save plot.
     if p_fig != "":

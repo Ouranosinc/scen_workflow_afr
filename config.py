@@ -127,6 +127,7 @@ cat_fig_calibration = "calibration"  # Figures (calibration).
 cat_fig_postprocess = "postprocess"  # Figures (postprocess).
 cat_fig_workflow    = "workflow"     # Figures (workflow).
 cat_fig_monthly     = "monthly"      # Figures (monthly).
+cat_fig_daily       = "daily"        # Figures (daily).
 
 # Calendar types.
 cal_noleap          = "noleap"      # No-leap.
