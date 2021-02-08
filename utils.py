@@ -836,12 +836,14 @@ def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var: str = "") -> Union[x
     ds_squeeze = ds
 
     # Squeeze data.
-    if cfg.dim_lon in ds.dims:
-        ds_squeeze = ds.mean([cfg.dim_lon, cfg.dim_lat])
-    elif cfg.dim_rlon in ds.dims:
-        ds_squeeze = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
-    elif cfg.dim_longitude in ds.dims:
-        ds_squeeze = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        if cfg.dim_lon in ds.dims:
+            ds_squeeze = ds.mean([cfg.dim_lon, cfg.dim_lat])
+        elif cfg.dim_rlon in ds.dims:
+            ds_squeeze = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
+        elif cfg.dim_longitude in ds.dims:
+            ds_squeeze = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
 
     # Transfer units.
     ds_squeeze = copy_attributes(ds, ds_squeeze, var)

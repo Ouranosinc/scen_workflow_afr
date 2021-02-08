@@ -445,12 +445,13 @@ def calc_ts(cat: str):
                         units = cfg.unit_C
 
                     # Calculate statistics.
-                    # TODO: Include coordinates in the generated dataset.
                     years = ds.groupby(ds.time.dt.year).groups.keys()
-                    if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                        ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
-                    else:
-                        ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=RuntimeWarning)
+                        if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                            ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
+                        else:
+                            ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
                     n_time = len(ds[cfg.dim_time].values)
                     da = xr.DataArray(np.array(ds[var_or_idx].values), name=var_or_idx,
                                       coords=[(cfg.dim_time, np.arange(n_time))])
@@ -639,7 +640,12 @@ def calc_mean_min_max_monthly(ds: xr.Dataset, stn: str, var: str) -> List[xr.Dat
     ds_list = []
 
     # Extract data for the current month.
-    da_m = ds[var].rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+    if cfg.dim_rlon in ds.dims:
+        da_m = ds[var].rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+    elif cfg.dim_lon in ds.dims:
+        da_m = ds[var].rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+    else:
+        da_m = ds[var]
     da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
 
     # Apply mask.
