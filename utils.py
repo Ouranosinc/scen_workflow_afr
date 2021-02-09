@@ -24,7 +24,6 @@ from cmath import rect, phase
 from collections import defaultdict
 from itertools import compress
 from math import radians, degrees, sqrt
-from scipy.interpolate import griddata
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import Union, List, Tuple
 
@@ -1217,65 +1216,6 @@ def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> set:
         coord_dict = {cfg.dim_latitude, cfg.dim_longitude}
 
     return coord_dict
-
-
-def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Perform grid change.
-
-    Parameters
-    ----------
-    ds_data: xr.Dataset
-        Dataset containing data.
-    ds_grid: xr.Dataset
-        Dataset containing grid
-    var: str
-        Climate variable.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Get longitude and latitude values (grid).
-    if cfg.dim_rlon in ds_grid.dims:
-        grid_lon = ds_grid.rlon.values
-        grid_lat = ds_grid.rlat.values
-    elif cfg.dim_lon in ds_grid.variables:
-        grid_lon = ds_grid.lon.values[1]
-        grid_lat = ds_grid.lat.values[0]
-    else:
-        grid_lon = ds_grid.longitude.values
-        grid_lat = ds_grid.latitude.values
-
-    # Get longitude and latitude values (data).
-    if cfg.dim_rlon in ds_data.dims:
-        data_lon = np.array(list(ds_data.rlon.values) * len(ds_data.rlat.values))
-        data_lat = np.array(list(ds_data.rlat.values) * len(ds_data.rlon.values))
-    elif cfg.dim_lon in ds_data.variables:
-        data_lon = ds_data.lon.values.ravel()
-        data_lat = ds_data.lat.values.ravel()
-    else:
-        data_lon = ds_data.longitude.values
-        data_lat = ds_data.latitude.values
-
-    # Create new mesh.
-    new_grid = np.meshgrid(grid_lon, grid_lat)
-    if np.min(new_grid[0]) > 0:
-        new_grid[0] -= 360
-    t_len = len(ds_data.time)
-    arr_regrid = np.empty((t_len, len(grid_lat), len(grid_lon)))
-    for t in range(0, t_len):
-        arr_regrid[t, :, :] = griddata((data_lon, data_lat), ds_data[var][t, :, :].values.ravel(),
-                                       (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
-
-    # Create data array and dataset.
-    da_regrid = xr.DataArray(arr_regrid,
-        coords=[(cfg.dim_time, ds_data.time[0:t_len]), (cfg.dim_lat, grid_lat), (cfg.dim_lon, grid_lon)],
-        dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
-    ds_regrid = da_regrid.to_dataset(name=var)
-    ds_regrid[var].attrs[cfg.attrs_units] = ds_data[var].attrs[cfg.attrs_units]
-
-    return ds_regrid
 
 
 def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dataset, xr.DataArray]:

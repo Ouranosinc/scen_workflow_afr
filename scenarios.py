@@ -27,6 +27,7 @@ import xarray as xr
 import xarray.core.variable as xcv
 import warnings
 from qm import train, predict
+from scipy.interpolate import griddata
 
 
 def load_observations(var: str):
@@ -409,7 +410,7 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
         # Method 1: Convert data to a new grid.
         if cfg.opt_ra:
 
-            ds_regrid = utils.regrid(ds_raw, ds_stn, var)
+            ds_regrid = regrid(ds_raw, ds_stn, var)
 
         # Method 2: Take nearest information.
         else:
@@ -428,6 +429,74 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
     else:
 
         utils.log(msg + " (not required)", True)
+
+
+def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Perform grid change.
+    TODO: Make this function more universal and more efficient.
+
+    Parameters
+    ----------
+    ds_data: xr.Dataset
+        Dataset containing data.
+    ds_grid: xr.Dataset
+        Dataset containing grid
+    var: str
+        Climate variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Get longitude and latitude values (grid).
+    # This is not working.
+    # if cfg.dim_rlon in ds_grid.dims:
+    #     grid_lon = ds_grid.rlon.values
+    #     grid_lat = ds_grid.rlat.values
+    # elif cfg.dim_lon in ds_grid.variables:
+    #     grid_lon = ds_grid.lon.values[1]
+    #     grid_lat = ds_grid.lat.values[0]
+    # else:
+    #     grid_lon = ds_grid.longitude.values
+    #     grid_lat = ds_grid.latitude.values
+    if cfg.dim_lon in ds_grid.dims:
+        grid_lon = ds_grid.lon.values.ravel()
+        grid_lat = ds_grid.lat.values.ravel()
+    else:
+        grid_lon = ds_grid.longitude.values.ravel()
+        grid_lat = ds_grid.latitude.values.ravel()
+
+    # Get longitude and latitude values (data).
+    # This is not working.
+    # if cfg.dim_rlon in ds_data.dims:
+    #     data_lon = np.array(list(ds_data.rlon.values) * len(ds_data.rlat.values))
+    #     data_lat = np.array(list(ds_data.rlat.values) * len(ds_data.rlon.values))
+    # elif cfg.dim_lon in ds_data.variables:
+    #     data_lon = ds_data.lon.values.ravel()
+    #     data_lat = ds_data.lat.values.ravel()
+    # else:
+    #     data_lon = ds_data.longitude.values
+    #     data_lat = ds_data.latitude.values
+
+    # Create new mesh.
+    new_grid = np.meshgrid(grid_lon, grid_lat)
+    if np.min(new_grid[0]) > 0:
+        new_grid[0] -= 360
+    t_len = len(ds_data.time)
+    arr_regrid = np.empty((t_len, len(grid_lat), len(grid_lon)))
+    for t in range(0, t_len):
+        arr_regrid[t, :, :] = griddata((ds_data.lon.values.ravel(), ds_data.lat.values.ravel()),
+            ds_data[var][t, :, :].values.ravel(), (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
+
+    # Create data array and dataset.
+    da_regrid = xr.DataArray(arr_regrid,
+        coords=[(cfg.dim_time, ds_data.time[0:t_len]), (cfg.dim_lat, grid_lat), (cfg.dim_lon, grid_lon)],
+        dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
+    ds_regrid = da_regrid.to_dataset(name=var)
+    ds_regrid[var].attrs[cfg.attrs_units] = ds_data[var].attrs[cfg.attrs_units]
+
+    return ds_regrid
 
 
 def perturbate(ds: xr.Dataset, var: str) -> xr.Dataset:
