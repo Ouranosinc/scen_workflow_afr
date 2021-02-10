@@ -181,7 +181,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                 else:
                     val_year = np.nanmean(vals_year)
                 vals_sim.append(val_year)
-            arr_vals_t.append(vals_sim)
+            if (var_or_idx != cfg.idx_rainqty) or ((var_or_idx == cfg.idx_rainqty) and (max(vals_sim) > 0)):
+                arr_vals_t.append(vals_sim)
         arr_vals = arr_vals_t
         n_time = year_n - year_1 + 1
 
@@ -310,12 +311,7 @@ def calc_stats(cat: str):
                         # Calculate statistics.
                         hor = [min(min(hors)), max(max(hors))]
                         ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx_code, rcp, hor, True, stat, q)
-                        ds_is_ok = True
                         if ds_stat is None:
-                            ds_is_ok = False
-                        elif (var_or_idx == cfg.idx_rainqty) and (float(ds_stat[var_or_idx].max().values) == 0):
-                            ds_is_ok = False
-                        if not ds_is_ok:
                             continue
 
                         # Loop through horizons.
