@@ -315,7 +315,7 @@ def calc_stats(cat: str):
                             ds_is_ok = False
                         elif (var_or_idx == cfg.idx_rainqty) and (float(ds_stat[var_or_idx].max().values) == 0):
                             ds_is_ok = False
-                        if ds_is_ok is None:
+                        if not ds_is_ok:
                             continue
 
                         # Loop through horizons.
