@@ -405,7 +405,8 @@ col_ref             = "black"       # Reference period.
 col_rcp26           = "blue"        # RCP 2.6.
 col_rcp45           = "green"       # RCP 4.5.
 col_rcp85           = "red"         # RCP 8.5.
-
+col_below_mean      = "cornflowerblue"  # Zone between mean and maximum values (in a time series).
+col_above_mean      = "indianred"       # Zone between mean and minimum values (in a time series).
 
 def get_rank_inst():
 

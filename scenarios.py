@@ -1373,7 +1373,7 @@ def gen_plot_freq(p: str, stn: str, var: str, freq: str, title: str):
     n = 12 if freq == cfg.freq_MS else 365
     cat_fig = cfg.cat_fig_monthly if freq == cfg.freq_MS else cfg.cat_fig_daily
     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat_fig, var) + title + cfg.f_ext_png
-    plot.plot_freq(ds_list, stn, var, freq, title, p_fig)
+    plot.plot_freq(ds_list, var, freq, title, 0, p_fig)
 
     # Generate CSV file.
     if cfg.opt_save_csv[0]:

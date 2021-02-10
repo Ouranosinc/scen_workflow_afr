@@ -1173,7 +1173,7 @@ def plot_ts_mosaic(stn: str, var: str):
     plt.close()
 
 
-def plot_freq(ds_list: List[xr.Dataset], stn: str, var: str, freq: str, title: str, p_fig: str):
+def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_type: int = 0, p_fig: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1183,14 +1183,15 @@ def plot_freq(ds_list: List[xr.Dataset], stn: str, var: str, freq: str, title: s
     ----------
     ds_list: List[xr.Dataset]
         List of datasets (mean, minimum and maximum).
-    stn: str
-        Station name.
     var: str
         Weather variable.
     freq: str
         Frequency.
     title: str
         Plot title.
+    plt_type: int
+        Plot type {0=automatically selected, 1=line, 2=bar}
+        If the value
     p_fig: str
         Path of figure
     --------------------------------------------------------------------------------------------------------------------
@@ -1214,26 +1215,31 @@ def plot_freq(ds_list: List[xr.Dataset], stn: str, var: str, freq: str, title: s
     if freq == cfg.freq_MS:
         f.set_size_inches(4, 3)
         plt.subplots_adjust(top=0.93, bottom=0.13, left=0.13, right=0.97, hspace=0.10, wspace=0.10)
-        ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
-        ax.fill_between(np.array(range(1, n + 1)), list(ds_list[1][var].values), list(ds_list[2][var].values),
-                        color="grey", alpha=0.25)
     else:
         f.set_size_inches(12, 3)
         plt.subplots_adjust(top=0.93, bottom=0.13, left=0.04, right=0.99, hspace=0.10, wspace=0.10)
+
+    if (plt_type == 1) or\
+       ((plt_type == 0) and (var not in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot])):
+        ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
+        ax.fill_between(np.array(range(1, n + 1)), list(ds_list[0][var].values), list(ds_list[2][var].values),
+                        color=cfg.col_above_mean, alpha=1.0)
+        ax.fill_between(np.array(range(1, n + 1)), list(ds_list[0][var].values), list(ds_list[1][var].values),
+                        color=cfg.col_below_mean, alpha=1.0)
+    else:
         bar_width = 1.0
-        plt.bar(range(1, n + 1), list(ds_list[2][var].values), width=bar_width, color="red")
-        plt.bar(range(1, n + 1), list(ds_list[0][var].values), width=bar_width, color="blue")
+        plt.bar(range(1, n + 1), list(ds_list[2][var].values), width=bar_width, color=cfg.col_above_mean)
+        plt.bar(range(1, n + 1), list(ds_list[0][var].values), width=bar_width, color=cfg.col_below_mean)
         plt.bar(range(1, n + 1), list(ds_list[1][var].values), width=bar_width, color="white")
         ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
-
-    # Format.
-    plt.xlim([1, n])
-    if freq == cfg.freq_D:
         y_lim_lower = min(list(ds_list[1][var].values))
         y_lim_upper = max(list(ds_list[2][var].values))
         plt.ylim([y_lim_lower, y_lim_upper])
-    plt.xticks(np.arange(1, n + 1, 1 if n == 1 else 30))
-    plt.xlabel("Mois" if n == 12 else "Journée", fontsize=fs_axes)
+
+    # Format.
+    plt.xlim([1, n])
+    plt.xticks(np.arange(1, n + 1, 1 if freq == cfg.freq_MS else 30))
+    plt.xlabel("Mois" if freq == cfg.freq_MS else "Journée", fontsize=fs_axes)
     plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
     plt.title(title, fontsize=fs_title)
     plt.tick_params(axis="x", labelsize=fs_axes)
@@ -1241,10 +1247,7 @@ def plot_freq(ds_list: List[xr.Dataset], stn: str, var: str, freq: str, title: s
     plt.suptitle("", fontsize=fs_title)
 
     # Format.
-    if n == 12:
-        plt.legend(["Moyenne", "Étendue des valeurs"], fontsize=fs_legend)
-    else:
-        plt.legend(["Moyenne", ">Moyenne", "<Moyenne"], fontsize=fs_legend)
+    plt.legend(["Moyenne", ">Moyenne", "<Moyenne"], fontsize=fs_legend)
 
     # Save plot.
     if p_fig != "":
