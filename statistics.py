@@ -181,8 +181,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                 else:
                     val_year = np.nanmean(vals_year)
                 vals_sim.append(val_year)
-            if (var_or_idx != cfg.idx_rainqty) or ((var_or_idx == cfg.idx_rainqty) and (max(vals_sim) > 0)):
-                arr_vals_t.append(vals_sim)
+            arr_vals_t.append(vals_sim)
         arr_vals = arr_vals_t
         n_time = year_n - year_1 + 1
 
@@ -191,7 +190,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
     for i_time in range(n_time):
         vals = []
         for i_sim in range(n_sim):
-            vals.append(arr_vals[i_sim][i_time])
+            if (var_or_idx != cfg.idx_rainqty) or ((var_or_idx == cfg.idx_rainqty) and (max(arr_vals[i_sim]) > 0)):
+                vals.append(arr_vals[i_sim][i_time])
         arr_vals_t.append(vals)
 
     # Calculate statistics.
