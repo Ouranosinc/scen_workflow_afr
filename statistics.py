@@ -310,7 +310,12 @@ def calc_stats(cat: str):
                         # Calculate statistics.
                         hor = [min(min(hors)), max(max(hors))]
                         ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx_code, rcp, hor, True, stat, q)
+                        ds_is_ok = True
                         if ds_stat is None:
+                            ds_is_ok = False
+                        elif (var_or_idx == cfg.idx_rainqty) and (ds_stat.max() == 0):
+                            ds_is_ok = False
+                        if ds_is_ok is None:
                             continue
 
                         # Loop through horizons.
@@ -479,12 +484,17 @@ def calc_ts(cat: str):
                     # Append to list of datasets.
                     if rcp == cfg.rcp_ref:
                         ds_ref = ds
-                    elif rcp == cfg.rcp_26:
-                        ds_rcp_26.append(ds)
-                    elif rcp == cfg.rcp_45:
-                        ds_rcp_45.append(ds)
-                    elif rcp == cfg.rcp_85:
-                        ds_rcp_85.append(ds)
+                    else:
+                        ds_is_ok = True
+                        if (var_or_idx == cfg.idx_rainqty) and (float(ds[var_or_idx].max().values) == 0):
+                            ds_is_ok = False
+                        if ds_is_ok:
+                            if rcp == cfg.rcp_26:
+                                ds_rcp_26.append(ds)
+                            elif rcp == cfg.rcp_45:
+                                ds_rcp_45.append(ds)
+                            elif rcp == cfg.rcp_85:
+                                ds_rcp_85.append(ds)
 
                 # Group by RCP.
                 if rcp != cfg.rcp_ref:
