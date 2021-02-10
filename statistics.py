@@ -313,7 +313,7 @@ def calc_stats(cat: str):
                         ds_is_ok = True
                         if ds_stat is None:
                             ds_is_ok = False
-                        elif (var_or_idx == cfg.idx_rainqty) and (ds_stat.max() == 0):
+                        elif (var_or_idx == cfg.idx_rainqty) and (float(ds_stat[var_or_idx].max().values) == 0):
                             ds_is_ok = False
                         if ds_is_ok is None:
                             continue
