@@ -949,6 +949,8 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
             color = cfg.col_rcp26
         elif rcp == cfg.rcp_45:
             color = cfg.col_rcp45
+        elif rcp == cfg.rcp_85:
+            color = cfg.col_rcp85
 
         # Mode #1: Curves and envelopes.
         if mode == 1:

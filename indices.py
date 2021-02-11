@@ -565,14 +565,15 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
         elif idx_name == cfg.idx_drydurtot:
             da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
-            p_dry = float(idx_params_str[0])
-            d_dry = int(idx_params_str[1])
-            per   = idx_params_str[2]
-            doy_a = idx_params_str[3]
+            per = idx_params_str[0]
+            p_tot = float(idx_params_str[1])
+            d_dry = int(idx_params_str[2])
+            p_dry = float(idx_params_str[3])
+            doy_a = idx_params_str[4]
             doy_a = None if (str(doy_a) == "nan") else int(doy_a)
-            doy_b = idx_params_str[4]
+            doy_b = idx_params_str[5]
             doy_b = None if (str(doy_b) == "nan") else int(doy_b)
-            da_idx = xr.DataArray(tot_duration_dry_periods(da_pr,  p_dry, d_dry, per, doy_a, doy_b))
+            da_idx = xr.DataArray(tot_duration_dry_periods(da_pr, per, p_tot, d_dry, p_dry, doy_a, doy_b))
             idx_units = cfg.unit_1
 
         # Wind ---------------------------------------------------------------------------------------------
@@ -748,8 +749,8 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tas
         return group.map(rl.windowed_run_count, args=(window,), dim=cfg.dim_time)
 
 
-def tot_duration_dry_periods(da_pr: xr.DataArray,  pr_dry: float, dt_dry: int, per: str, doy_a: int, doy_b: int)\
-        -> xr.DataArray:
+def tot_duration_dry_periods(da_pr: xr.DataArray,  per: str, pr_tot: float, dt_dry: int, pr_dry: float, doy_a: int,
+                             doy_b: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -760,12 +761,14 @@ def tot_duration_dry_periods(da_pr: xr.DataArray,  pr_dry: float, dt_dry: int, p
     ----------
     da_pr : xr.DataArray:
         Precipitation data.
-    pr_dry: float
-        Daily precipitation amount under which precipitation is considered negligible.
-    dt_dry: int
-        Number of days to have a dry period.
     per: str
         Period over which to combine data {"1d" = one day, "tot" = total}.
+    pr_tot: float
+        Sum of daily precipitation amounts under which the period is considered dry (only if per="tot).
+    dt_dry: int
+        Number of days to have a dry period.
+    pr_dry: float
+        Daily precipitation amount under which precipitation is considered negligible.
     doy_a: int
         First day of year to consider.
     doy_b: int
@@ -776,8 +779,9 @@ def tot_duration_dry_periods(da_pr: xr.DataArray,  pr_dry: float, dt_dry: int, p
     # Eliminate negative values.
     da_pr.values[da_pr.values < 0] = 0
 
-    # Unit conversion. The exact value seems to be 0.0000008 mm/day (instead of 0.000001 mm/day).
+    # Unit conversion.
     pr_dry = convert_units_to(str(pr_dry) + " mm/day", da_pr)
+    pr_tot = convert_units_to(str(pr_tot) + " mm/day", da_pr)
 
     # Condition #1: Days that belong to a dry period.
     da_cond1 = da_pr.copy()
@@ -788,7 +792,9 @@ def tot_duration_dry_periods(da_pr: xr.DataArray,  pr_dry: float, dt_dry: int, p
         if per == "1d":
             da_t = xr.DataArray(da_pr[t:(t + dt_dry), :, :] < pr_dry).sum(dim=cfg.dim_time) == dt_dry
         else:
-            da_t = xr.DataArray(da_pr[t:(t + dt_dry), :, :].sum(dim=cfg.dim_time)) < pr_dry
+            da_t = da_pr[t:(t + dt_dry), :, :]
+            da_t = xr.DataArray(da_t >= pr_dry).astype(float) * da_t
+            da_t = xr.DataArray(da_t.sum(dim=cfg.dim_time)) < pr_tot
         da_cond1[t:(t + dt_dry), :, :] = da_cond1[t:(t + dt_dry), :, :] | da_t
 
     # Condition #2 : Days that are between 'doy_a' and 'doy_b'.

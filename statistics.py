@@ -406,7 +406,7 @@ def calc_ts(cat: str):
                         d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
                     else:
                         d = cfg.get_d_idx(stn, var_or_idx_code)
-                    p_sim_list = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
+                    p_sim_list = glob.glob(d + "*_" + ("*" if rcp == cfg.rcp_xx else rcp) + cfg.f_ext_nc)
 
                 # Exit if there is no file corresponding to the criteria.
                 if (len(p_sim_list) == 0) or \
