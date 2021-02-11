@@ -935,10 +935,11 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     ds_max = None
 
     # Loop through RCPs.
-    if cfg.rcp_ref in rcps:
-        rcps.remove(cfg.rcp_ref)
-        rcps = rcps + [cfg.rcp_ref]
-    for rcp in rcps:
+    rcps_copy = rcps.copy()
+    if cfg.rcp_ref in rcps_copy:
+        rcps_copy.remove(cfg.rcp_ref)
+        rcps_copy = rcps_copy + [cfg.rcp_ref]
+    for rcp in rcps_copy:
 
         # Skip if no simulation is available for this RCP.
         if ((rcp == cfg.rcp_26) and (ds_rcp_26 == [])) or\
