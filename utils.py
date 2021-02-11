@@ -1176,7 +1176,8 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
         da = da.rename({list(dims_data)[0]: list(dims_mask)[0], list(dims_data)[1]: list(dims_mask)[1]})
 
     # Apply mask.
-    da = da[0:len(da[cfg.dim_time])] * da_mask
+    n_time = len(da[cfg.dim_time])
+    da[0:n_time, :, :].values = da[0:n_time, :, :].values * da_mask.values
 
     # Restore spatial dimensions.
     if dims_data != dims_mask:

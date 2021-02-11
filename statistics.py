@@ -376,11 +376,11 @@ def calc_ts(cat: str):
             var_or_idx_code = var_or_idx if cat == cfg.cat_scen else cfg.idx_codes[i_var_or_idx]
 
             # Create mask.
-            da_mask = None
-            if ((var_or_idx in cfg.variables_cordex) and (cfg.obs_src == cfg.obs_src_era5_land) and
-                (var_or_idx not in
-                 [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])):
-                da_mask = utils.create_mask(stn)
+            # da_mask = None
+            # if ((var_or_idx in cfg.variables_cordex) and (cfg.obs_src == cfg.obs_src_era5_land) and
+            #     (var_or_idx not in
+            #      [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])):
+            #     da_mask = utils.create_mask(stn)
 
             # Minimum and maximum values along the y-axis
             ylim = []
@@ -404,8 +404,7 @@ def calc_ts(cat: str):
                 # List files.
                 if rcp == cfg.rcp_ref:
                     if var_or_idx in cfg.variables_cordex:
-                        p_sim_list = [cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx) +
-                                      var_or_idx + "_" + stn + cfg.f_ext_nc]
+                        p_sim_list = [cfg.get_d_stn(var_or_idx) + var_or_idx + "_" + stn + cfg.f_ext_nc]
                     else:
                         p_sim_list = [cfg.get_d_idx(stn, var_or_idx_code) + var_or_idx + "_ref" + cfg.f_ext_nc]
                 else:
@@ -425,6 +424,9 @@ def calc_ts(cat: str):
 
                     # Load dataset.
                     ds = utils.open_netcdf(p_sim_list[i_sim]).squeeze()
+                    if (rcp == cfg.rcp_ref) and (var_or_idx in cfg.variables_cordex):
+                        ds = utils.remove_feb29(ds)
+                        ds = utils.sel_period(ds, cfg.per_ref)
 
                     # Records years and units.
                     years  = ds.groupby(ds.time.dt.year).groups.keys()
@@ -439,10 +441,10 @@ def calc_ts(cat: str):
                         else:
 
                             # Apply mask.
-                            if da_mask is not None:
-                                da = utils.apply_mask(ds[var_or_idx], da_mask)
-                                da.name = var_or_idx
-                                ds = da.to_dataset()
+                            # if da_mask is not None:
+                            #     da = utils.apply_mask(ds[var_or_idx], da_mask)
+                            #     da.name = var_or_idx
+                            #     ds = da.to_dataset()
 
                             # Squeeze data.
                             ds = utils.squeeze_lon_lat(ds, var_or_idx)
@@ -642,7 +644,7 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
     return ds_mean_min_max
 
 
-def calc_mean_min_max_freq(ds: xr.Dataset, stn: str, var: str, freq: str) -> List[xr.Dataset]:
+def calc_mean_min_max_freq(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -652,8 +654,6 @@ def calc_mean_min_max_freq(ds: xr.Dataset, stn: str, var: str, freq: str) -> Lis
     ----------
     ds: xr.Dataset
         Dataset.
-    stn: str
-        Station.
     var: str
         Climate variable.
     freq: str
@@ -668,15 +668,14 @@ def calc_mean_min_max_freq(ds: xr.Dataset, stn: str, var: str, freq: str) -> Lis
     if cfg.dim_rlon in ds.dims:
         da_m = ds[var].rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
     elif cfg.dim_lon in ds.dims:
-        da_m = ds[var].rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+        da_m = ds[var].rename({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
     else:
         da_m = ds[var]
-    da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
 
     # Apply mask.
-    if stn == cfg.obs_src_era5_land:
-        da_mask = utils.create_mask(stn)
-        da_m = utils.apply_mask(da_m, da_mask)
+    # if stn == cfg.obs_src_era5_land:
+    #     da_mask = utils.create_mask(stn)
+    #     da_m = utils.apply_mask(da_m, da_mask)
 
     # Grouping frequency.
     freq_str = "time.month" if freq == cfg.freq_MS else "time.dayofyear"

@@ -960,9 +960,6 @@ def generate():
 
                 utils.log("Processing: '" + var + "', '" + stn + "', '" + rcp + "'", True)
 
-                if (rcp == cfg.rcp_45) and (var == cfg.var_cordex_pr):
-                    titi = 1
-
                 # Perform extraction.
                 # A first call to generate_single is required for the extraction to be done in scalar mode (before
                 # forking) because of the incompatibility of xr.open_mfdataset with parallel processing.
@@ -1225,7 +1222,7 @@ def run():
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (scenarios)")
-        statistics.calc_ts(cfg.cat_scen)
+        # TODO: statistics.calc_ts(cfg.cat_scen)
         if not cfg.opt_ra:
             utils.log("-")
             utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios)")
@@ -1261,10 +1258,10 @@ def run():
                 p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc
 
                 # Create mask.
-                da_mask = None
-                if (cfg.obs_src == cfg.obs_src_era5_land) and\
-                   (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
-                    da_mask = utils.create_mask(stn)
+                # da_mask = None
+                # if (cfg.obs_src == cfg.obs_src_era5_land) and\
+                #    (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
+                #     da_mask = utils.create_mask(stn)
 
                 # Loop through raw NetCDF files.
                 p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*" + cfg.f_ext_nc))
@@ -1305,23 +1302,23 @@ def run():
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
                     ds_qqmap = utils.open_netcdf(p_qqmap)
                     title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_monthly)
-                    gen_plot_freq(ds_qqmap, da_mask, stn, var, cfg.freq_MS, title)
+                    gen_plot_freq(ds_qqmap, stn, var, cfg.freq_MS, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                     title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_daily)
-                    gen_plot_freq(ds_qqmap, da_mask, stn, var, cfg.freq_D, title)
+                    gen_plot_freq(ds_qqmap, stn, var, cfg.freq_D, title)
 
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
                 ds_stn = utils.open_netcdf(p_stn)
                 title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_monthly
-                gen_plot_freq(ds_stn, da_mask, stn, var, cfg.freq_MS, title)
+                gen_plot_freq(ds_stn, stn, var, cfg.freq_MS, title)
 
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                 title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_daily
-                gen_plot_freq(ds_stn, da_mask, stn, var, cfg.freq_D, title)
+                gen_plot_freq(ds_stn, stn, var, cfg.freq_D, title)
 
         if not cfg.opt_save_csv[0]:
             utils.log("-")
@@ -1345,7 +1342,7 @@ def run():
         utils.log(msg + " (not required)")
 
 
-def gen_plot_freq(ds: xr.Dataset, da_mask: xr.DataArray, stn: str, var: str, freq: str, title: str):
+def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, freq: str, title: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1355,8 +1352,6 @@ def gen_plot_freq(ds: xr.Dataset, da_mask: xr.DataArray, stn: str, var: str, fre
     ----------
     ds: xr.Dataset
         Dataset containing data.
-    da_mask: xr.DataArray
-        DataArray containing mask.
     stn: str
         Station.
     var: str
@@ -1384,13 +1379,13 @@ def gen_plot_freq(ds: xr.Dataset, da_mask: xr.DataArray, stn: str, var: str, fre
     ds[var].attrs[cfg.attrs_units] = units
 
     # Apply mask.
-    if da_mask is not None:
-        da = utils.apply_mask(ds[var], da_mask)
-        da.name = var
-        ds = da.to_dataset()
+    # if da_mask is not None:
+    #     da = utils.apply_mask(ds[var], da_mask)
+    #     da.name = var
+    #     ds = da.to_dataset()
 
     # Calculate statistics.
-    ds_list = statistics.calc_mean_min_max_freq(ds, stn, var, freq)
+    ds_list = statistics.calc_mean_min_max_freq(ds, var, freq)
 
     # Remove February 29th.
     if (freq == cfg.freq_D) and (len(ds_list[0][var]) > 365):
