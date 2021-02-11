@@ -396,17 +396,20 @@ opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).
 opt_map_res           = -1              # Map resolution.
 
 # Color associated with specific datasets (for consistency).
-col_sim_adj_ref     = "blue"        # Simulation (bias-adjusted) for the reference period.
-col_sim_ref         = "orange"      # Simulation (non-adjusted) for the reference period
-col_obs             = "green"       # Observations.
-col_sim_adj         = "red"         # Simulation (bias-adjusted).
-col_sim_fut         = "purple"      # Simulation (non-adjusted) for the future period.
-col_ref             = "black"       # Reference period.
-col_rcp26           = "blue"        # RCP 2.6.
-col_rcp45           = "green"       # RCP 4.5.
-col_rcp85           = "red"         # RCP 8.5.
+col_sim_adj_ref     = "blue"            # Simulation (bias-adjusted) for the reference period.
+col_sim_ref         = "orange"          # Simulation (non-adjusted) for the reference period
+col_obs             = "green"           # Observations.
+col_sim_adj         = "red"             # Simulation (bias-adjusted).
+col_sim_fut         = "purple"          # Simulation (non-adjusted) for the future period.
+col_ref             = "black"           # Reference period.
+col_rcp26           = "blue"            # RCP 2.6.
+col_rcp45           = "green"           # RCP 4.5.
+col_rcp85           = "red"             # RCP 8.5.
 col_below_mean      = "cornflowerblue"  # Zone between mean and maximum values (in a time series).
 col_above_mean      = "indianred"       # Zone between mean and minimum values (in a time series).
+col_map_wind        = "RdBu_r"          # Color scale in heat maps involving wind.
+col_map_water       = "Blues"           # Color scale in heat maps involving water.
+col_map_default     = "viridis"         # Color scale in other heat maps.
 
 def get_rank_inst():
 

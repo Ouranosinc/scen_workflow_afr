@@ -770,19 +770,20 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
 
             # Color mesh.
             if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
-                cmap = "RdBu_r"
+                cmap = cfg.col_map_wind
                 vmax_abs = max(abs(z_min), abs(z_max))
                 vmin = -vmax_abs
                 vmax = vmax_abs
-            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
-                                cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty, cfg.idx_drydurtot]:
-                cmap = "Blues"
-                if var_or_idx == cfg.idx_drydurtot:
-                    cmap = matplotlib.cm.get_cmap(cmap + "_r")
+            else:
+                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
+                                  cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty, cfg.idx_drydurtot]:
+                    cmap = cfg.col_map_water
+                    if var_or_idx == cfg.idx_drydurtot:
+                        cmap = matplotlib.cm.get_cmap(cmap + "_r")
+                else:
+                    cmap = cfg.col_map_default
                 vmin = z_min
                 vmax = z_max
-            else:
-                cmap = vmin = vmax = None
             mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
                                       cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
                                       cmap=cmap, vmin=vmin, vmax=vmax)
