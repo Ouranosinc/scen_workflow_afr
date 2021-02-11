@@ -129,7 +129,7 @@ def generate(idx_code: str):
             utils.log("Collecting simulation files.", True)
             if rcp == cfg.rcp_ref:
                 if cfg.extract_idx(var_or_idx_list[0]) in cfg.variables_cordex:
-                    p_sim = cfg.get_d_scen(stn, cfg.cat_obs, var_or_idx_list[0]) +\
+                    p_sim = cfg.get_d_stn(var_or_idx_list[0]) +\
                             cfg.extract_idx(var_or_idx_list[0]) + "_" + stn + cfg.f_ext_nc
                 else:
                     p_sim = cfg.get_d_idx(cfg.obs_src, var_or_idx_list[0]) +\
@@ -619,8 +619,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             da_idx = utils.apply_mask(da_idx, da_mask)
 
         # Create dataset.
-        da_idx.name = idx_name
-        ds_idx = da_idx.to_dataset()
+        ds_idx = da_idx.to_dataset(name=idx_name)
         ds_idx.attrs[cfg.attrs_units] = idx_units
         ds_idx.attrs[cfg.attrs_sname] = idx_name
         ds_idx.attrs[cfg.attrs_lname] = idx_name

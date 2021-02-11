@@ -1177,7 +1177,7 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
 
     # Apply mask.
     n_time = len(da[cfg.dim_time])
-    da[0:n_time, :, :].values = da[0:n_time, :, :].values * da_mask.values
+    da[0:n_time, :, :] = da[0:n_time, :, :].values * da_mask.values
 
     # Restore spatial dimensions.
     if dims_data != dims_mask:
