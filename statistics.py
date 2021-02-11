@@ -369,6 +369,11 @@ def calc_ts(cat: str):
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
 
+        # Create mask.
+        da_mask = None
+        if stn == cfg.obs_src_era5_land:
+            da_mask = utils.create_mask(stn)
+
         # Loop through variables.
         var_or_idx_list = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
         for i_var_or_idx in range(len(var_or_idx_list)):
@@ -419,11 +424,27 @@ def calc_ts(cat: str):
                     # Load dataset.
                     ds = utils.open_netcdf(p_sim_list[i_sim]).squeeze()
 
+                    # Records years and units.
+                    years  = ds.groupby(ds.time.dt.year).groups.keys()
+                    units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds.attrs[cfg.attrs_units]
+                    if units == "degree_C":
+                        units = cfg.unit_C
+
                     # Select control point.
                     if cfg.opt_ra:
                         if cfg.d_bounds == "":
                             ds = utils.subset_ctrl_pt(ds)
                         else:
+
+                            # Apply mask.
+                            if ((da_mask is not None) and (cfg.obs_src == cfg.obs_src_era5_land) and
+                                (var_or_idx not in
+                                 [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot])):
+                                da = utils.apply_mask(ds[var_or_idx], da_mask)
+                                da.name = var_or_idx
+                                ds = da.to_dataset()
+
+                            # Squeeze data.
                             ds = utils.squeeze_lon_lat(ds, var_or_idx)
 
                     # First and last years.
@@ -440,13 +461,7 @@ def calc_ts(cat: str):
                     years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
                     ds = ds.sel(time=slice(years_str[0], years_str[1]))
 
-                    # Remember units.
-                    units = ds[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds.attrs[cfg.attrs_units]
-                    if units == "degree_C":
-                        units = cfg.unit_C
-
                     # Calculate statistics.
-                    years = ds.groupby(ds.time.dt.year).groups.keys()
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=RuntimeWarning)
                         if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
@@ -456,6 +471,8 @@ def calc_ts(cat: str):
                     n_time = len(ds[cfg.dim_time].values)
                     da = xr.DataArray(np.array(ds[var_or_idx].values), name=var_or_idx,
                                       coords=[(cfg.dim_time, np.arange(n_time))])
+
+                    # Create dataset.
                     ds = da.to_dataset()
                     ds[cfg.dim_time] = utils.reset_calendar_list(years)
                     ds[var_or_idx].attrs[cfg.attrs_units] = units
