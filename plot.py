@@ -933,6 +933,11 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     ds_mean = None
     ds_min = None
     ds_max = None
+
+    # Loop through RCPs.
+    if cfg.rcp_ref in rcps:
+        rcps.remove(cfg.rcp_ref)
+        rcps = rcps + [cfg.rcp_ref]
     for rcp in rcps:
 
         # Skip if no simulation is available for this RCP.
@@ -978,7 +983,10 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         elif mode == 2:
 
             # Draw curves.
-            if rcp == cfg.rcp_26:
+            if (rcp == cfg.rcp_ref) and (ds_ref is not None):
+                ds = ds_ref
+                ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color="black", alpha=1.0)
+            elif rcp == cfg.rcp_26:
                 for ds in ds_rcp_26:
                     ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
             elif rcp == cfg.rcp_45:
@@ -987,9 +995,6 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
             elif rcp == cfg.rcp_85:
                 for ds in ds_rcp_85:
                     ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
-            elif (rcp == cfg.rcp_ref) and (ds_ref is not None):
-                ds = ds_ref
-                ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color="black", alpha=1.0)
 
     # Finalize plot.
     legend_list = ["Référence"]
