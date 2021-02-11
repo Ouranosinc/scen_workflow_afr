@@ -10,6 +10,7 @@
 
 import config as cfg
 import matplotlib.cbook
+import matplotlib.cm
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
@@ -771,16 +772,20 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
             if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
                 cmap = "RdBu_r"
                 vmax_abs = max(abs(z_min), abs(z_max))
-                norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
-            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                vmin = -vmax_abs
+                vmax = vmax_abs
+            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
+                                cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty, cfg.idx_drydurtot]:
                 cmap = "Blues"
-                vmax_abs = max(abs(z_min), abs(z_max))
-                norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
+                if var_or_idx == cfg.idx_drydurtot:
+                    cmap = matplotlib.cm.get_cmap(cmap + "_r")
+                vmin = z_min
+                vmax = z_max
             else:
-                cmap = norm = None
+                cmap = vmin = vmax = None
             mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
                                       cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
-                                      cmap=cmap, norm=norm)
+                                      cmap=cmap, vmin=vmin, vmax=vmax)
             if (z_min is not None) and (z_max is not None):
                 mesh.set_clim(z_min, z_max)
             plt.title(title, fontsize=fs_sup_title)
