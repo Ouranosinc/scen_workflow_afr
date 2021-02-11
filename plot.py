@@ -937,7 +937,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
 
         # Skip if no simulation is available for this RCP.
         if ((rcp == cfg.rcp_26) and (ds_rcp_26 == [])) or\
-           ((rcp == cfg.rcp_45) and (ds_rcp_45 == [])) or\
+           ((rcp == cfg.rcp_45) and (ds_rcp_45 == [])) or \
            ((rcp == cfg.rcp_85) and (ds_rcp_85 == [])):
             continue
 
@@ -949,8 +949,6 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
             color = cfg.col_rcp26
         elif rcp == cfg.rcp_45:
             color = cfg.col_rcp45
-        elif rcp == cfg.rcp_85:
-            color = cfg.col_rcp85
 
         # Mode #1: Curves and envelopes.
         if mode == 1:

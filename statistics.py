@@ -44,7 +44,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
     var_or_idx_code : str
         Climate variable  (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
     rcp : str
-        Emission scenario: {cfg.rcp_26, cfg.rcp_45, cfg_rcp_85, "*"}
+        Emission scenario: {cfg.rcp_26, cfg.rcp_45, cfg_rcp_85, cfg_rcp_xx}
     hor : [int]
         Horizon: ex: [1981, 2010]
         If None is specified, the complete time range is considered.
@@ -71,7 +71,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
         else:
             d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx_code)
-        p_sim_list = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
+        p_sim_list = glob.glob(d + "*_" + ("*" if rcp == cfg.rcp_xx else rcp) + cfg.f_ext_nc)
 
     # Exit if there is not file corresponding to the criteria.
     if (len(p_sim_list) == 0) or \
@@ -392,6 +392,7 @@ def calc_ts(cat: str):
             ds_rcp_26, ds_rcp_26_grp = [], []
             ds_rcp_45, ds_rcp_45_grp = [], []
             ds_rcp_85, ds_rcp_85_grp = [], []
+            ds_rcp_xx, ds_rcp_xx_grp = [], []
             for rcp in rcps:
 
                 # List files.
@@ -495,6 +496,7 @@ def calc_ts(cat: str):
                                 ds_rcp_45.append(ds)
                             elif rcp == cfg.rcp_85:
                                 ds_rcp_85.append(ds)
+                            ds_rcp_xx.append(ds)
 
                 # Group by RCP.
                 if rcp != cfg.rcp_ref:
@@ -504,6 +506,7 @@ def calc_ts(cat: str):
                         ds_rcp_45_grp = calc_stat_mean_min_max(ds_rcp_45, var_or_idx)
                     elif rcp == cfg.rcp_85:
                         ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, var_or_idx)
+                    ds_rcp_xx_grp = calc_stat_mean_min_max(ds_rcp_xx, var_or_idx)
 
             if (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
 
@@ -545,6 +548,10 @@ def calc_ts(cat: str):
                             df[cfg.rcp_85 + "_min"] = ds_rcp_85_grp[0][var_or_idx].values
                             df[cfg.rcp_85 + "_moy"] = ds_rcp_85_grp[1][var_or_idx].values
                             df[cfg.rcp_85 + "_max"] = ds_rcp_85_grp[2][var_or_idx].values
+                        else:
+                            df[cfg.rcp_xx + "_min"] = ds_rcp_xx_grp[0][var_or_idx].values
+                            df[cfg.rcp_xx + "_moy"] = ds_rcp_xx_grp[1][var_or_idx].values
+                            df[cfg.rcp_xx + "_max"] = ds_rcp_xx_grp[2][var_or_idx].values
 
                     # Save file.
                     utils.save_csv(df, p_csv)
@@ -555,13 +562,13 @@ def calc_ts(cat: str):
                     # Time series with simulations grouped by RCP scenario.
                     p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", var_or_idx_code) + \
                                 var_or_idx + "_" + stn + "_rcp" + cfg.f_ext_png
-                    plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(), var_or_idx_code,
-                                 rcps, ylim, p_fig_rcp, 1)
+                    plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(),
+                                 var_or_idx_code, rcps, ylim, p_fig_rcp, 1)
 
                     # Time series showing individual simulations.
                     p_fig_sim = p_fig_rcp.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
-                    plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(), var_or_idx_code,
-                                 rcps, ylim, p_fig_sim, 2)
+                    plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(),
+                                 var_or_idx_code, rcps, ylim, p_fig_sim, 2)
 
 
 def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
@@ -704,6 +711,8 @@ def calc_heatmap(var_or_idx_code: str):
     cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
     var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.extract_idx(var_or_idx_code)
     rcps = [cfg.rcp_ref] + cfg.rcps
+    if len(rcps) > 2:
+        rcps = rcps + [cfg.rcp_xx]
 
     utils.log("Calculating maps.", True)
 
@@ -713,7 +722,7 @@ def calc_heatmap(var_or_idx_code: str):
     arr_ds_map = [calc_heatmap_rcp(var_or_idx_code, cfg.rcp_ref)]
 
     # Future period.
-    for rcp in cfg.rcps:
+    for rcp in rcps[1:]:
         arr_ds_map.append(calc_heatmap_rcp(var_or_idx_code, rcp))
 
     # Determine xy boundaries.
@@ -959,7 +968,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str) -> xr.Dataset:
             n_sim = 0
             units = None
             for p_sim in p_sim_list:
-                if os.path.exists(p_sim) and (rcp in p_sim):
+                if os.path.exists(p_sim) and ((rcp in p_sim) or (rcp == cfg.rcp_xx)):
                     ds_sim = utils.open_netcdf(p_sim)
                     if cat == cfg.cat_scen:
                         ds_sim[cfg.dim_time] = utils.reset_calendar(ds_sim.time)

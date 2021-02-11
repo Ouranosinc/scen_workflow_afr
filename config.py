@@ -25,6 +25,7 @@ rcp_ref             = "ref"         # Reference period.
 rcp_26              = "rcp26"       # Future period RCP 2.6.
 rcp_45              = "rcp45"       # Future period RCP 4.5.
 rcp_85              = "rcp85"       # Future period RCP 8.5.
+rcp_xx              = "rcpxx"       # Any type of RCP.
 
 # Data array attributes.
 attrs_units         = "units"
