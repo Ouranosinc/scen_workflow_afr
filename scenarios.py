@@ -1222,7 +1222,7 @@ def run():
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (scenarios)")
-        # TODO: statistics.calc_ts(cfg.cat_scen)
+        statistics.calc_ts(cfg.cat_scen)
         if not cfg.opt_ra:
             utils.log("-")
             utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios)")
@@ -1256,12 +1256,6 @@ def run():
 
                 # Path ofo NetCDF file containing station data.
                 p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc
-
-                # Create mask.
-                # da_mask = None
-                # if (cfg.obs_src == cfg.obs_src_era5_land) and\
-                #    (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
-                #     da_mask = utils.create_mask(stn)
 
                 # Loop through raw NetCDF files.
                 p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*" + cfg.f_ext_nc))
@@ -1377,12 +1371,6 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, freq: str, title: str):
             (ds[var].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
         ds = ds * cfg.spd
     ds[var].attrs[cfg.attrs_units] = units
-
-    # Apply mask.
-    # if da_mask is not None:
-    #     da = utils.apply_mask(ds[var], da_mask)
-    #     da.name = var
-    #     ds = da.to_dataset()
 
     # Calculate statistics.
     ds_list = statistics.calc_mean_min_max_freq(ds, var, freq)

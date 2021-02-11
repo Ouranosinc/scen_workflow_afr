@@ -114,11 +114,6 @@ def generate(idx_code: str):
         if not var_or_idx_list_avail:
             continue
 
-        # Create mask.
-        # da_mask = None
-        # if stn == cfg.obs_src_era5_land:
-        #     da_mask = utils.create_mask(stn)
-
         # Loop through emissions scenarios.
         for rcp in rcps:
 
@@ -287,10 +282,6 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             elif rcp == cfg.rcp_ref:
                 ds[var_or_idx_i][cfg.attrs_units] = cfg.unit_C
             ds[var_or_idx_i].attrs[cfg.attrs_units] = cfg.unit_C
-
-        # Apply mask.
-        # if cfg.extract_idx(var_or_idx_i) not in cfg.variables_cordex:
-        #     ds[var_or_idx_i] = utils.apply_mask(ds[cfg.extract_idx(var_or_idx_i)], da_mask)
 
         ds_var_or_idx.append(ds)
 
@@ -614,10 +605,6 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         # Interpolate (to remove nan values).
         if np.isnan(da_idx).astype(int).max() > 0:
             da_idx = utils.interpolate_na_fix(da_idx)
-
-        # Apply mask.
-        # if da_mask is not None:
-        #     da_idx = utils.apply_mask(da_idx, da_mask)
 
         # Create dataset.
         da_idx.name = idx_name

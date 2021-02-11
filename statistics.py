@@ -375,13 +375,6 @@ def calc_ts(cat: str):
             var_or_idx = var_or_idx_list[i_var_or_idx]
             var_or_idx_code = var_or_idx if cat == cfg.cat_scen else cfg.idx_codes[i_var_or_idx]
 
-            # Create mask.
-            # da_mask = None
-            # if ((var_or_idx in cfg.variables_cordex) and (cfg.obs_src == cfg.obs_src_era5_land) and
-            #     (var_or_idx not in
-            #      [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])):
-            #     da_mask = utils.create_mask(stn)
-
             # Minimum and maximum values along the y-axis
             ylim = []
 
@@ -439,14 +432,6 @@ def calc_ts(cat: str):
                         if cfg.d_bounds == "":
                             ds = utils.subset_ctrl_pt(ds)
                         else:
-
-                            # Apply mask.
-                            # if da_mask is not None:
-                            #     da = utils.apply_mask(ds[var_or_idx], da_mask)
-                            #     da.name = var_or_idx
-                            #     ds = da.to_dataset()
-
-                            # Squeeze data.
                             ds = utils.squeeze_lon_lat(ds, var_or_idx)
 
                     # First and last years.
@@ -671,11 +656,6 @@ def calc_mean_min_max_freq(ds: xr.Dataset, var: str, freq: str) -> List[xr.Datas
         da_m = ds[var].rename({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
     else:
         da_m = ds[var]
-
-    # Apply mask.
-    # if stn == cfg.obs_src_era5_land:
-    #     da_mask = utils.create_mask(stn)
-    #     da_m = utils.apply_mask(da_m, da_mask)
 
     # Grouping frequency.
     freq_str = "time.month" if freq == cfg.freq_MS else "time.dayofyear"
