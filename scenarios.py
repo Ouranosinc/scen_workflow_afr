@@ -229,6 +229,13 @@ def load_reanalysis(var_ra: str):
         # Subset.
         ds = utils.subset_lon_lat(ds)
 
+        # Apply and create mask.
+        if (cfg.obs_src == cfg.obs_src_era5_land) and \
+           (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
+            da_mask = utils.create_mask(cfg.obs_src_era5_land)
+            da = utils.apply_mask(ds[var], da_mask)
+            ds = da.to_dataset(name=var)
+
         # Set attributes.
         ds[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
         if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
@@ -489,10 +496,19 @@ def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
         arr_regrid[t, :, :] = griddata((ds_data.lon.values.ravel(), ds_data.lat.values.ravel()),
             ds_data[var][t, :, :].values.ravel(), (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
 
-    # Create data array and dataset.
+    # Create data array.
     da_regrid = xr.DataArray(arr_regrid,
         coords=[(cfg.dim_time, ds_data.time[0:t_len]), (cfg.dim_lat, grid_lat), (cfg.dim_lon, grid_lon)],
         dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
+
+    # Apply and create mask.
+    if (cfg.obs_src == cfg.obs_src_era5_land) and \
+       (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
+        ds_regrid = da_regrid.to_dataset(name=var)
+        da_mask = utils.create_mask(cfg.obs_src_era5_land)
+        da_regrid = utils.apply_mask(ds_regrid[var], da_mask)
+
+    # Create dataset.
     ds_regrid = da_regrid.to_dataset(name=var)
     ds_regrid[var].attrs[cfg.attrs_units] = ds_data[var].attrs[cfg.attrs_units]
 
@@ -703,6 +719,9 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
         da_stn = da_stn.interpolate_na(dim=cfg.dim_time)
 
     # Quantile Mapping Function ----------------------------------------------------------------------------------------
+
+    # with warnings.catch_warnings():
+    #     warnings.simplefilter("ignore", category=RuntimeWarning)
 
     # Load transfer function.
     if (p_qmf != "") and os.path.exists(p_qmf) and (not cfg.opt_force_overwrite):
@@ -1158,9 +1177,7 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     msg = "Step #5bc Statistical downscaling and adjusting bias"
     if (not(os.path.isfile(p_qqmap)) or not(os.path.isfile(p_qmf))) or cfg.opt_force_overwrite:
         utils.log(msg)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf)
+        postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf)
     else:
         utils.log(msg + " (not required)")
 
