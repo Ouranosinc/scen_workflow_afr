@@ -772,6 +772,10 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
                 cmap = "RdBu_r"
                 vmax_abs = max(abs(z_min), abs(z_max))
                 norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
+            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                cmap = "Blues"
+                vmax_abs = max(abs(z_min), abs(z_max))
+                norm = colors.TwoSlopeNorm(vmin=-vmax_abs, vcenter=0, vmax=vmax_abs)
             else:
                 cmap = norm = None
             mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,

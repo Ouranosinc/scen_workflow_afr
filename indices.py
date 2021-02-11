@@ -114,6 +114,11 @@ def generate(idx_code: str):
         if not var_or_idx_list_avail:
             continue
 
+        # Create mask.
+        da_mask = None
+        if stn == cfg.obs_src_era5_land:
+            da_mask = utils.create_mask(stn)
+
         # Loop through emissions scenarios.
         for rcp in rcps:
 
@@ -184,7 +189,7 @@ def generate(idx_code: str):
             # Scalar mode.
             if cfg.n_proc == 1:
                 for i_sim in range(n_sim):
-                    generate_single(idx_code, idx_params, var_or_idx_list, p_sim, stn, rcp, i_sim)
+                    generate_single(idx_code, idx_params, var_or_idx_list, p_sim, stn, rcp, da_mask, i_sim)
 
             # Parallel processing mode.
             else:
@@ -202,7 +207,7 @@ def generate(idx_code: str):
                         scalar_required = not str(idx_params[0]).isdigit()
                     if (cfg.n_proc == 1) or scalar_required:
                         for i_sim in range(n_sim):
-                            generate_single(idx_code, idx_params, var_or_idx_list, p_sim, stn, rcp, i_sim)
+                            generate_single(idx_code, idx_params, var_or_idx_list, p_sim, stn, rcp, da_mask, i_sim)
 
                     # Parallel processing mode.
                     else:
@@ -211,7 +216,7 @@ def generate(idx_code: str):
                             utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                             pool = multiprocessing.Pool(processes=min(cfg.n_proc, n_sim))
                             func = functools.partial(generate_single, idx_code, idx_params, var_or_idx_list, p_sim,
-                                                     stn, rcp)
+                                                     stn, rcp, da_mask)
                             pool.map(func, list(range(n_sim)))
                             pool.close()
                             pool.join()
@@ -228,7 +233,8 @@ def generate(idx_code: str):
                         break
 
 
-def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [str], stn: str, rcp: str, i_sim: int):
+def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [str], stn: str, rcp: str,
+                    da_mask: xr.DataArray, i_sim: int):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -248,6 +254,8 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         Station name.
     rcp : str
         RCP emission scenario.
+    da_mask : xr.DataArray
+        Mask.
     i_sim : int
         Rank of simulation in 'p_sim'.
     --------------------------------------------------------------------------------------------------------------------
@@ -605,6 +613,10 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         # Interpolate (to remove nan values).
         if np.isnan(da_idx).astype(int).max() > 0:
             da_idx = utils.interpolate_na_fix(da_idx)
+
+        # Apply mask.
+        if da_mask is not None:
+            da_idx = utils.apply_mask(da_idx, da_mask)
 
         # Create dataset.
         da_idx.name = idx_name
