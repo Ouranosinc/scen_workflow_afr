@@ -282,6 +282,11 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         p_sim_j = cfg.get_equivalent_idx_path(p_sim[i_sim], var_or_idx_list[0], var_or_idx_i, stn, rcp)
         ds = utils.open_netcdf(p_sim_j)
 
+        # Remove February 29th and select reference period.
+        if (rcp == cfg.rcp_ref) and (var_or_idx_i in cfg.variables_cordex):
+            ds = utils.remove_feb29(ds)
+            ds = utils.sel_period(ds, cfg.per_ref)
+
         # Adjust temperature units.
         if cfg.extract_idx(var_or_idx_i) in\
                 [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
@@ -685,7 +690,8 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tasmi
         for t in cond.time:
             if (t.values in tasmin[cfg.dim_time]) and (t.values in tasmax[cfg.dim_time]):
                 cond[cond[cfg.dim_time] == t] =\
-                    (tasmin[tasmin[cfg.dim_time] == t] > param_tasmin) & (tasmax[tasmax[cfg.dim_time] == t] > param_tasmax)
+                    (tasmin[tasmin[cfg.dim_time] == t] > param_tasmin) &\
+                    (tasmax[tasmax[cfg.dim_time] == t] > param_tasmax)
             else:
                 cond[cond[cfg.dim_time] == t] = False
 

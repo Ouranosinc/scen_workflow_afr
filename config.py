@@ -985,7 +985,7 @@ def get_equivalent_idx_path(p: str, var_or_idx_a: str, var_or_idx_b: str, stn: s
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    # Determine the equivalent path for another variable or index..
+    # Determine the equivalent path for another variable or index.
 
     Parameters
     ----------
