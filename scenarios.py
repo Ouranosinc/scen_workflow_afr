@@ -720,9 +720,6 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
 
     # Quantile Mapping Function ----------------------------------------------------------------------------------------
 
-    # with warnings.catch_warnings():
-    #     warnings.simplefilter("ignore", category=RuntimeWarning)
-
     # Load transfer function.
     if (p_qmf != "") and os.path.exists(p_qmf) and (not cfg.opt_force_overwrite):
         ds_qmf = utils.open_netcdf(p_qmf)
@@ -962,6 +959,9 @@ def generate():
                 n_sim = len(list_cordex_ref)
 
                 utils.log("Processing: '" + var + "', '" + stn + "', '" + rcp + "'", True)
+
+                if (rcp == cfg.rcp_45) and (var == cfg.var_cordex_pr):
+                    titi = 1
 
                 # Perform extraction.
                 # A first call to generate_single is required for the extraction to be done in scalar mode (before
