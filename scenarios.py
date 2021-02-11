@@ -1198,7 +1198,7 @@ def run():
     msg = "Step #7a  Calculating statistics (scenarios)"
     if cfg.opt_stat[0] or (cfg.opt_ra and (cfg.opt_map[0] or cfg.opt_save_csv[0])):
         utils.log(msg)
-        statistics.calc_stats(cfg.cat_scen)
+        # TODO: statistics.calc_stats(cfg.cat_scen)
     else:
         utils.log(msg + not_req)
 
@@ -1208,7 +1208,7 @@ def run():
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (scenarios)")
-        statistics.calc_ts(cfg.cat_scen)
+        # TODO: statistics.calc_ts(cfg.cat_scen)
         if not cfg.opt_ra:
             utils.log("-")
             utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios)")
@@ -1243,6 +1243,12 @@ def run():
                 # Path ofo NetCDF file containing station data.
                 p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc
 
+                # Create mask.
+                da_mask = None
+                if (cfg.obs_src == cfg.obs_src_era5_land) and\
+                   (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
+                    da_mask = utils.create_mask(stn)
+
                 # Loop through raw NetCDF files.
                 p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*" + cfg.f_ext_nc))
                 for i in range(len(p_raw_list)):
@@ -1270,33 +1276,35 @@ def run():
                         replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
-                    plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+                    # TODO: plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
                         p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc,
                                                             cfg.cat_fig_workflow + cfg.f_ext_png)
-                    plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+                    # TODO: plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
+                    ds_qqmap = utils.open_netcdf(p_qqmap)
                     title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_monthly)
-                    gen_plot_freq(p_qqmap, stn, var, cfg.freq_MS, title)
+                    gen_plot_freq(ds_qqmap, da_mask, stn, var, cfg.freq_MS, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                     title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_daily)
-                    gen_plot_freq(p_qqmap, stn, var, cfg.freq_D, title)
+                    gen_plot_freq(ds_qqmap, da_mask, stn, var, cfg.freq_D, title)
 
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
+                ds_stn = utils.open_netcdf(p_stn)
                 title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_monthly
-                gen_plot_freq(p_stn, stn, var, cfg.freq_MS, title)
+                gen_plot_freq(ds_stn, da_mask, stn, var, cfg.freq_MS, title)
 
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                 # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                 title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_daily
-                gen_plot_freq(p_stn, stn, var, cfg.freq_D, title)
+                gen_plot_freq(ds_stn, da_mask, stn, var, cfg.freq_D, title)
 
         if not cfg.opt_save_csv[0]:
             utils.log("-")
@@ -1320,7 +1328,7 @@ def run():
         utils.log(msg + " (not required)")
 
 
-def gen_plot_freq(p: str, stn: str, var: str, freq: str, title: str):
+def gen_plot_freq(ds: xr.Dataset, da_mask: xr.DataArray, stn: str, var: str, freq: str, title: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1328,8 +1336,10 @@ def gen_plot_freq(p: str, stn: str, var: str, freq: str, title: str):
 
     Parameters
     ----------
-    p: str
-        Path of dataset.
+    ds: xr.Dataset
+        Dataset containing data.
+    da_mask: xr.DataArray
+        DataArray containing mask.
     stn: str
         Station.
     var: str
@@ -1342,7 +1352,6 @@ def gen_plot_freq(p: str, stn: str, var: str, freq: str, title: str):
     """
 
     # Extract data.
-    ds = utils.open_netcdf(p)
     ds = utils.sel_period(ds, cfg.per_ref)
     if freq == cfg.freq_D:
         ds = utils.remove_feb29(ds)
@@ -1357,12 +1366,17 @@ def gen_plot_freq(p: str, stn: str, var: str, freq: str, title: str):
         ds = ds * cfg.spd
     ds[var].attrs[cfg.attrs_units] = units
 
+    # Apply mask.
+    if da_mask is not None:
+        da = utils.apply_mask(ds[var], da_mask)
+        da.name = var
+        ds = da.to_dataset()
+
     # Calculate statistics.
     ds_list = statistics.calc_mean_min_max_freq(ds, stn, var, freq)
 
     # Remove February 29th.
     if (freq == cfg.freq_D) and (len(ds_list[0][var]) > 365):
-        # sel = list(range(0, 59)) + list(range(59, 365))
         for i in range(3):
             ds_list[i] = ds_list[i].rename_dims({"dayofyear": "time"})
             ds_list[i] = ds_list[i][var][ds_list[i][cfg.dim_time] != 59].to_dataset()
@@ -1373,7 +1387,7 @@ def gen_plot_freq(p: str, stn: str, var: str, freq: str, title: str):
     n = 12 if freq == cfg.freq_MS else 365
     cat_fig = cfg.cat_fig_monthly if freq == cfg.freq_MS else cfg.cat_fig_daily
     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat_fig, var) + title + cfg.f_ext_png
-    plot.plot_freq(ds_list, var, freq, title, 0, p_fig)
+    plot.plot_freq(ds_list, var, freq, title, 1, p_fig)
 
     # Generate CSV file.
     if cfg.opt_save_csv[0]:

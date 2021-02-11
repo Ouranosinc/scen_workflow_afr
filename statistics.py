@@ -369,16 +369,18 @@ def calc_ts(cat: str):
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
 
-        # Create mask.
-        da_mask = None
-        if stn == cfg.obs_src_era5_land:
-            da_mask = utils.create_mask(stn)
-
         # Loop through variables.
         var_or_idx_list = cfg.variables_cordex if cat == cfg.cat_scen else cfg.idx_names
         for i_var_or_idx in range(len(var_or_idx_list)):
             var_or_idx = var_or_idx_list[i_var_or_idx]
             var_or_idx_code = var_or_idx if cat == cfg.cat_scen else cfg.idx_codes[i_var_or_idx]
+
+            # Create mask.
+            da_mask = None
+            if ((var_or_idx in cfg.variables_cordex) and (cfg.obs_src == cfg.obs_src_era5_land) and
+                (var_or_idx not in
+                 [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])):
+                da_mask = utils.create_mask(stn)
 
             # Minimum and maximum values along the y-axis
             ylim = []
@@ -437,9 +439,7 @@ def calc_ts(cat: str):
                         else:
 
                             # Apply mask.
-                            if ((da_mask is not None) and (cfg.obs_src == cfg.obs_src_era5_land) and
-                                (var_or_idx not in
-                                 [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot])):
+                            if da_mask is not None:
                                 da = utils.apply_mask(ds[var_or_idx], da_mask)
                                 da.name = var_or_idx
                                 ds = da.to_dataset()
