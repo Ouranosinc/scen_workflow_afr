@@ -566,7 +566,8 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         elif idx_name == cfg.idx_drydurtot:
             da_pr = ds_var_or_idx[0][cfg.var_cordex_pr]
             per = idx_params_str[0]
-            p_tot = float(idx_params_str[1])
+            p_tot = idx_params_str[1]
+            p_tot = 1.0 if (str(p_tot) == "nan") else float(p_tot)
             d_dry = int(idx_params_str[2])
             p_dry = float(idx_params_str[3])
             doy_a = idx_params_str[4]
