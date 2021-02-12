@@ -1008,14 +1008,34 @@ def get_equivalent_idx_path(p: str, var_or_idx_a: str, var_or_idx_b: str, stn: s
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Converting index to index.
-    if (extract_idx(var_or_idx_a) not in variables_cordex) and (extract_idx(var_or_idx_b) not in variables_cordex):
+    # No conversion required.
+    if var_or_idx_a == var_or_idx_b:
+        return p
+
+    # Determine if we have variables or indices.
+    a_is_var = extract_idx(var_or_idx_a) in variables_cordex
+    b_is_var = extract_idx(var_or_idx_b) in variables_cordex
+    fn = os.path.basename(p)
+
+    # Variable->Variable or Index->Index.
+    if (a_is_var and b_is_var) or (not a_is_var and not b_is_var):
         p = p.replace(extract_idx(var_or_idx_a), extract_idx(var_or_idx_b))
 
-    # Converting variable to index.
+    # Variable->Index (or the opposite)
     else:
-        if extract_idx(var_or_idx_b) not in variables_cordex:
-            p = get_d_idx(stn, var_or_idx_b) + os.path.basename(p)
-        p = p.replace(var_or_idx_a, extract_idx(var_or_idx_b))
+        # Variable->Index.
+        if a_is_var and not b_is_var:
+            p = get_d_idx(stn, var_or_idx_b)
+        # Index->Variable.
+        else:
+            if rcp == rcp_ref:
+                p = get_d_stn(var_or_idx_b)
+            else:
+                p = get_d_scen(stn, cat_qqmap, var_or_idx_b)
+        # Both.
+        if rcp == rcp_ref:
+            p += extract_idx(var_or_idx_b) + "_" + rcp_ref + f_ext_nc
+        else:
+            p += fn.replace(extract_idx(var_or_idx_a) + "_", extract_idx(var_or_idx_b) + "_")
 
     return p
