@@ -70,7 +70,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
         if var_or_idx in cfg.variables_cordex:
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
         else:
-            d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx_code)
+            d = cfg.get_d_idx(stn, var_or_idx_code)
         p_sim_list = glob.glob(d + "*_" + ("*" if rcp == cfg.rcp_xx else rcp) + cfg.f_ext_nc)
 
     # Exit if there is not file corresponding to the criteria.
@@ -176,18 +176,18 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
             vals_sim = []
             for i_year in range(0, year_n - year_1 + 1):
                 vals_year = arr_vals[i_sim][(365 * i_year):(365 * (i_year + 1))]
+                da_vals = xr.DataArray(np.array(vals_year))
+                vals_year = list(da_vals[np.isnan(da_vals) is not False].values)
                 if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                     val_year = np.nansum(vals_year)
                 else:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", category=RuntimeWarning)
-                        val_year = np.nanmean(vals_year)
+                    val_year = np.nanmean(vals_year)
                 vals_sim.append(val_year)
             arr_vals_t.append(vals_sim)
         arr_vals = arr_vals_t
         n_time = year_n - year_1 + 1
 
-    # Transpose.
+    # Transpose array.
     arr_vals_t = []
     for i_time in range(n_time):
         vals = []
@@ -199,18 +199,21 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
     # Calculate statistics.
     arr_stat = []
     for i_time in range(n_time):
-
         val_stat = None
+        vals_t = arr_vals_t[i_time]
+        if n_sim > 1:
+            da_vals = xr.DataArray(np.array(vals_t))
+            vals_t = list(da_vals[np.isnan(da_vals) == False].values)
         if (stat == cfg.stat_min) or (q == 0):
-            val_stat = np.min(arr_vals_t[i_time])
+            val_stat = np.min(vals_t)
         elif (stat == cfg.stat_max) or (q == 1):
-            val_stat = np.max(arr_vals_t[i_time])
+            val_stat = np.max(vals_t)
         elif stat == cfg.stat_mean:
-            val_stat = np.mean(arr_vals_t[i_time])
+            val_stat = np.mean(vals_t)
         elif stat == cfg.stat_quantile:
-            val_stat = np.quantile(arr_vals_t[i_time], q)
+            val_stat = np.quantile(vals_t, q)
         elif stat == cfg.stat_sum:
-            val_stat = np.sum(arr_vals_t[i_time])
+            val_stat = np.sum(vals_t)
         arr_stat.append(val_stat)
 
     # Build dataset.
@@ -285,7 +288,7 @@ def calc_stats(cat: str):
                     if cat == cfg.cat_scen:
                         d = os.path.dirname(cfg.get_p_obs(stn, var_or_idx))
                     else:
-                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx_code)
+                        d = cfg.get_d_idx(stn, var_or_idx_code)
                 else:
                     hors = cfg.per_hors
                     if cat == cfg.cat_scen:
@@ -293,7 +296,7 @@ def calc_stats(cat: str):
                         d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
                     else:
                         cat_rcp = cfg.cat_idx
-                        d = cfg.get_d_scen(stn, cfg.cat_idx, var_or_idx_code)
+                        d = cfg.get_d_idx(stn, var_or_idx_code)
 
                 if not os.path.isdir(d):
                     continue

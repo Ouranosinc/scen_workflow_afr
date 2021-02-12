@@ -1131,12 +1131,12 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
     """
 
     if cfg.d_bounds != "":
+
         try:
             # Memorize dimension names and attributes.
-            reset_rlon_rlat = False
-            if (cfg.dim_lon not in list(ds.dims)) and (cfg.dim_rlon in list(ds.dims)):
-                ds = ds.rename({cfg.dim_rlon: cfg.dim_lon, cfg.dim_rlat: cfg.dim_lat})
-                reset_rlon_rlat = True
+            dim_lon, dim_lat = get_coord_names(ds)
+            if dim_lat != cfg.dim_lat:
+                ds = ds.rename({dim_lon: cfg.dim_lon, dim_lat: cfg.dim_lat})
             if var != "":
                 if cfg.attrs_gmap not in ds[var].attrs:
                     ds[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
@@ -1149,8 +1149,9 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
             logger.setLevel(level)
 
             # Recover initial dimension names.
-            if reset_rlon_rlat:
-                ds = ds.rename({cfg.dim_lon: cfg.dim_rlon, cfg.dim_lat: cfg.dim_rlat})
+            if dim_lat != cfg.dim_lat:
+                ds = ds.rename({cfg.dim_lon: dim_lon, cfg.dim_lat: dim_lat})
+
         except TypeError:
             log("Unable to use a mask.", True)
 

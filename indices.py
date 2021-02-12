@@ -337,10 +337,8 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=FutureWarning)
                             da_i = ds_var_or_idx[i][cfg.var_cordex_pr].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
-                        dim = utils.get_coord_names(ds_var_or_idx[i])
-                        # idx_param =\
-                        #       da_i.sum(dim=dim).quantile(idx_param).values.ravel()[0] / float(da_mask.sum()) * cfg.spd
-                        idx_param = da_i.mean(dim=dim).quantile(idx_param).values.ravel()[0] * cfg.spd
+                        dims = utils.get_coord_names(ds_var_or_idx[i])
+                        idx_param = da_i.mean(dim=dims).quantile(idx_param).values.ravel()[0] * cfg.spd
                     elif idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
                         if idx_name == cfg.idx_wgdaysabove:
                             da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
