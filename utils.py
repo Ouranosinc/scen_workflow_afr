@@ -12,6 +12,7 @@ import clisops.core.subset as subset
 import config as cfg
 import datetime
 import glob
+import logging
 import math
 import matplotlib.pyplot
 import numpy as np
@@ -1131,6 +1132,7 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
 
     if cfg.d_bounds != "":
         try:
+            # Memorize dimension names and attributes.
             reset_rlon_rlat = False
             if (cfg.dim_lon not in list(ds.dims)) and (cfg.dim_rlon in list(ds.dims)):
                 ds = ds.rename({cfg.dim_rlon: cfg.dim_lon, cfg.dim_rlat: cfg.dim_lat})
@@ -1138,7 +1140,15 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
             if var != "":
                 if cfg.attrs_gmap not in ds[var].attrs:
                     ds[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
+
+            # Subset by shape.
+            logger = logging.getLogger()
+            level = logger.level
+            logger.setLevel(logging.CRITICAL)
             ds = subset.subset_shape(ds, cfg.d_bounds)
+            logger.setLevel(level)
+
+            # Recover initial dimension names.
             if reset_rlon_rlat:
                 ds = ds.rename({cfg.dim_lon: cfg.dim_rlon, cfg.dim_lat: cfg.dim_rlat})
         except TypeError:

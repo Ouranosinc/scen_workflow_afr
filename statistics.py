@@ -243,6 +243,8 @@ def calc_stats(cat: str):
 
     # List emission scenarios.
     rcps = [cfg.rcp_ref] + cfg.rcps
+    if len(rcps) > 2:
+        rcps = rcps + [cfg.rcp_xx]
 
     # Data frequency.
     freq = cfg.freq_D if cat == cfg.cat_scen else cfg.freq_YS
