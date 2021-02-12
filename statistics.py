@@ -179,7 +179,9 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                 if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                     val_year = np.nansum(vals_year)
                 else:
-                    val_year = np.nanmean(vals_year)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=RuntimeWarning)
+                        val_year = np.nanmean(vals_year)
                 vals_sim.append(val_year)
             arr_vals_t.append(vals_sim)
         arr_vals = arr_vals_t
