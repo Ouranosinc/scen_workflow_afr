@@ -776,7 +776,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
                 vmax = vmax_abs
             else:
                 if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
-                                  cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty, cfg.idx_drydurtot]:
+                                  cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_rainqty, cfg.idx_drydurtot]:
                     cmap = cfg.col_map_water
                     if var_or_idx == cfg.idx_drydurtot:
                         cmap = matplotlib.cm.get_cmap(cmap + "_r")
