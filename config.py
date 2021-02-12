@@ -10,6 +10,8 @@
 # (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+import os.path
+
 # Constants ------------------------------------------------------------------------------------------------------------
 
 # Reanalysis data.
@@ -1013,11 +1015,7 @@ def get_equivalent_idx_path(p: str, var_or_idx_a: str, var_or_idx_b: str, stn: s
     # Converting variable to index.
     else:
         if extract_idx(var_or_idx_b) not in variables_cordex:
-            if rcp == rcp_ref:
-                p = p.replace(cat_scen + "/" + cat_obs + "/" + var_or_idx_a, cat_idx + "/" + var_or_idx_b)
-                p = p.replace("_" + stn, "_" + rcp_ref)
-            else:
-                p = p.replace(cat_scen + "/" + cat_qqmap + "/" + var_or_idx_a, cat_idx + "/" + var_or_idx_b)
+            p = get_d_idx(stn, var_or_idx_b) + os.path.basename(p)
         p = p.replace(var_or_idx_a, extract_idx(var_or_idx_b))
 
     return p
