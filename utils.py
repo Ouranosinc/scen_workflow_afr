@@ -1299,7 +1299,7 @@ def create_mask(stn: str) -> xr.DataArray:
 
     da_mask = None
 
-    f_list = glob.glob(cfg.get_d_scen(stn, cfg.cat_obs) + "*/*" + cfg.f_ext_nc)
+    f_list = glob.glob(cfg.d_stn + "*/*" + cfg.f_ext_nc)
     for i in range(len(f_list)):
 
         # Open NetCDF file.

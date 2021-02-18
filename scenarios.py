@@ -211,8 +211,8 @@ def load_reanalysis(var_ra: str):
 
     if (not os.path.exists(p_stn)) or cfg.opt_force_overwrite:
 
-        # Combine datasets.
-        ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time)
+        # Combine datasets (the 'load' is necessary to apply the mask later).
+        ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time).load()
 
         # Rename variables.
         if var_ra in [cfg.var_era5_t2mmin, cfg.var_era5_t2mmax]:
