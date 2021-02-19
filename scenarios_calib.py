@@ -127,8 +127,13 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                     ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cfg.per_ref)
 
                     # Calculate the error between observations and simulation for the reference period.
-                    bias_err_current =\
-                        float(round(utils.calc_error(ds_stn[var].values.ravel(), ds_qqmap_ref[var].values.ravel()), 4))
+                    # TODO: Improve the algorithm to remove the following condition.
+                    try:
+                        bias_err_current =\
+                            float(round(utils.calc_error(ds_stn[var].values.ravel(),
+                                                         ds_qqmap_ref[var].values.ravel()), 4))
+                    except:
+                        bias_err_current = -1.0
 
                     # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
                     # selected method.

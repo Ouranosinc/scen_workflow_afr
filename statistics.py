@@ -177,11 +177,13 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
             for i_year in range(0, year_n - year_1 + 1):
                 vals_year = arr_vals[i_sim][(365 * i_year):(365 * (i_year + 1))]
                 da_vals = xr.DataArray(np.array(vals_year))
-                vals_year = list(da_vals[np.isnan(da_vals) is not False].values)
-                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                    val_year = np.nansum(vals_year)
-                else:
-                    val_year = np.nanmean(vals_year)
+                vals_year = list(da_vals[np.isnan(da_vals.values) == False].values)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                        val_year = np.nansum(vals_year)
+                    else:
+                        val_year = np.nanmean(vals_year)
                 vals_sim.append(val_year)
             arr_vals_t.append(vals_sim)
         arr_vals = arr_vals_t
