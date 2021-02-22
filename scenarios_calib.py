@@ -139,7 +139,7 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                                     (cfg.df_calib["stn"] == stn) &\
                                     (cfg.df_calib["var"] == var)
                         cfg.df_calib.loc[calib_row, col_names] = col_values
-                        cfg.df_calib.to_csv(cfg.p_calib)
+                        cfg.df_calib.to_csv(cfg.p_calib, index=False)
 
 
 def init_calib_params():
@@ -195,7 +195,7 @@ def init_calib_params():
 
     # Save calibration parameters to a CSV file.
     if cfg.p_calib != "":
-        cfg.df_calib.to_csv(cfg.p_calib)
+        cfg.df_calib.to_csv(cfg.p_calib, index=False)
         if os.path.exists(cfg.p_calib):
             utils.log("Calibration file created.", True)
 
