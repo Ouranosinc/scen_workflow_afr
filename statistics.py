@@ -147,6 +147,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
             arr_vals.append(vals)
         # Observation data can be incomplete. This explains the day-by-day copy performed below. There is probably a
         # nicer and more efficient way to do this.
+        # TODO: The algorithm is not efficient in the following lines. Fix this.
         else:
             np_vals = np.empty(n_time)
             np_vals[:] = np.nan
@@ -185,9 +186,11 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                     else:
                         val_year = np.nanmean(vals_year)
                 vals_sim.append(val_year)
-            arr_vals_t.append(vals_sim)
+            if (var_or_idx != cfg.var_cordex_pr) | (sum(vals_sim) > 0):
+                arr_vals_t.append(vals_sim)
         arr_vals = arr_vals_t
         n_time = year_n - year_1 + 1
+    n_sim = len(arr_vals)
 
     # Transpose array.
     arr_vals_t = []
@@ -205,7 +208,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
         vals_t = arr_vals_t[i_time]
         if n_sim > 1:
             da_vals = xr.DataArray(np.array(vals_t))
-            vals_t = list(da_vals[np.isnan(da_vals) == False].values)
+            vals_t = list(da_vals[(np.isnan(da_vals.values) == False) &
+                                  ((var_or_idx != cfg.var_cordex_pr) | (sum(da_vals.values) > 0))].values)
         if (stat == cfg.stat_min) or (q == 0):
             val_stat = np.min(vals_t)
         elif (stat == cfg.stat_max) or (q == 1):
@@ -719,18 +723,14 @@ def calc_heatmap(var_or_idx_code: str):
 
     cat = cfg.cat_scen if var_or_idx_code in cfg.variables_cordex else cfg.cat_idx
     var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.extract_idx(var_or_idx_code)
-    rcps = [cfg.rcp_ref] + cfg.rcps
-    if len(rcps) > 2:
-        rcps = rcps + [cfg.rcp_xx]
+    rcps = [cfg.rcp_ref, cfg.rcp_xx] + cfg.rcps
 
     utils.log("Calculating maps.", True)
 
-    # Calculate maps ---------------------------------------------------------------------------------------------------
+    # Prepare data -----------------------------------------------------------------------------------------------------
 
-    # Reference period.
+    # Calculate heat maps (reference and future periods).
     arr_ds_map = [calc_heatmap_rcp(var_or_idx_code, cfg.rcp_ref)]
-
-    # Future period.
     for rcp in rcps[1:]:
         arr_ds_map.append(calc_heatmap_rcp(var_or_idx_code, rcp))
 
@@ -740,24 +740,57 @@ def calc_heatmap(var_or_idx_code: str):
     else:
         grid_x = grid_y = None
 
-    # Calculate the overall minimum and maximum values (considering all maps for the current 'var_or_idx'.
-    z_min = z_max = -1
-    for i in range(len(arr_ds_map)):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            vals = arr_ds_map[i][var_or_idx].mean(dim=cfg.dim_time)
-        if var_or_idx in (cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot):
-            vals = vals * 365.0
-        z_min_i = float(vals.min())
-        z_max_i = float(vals.max())
+    # Extract data that will be used to calculate deltas. This corresponds to simulations for the  reference period.
+    years_str = [str(cfg.per_ref[0]) + "-01-01", str(cfg.per_ref[1]) + "-12-31"]
+    ds_ref = arr_ds_map[1].sel(time=slice(years_str[0], years_str[1]))
+
+    # Calculate the overall minimum and maximum values (considering all maps for the current 'var_or_idx').
+    # Perform twice (for values, then for deltas).
+    z_min = z_max = z_min_delta = z_max_delta = np.nan
+    for i in range(2):
+
+        # Loop through categories of emission scenarios.
+        z_min_i = z_max_i = np.nan
+        for j in range(len(arr_ds_map)):
+
+            # Loop through horizons.
+            per_hors = [cfg.per_ref] if i == 0 else cfg.per_hors
+            for per_hor in per_hors:
+
+                # Select period.
+                years_str = [str(per_hor[0]) + "-01-01", str(per_hor[1]) + "-12-31"]
+                ds_hor = arr_ds_map[j].sel(time=slice(years_str[0], years_str[1]))
+
+                # Calculate mean.
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    if i == 0:
+                        vals = ds_hor[var_or_idx].mean(dim=cfg.dim_time)
+                    elif rcps[j] not in [cfg.rcp_ref, cfg.rcp_xx]:
+                        vals = ds_hor[var_or_idx].mean(dim=cfg.dim_time) - ds_ref[var_or_idx].mean(dim=cfg.dim_time)
+                    else:
+                        continue
+                if var_or_idx in (cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot):
+                    vals = vals * 365.0
+
+                # Record mean.
+                z_min_j = float(vals.min())
+                z_max_j = float(vals.max())
+                z_min_i = z_min_j if np.isnan(z_min_i) else min(z_min_i, z_min_j)
+                z_max_i = z_max_j if np.isnan(z_max_i) else max(z_max_i, z_max_j)
+
+        # Records minimum and maximum values.
         if i == 0:
             z_min = z_min_i
             z_max = z_max_i
         else:
-            z_min = min(z_min, z_min_i)
-            z_max = max(z_max, z_max_i)
+            z_min_delta = z_min_i
+            z_max_delta = z_max_i
 
     # Generate maps ----------------------------------------------------------------------------------------------------
+
+    # Reference data (to calculate deltas).
+    da_hor_ref = None
 
     # Loop through maps.
     for i in range(len(arr_ds_map)):
@@ -768,6 +801,8 @@ def calc_heatmap(var_or_idx_code: str):
         # Loop through horizons.
         per_hors = [cfg.per_ref] if i == 0 else cfg.per_hors
         for per_hor in per_hors:
+
+            # Data -----------------------------------------------------------------------------------------------------
 
             # Select period.
             years_str = [str(per_hor[0]) + "-01-01", str(per_hor[1]) + "-12-31"]
@@ -789,37 +824,71 @@ def calc_heatmap(var_or_idx_code: str):
             # Squeeze dataset to remove 'lat' and 'lon'.
             da_hor = da_hor.squeeze()
 
-            # Generate plot.
+            # Record reference data.
+            if (rcps[i] == cfg.rcp_xx) and (per_hor == cfg.per_ref):
+                da_hor_ref = da_hor
+
+            # Calculate deltas.
+            da_hor_delta = None
+            if da_hor_ref is not None:
+                da_hor_delta = da_hor - da_hor_ref
+
             stn = "stns" if not cfg.opt_ra else cfg.obs_src
-            d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code)
-            fn_fig = var_or_idx + "_" + rcps[i] + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + cfg.f_ext_png
-            p_fig = d_fig + fn_fig
-            if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
-                plot.plot_heatmap(da_hor, stn, var_or_idx, grid_x, grid_y, rcps[i], per_hor, z_min, z_max, p_fig,
-                                  "matplotlib")
 
-            # Save to CSV.
-            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "_csv")
-            fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
-            p_csv = d_csv + fn_csv
-            if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
+            # Perform twice (for values, then for deltas).
+            for j in range(2):
 
-                # Extract data.
-                lon_list = []
-                lat_list = []
-                val_list = []
-                for j in range(len(da_hor.longitude.values)):
-                    for k in range(len(da_hor.latitude.values)):
-                        lon_list.append(da_hor.longitude.values[j])
-                        lat_list.append(da_hor.latitude.values[k])
-                        val_list.append(da_hor.values[k, j])
+                # Skip if not relevant.
+                if (j == 1) and (per_hor == cfg.per_ref):
+                    break
 
-                # Build dataframe.
-                dict_pd = {cfg.dim_longitude: lon_list, cfg.dim_latitude: lat_list, var_or_idx: val_list}
-                df = pd.DataFrame(dict_pd)
+                # Dataset to map.
+                da_map = da_hor if j == 0 else da_hor_delta
 
-                # Save to file.
-                utils.save_csv(df, p_csv)
+                # Plots ------------------------------------------------------------------------------------------------
+
+                # Path.
+                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code)
+                fn_fig = var_or_idx + "_" + rcps[i] + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + cfg.f_ext_png
+                p_fig = d_fig + fn_fig
+                if j == 1:
+                    p_fig = p_fig.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
+
+                # Generate plot.
+                if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
+                    z_min_map = z_min if j == 0 else z_min_delta
+                    z_max_map = z_max if j == 0 else z_max_delta
+                    plot.plot_heatmap(da_map, stn, var_or_idx, grid_x, grid_y, rcps[i], per_hor, z_min_map, z_max_map,
+                                      j == 1, p_fig, "matplotlib")
+
+                # CSV files --------------------------------------------------------------------------------------------
+
+                # Path.
+                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "_csv")
+                fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
+                p_csv = d_csv + fn_csv
+                if j == 1:
+                    p_csv = p_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
+
+                # Save.
+                if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
+
+                    # Extract data.
+                    lon_list = []
+                    lat_list = []
+                    val_list = []
+                    for j in range(len(da_hor.longitude.values)):
+                        for k in range(len(da_hor.latitude.values)):
+                            lon_list.append(da_hor.longitude.values[j])
+                            lat_list.append(da_hor.latitude.values[k])
+                            val_list.append(da_hor.values[k, j])
+
+                    # Build dataframe.
+                    dict_pd = {cfg.dim_longitude: lon_list, cfg.dim_latitude: lat_list, var_or_idx: val_list}
+                    df = pd.DataFrame(dict_pd)
+
+                    # Save to file.
+                    utils.save_csv(df, p_csv)
 
 
 def calc_heatmap_rcp(var_or_idx_code: str, rcp: str) -> xr.Dataset:

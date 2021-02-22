@@ -534,7 +534,7 @@ def create_multi_dict(n: int, data_type: type) -> dict:
         return defaultdict(lambda: create_multi_dict(n - 1, data_type))
 
 
-def calc_error(values_obs: [float], values_pred: [float]) -> float:
+def calc_error(da_obs: xr.DataArray, da_pred: xr.DataArray) -> float:
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -545,30 +545,60 @@ def calc_error(values_obs: [float], values_pred: [float]) -> float:
 
     Parameters
     ----------
-    values_obs : [float]
-        Observed values.
-    values_pred : [float]
-        Predicted values.
+    da_obs : xr.DataArray
+        DataArray containing observed values.
+    da_pred : xr.DataArray
+        DataArray containing predicted values.
     -------------------------------------------------------------------------------------------------------------------
     """
 
-    error = -1
+    error = -1.0
 
-    # Method #1: Coefficient of determination.
-    if cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_r2:
-        error = r2_score(values_obs, values_pred)
+    # TODO: Ensure that the length of datasets is the same in both datasets.
+    #       The algorithm is extremely non-efficient. There must be a better way to do it.
+    if len(da_obs[cfg.dim_time]) != len(da_pred[cfg.dim_time]):
 
-    # Method #2: Mean absolute error.
-    elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_mae:
-        error = mean_absolute_error(values_obs, values_pred)
+        # Extract dates (year, month, day).
+        dates_obs  = extract_date_field(da_obs)
+        dates_pred = extract_date_field(da_pred)
 
-    # Method #3: Root mean square error.
-    elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rmse:
-        error = sqrt(mean_squared_error(values_obs, values_pred))
+        # Select indices from 'da_obs' to keep.
+        sel_obs = []
+        for i in range(len(dates_obs)):
+            if dates_obs[i] in dates_pred:
+                sel_obs.append(i)
 
-    # Method #4: Relative root mean square error.
-    elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rrmse:
-        error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
+        # Select indices from 'da_pred' to keep.
+        sel_pred = []
+        for i in range(len(dates_pred)):
+            if dates_pred[i] in dates_obs:
+                sel_pred.append(i)
+
+        # Subset data arrays.
+        da_obs  = da_obs[sel_obs]
+        da_pred = da_pred[sel_pred]
+
+    # Extract values.
+    values_obs  = da_obs.values.ravel()
+    values_pred = da_pred.values.ravel()
+
+    if len(values_obs) == len(values_pred):
+
+        # Method #1: Coefficient of determination.
+        if cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_r2:
+            error = r2_score(values_obs, values_pred)
+
+        # Method #2: Mean absolute error.
+        elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_mae:
+            error = mean_absolute_error(values_obs, values_pred)
+
+        # Method #3: Root mean square error.
+        elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rmse:
+            error = sqrt(mean_squared_error(values_obs, values_pred))
+
+        # Method #4: Relative root mean square error.
+        elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rrmse:
+            error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
 
     return error
 
@@ -1152,7 +1182,7 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
             if dim_lat != cfg.dim_lat:
                 ds = ds.rename({cfg.dim_lon: dim_lon, cfg.dim_lat: dim_lat})
 
-        except TypeError:
+        except (TypeError, ValueError):
             log("Unable to use a mask.", True)
 
     return ds

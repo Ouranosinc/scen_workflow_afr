@@ -678,11 +678,12 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # ======================================================================================================================
 
 def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], grid_y: [float], rcp: str,
-                 per: [int, int], z_min: float, z_max: float, p_fig: str, map_package: str):
+                 per: [int, int], z_min: float, z_max: float, is_delta: bool, p_fig: str, map_package: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Generate a heat map of a climate index for the reference period and for emission scenarios.
+    The 'map_package' 'seaborn' was not tested.
 
     Parameters
     ----------
@@ -704,6 +705,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
         Minimum value (associated with color bar).
     z_max : float
         Maximum value (associated with color bar).
+    is_delta : bool
+        If true, indicates that 'da' corresponds to delta values.
     p_fig : str
         Path of output figure.
     map_package: str
@@ -744,12 +747,12 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
     if cfg.f_png in cfg.opt_map_formats:
 
         # Get title and label.
-        title = cfg.get_plot_title(stn, var_or_idx, rcp, per)
+        title = cfg.get_plot_title(stn, var_or_idx, rcp, per) + (" (delta)" if is_delta else "")
         label = cfg.get_plot_ylabel(var_or_idx)
 
         plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
 
-        # Using seaborn (not tested).
+        # Using seaborn.
         if map_package == "seaborn":
             sns.set()
             fig, ax = plt.subplots(figsize=(8, 5))
