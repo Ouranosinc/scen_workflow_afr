@@ -377,7 +377,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         if (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4):
             if str(idx_params[i]) == "nan":
                 idx_params[i] = str(list(range(1, 13))).replace("'", "")
-            items = idx_params[i].replace("[", "").replace(", ", ";").replace("]", "").split(";")
+            items = idx_params[i].replace("(", "").replace(", ", ";").replace(")", "").split(";")
             idx_params_str.append([int(i) for i in items])
 
     # Exit loop if the file already exists (reference file only).
