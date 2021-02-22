@@ -582,6 +582,15 @@ def calc_error(da_obs: xr.DataArray, da_pred: xr.DataArray) -> float:
     values_obs  = da_obs.values.ravel()
     values_pred = da_pred.values.ravel()
 
+    # Remove values that are nan in at least one of the two datasets.
+    sel = (np.isnan(values_obs) == False) & (np.isnan(values_pred) == False)
+    da_obs = xr.DataArray(values_obs)
+    da_obs = da_obs[sel]
+    da_pred = xr.DataArray(values_pred)
+    da_pred = da_pred[sel]
+    values_obs  = da_obs.values
+    values_pred = da_pred.values
+
     if len(values_obs) == len(values_pred):
 
         # Method #1: Coefficient of determination.
