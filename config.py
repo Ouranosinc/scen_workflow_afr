@@ -254,10 +254,10 @@ country             = ""            # Country name.
 project             = ""            # Project acronym.
 
 # Emission scenarios, periods and horizons.
-rcps                = [rcp_26, rcp_45, rcp_85]                      # All emission scenarios.
-per_ref             = [1981, 2010]                                  # Reference period.
-per_fut             = [1981, 2100]                                  # Future period.
-per_hors            = [[2021, 2040], [2041, 2060], [2061, 2080]]    # Horizons.
+rcps                = [rcp_26, rcp_45, rcp_85]                                  # All emission scenarios.
+per_ref             = [1981, 2010]                                              # Reference period.
+per_fut             = [1981, 2100]                                              # Future period.
+per_hors            = [[1981, 2010], [2021, 2040], [2041, 2060], [2061, 2080]]  # Horizons.
 
 # Boundary box.
 lon_bnds            = [0, 0]        # Longitude boundaries.

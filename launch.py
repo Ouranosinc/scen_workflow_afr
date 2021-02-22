@@ -91,6 +91,10 @@ def load_params(p_ini: str):
 
         return vals_new
 
+    # Track if a few variables were read.
+    per_ref_read = False
+    per_hors_read = False
+
     # Loop through sections.
     for section in config.sections():
 
@@ -126,10 +130,16 @@ def load_params(p_ini: str):
                 cfg.rcps = ast.literal_eval(value)
             elif key == "per_ref":
                 cfg.per_ref = convert_to_1d(value, int)
+                if per_hors_read:
+                    cfg.per_hors = [cfg.per_ref] + cfg.per_hors
+                per_ref_read = True
             elif key == "per_fut":
                 cfg.per_fut = convert_to_1d(value, int)
             elif key == "per_hors":
                 cfg.per_hors = convert_to_2d(value, int)
+                if per_ref_read:
+                    cfg.per_hors = [cfg.per_ref] + cfg.per_hors
+                per_hors_read = True
             elif key == "lon_bnds":
                 cfg.lon_bnds = convert_to_1d(value, float)
             elif key == "lat_bnds":
@@ -276,7 +286,7 @@ def main():
     cfg.p_log = cfg.d_res + "log/" + utils.get_datetime_str() + ".log"
 
     # Calibration file.
-    cfg.p_calib = cfg.d_res + cfg.p_calib
+    cfg.p_calib = cfg.d_res + cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.obs_src + cfg.f_ext_csv)
     if cfg.region != "":
         cfg.p_calib = cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.region + cfg.f_ext_csv)
     d = os.path.dirname(cfg.p_calib)
