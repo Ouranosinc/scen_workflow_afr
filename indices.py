@@ -58,7 +58,7 @@ def generate(idx_code: str):
 
     # Temperature.
     if idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropicalnights, cfg.idx_tngmonthsbelow, cfg.idx_heatwavemaxlen,
-                    cfg.idx_heatwavetotlen, cfg.idx_tgg, cfg.idx_etr]:
+                    cfg.idx_heatwavetotlen, cfg.idx_tgg, cfg.idx_etr, cfg.idx_tndaysbelow]:
         var_or_idx_list.append(cfg.var_cordex_tasmin)
 
     if idx_name in [cfg.idx_tx90p, cfg.idx_txdaysabove, cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_txg,
@@ -355,8 +355,9 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
 
         # Combine threshold and unit -----------------------------------------------------------------------
 
-        if (idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
-           ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi]) and (i == 0)) or \
+        if (idx_name in [cfg.idx_tx90p, cfg.idx_tropicalnights]) or\
+           ((idx_name in [cfg.idx_hotspellfreq, cfg.idx_hotspellmaxlen, cfg.idx_wsdi, cfg.idx_tndaysbelow,
+                          cfg.idx_txdaysabove]) and (i == 0)) or \
            ((idx_name in [cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen]) and (i <= 1)):
             idx_ref = str(idx_param) + " " + cfg.unit_C
             idx_fut = str(idx_param + cfg.d_KC) + " " + cfg.unit_K
@@ -389,9 +390,22 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
         if idx_name in [cfg.idx_txdaysabove, cfg.idx_tx90p]:
             da_tasmax = ds_var_or_idx[0][cfg.var_cordex_tasmax]
             param_tasmax = idx_params_str[0]
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=Warning)
-                da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, param_tasmax).values)
+            doy_a = doy_b = -1
+            if len(idx_params_str) > 1:
+                doy_a = -1.0 if str(idx_params_str[1]) == "nan" else int(idx_params_str[1])
+                doy_b = -1.0 if str(idx_params_str[2]) == "nan" else int(idx_params_str[2])
+            da_idx = tx_days_above(da_tasmax, param_tasmax, doy_a, doy_b)
+            da_idx = da_idx.astype(int)
+            idx_units = cfg.unit_1
+
+        if idx_name == cfg.idx_tndaysbelow:
+            da_tasmin = ds_var_or_idx[0][cfg.var_cordex_tasmin]
+            param_tasmin = idx_params_str[0]
+            doy_a = doy_b = -1
+            if len(idx_params_str) > 1:
+                doy_a = -1.0 if str(idx_params_str[1]) == "nan" else int(idx_params_str[1])
+                doy_b = -1.0 if str(idx_params_str[2]) == "nan" else int(idx_params_str[2])
+            da_idx = tn_days_below(da_tasmin, param_tasmin, doy_a, doy_b)
             da_idx = da_idx.astype(int)
             idx_units = cfg.unit_1
 
@@ -496,7 +510,11 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
                 elif idx_name == cfg.idx_rx5day:
                     da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS))
                 else:
-                    da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=cfg.freq_YS))
+                    doy_a = doy_b = -1
+                    if len(idx_params_str) == 3:
+                        doy_a = -1.0 if str(idx_params_str[1]) == "nan" else int(idx_params_str[1])
+                        doy_b = -1.0 if str(idx_params_str[2]) == "nan" else int(idx_params_str[2])
+                    da_idx = xr.DataArray(precip_accumulation(da_pr, doy_a, doy_b))
             idx_units = da_idx.attrs[cfg.attrs_units]
 
         elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
@@ -568,10 +586,10 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             p_tot = 1.0 if (str(p_tot) == "nan") else float(p_tot)
             d_dry = int(idx_params_str[2])
             p_dry = float(idx_params_str[3])
-            doy_a = idx_params_str[4]
-            doy_a = None if (str(doy_a) == "nan") else int(doy_a)
-            doy_b = idx_params_str[5]
-            doy_b = None if (str(doy_b) == "nan") else int(doy_b)
+            doy_a = doy_b = -1
+            if len(idx_params_str) == 6:
+                doy_a = -1.0 if str(idx_params_str[4]) == "nan" else int(idx_params_str[4])
+                doy_b = -1.0 if str(idx_params_str[5]) == "nan" else int(idx_params_str[5])
             da_idx = xr.DataArray(tot_duration_dry_periods(da_pr, per, p_tot, d_dry, p_dry, doy_a, doy_b))
             idx_units = cfg.unit_1
 
@@ -582,7 +600,10 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             param_vv_neg = idx_params_str[1]
             param_dd     = float(idx_params_str[2])
             param_dd_tol = float(idx_params_str[3])
-            param_months = idx_params_str[4]
+            doy_a = doy_b = -1
+            if len(idx_params_str) == 6:
+                doy_a = -1.0 if str(idx_params_str[4]) == "nan" else int(idx_params_str[4])
+                doy_b = -1.0 if str(idx_params_str[5]) == "nan" else int(idx_params_str[5])
             if idx_name == cfg.idx_wgdaysabove:
                 da_uas = ds_var_or_idx[0][cfg.var_cordex_uas]
                 da_vas = ds_var_or_idx[1][cfg.var_cordex_vas]
@@ -590,8 +611,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             else:
                 da_vv = ds_var_or_idx[0][cfg.var_cordex_sfcwindmax]
                 da_dd = None
-            da_idx = xr.DataArray(
-                wind_days_above(da_vv, da_dd, param_vv, param_dd, param_dd_tol, param_months))
+            da_idx = xr.DataArray(wind_days_above(da_vv, da_dd, param_vv, param_dd, param_dd_tol, doy_a, doy_b))
             idx_units = cfg.unit_1
 
         da_idx.attrs[cfg.attrs_units] = idx_units
@@ -650,11 +670,97 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
     if (rcp == cfg.rcp_ref) and (idx_name == cfg.idx_prcptot):
         ds_idx = utils.open_netcdf(p_idx)
         da_idx = ds_idx.mean(dim=[cfg.dim_longitude, cfg.dim_latitude])[idx_name]
-        param_pr = cfg.idx_params[cfg.idx_codes.index(idx_code)][0]
+        param_pr = idx_params_str[0]
         if "p" in str(param_pr):
             param_pr = float(param_pr.replace("p", "")) / 100.0
             cfg.idx_params[cfg.idx_codes.index(idx_code)][0] = \
                 float(round(da_idx.quantile(param_pr).values.ravel()[0], 2))
+
+
+def precip_accumulation(da_pr: xr.DataArray, doy_a: int, doy_b: int) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Wrapper of equivalent function in xclim.indices.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray
+        Precipitation data.
+    doy_a: int
+        First day of year to consider.
+    doy_b: int
+        Last day of year to consider.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Subset based on 'day of year'.
+    da_pr = utils.subset_doy(da_pr, doy_a, doy_b)
+
+    # Calculate index.
+    da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=cfg.freq_YS))
+
+    return da_idx
+
+
+def tx_days_above(da_tasmax: xr.DataArray, param_tasmax: str, doy_a: int, doy_b: int) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Wrapper of equivalent function in xclim.indices.
+
+    Parameters
+    ----------
+    da_tasmax : xr.DataArray
+        Maximum temperature data.
+    param_tasmax : str
+        Maximum temperature threshold value.
+    doy_a: int
+        First day of year to consider.
+    doy_b: int
+        Last day of year to consider.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Subset based on 'day of year'.
+    da_tasmax = utils.subset_doy(da_tasmax, doy_a, doy_b)
+
+    # Calculate index.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_idx = xr.DataArray(indices.tx_days_above(da_tasmax, param_tasmax).values)
+
+    return da_idx
+
+
+def tn_days_below(da_tasmin: xr.DataArray, param_tasmin: str, doy_a: int, doy_b: int) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Wrapper of equivalent function in xclim.indices.
+
+    Parameters
+    ----------
+    da_tasmin : xr.DataArray
+        Minimum temperature data.
+    param_tasmin : str
+        Minimum temperature threshold value.
+    doy_a: int
+        First day of year to consider.
+    doy_b: int
+        Last day of year to consider.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Subset based on 'day of year'.
+    da_tasmin = utils.subset_doy(da_tasmin, doy_a, doy_b)
+
+    # Calculate index.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_idx = xr.DataArray(indices.tn_days_below(da_tasmin, param_tasmin).values)
+
+    return da_idx
 
 
 def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tasmin: str = "22.0 degC",
@@ -800,7 +906,11 @@ def tot_duration_dry_periods(da_pr: xr.DataArray,  per: str, pr_tot: float, dt_d
     da_cond2 = da_pr.copy()
     da_cond2 = da_cond2.astype(bool)
     da_cond2[:, :, :] = True
-    if (doy_a is not None) and (doy_b is not None):
+    if (doy_a > -1) or (doy_b > -1):
+        if doy_a == -1:
+            doy_a = 1
+        if doy_b == -1:
+            doy_b = 365
         if doy_b >= doy_a:
             cond2 = (da_pr.time.dt.dayofyear >= doy_a) & (da_pr.time.dt.dayofyear <= doy_b)
         else:
@@ -1132,8 +1242,8 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
     return da_qty
 
 
-def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, param_vv: float, param_dd: float = None,
-                    param_dd_tol: float = 45, months: List[int] = None) -> xr.DataArray:
+def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, param_vv: float, param_dd: float,
+                    param_dd_tol: float, doy_a: int, doy_b: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1151,10 +1261,16 @@ def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, param_vv: float, p
         Parameter related to 'da_windfromdir' (degrees).
     param_dd_tol: float
         Parameter tolerance related to 'da_windfromdir' (degrees).
-    months: [int]
-        List of months.
+    doy_a: int
+        First day of year at or after which the season ends.
+    doy_b: int
+        Last day of year at or before which the season ends.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Condition #1: Subset based on 'day of year'.
+    da_vv = utils.subset_doy(da_vv, doy_a, doy_b)
+    da_dd = utils.subset_doy(da_dd, doy_a, doy_b)
 
     # Condition #1: Wind speed.
     da_cond1 = da_vv > param_vv
@@ -1165,15 +1281,8 @@ def wind_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, param_vv: float, p
     else:
         da_cond2 = (da_dd - param_dd <= param_dd_tol) if param_dd is not None else True
 
-    # Condition #3: Month.
-    da_cond3 = True
-    if months is not None:
-        for i in range(len(months)):
-            da_cond3_i = da_vv.time.dt.month == months[i]
-            da_cond3 = da_cond3_i if i == 0 else da_cond3 | da_cond3_i
-
     # Combine conditions.
-    da_conds = da_cond1 & da_cond2 & da_cond3
+    da_conds = da_cond1 & da_cond2
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)

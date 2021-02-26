@@ -858,8 +858,8 @@ def calc_heatmap(var_or_idx_code: str):
                 if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
                     z_min_map = z_min if j == 0 else z_min_delta
                     z_max_map = z_max if j == 0 else z_max_delta
-                    plot.plot_heatmap(da_map, stn, var_or_idx, grid_x, grid_y, rcps[i], per_hor, z_min_map, z_max_map,
-                                      j == 1, p_fig, "matplotlib")
+                    plot.plot_heatmap(da_map, stn, var_or_idx_code, grid_x, grid_y, rcps[i], per_hor, z_min_map,
+                                      z_max_map, j == 1, p_fig, "matplotlib")
 
                 # CSV files --------------------------------------------------------------------------------------------
 

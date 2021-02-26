@@ -939,6 +939,36 @@ def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Da
     return ds_ctr
 
 
+def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_a: int, doy_b) -> Union[xr.DataArray, xr.Dataset]:
+
+    """
+    Subset based on day of year.
+
+    Parameters
+    ----------
+    da_or_ds: Union[xr.DataArray, xr.Dataset]
+        DataArray or Dataset.
+    doy_a: int
+        First day of year to consider.
+    doy_b: int
+        Last day of year to consider.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if (doy_a > -1) or (doy_b > -1):
+        if doy_a == -1:
+            doy_a = 1
+        if doy_b == -1:
+            doy_b = 365
+        if doy_b >= doy_a:
+            cond = (da_or_ds.time.dt.dayofyear >= doy_a) & (da_or_ds.time.dt.dayofyear <= doy_b)
+        else:
+            cond = (da_or_ds.time.dt.dayofyear <= doy_b) | (da_or_ds.time.dt.dayofyear >= doy_a)
+        da_or_ds = da_or_ds[cond]
+
+    return da_or_ds
+
+
 def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None) -> xr.Dataset:
 
     """
@@ -1192,7 +1222,7 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
                 ds = ds.rename({cfg.dim_lon: dim_lon, cfg.dim_lat: dim_lat})
 
         except (TypeError, ValueError):
-            log("Unable to use a mask.", True)
+            pass
 
     return ds
 

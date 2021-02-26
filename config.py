@@ -178,6 +178,7 @@ idx_tnx             = "tnx"             # Maximum of Tmin.
 idx_txg             = "txg"             # Mean of Tmax.
 idx_txx             = "txx"             # Maximum of Tmax.
 idx_txdaysabove     = "txdaysabove"     # Number of days per year with Tmax above a threshold value.
+idx_tndaysbelow     = "tndaysbelow"     # Number of days per year with Tmin below a threshold value.
 idx_tropicalnights  = "tropicalnights"  # Number of tropical nights = f(Tmin).
 idx_wsdi            = "wsdi"            # Warm spell duration index = f(Tmax, Tmax90p).
 
@@ -457,7 +458,7 @@ def extract_idx(idx_code: str) -> str:
     return idx_code
 
 
-def get_desc(var_or_idx: str, set_name: str = "cordex"):
+def get_desc(var_or_idx_code: str, set_name: str = "cordex"):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -465,14 +466,16 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
 
     Parameters
     ----------
-    var_or_idx : str
-        Climate variable or index.
+    var_or_idx_code : str
+        Climate variable or index code.
     set_name : str
         Station name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     desc = ""
+
+    var_or_idx = var_or_idx_code if var_or_idx_code in variables_cordex else extract_idx(var_or_idx_code)
 
     # CORDEX.
     if var_or_idx in variables_cordex:
@@ -523,15 +526,21 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
     else:
 
         # Extract thresholds.
-        idx_params_loc = idx_params[idx_names.index(var_or_idx)]
+        idx_params_loc = idx_params[idx_codes.index(var_or_idx_code)]
 
         # ==================================================================================================================
         # TODO.CUSTOMIZATION.INDEX.BEGIN
         # ==================================================================================================================
 
         # Temperature.
-        if var_or_idx in [idx_txdaysabove, idx_tx90p]:
-            desc = "Nbr jours chauds (Tmax>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmax) + ")"
+        if var_or_idx in [idx_txdaysabove, idx_tx90p, idx_tndaysbelow]:
+            if var_or_idx in [idx_txdaysabove, idx_tx90p]:
+                desc = "Nbr jours chauds (Tmax>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmax)
+            else:
+                desc = "Nbr jours frais (Tmin<" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin)
+            if len(idx_params_loc) == 3:
+                desc += "; jours " + str(idx_params_loc[1]) + "-" + str(idx_params_loc[2])
+            desc += ")"
         elif var_or_idx == idx_tropicalnights:
             desc = "Nbr nuits chaudes (Tmin>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
         elif var_or_idx == idx_tngmonthsbelow:
@@ -577,8 +586,10 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
 
         # Precipitation.
         elif var_or_idx in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty]:
-            desc = "Cumul P " +\
-                ("(1j)" if var_or_idx == idx_rx1day else "(5j)" if var_or_idx == idx_rx5day else "(total)")
+            desc = "Cumul P " + ("(1j" if var_or_idx == idx_rx1day else "(5j" if var_or_idx == idx_rx5day else "(total")
+            if (var_or_idx == idx_prcptot) and (len(idx_params_loc) == 3):
+                desc += "; jours " + str(idx_params_loc[1]) + "-" + str(idx_params_loc[2])
+            desc += ")"
 
         elif var_or_idx in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
             desc = "Nbr jours"
@@ -610,7 +621,7 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
             desc = "Durée totale périodes sèches (P<" + str(idx_params_loc[0]) + "mm/j * " +\
                        str(idx_params_loc[1]) + "j"
             if (idx_params_loc[2] == "day") and (str(idx_params_loc[3]) != "nan") and (str(idx_params_loc[4]) != "nan"):
-                desc += "; jours " + str(idx_params_loc[3]) + " à "  + str(idx_params_loc[4]) + " de l'année"
+                desc += "; jours " + str(idx_params_loc[3]) + "-"  + str(idx_params_loc[4])
             desc += ")"
 
         # Temperature-precipitation.
@@ -623,8 +634,8 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
                        str(idx_params_loc[0]) + unit_m_s1
             if str(idx_params_loc[2]) != "nan":
                 desc += "; " + str(idx_params_loc[2]) + "±" + str(idx_params_loc[3]) + "º"
-            if (str(idx_params_loc[4]) != "nan") and (str(idx_params_loc[4]) != str(list(range(1, 13)))):
-                desc += "; mois " + str(idx_params_loc[4]) + "]"
+            if (var_or_idx == idx_wgdaysabove) and (len(idx_params_loc) == 6):
+                desc += "; jours " + str(idx_params_loc[4]) + " à " + str(idx_params_loc[5])
             desc += ")"
 
         # ==============================================================================================================
@@ -634,7 +645,7 @@ def get_desc(var_or_idx: str, set_name: str = "cordex"):
     return desc
 
 
-def get_plot_title(stn: str, var_or_idx: str, rcp: str = None, per: [int] = None):
+def get_plot_title(stn: str, var_or_idx_code: str, rcp: str = None, per: [int] = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -644,8 +655,8 @@ def get_plot_title(stn: str, var_or_idx: str, rcp: str = None, per: [int] = None
     ----------
     stn : str
         Station name.
-    var_or_idx : str
-        Climate variable or index.
+    var_or_idx_code : str
+        Climate variable or index code.
     rcp: str
         RCP emission scenario.
     per: [int, int], Optional
@@ -659,7 +670,7 @@ def get_plot_title(stn: str, var_or_idx: str, rcp: str = None, per: [int] = None
                ", " + ("référence" if rcp == rcp_ref else str.upper(rcp)[0:3] + rcp[3] + "." + rcp[4]))
     per_str = ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
 
-    title = get_desc(var_or_idx) + "\n(" + stn_str + rcp_str + per_str + ")"
+    title = get_desc(var_or_idx_code) + "\n(" + stn_str + rcp_str + per_str + ")"
 
     return title
 
@@ -690,7 +701,7 @@ def get_plot_ylabel(var_or_idx: str):
         ylabel = ""
 
         # Temperature.
-        if var_or_idx in [idx_txdaysabove, idx_tngmonthsbelow, idx_hotspellfreq, idx_hotspellmaxlen,
+        if var_or_idx in [idx_txdaysabove, idx_tndaysbelow, idx_tngmonthsbelow, idx_hotspellfreq, idx_hotspellmaxlen,
                           idx_heatwavemaxlen, idx_heatwavetotlen, idx_tropicalnights, idx_tx90p]:
             ylabel = "Nbr"
             if var_or_idx == idx_tngmonthsbelow:
@@ -824,9 +835,9 @@ def get_unit(var_or_idx: str, set_name: str = prj_src_cordex):
         # TODO.CUSTOMIZATION.INDEX.BEGIN
         # ==============================================================================================================
 
-        if var_or_idx in [idx_txdaysabove, idx_tx90p, idx_tropicalnights, idx_tngmonthsbelow, idx_hotspellfreq,
-                          idx_wsdi, idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays,
-                          idx_rainstart, idx_rainend, idx_dc, idx_wgdaysabove, idx_wxdaysabove]:
+        if var_or_idx in [idx_txdaysabove, idx_tndaysbelow, idx_tx90p, idx_tropicalnights, idx_tngmonthsbelow,
+                          idx_hotspellfreq, idx_wsdi, idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays,
+                          idx_drydays, idx_rainstart, idx_rainend, idx_dc, idx_wgdaysabove, idx_wxdaysabove]:
             unit = unit_1
         elif var_or_idx in [idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen]:
             unit = unit_d

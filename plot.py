@@ -677,7 +677,7 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # Scenarios and indices.
 # ======================================================================================================================
 
-def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], grid_y: [float], rcp: str,
+def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [float], grid_y: [float], rcp: str,
                  per: [int, int], z_min: float, z_max: float, is_delta: bool, p_fig: str, map_package: str):
 
     """
@@ -691,8 +691,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
         DataArray (with 2 dimensions: longitude and latitude).
     stn : str
         Station name.
-    var_or_idx : str
-        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
+    var_or_idx_code : str
+        Climate variable or index code.
     grid_x: [float]
         X-coordinates.
     grid_y: [float]
@@ -713,6 +713,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
         Map package: {"seaborn", "matplotlib"}
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    var_or_idx = var_or_idx_code if var_or_idx_code in cfg.variables_cordex else cfg.extract_idx(var_or_idx_code)
 
     # Export to GeoTIFF.
     if cfg.f_tif in cfg.opt_map_formats:
@@ -747,7 +749,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx: str, grid_x: [float], g
     if cfg.f_png in cfg.opt_map_formats:
 
         # Get title and label.
-        title = cfg.get_plot_title(stn, var_or_idx, rcp, per) + (" (delta)" if is_delta else "")
+        title = cfg.get_plot_title(stn, var_or_idx_code, rcp, per) + (" (delta)" if is_delta else "")
         label = cfg.get_plot_ylabel(var_or_idx)
 
         plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
@@ -909,7 +911,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.extract_idx(var_or_idx_code)
 
     # Get title and label.
-    title = cfg.get_plot_title(stn, var_or_idx)
+    title = cfg.get_plot_title(stn, var_or_idx_code)
     label = cfg.get_plot_ylabel(var_or_idx)
 
     # Add precision in title.
