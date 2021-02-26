@@ -76,10 +76,11 @@ The following features are being implemented:
   rainstart, rainend, raindur, rnnmm, sdii, wetdays, wgdaysabove, dc;
 - added an option to export in georeferenced maps (GeoTIFF files).
 
-### Upcoming version
+### v1.2.0
 
-The following features are being implemented:
-- created several climate indices: txg, tngmonthsbelow, drydurtot ('1d' and 'tot' calculation modes);
+The following features were implemented:
+- created several climate indices: txg, tngmonthsbelow, tndaysbelow, drydurtot ('1d' and 'tot' calculation modes);
+- added the possibility to specify a day-of-year interval for indices 'txdaysabove', 'tndaysbelow', 'wgdaysabove' and 'prcptot' 
 - applying a mask on generated indices to remove values if located outside ERA5Land domain;
 - added the possibility to add a line corresponding to the 90th percentile in time series (for the index 'prcptot');
 - enabled parallel processing during the calculation of climate indices;
@@ -92,6 +93,9 @@ The following features are being implemented:
 The following bugs were fixed:
 - colour scale in maps (based on map content rather than statistics);
 - legend in time series.
+
+### Upcoming version
+- ...
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
