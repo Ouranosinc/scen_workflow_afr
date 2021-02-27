@@ -783,10 +783,10 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
                 if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
                                   cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty, cfg.idx_drydurtot]:
                     cmap = cfg.col_map_water
-                    if var_or_idx == cfg.idx_drydurtot:
-                        cmap = matplotlib.cm.get_cmap(cmap + "_r")
                 else:
                     cmap = cfg.col_map_default
+                if var_or_idx in [cfg.idx_drydurtot, cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
+                    cmap = matplotlib.cm.get_cmap(cmap + "_r")
                 vmin = z_min
                 vmax = z_max
             mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
