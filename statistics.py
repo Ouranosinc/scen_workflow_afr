@@ -754,12 +754,12 @@ def calc_heatmap(var_or_idx_code: str):
         for j in range(len(arr_ds_map)):
 
             # Loop through horizons.
-            per_hors = [cfg.per_ref] if i == 0 else cfg.per_hors
+            per_hors = [cfg.per_ref] if j == 0 else cfg.per_hors
             for per_hor in per_hors:
 
                 # Select period.
-                years_str = [str(per_hor[0]) + "-01-01", str(per_hor[1]) + "-12-31"]
-                ds_hor = arr_ds_map[j].sel(time=slice(years_str[0], years_str[1]))
+                ds_hor = utils.remove_feb29(arr_ds_map[j])
+                ds_hor = utils.sel_period(ds_hor, per_hor)
 
                 # Calculate mean.
                 with warnings.catch_warnings():
