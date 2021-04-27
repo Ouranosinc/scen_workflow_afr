@@ -19,7 +19,6 @@ import xarray as xr
 import xclim.indices as indices
 import xclim.indices.generic as indices_gen
 import warnings
-from typing import Union, List
 from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to
@@ -1316,7 +1315,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (indices)"
-    if cfg.opt_stat[1] or (cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1])):
+    if cfg.opt_stat[1]:
         utils.log(msg)
         statistics.calc_stats(cfg.cat_idx)
     else:
@@ -1361,8 +1360,20 @@ def run():
     msg = "Step #8c  Generating heat maps (indices)"
     if cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1]):
         utils.log(msg)
+
+        # Build arrays for statistics to calculate.
+        arr_stat = [cfg.stat_mean]
+        arr_q = [-1]
+        if cfg.opt_map_quantiles is not None:
+            arr_stat = arr_stat + ([cfg.stat_quantile] * len(cfg.opt_map_quantiles))
+            arr_q = arr_q + cfg.opt_map_quantiles
+
+        # Loop through indices.
         for i in range(len(cfg.idx_codes)):
-            statistics.calc_heatmap(cfg.idx_codes[i])
+
+            # Loop through statistics.
+            for j in range(len(arr_stat)):
+                statistics.calc_heatmap(cfg.idx_codes[i], arr_stat[j], arr_q[j])
 
     else:
         utils.log(msg + " (not required)")

@@ -678,7 +678,8 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # ======================================================================================================================
 
 def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [float], grid_y: [float], rcp: str,
-                 per: [int, int], z_min: float, z_max: float, is_delta: bool, p_fig: str, map_package: str):
+                 per: [int, int], stat: str, q: float, z_min: float, z_max: float, is_delta: bool, p_fig: str,
+                 map_package: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -701,6 +702,10 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         RCP emission scenario.
     per: [int, int]
         Period of interest, for instance, [1981, 2010].
+    stat: str, Optional
+        Statistic = {"mean", "min", "max", "quantile"}
+    q: float, Optional
+        Quantile.
     z_min : float
         Minimum value (associated with color bar).
     z_max : float
@@ -738,7 +743,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             da_tif.values[da_tif.values == -9999] = np.nan
             da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
 
-        p_fig_tif = p_fig.replace(var_or_idx + "/", var_or_idx + "_" + cfg.f_tif + "/").\
+        p_fig_tif = p_fig.replace(var_or_idx_code + "/", var_or_idx_code + "_" + cfg.f_tif + "/").\
             replace(cfg.f_ext_png, cfg.f_ext_tif)
         d = os.path.dirname(p_fig_tif)
         if not (os.path.isdir(d)):
@@ -749,7 +754,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
     if cfg.f_png in cfg.opt_map_formats:
 
         # Get title and label.
-        title = cfg.get_plot_title(stn, var_or_idx_code, rcp, per) + (" (delta)" if is_delta else "")
+        title = cfg.get_plot_title(stn, var_or_idx_code, rcp, per, stat, q) + (" (delta)" if is_delta else "")
         label = cfg.get_plot_ylabel(var_or_idx)
 
         plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
@@ -781,14 +786,15 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
                 vmax = vmax_abs
             else:
                 if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
-                                  cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty, cfg.idx_drydurtot,
+                                  cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty,
                                   cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rx1day, cfg.idx_rx5day,
-                                  cfg.idx_sdii, cfg.idx_wetdays, cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc]:
+                                  cfg.idx_sdii, cfg.idx_wetdays]:
                     cmap = cfg.col_map_water
+                elif var_or_idx in [cfg.idx_drydurtot, cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc]:
+                    cmap = cfg.col_map_dry
                 else:
                     cmap = cfg.col_map_default
-                if var_or_idx in [cfg.idx_drydurtot, cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow, cfg.idx_cdd,
-                                  cfg.idx_drydays, cfg.idx_dc]:
+                if var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
                     cmap = matplotlib.cm.get_cmap(cmap + "_r")
                 vmin = z_min
                 vmax = z_max

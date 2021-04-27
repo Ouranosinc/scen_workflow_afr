@@ -395,6 +395,8 @@ opt_save_csv        = [False, False]  # If True, save results to CSV files [for 
 # Plots.
 opt_plot              = [True, True]    # If True, actives plot generation [for scenarios, for indices].
 opt_map               = [False, False]  # If True, generate heat maps [for scenarios, for indices].
+opt_map_delta         = [False, False]  # If True, generate delta heat maps [for scenarios, for indices].
+opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
 opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).
 opt_map_res           = -1              # Map resolution.
@@ -413,6 +415,7 @@ col_below_mean      = "cornflowerblue"  # Zone between mean and maximum values (
 col_above_mean      = "indianred"       # Zone between mean and minimum values (in a time series).
 col_map_wind        = "RdBu_r"          # Color scale in heat maps involving wind.
 col_map_water       = "Blues"           # Color scale in heat maps involving water.
+col_map_dry         = "Oranges"         # Color scale in heat maps involving dryness.
 col_map_default     = "viridis"         # Color scale in other heat maps.
 
 def get_rank_inst():
@@ -645,7 +648,7 @@ def get_desc(var_or_idx_code: str, set_name: str = "cordex"):
     return desc
 
 
-def get_plot_title(stn: str, var_or_idx_code: str, rcp: str = None, per: [int] = None):
+def get_plot_title(stn: str, var_or_idx_code: str, rcp: str = None, per: [int] = None, stat: str = None, q: float = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -657,10 +660,14 @@ def get_plot_title(stn: str, var_or_idx_code: str, rcp: str = None, per: [int] =
         Station name.
     var_or_idx_code : str
         Climate variable or index code.
-    rcp: str
+    rcp: str, Optional
         RCP emission scenario.
     per: [int, int], Optional
         Period of interest, for instance, [1981, 2010].
+    stat: str, Optional
+        Statistic = {"mean", "min", "max", "quantile"}
+    q: float, Optional
+        Quantile.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -669,8 +676,16 @@ def get_plot_title(stn: str, var_or_idx_code: str, rcp: str = None, per: [int] =
     rcp_str = ("" if rcp is None else
                ", " + ("référence" if rcp == rcp_ref else str.upper(rcp)[0:3] + rcp[3] + "." + rcp[4]))
     per_str = ("" if per is None else ", " + str(per[0]) + "-" + str(per[1]))
+    stat_str = ""
+    if stat is not None:
+        if stat == stat_mean:
+            stat_str = ", moyenne"
+        elif stat in [stat_min, stat_max]:
+            stat_str = ", " + stat
+        else:
+            stat_str = ", q" + str(int(q * 100)).rjust(2, "0")
 
-    title = get_desc(var_or_idx_code) + "\n(" + stn_str + rcp_str + per_str + ")"
+    title = get_desc(var_or_idx_code) + "\n(" + stn_str + rcp_str + per_str + stat_str + ")"
 
     return title
 

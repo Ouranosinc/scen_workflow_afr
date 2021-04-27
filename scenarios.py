@@ -1210,7 +1210,7 @@ def run():
 
     utils.log("-")
     msg = "Step #7a  Calculating statistics (scenarios)"
-    if cfg.opt_stat[0] or (cfg.opt_ra and (cfg.opt_map[0] or cfg.opt_save_csv[0])):
+    if cfg.opt_stat[0]:
         utils.log(msg)
         statistics.calc_stats(cfg.cat_scen)
     else:
@@ -1329,8 +1329,20 @@ def run():
     msg = "Step #8c  Generating heat maps (scenarios)"
     if cfg.opt_ra and (cfg.opt_map[0] or cfg.opt_save_csv[0]):
         utils.log(msg)
+
+        # Build arrays for statistics to calculate.
+        arr_stat = [cfg.stat_mean]
+        arr_q = [-1]
+        if cfg.opt_map_quantiles is not None:
+            arr_stat = arr_stat + ([cfg.stat_quantile] * len(cfg.opt_map_quantiles))
+            arr_q = arr_q + cfg.opt_map_quantiles
+
+        # Loop through variables.
         for i in range(len(cfg.variables_cordex)):
-            statistics.calc_heatmap(cfg.variables_cordex[i])
+
+            # Loop through statistics.
+            for j in range(len(arr_stat)):
+                statistics.calc_heatmap(cfg.variables_cordex[i], arr_stat[j], arr_q[j])
 
     else:
         utils.log(msg + " (not required)")
