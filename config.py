@@ -607,8 +607,8 @@ def get_desc(var_or_idx_code: str, set_name: str = "cordex"):
 
         if var_or_idx == idx_rainstart:
             desc = "Début saison pluie (ΣP≥" + str(idx_params_loc[0]) + unit_mm + " en " + \
-                       str(idx_params_loc[1]) + "j; sans P<" + str(idx_params_loc[3]) + "mm/j * " + \
-                       str(idx_params_loc[4]) + "j sur " + str(idx_params_loc[5]) + "j)"
+                       str(idx_params_loc[1]) + "j; sans P<" + str(idx_params_loc[4]) + "mm/j * " + \
+                       str(idx_params_loc[5]) + "j sur " + str(idx_params_loc[6]) + "j)"
 
         elif var_or_idx == idx_rainend:
             if idx_params_loc[0] == "depletion":
