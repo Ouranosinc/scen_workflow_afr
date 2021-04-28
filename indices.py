@@ -576,7 +576,8 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             p_tot = idx_params_str[1]
             p_tot = 1.0 if (str(p_tot) == "nan") else float(p_tot)
             d_dry = int(idx_params_str[2])
-            p_dry = float(idx_params_str[3])
+            p_dry = idx_params_str[3]
+            p_dry = 1.0 if (str(p_dry) == "nan") else float(p_dry)
             doy_a = doy_b = -1
             if len(idx_params_str) == 6:
                 doy_a = -1.0 if str(idx_params_str[4]) == "nan" else int(idx_params_str[4])
@@ -889,7 +890,8 @@ def tot_duration_dry_periods(da_pr: xr.DataArray,  per: str, pr_tot: float, dt_d
             da_t = xr.DataArray(da_pr[t:(t + dt_dry), :, :] < pr_dry).sum(dim=cfg.dim_time) == dt_dry
         else:
             da_t = da_pr[t:(t + dt_dry), :, :]
-            da_t = xr.DataArray(da_t >= pr_dry).astype(float) * da_t
+            if pr_dry >= 0:
+                da_t = xr.DataArray(da_t >= pr_dry).astype(float) * da_t
             da_t = xr.DataArray(da_t.sum(dim=cfg.dim_time)) < pr_tot
         da_cond1[t:(t + dt_dry), :, :] = da_cond1[t:(t + dt_dry), :, :] | da_t
 

@@ -190,6 +190,8 @@ def load_params(p_ini: str):
                 cfg.opt_calib_qqmap = ast.literal_eval(value)
             elif key == "opt_calib_perturb":
                 cfg.opt_calib_perturb = convert_to_2d(value, float)
+            elif key == "opt_calib_quantiles":
+                cfg.opt_calib_quantiles = convert_to_1d(value, float)
             elif key == "nq_default":
                 cfg.nq_default = int(value)
                 cfg.nq_calib = [cfg.nq_default]
@@ -219,8 +221,8 @@ def load_params(p_ini: str):
             # STATISTICS:
             elif key == "opt_stat":
                 cfg.opt_stat = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
-            elif key == "stat_quantiles":
-                cfg.stat_quantiles = convert_to_1d(value, float)
+            elif key == "opt_stat_quantiles":
+                cfg.opt_stat_quantiles = convert_to_1d(value, float)
             elif key == "opt_save_csv":
                 cfg.opt_save_csv = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
 

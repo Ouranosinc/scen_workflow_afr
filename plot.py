@@ -427,7 +427,7 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
 
     # Mean, Q100, Q99, Q75, Q50, Q25, Q01 and Q00 monthly values -------------------------------------------------------
 
-    for i in range(1, len(cfg.stat_quantiles) + 1):
+    for i in range(1, len(cfg.opt_calib_quantiles) + 1):
 
         plt.subplot(433 + i - 1)
 

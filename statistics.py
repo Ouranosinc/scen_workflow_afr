@@ -71,7 +71,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, var_or_idx)
         else:
             d = cfg.get_d_idx(stn, var_or_idx_code)
-        p_sim_list = glob.glob(d + "*_" + ("*" if rcp == cfg.rcp_xx else rcp) + cfg.f_ext_nc)
+        p_sim_list = glob.glob(d + "*_" + ("*rcp*" if rcp == cfg.rcp_xx else rcp) + cfg.f_ext_nc)
 
     # Exit if there is not file corresponding to the criteria.
     if (len(p_sim_list) == 0) or \
@@ -314,7 +314,7 @@ def calc_stats(cat: str):
                 if cat_rcp != cfg.cat_obs:
                     stats = stats + [cfg.stat_min, cfg.stat_max, cfg.stat_quantile]
                 for stat in stats:
-                    stat_quantiles = cfg.stat_quantiles
+                    stat_quantiles = cfg.opt_stat_quantiles
                     if stat != cfg.stat_quantile:
                         stat_quantiles = [-1]
                     for q in stat_quantiles:

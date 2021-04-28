@@ -95,8 +95,15 @@ The following bugs were fixed:
 - legend in time series.
 
 ### Upcoming version
+
+The following features were implemented:
 - added the option 'opt_map_quantiles' to generate maps for specific percentiles, in addition of the mean;
-- added the option 'opt_map_delta' to enable/disable the generation of delta heat maps.
+- added the option 'opt_calib_quantiles' to specify quantiles that are specific to calibration plots;
+- renamed the option 'stat_quantiles' to 'opt_stat_quantiles';
+- added the option 'opt_map_delta' to enable/disable the generation of delta heat maps;
+- made the 4th argument of index 'drydurtot' (minimum daily precipitation amount to consider) optional when the first
+  argument is 'tot' (total mode);
+- changed the color scale of dryness-related indices to tones of oranges.
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

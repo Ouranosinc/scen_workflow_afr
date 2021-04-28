@@ -354,6 +354,7 @@ opt_calib_bias_meth = "rrmse"       # Error quantification method (select one of
 opt_calib_coherence = False         # If True, examines physical coherence.
 opt_calib_qqmap     = True          # If true, calculate qqmap.
 opt_calib_perturb   = []            # Perturbation: list of [variable,value]. "*" applies to all variables.
+opt_calib_quantiles  = [1.00, 0.99, 0.90, 0.50, 0.10, 0.01, 0.00]  # Quantiles.
 
 # Bias parameters.
 # The parameter 'time_win' is the number of days before and after any given day (15 days before and after = 30 days).
@@ -387,7 +388,7 @@ idx_params          = []            # Index parameters.
 # Step 7 - Statistics --------------------------------------------------------------------------------------------------
 
 opt_stat            = [True, True]    # If True, calculate statistics [for scenarios, for indices].
-stat_quantiles      = [1.00, 0.99, 0.75, 0.50, 0.25, 0.01, 0.00]  # Quantiles.
+opt_stat_quantiles  = [1.00, 0.90, 0.50, 0.10, 0.00]  # Quantiles.
 opt_save_csv        = [False, False]  # If True, save results to CSV files [for scenarios, for indices].
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
