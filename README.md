@@ -94,7 +94,7 @@ The following bugs were fixed:
 - colour scale in maps (based on map content rather than statistics);
 - legend in time series.
 
-### Upcoming version
+### v1.3.0
 
 The following features were implemented:
 - added the option 'opt_map_quantiles' to generate maps for specific percentiles, in addition of the mean;
