@@ -330,15 +330,14 @@ def calc_stats(cat: str):
                             if ds_stat is None:
                                 continue
 
+                            # Select period.
+                            ds_stat_hor = utils.sel_period(ds_stat.squeeze(), hor)
+
                             # Extract value.
-                            year_1 = max(hor[0], int(str(ds_stat.time.values[0])[0:4]))
-                            year_n = min(hor[1], int(str(ds_stat.time.values[len(ds_stat.time.values) - 1])[0:4]))
-                            years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
                             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                                val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var_or_idx].sum()) /\
-                                      (year_n - year_1 + 1)
+                                val = float(ds_stat_hor[var_or_idx].sum() / (hor[1] - hor[0] + 1))
                             else:
-                                val = float(ds_stat.sel(time=slice(years_str[0], years_str[1]))[var_or_idx].mean())
+                                val = float(ds_stat_hor[var_or_idx].mean())
 
                             # Add row.
                             stn_list.append(stn)
