@@ -720,9 +720,9 @@ def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
             arr_all = []
             for m in range(1, 13):
                 if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                    vals_m = list(da_m[da_m["time.month"] == m].resample(time="ys").sum().values)
+                    vals_m = list(da_m[da_m["time.month"] == m].resample(time=cfg.freq_YS).sum().values)
                 else:
-                    vals_m = list(da_m[da_m["time.month"] == m].resample(time="ys").mean().values)
+                    vals_m = list(da_m[da_m["time.month"] == m].resample(time=cfg.freq_YS).mean().values)
 
                 arr_all.append(vals_m)
 

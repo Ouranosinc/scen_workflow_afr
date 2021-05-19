@@ -1284,13 +1284,13 @@ def run():
                         replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
-                    plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+                    #TODO-Enable: plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
                         p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc,
                                                             cfg.cat_fig_workflow + cfg.f_ext_png)
-                    plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+                    #TODO-Enable: plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
@@ -1363,7 +1363,7 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, freq: str, title: str):
     var: str
         Climate variable.
     freq: str
-        Frequency.
+        Frequency = {cfg.freq_D, cfg.freq_MS}
     title: str
         Plot title.
     --------------------------------------------------------------------------------------------------------------------
@@ -1402,7 +1402,7 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, freq: str, title: str):
     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat_fig, var) + title + cfg.f_ext_png
     p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").replace(cfg.f_ext_png, cfg.f_ext_csv)
 
-    if freq != cfg.freq_MS:
+    if freq == cfg.freq_D:
 
         # Generate plot.
         plot.plot_freq(ds_list, var, freq, title, 1, p_fig)
