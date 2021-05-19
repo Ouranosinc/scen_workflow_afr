@@ -780,24 +780,38 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
 
             # Color mesh.
             if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
-                cmap = cfg.col_map_wind
-                vmax_abs = max(abs(z_min), abs(z_max))
-                vmin = -vmax_abs
-                vmax = vmax_abs
+                cmap = matplotlib.cm.get_cmap(cfg.col_map_negpos_def + "_r")
             else:
                 if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
                                   cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty,
                                   cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rx1day, cfg.idx_rx5day,
                                   cfg.idx_sdii, cfg.idx_wetdays]:
-                    cmap = cfg.col_map_water
+                    if not is_delta:
+                        cmap = cfg.col_map_water
+                    else:
+                        cmap = cfg.col_map_negpos_veg
                 elif var_or_idx in [cfg.idx_drydurtot, cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc]:
-                    cmap = cfg.col_map_dry
+                    if not is_delta:
+                        cmap = cfg.col_map_dry
+                    else:
+                        cmap = matplotlib.cm.get_cmap(cfg.col_map_negpos_veg + "_r")
+                elif (not is_delta) and (var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]):
+                    cmap = matplotlib.cm.get_cmap(cfg.col_map_def + "_r")
                 else:
-                    cmap = cfg.col_map_default
-                if var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
-                    cmap = matplotlib.cm.get_cmap(cmap + "_r")
+                    if not is_delta:
+                        cmap = cfg.col_map_def
+                    else:
+                        cmap = matplotlib.cm.get_cmap(cfg.col_map_negpos_def + "_r")
+
+            # Adjust minimum and maximum values, if necessary.
+            if (var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]) or is_delta:
+                vmax_abs = max(abs(z_min), abs(z_max))
+                vmin = -vmax_abs
+                vmax = vmax_abs
+            else:
                 vmin = z_min
                 vmax = z_max
+
             mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
                                       cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
                                       cmap=cmap, vmin=vmin, vmax=vmax)
