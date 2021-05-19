@@ -21,6 +21,7 @@ import warnings
 import xarray as xr
 from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
+from streamlit import caching
 from typing import Union, List
 
 
@@ -335,9 +336,10 @@ def calc_stats(cat: str):
 
                             # Extract value.
                             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                                val = float(ds_stat_hor[var_or_idx].sum() / (hor[1] - hor[0] + 1))
+                                val = ds_stat_hor.sum() / (hor[1] - hor[0] + 1)
                             else:
-                                val = float(ds_stat_hor[var_or_idx].mean())
+                                val = ds_stat_hor.mean()
+                            val = float(val[var_or_idx])
 
                             # Add row.
                             stn_list.append(stn)
@@ -348,6 +350,10 @@ def calc_stats(cat: str):
                             stat_list.append(stat)
                             q_list.append(str(q))
                             val_list.append(round(val, 6))
+
+                            # Clearing cache.
+                            # This is an ugly patch. Otherwise, the value of 'val' is incorrect.
+                            caching.clear_cache()
 
             # Save results.
             if len(stn_list) > 0:
