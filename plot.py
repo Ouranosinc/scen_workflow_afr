@@ -1251,16 +1251,22 @@ def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_ty
         f.set_size_inches(12, 3)
         plt.subplots_adjust(top=0.93, bottom=0.13, left=0.04, right=0.99, hspace=0.10, wspace=0.10)
 
+    # Select colors.
+    col_2cla = cfg.col_2cla_tas
+    if var == cfg.var_cordex_pr:
+        col_2cla = cfg.col_2cla_pr
+
+    # Draw areas.
     if plt_type == 1:
         ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
         ax.fill_between(np.array(range(1, n + 1)), list(ds_list[0][var].values), list(ds_list[2][var].values),
-                        color=cfg.col_above_mean, alpha=1.0)
+                        color=col_2cla[1], alpha=1.0)
         ax.fill_between(np.array(range(1, n + 1)), list(ds_list[0][var].values), list(ds_list[1][var].values),
-                        color=cfg.col_below_mean, alpha=1.0)
+                        color=col_2cla[0], alpha=1.0)
     else:
         bar_width = 1.0
-        plt.bar(range(1, n + 1), list(ds_list[2][var].values), width=bar_width, color=cfg.col_above_mean)
-        plt.bar(range(1, n + 1), list(ds_list[0][var].values), width=bar_width, color=cfg.col_below_mean)
+        plt.bar(range(1, n + 1), list(ds_list[2][var].values), width=bar_width, color=col_2cla)
+        plt.bar(range(1, n + 1), list(ds_list[0][var].values), width=bar_width, color=col_2cla)
         plt.bar(range(1, n + 1), list(ds_list[1][var].values), width=bar_width, color="white")
         ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
         y_lim_lower = min(list(ds_list[1][var].values))

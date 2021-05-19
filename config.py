@@ -412,12 +412,13 @@ col_ref             = "black"           # Reference period.
 col_rcp26           = "blue"            # RCP 2.6.
 col_rcp45           = "green"           # RCP 4.5.
 col_rcp85           = "red"             # RCP 8.5.
-col_below_mean      = "cornflowerblue"  # Zone between mean and maximum values (in a time series).
-col_above_mean      = "indianred"       # Zone between mean and minimum values (in a time series).
+col_2cla_tas        = ["cornflowerblue", "indianred"]  # Colors low/hi values (temperature).
+col_2cla_pr         = ["darkgoldenrod", "g"]           # Colors low/hi values (precipitation).
 col_map_wind        = "RdBu_r"          # Color scale in heat maps involving wind.
 col_map_water       = "Blues"           # Color scale in heat maps involving water.
 col_map_dry         = "Oranges"         # Color scale in heat maps involving dryness.
 col_map_default     = "viridis"         # Color scale in other heat maps.
+
 
 def get_rank_inst():
 

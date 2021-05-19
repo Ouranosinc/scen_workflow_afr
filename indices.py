@@ -1340,7 +1340,7 @@ def run():
     # Plots ------------------------------------------------------------------------------------------------------------
 
     utils.log("=")
-    msg = "Step #8   Generating diagrams and maps (indices)"
+    msg = "Step #8   Generating plots and maps (indices)"
     if cfg.opt_plot[1] or cfg.opt_map[1]:
         utils.log(msg)
     else:
