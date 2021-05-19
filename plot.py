@@ -1334,11 +1334,12 @@ def plot_boxplot(ds: xr.Dataset, var: str, title: str, p_fig: str):
     plt.xlabel("Mois", fontsize=fs)
     plt.ylabel(var_desc + " (" + var_unit + ")", fontsize=fs)
     plt.setp(bp["medians"], color="black")
-    plt.show()
+    plt.show(block=False)
 
     # Save plot.
     if p_fig != "":
         utils.save_plot(plt, p_fig)
 
     # Close plot.
-    plt.close()
+    plt.close("all")
+
