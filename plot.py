@@ -1187,7 +1187,7 @@ def plot_ts_mosaic(stn: str, var: str):
 
         # Format.
         plt.xlabel("", fontsize=fs_axes)
-        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.ylabel(var_desc + " (" + var_unit + ")", fontsize=fs_axes)
         title = os.path.basename(p_list[i]).replace(cfg.f_ext_nc, "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
@@ -1285,6 +1285,56 @@ def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_ty
 
     # Format.
     plt.legend(["Moyenne", ">Moyenne", "<Moyenne"], fontsize=fs_legend)
+
+    # Save plot.
+    if p_fig != "":
+        utils.save_plot(plt, p_fig)
+
+    # Close plot.
+    plt.close()
+
+
+def plot_boxplot(ds: xr.Dataset, var: str, title: str, p_fig: str):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Verify all simulations (all in one plot).
+
+    Parameters:
+    ----------
+    ds_list: xr.Dataset
+        Dataset (2D: month and year).
+    var: str
+        Weather variable.
+    title: str
+        Plot title.
+    p_fig: str
+        Path of figure
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Weather variable description and unit.
+    var_desc = cfg.get_desc(var)
+    var_unit = cfg.get_unit(var)
+
+    # Collect data.
+    data = []
+    for m in range(1, 13):
+        data.append(ds[var].values[m - 1])
+
+    # Draw.
+    fig, ax = plt.subplots()
+    bp = ax.boxplot(data, showfliers=False)
+
+    # Format.
+    fs = 10
+    plt.title(title, fontsize=fs, family=cfg.font_family)
+    plt.xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+               ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"], rotation=0, family=cfg.font_family)
+    plt.xlabel("Mois", fontsize=fs, family=cfg.font_family)
+    plt.ylabel(var_desc + " (" + var_unit + ")", fontsize=fs, family=cfg.font_family)
+    plt.setp(bp["medians"], color="black")
+    plt.show()
 
     # Save plot.
     if p_fig != "":

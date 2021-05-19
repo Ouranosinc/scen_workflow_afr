@@ -654,7 +654,7 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
     return ds_mean_min_max
 
 
-def calc_mean_min_max_freq(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
+def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -685,30 +685,52 @@ def calc_mean_min_max_freq(ds: xr.Dataset, var: str, freq: str) -> List[xr.Datas
     # Grouping frequency.
     freq_str = "time.month" if freq == cfg.freq_MS else "time.dayofyear"
     time_str = "M" if freq == cfg.freq_MS else "1D"
+
     # Summarize data per month.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
         da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            da_mean = da_m.resample(time=time_str).sum().groupby(freq_str).mean()
-            da_min  = da_m.resample(time=time_str).sum().groupby(freq_str).min()
-            da_max  = da_m.resample(time=time_str).sum().groupby(freq_str).max()
-        else:
-            da_mean = da_m.resample(time=time_str).mean().groupby(freq_str).mean()
-            da_min  = da_m.resample(time=time_str).mean().groupby(freq_str).min()
-            da_max  = da_m.resample(time=time_str).mean().groupby(freq_str).max()
+        if freq != cfg.freq_MS:
 
-    # Create dataset
-    da_mean.name = da_min.name = da_max.name = var
-    for i in range(3):
-        if i == 0:
-            ds_m = da_mean.to_dataset()
-        elif i == 1:
-            ds_m = da_min.to_dataset()
+            # Extract values.
+            if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                da_mean = da_m.resample(time=time_str).sum().groupby(freq_str).mean()
+                da_min  = da_m.resample(time=time_str).sum().groupby(freq_str).min()
+                da_max  = da_m.resample(time=time_str).sum().groupby(freq_str).max()
+            else:
+                da_mean = da_m.resample(time=time_str).mean().groupby(freq_str).mean()
+                da_min  = da_m.resample(time=time_str).mean().groupby(freq_str).min()
+                da_max  = da_m.resample(time=time_str).mean().groupby(freq_str).max()
+
+            # Create dataset
+            da_mean.name = da_min.name = da_max.name = var
+            for i in range(3):
+                if i == 0:
+                    ds_m = da_mean.to_dataset()
+                elif i == 1:
+                    ds_m = da_min.to_dataset()
+                else:
+                    ds_m = da_max.to_dataset()
+                ds_m[var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
+                ds_list.append(ds_m)
+
         else:
-            ds_m = da_max.to_dataset()
-        ds_m[var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
-        ds_list.append(ds_m)
+
+            # Extract values.
+            arr_all = []
+            for m in range(1, 13):
+                if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                    vals_m = list(da_m[da_m["time.month"] == m].resample(time="ys").sum().values)
+                else:
+                    vals_m = list(da_m[da_m["time.month"] == m].resample(time="ys").mean().values)
+
+                arr_all.append(vals_m)
+
+            # Create dataset.
+            dict_pd = {var: arr_all}
+            df = pd.DataFrame(dict_pd)
+            ds_list = df.to_xarray()
+            ds_list.attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
 
     return ds_list
 
