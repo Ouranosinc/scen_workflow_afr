@@ -1328,11 +1328,11 @@ def plot_boxplot(ds: xr.Dataset, var: str, title: str, p_fig: str):
 
     # Format.
     fs = 10
-    plt.title(title, fontsize=fs, family=cfg.font_family)
+    plt.title(title, fontsize=fs)
     plt.xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-               ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"], rotation=0, family=cfg.font_family)
-    plt.xlabel("Mois", fontsize=fs, family=cfg.font_family)
-    plt.ylabel(var_desc + " (" + var_unit + ")", fontsize=fs, family=cfg.font_family)
+               ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"], rotation=0)
+    plt.xlabel("Mois", fontsize=fs)
+    plt.ylabel(var_desc + " (" + var_unit + ")", fontsize=fs)
     plt.setp(bp["medians"], color="black")
     plt.show()
 

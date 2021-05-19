@@ -401,7 +401,6 @@ opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
 opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).
 opt_map_res           = -1              # Map resolution.
-font_family           = "Arial"         # Font family.
 
 # Color associated with specific datasets (for consistency).
 col_sim_adj_ref     = "blue"            # Simulation (bias-adjusted) for the reference period.
