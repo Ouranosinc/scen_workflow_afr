@@ -815,8 +815,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
                                       cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
                                       cmap=cmap, vmin=vmin, vmax=vmax)
-            if (z_min is not None) and (z_max is not None):
-                mesh.set_clim(z_min, z_max)
+            # if (z_min is not None) and (z_max is not None):
+            #     mesh.set_clim(vmin, vmax)
             plt.title(title, fontsize=fs_sup_title)
             plt.suptitle("")
             plt.xlabel("Longitude (º)", fontsize=fs)
