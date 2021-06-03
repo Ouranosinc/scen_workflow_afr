@@ -9,6 +9,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
+import math
 import matplotlib.cbook
 import matplotlib.cm
 import matplotlib.colors as colors
@@ -678,8 +679,7 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # ======================================================================================================================
 
 def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [float], grid_y: [float], rcp: str,
-                 per: [int, int], stat: str, q: float, z_min: float, z_max: float, is_delta: bool, p_fig: str,
-                 map_package: str):
+                 per: [int, int], stat: str, q: float, z_min: float, z_max: float, is_delta: bool, p_fig: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -714,11 +714,21 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         If true, indicates that 'da' corresponds to delta values.
     p_fig : str
         Path of output figure.
-    map_package: str
-        Map package: {"seaborn", "matplotlib"}
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Hardcoded parameters.
+    # Font size.
+    fs_title      = 8
+    fs_labels     = 10
+    fs_ticks      = 10
+    fs_ticks_cbar = 12
+    # Resolution.
+    dpi = 300
+    # Number of clusters (for discrete color scale).
+    n_cluster = 10
+
+    # Extract variable name.
     var_or_idx = var_or_idx_code if var_or_idx_code in cfg.variables_cordex else cfg.extract_idx(var_or_idx_code)
 
     # Export to GeoTIFF.
@@ -757,77 +767,118 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         title = cfg.get_plot_title(stn, var_or_idx_code, rcp, per, stat, q) + (" (delta)" if is_delta else "")
         label = cfg.get_plot_ylabel(var_or_idx)
 
-        plt.subplots_adjust(top=0.9, bottom=0.11, left=0.12, right=0.995, hspace=0.695, wspace=0.416)
-
-        # Using seaborn.
-        if map_package == "seaborn":
-            sns.set()
-            fig, ax = plt.subplots(figsize=(8, 5))
-            g = sns.heatmap(ax=ax, data=da, xticklabels=grid_x, yticklabels=grid_y)
-            if grid_x is not None:
-                x_labels = ['{:,.2f}'.format(i) for i in grid_x]
-                g.set_xticklabels(x_labels)
-            if grid_y is not None:
-                y_labels = ['{:,.2f}'.format(i) for i in grid_y]
-                g.set_yticklabels(y_labels)
-
-        # Using matplotlib.
-        elif map_package == "matplotlib":
-
-            # Fonts.
-            fs           = 10
-            fs_sup_title = 9
-
-            # Color mesh.
-            if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
-                cmap = matplotlib.cm.get_cmap(cfg.col_map_negpos_def + "_r")
-            else:
-                if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
-                                  cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty,
-                                  cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rx1day, cfg.idx_rx5day,
-                                  cfg.idx_sdii, cfg.idx_wetdays]:
-                    if not is_delta:
-                        cmap = cfg.col_map_water
-                    else:
-                        cmap = cfg.col_map_negpos_veg
-                elif var_or_idx in [cfg.idx_drydurtot, cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc]:
-                    if not is_delta:
-                        cmap = cfg.col_map_dry
-                    else:
-                        cmap = matplotlib.cm.get_cmap(cfg.col_map_negpos_veg + "_r")
-                elif (not is_delta) and (var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]):
-                    cmap = matplotlib.cm.get_cmap(cfg.col_map_def + "_r")
+        # Determine color scale.
+        if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
+            cmap_name = cfg.col_map_negpos_def + "_r"
+        else:
+            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
+                              cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty,
+                              cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rx1day, cfg.idx_rx5day,
+                              cfg.idx_sdii, cfg.idx_wetdays]:
+                if not is_delta:
+                    cmap_name = cfg.col_map_water
                 else:
-                    if not is_delta:
-                        cmap = cfg.col_map_def
-                    else:
-                        cmap = matplotlib.cm.get_cmap(cfg.col_map_negpos_def + "_r")
-
-            # Adjust minimum and maximum values, if necessary.
-            if (var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]) or is_delta:
-                vmax_abs = max(abs(z_min), abs(z_max))
-                vmin = -vmax_abs
-                vmax = vmax_abs
+                    cmap_name = cfg.col_map_negpos_veg
+            elif var_or_idx in [cfg.idx_drydurtot, cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc]:
+                if not is_delta:
+                    cmap_name = cfg.col_map_dry
+                else:
+                    cmap_name = cfg.col_map_negpos_veg + "_r"
+            elif (not is_delta) and (var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]):
+                cmap_name = cfg.col_map_def + "_r"
             else:
-                vmin = z_min
-                vmax = z_max
+                if not is_delta:
+                    cmap_name = cfg.col_map_def
+                else:
+                    cmap_name = cfg.col_map_negpos_def + "_r"
 
-            mesh = da.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                                      cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
-                                      cmap=cmap, vmin=vmin, vmax=vmax)
-            # if (z_min is not None) and (z_max is not None):
-            #     mesh.set_clim(vmin, vmax)
-            plt.title(title, fontsize=fs_sup_title)
-            plt.suptitle("")
-            plt.xlabel("Longitude (º)", fontsize=fs)
-            plt.ylabel("Latitude (º)", fontsize=fs)
-            plt.tick_params(axis="x", labelsize=fs)
-            plt.tick_params(axis="y", labelsize=fs)
-            plt.xlim(cfg.lon_bnds)
-            plt.ylim(cfg.lat_bnds)
+        # Adjust minimum and maximum values so that zero is attributed the intermediate color in a scale.
+        if (var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]) or is_delta:
+            vmax_abs = max(abs(z_min), abs(z_max))
+            vmin = -vmax_abs
+            vmax = vmax_abs
+        else:
+            vmin = z_min
+            vmax = z_max
 
-            # Draw region boundary.
-            draw_region_boundary(mesh.axes)
+        if cfg.opt_map_discrete:
+
+            is_tas =\
+                (not is_delta) and (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])
+            vrange = vmax - vmin
+
+            # Round to nearest 1.
+            if ((vrange >= 10) and not is_delta) or (vrange >= 20) or is_tas:
+                vmin = math.floor(vmin)
+                vmax = math.ceil(vmax)
+                n_dec = 0
+                if is_tas:
+                    n_cluster = vmax - vmin
+            # Round to nearest 0.5.
+            elif ((vrange >= 5) and not is_delta) or (vrange >= 10):
+                vmin = round(vmin*2)/2
+                vmax = round(vmax*2)/2
+                n_dec = 1
+            # Round to nearest 0.25.
+            elif ((vrange >= 2.5) and not is_delta) or (vrange >= 5):
+                vmin = round(vmin*4)/4
+                vmax = round(vmax*4)/4
+                n_dec = 2
+            # Round to nearest 0.10.
+            elif ((vrange >= 1.0) and not is_delta) or (vrange >= 2):
+                vmin = round(vmin*10)/10
+                vmax = round(vmax*10)/10
+                n_dec = 2
+            # Round to nearest 0.01.
+            elif ((vrange >= 0.1) and not is_delta) or (vrange >= 0.2):
+                vmin = round(vmin*100)/100
+                vmax = round(vmax*100)/100
+                n_dec = 3
+            # Round to nearest 0.001.
+            else:
+                vmin = round(vmin*1000)/1000
+                vmax = round(vmax*1000)/1000
+                n_dec = 4
+
+            # Transform color scale into a discrete format.
+            cmap = plt.cm.get_cmap(cmap_name, n_cluster)
+
+            # Calculate ticks.
+            ticks = None
+            if cfg.opt_map_discrete:
+                ticks = []
+                for i in range(n_cluster + 1):
+                    tick = i / float(n_cluster) * (vmax - vmin) + vmin
+                    tick = round(tick, n_dec)
+                    ticks.append(tick)
+
+        # Create figure.
+        plt.figure(figsize=(4.5, 4), dpi=dpi)
+        plt.subplots_adjust(top=0.92, bottom=0.145, left=0.14, right=0.80, hspace=0.0, wspace=0.05)
+
+        # Add mesh.
+        gs = matplotlib.gridspec.GridSpec(1, 2, width_ratios=[20, 1])
+        ax = plt.subplot(gs[0])
+        cbar_ax = plt.subplot(gs[1])
+        da.plot.pcolormesh(ax=ax, cbar_ax=cbar_ax, add_colorbar=True, add_labels=True,
+                           cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label, ticks=ticks),
+                           cmap=cmap, vmin=vmin, vmax=vmax)
+
+        # Format.
+        ax.set_title(title, fontsize=fs_title)
+        ax.set_xlabel("Longitude (º)", fontsize=fs_labels)
+        ax.set_ylabel("Latitude (º)", fontsize=fs_labels)
+        ax.tick_params(axis="x", labelsize=fs_ticks)
+        ax.tick_params(axis="y", labelsize=fs_ticks)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            ax.set_xticklabels(list(da.longitude.values), rotation=90)
+            ax.set_yticklabels(list(da.latitude.values), rotation=0)
+        cbar_ax.tick_params(labelsize=fs_ticks_cbar)
+        cbar_ax.set_ylabel(label, fontsize=fs_labels)
+
+        # Draw region boundary.
+        draw_region_boundary(ax)
 
         # Save figure.
         if p_fig != "":
@@ -851,11 +902,10 @@ def draw_region_boundary(ax):
 
     def configure_plot(ax):
 
-        fig = pyplot.figure(1, figsize=(10, 4), dpi=180)
         ax.set_aspect("equal")
         ax.set_anchor("C")
 
-        return fig, ax
+        return ax
 
     def set_plot_extent(ax, vertices):
 
@@ -888,7 +938,7 @@ def draw_region_boundary(ax):
         pydata = simplejson.load(f)
 
     # Draw feature.
-    fig, myplot = configure_plot(ax)
+    myplot = configure_plot(ax)
     coordinates = pydata["features"][0]["geometry"]["coordinates"][0]
     vertices = coordinates[0]
     if len(vertices) == 2:

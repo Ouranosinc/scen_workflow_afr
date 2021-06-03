@@ -105,5 +105,10 @@ The following features were implemented:
   argument is 'tot' (total mode);
 - changed the color scale of dryness-related indices to tones of oranges.
 
+### v1.3.1
+
+The following features were implemented:
+- now using a unique color scale for a variable, no matter the statistic, horizon and period. 
+
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

@@ -239,12 +239,16 @@ def load_params(p_ini: str):
                     cfg.opt_map_delta = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_map_quantiles":
                 cfg.opt_map_quantiles = convert_to_1d(value, float)
+                if str(cfg.opt_map_quantiles).replace("['']", "") == "":
+                    cfg.opt_map_quantiles = None
             elif key == "opt_map_formats":
                 cfg.opt_map_formats = convert_to_1d(value, str)
             elif key == "opt_map_spat_ref":
                 cfg.opt_map_spat_ref = ast.literal_eval(value)
             elif key == "opt_map_res":
                 cfg.opt_map_res = ast.literal_eval(value)
+            elif key == "opt_map_discrete":
+                cfg.opt_map_discrete = ast.literal_eval(value)
 
             # ENVIRONMENT:
             elif key == "n_proc":

@@ -1363,19 +1363,15 @@ def run():
     if cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1]):
         utils.log(msg)
 
-        # Build arrays for statistics to calculate.
-        arr_stat = [cfg.stat_mean]
-        arr_q = [-1]
-        if cfg.opt_map_quantiles is not None:
-            arr_stat = arr_stat + ([cfg.stat_quantile] * len(cfg.opt_map_quantiles))
-            arr_q = arr_q + cfg.opt_map_quantiles
-
         # Loop through indices.
         for i in range(len(cfg.idx_codes)):
 
-            # Loop through statistics.
-            for j in range(len(arr_stat)):
-                statistics.calc_heatmap(cfg.idx_codes[i], arr_stat[j], arr_q[j])
+            # Generate maps (all horizons).
+            statistics.calc_heatmap(cfg.idx_codes[i])
+
+            # Generate maps (per horizon).
+            for j in range(len(cfg.per_hors)):
+                statistics.calc_heatmap(cfg.idx_codes[i], cfg.per_hors[j])
 
     else:
         utils.log(msg + " (not required)")

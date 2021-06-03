@@ -401,6 +401,7 @@ opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
 opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).
 opt_map_res           = -1              # Map resolution.
+opt_map_discrete    = False             # If true, discrete color scale in maps (rather than continuous).
 
 # Color associated with specific datasets (for consistency).
 col_sim_adj_ref     = "blue"            # Simulation (bias-adjusted) for the reference period.
