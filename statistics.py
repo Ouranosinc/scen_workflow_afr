@@ -881,7 +881,7 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
 
             # Path.
             d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code) +\
-                "all/" if (per_hor_forced is None) else per_hor_forced
+                "all/" if (per_hor_forced is None) else (str(per_hor_forced[0]) + "_" + str(per_hor_forced[1]))
             if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
                 stat_str = "_" + stat
             else:
