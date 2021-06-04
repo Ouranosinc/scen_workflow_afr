@@ -881,7 +881,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             ax.set_yticklabels(list(da.latitude.values), rotation=0)
         cbar_ax.tick_params(labelsize=fs_ticks_cbar, length=0)
         cbar_ax.set_ylabel(label, fontsize=fs_labels)
-        cbar_ax.set_yticklabels(str_ticks)
+        if cfg.opt_map_discrete:
+            cbar_ax.set_yticklabels(str_ticks)
 
         # Draw region boundary.
         draw_region_boundary(ax)
