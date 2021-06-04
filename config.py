@@ -415,11 +415,15 @@ col_rcp45           = "green"           # RCP 4.5.
 col_rcp85           = "red"             # RCP 8.5.
 col_2cla_tas        = ["cornflowerblue", "indianred"]  # Colors low/hi values (temperature).
 col_2cla_pr         = ["darkgoldenrod", "g"]           # Colors low/hi values (precipitation).
-col_map_negpos_def  = "RdBu"            # Color scale in heat maps (default).
-col_map_negpos_veg  = "BrBG"            # Color scale in heat maps (vegetation).
+col_map_negpos_def  = "RdBu"            # Color scale in heat maps (default; positive and negative values).
+col_map_neg_def     = "Blues"           # Color scale in heat maps (default; negative values).
+col_map_pos_def     = "Reds"            # Color scale in heat maps (default; positive values).
+col_map_negpos_veg  = "BrBG"            # Color scale in heat maps (vegetation; positive and negative values).
+col_map_neg_veg     = "Browns"          # Color scale in heat maps (vegetation; positive and negative values).
+col_map_pos_veg     = "Greens"          # Color scale in heat maps (vegetation; positive and negative values).
 col_map_water       = "Blues"           # Color scale in heat maps involving water.
 col_map_dry         = "Oranges"         # Color scale in heat maps involving dryness.
-col_map_def         = "viridis"         # Color scale in other heat maps.
+col_map_def         = "plasma"         # Color scale in other heat maps.
 
 
 def get_rank_inst():

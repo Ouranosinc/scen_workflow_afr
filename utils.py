@@ -15,6 +15,7 @@ import glob
 import logging
 import math
 import matplotlib.pyplot
+import matplotlib.colors as colors
 import numpy as np
 import os
 import pandas as pd

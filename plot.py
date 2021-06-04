@@ -718,17 +718,19 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
     """
 
     # Hardcoded parameters.
+    # Number of clusters (for discrete color scale).
+    n_cluster = 10
+    # Maximum number of decimal places for colorbar ticks.
+    n_dec_max = 4
     # Font size.
     fs_title      = 8
     fs_labels     = 10
     fs_ticks      = 10
     fs_ticks_cbar = 10
+    if is_delta:
+        fs_ticks_cbar = fs_ticks_cbar - 1
     # Resolution.
     dpi = 300
-    # Number of clusters (for discrete color scale).
-    n_cluster = 10 * (2 if is_delta else 1)
-    # Maximum number of decimal places for colorbar ticks.
-    n_dec_max = 4
 
     # Extract variable name.
     var_or_idx = var_or_idx_code if var_or_idx_code in cfg.variables_cordex else cfg.extract_idx(var_or_idx_code)
@@ -794,20 +796,37 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
                 else:
                     cmap_name = cfg.col_map_negpos_def + "_r"
 
-        # Adjust minimum and maximum values so that zero is attributed the intermediate color in a scale.
-        if (var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]) or is_delta:
+        # Adjust minimum and maximum values so that zero is attributed the intermediate color in a scale or
+        # use only the positive or negative side of the color scale if the other part is not required.
+        if (z_min < 0) and (z_max > 0):
             vmax_abs = max(abs(z_min), abs(z_max))
             vmin = -vmax_abs
             vmax = vmax_abs
+            n_cluster = n_cluster * 2
         else:
+            if (z_min >= 0) and (z_max >= 0):
+                if cmap_name == cfg.col_map_negpos_def + "_r":
+                    cmap_name = cfg.col_map_pos_def
+                elif cmap_name == cfg.col_map_negpos_veg + "_r":
+                    cmap_name = cfg.col_map_pos_veg
+            else:
+                if cmap_name == cfg.col_map_negpos_def + "_r":
+                    cmap_name = cfg.col_map_neg_def
+                elif cmap_name == cfg.col_map_negpos_veg + "_r":
+                    cmap_name = cfg.col_map_neg_veg
             vmin = z_min
             vmax = z_max
 
         ticks = None
+        str_ticks = None
         if cfg.opt_map_discrete:
 
             # Transform color scale into a discrete format.
-            cmap = plt.cm.get_cmap(cmap_name, n_cluster)
+
+            if cmap_name == "Browns":
+                cmap = get_cmap_custom(["#ffffff", "#662506"])
+            else:
+                cmap = plt.cm.get_cmap(cmap_name, n_cluster)
 
             # Loop through potential numbers of decimal places.
             for n_dec in range(0, n_dec_max):
@@ -815,14 +834,15 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
                 # Loop through ticks.
                 unique_ticks = True
                 ticks = []
+                str_ticks = []
                 for i in range(n_cluster + 1):
                     tick = i / float(n_cluster) * (vmax - vmin) + vmin
-                    tick = round(tick, n_dec)
                     ticks.append(tick)
+                    str_ticks.append(str(round(tick, n_dec)))
 
-                    # Two consecutive ticks have the same value.
+                    # Two consecutive rounded tick labels are equal.
                     if i > 0:
-                        if ticks[i - 1] == ticks[i]:
+                        if str_ticks[i - 1] == str_ticks[i]:
                             unique_ticks = False
 
                 # Stop loop if all ticks are unique.
@@ -853,14 +873,15 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         ax.set_title(title, fontsize=fs_title)
         ax.set_xlabel("Longitude (º)", fontsize=fs_labels)
         ax.set_ylabel("Latitude (º)", fontsize=fs_labels)
-        ax.tick_params(axis="x", labelsize=fs_ticks)
-        ax.tick_params(axis="y", labelsize=fs_ticks)
+        ax.tick_params(axis="x", labelsize=fs_ticks, length=0)
+        ax.tick_params(axis="y", labelsize=fs_ticks, length=0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
             ax.set_xticklabels(list(da.longitude.values), rotation=90)
             ax.set_yticklabels(list(da.latitude.values), rotation=0)
-        cbar_ax.tick_params(labelsize=fs_ticks_cbar)
+        cbar_ax.tick_params(labelsize=fs_ticks_cbar, length=0)
         cbar_ax.set_ylabel(label, fontsize=fs_labels)
+        cbar_ax.set_yticklabels(str_ticks)
 
         # Draw region boundary.
         draw_region_boundary(ax)
@@ -931,6 +952,85 @@ def draw_region_boundary(ax):
         vertices = coordinates[0]
     set_plot_extent(myplot, vertices)
     plot_feature(coordinates, myplot)
+
+
+def hex_to_rgb(value):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Converts hex to RGB colours
+
+    Parameters
+    ----------
+    value: str
+        String of 6 characters representing a hex colour.
+
+    Returns
+    -------
+        list of 3 RGB values
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    value = value.strip("#")
+    lv = len(value)
+
+    return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+
+
+def rgb_to_dec(value):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Converts RGB to decimal colours (i.e. divides each value by 256)
+
+    Parameters
+    ----------
+    value: [int]
+        List of 3 RGB values.
+
+    Returns
+    -------
+        List of 3 decimal values.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    return [v/256 for v in value]
+
+
+def get_cmap_custom(hex_list, float_list=None):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Create a color map that can be used in heat map figures.
+    If float_list is not provided, colour map graduates linearly between each color in hex_list.
+    If float_list is provided, each color in hex_list is mapped to the respective location in float_list.
+
+    Parameters
+    ----------
+    hex_list: [str]
+        List of hex code strings.
+    float_list: [float]
+        List of floats between 0 and 1, same length as hex_list. Must start with 0 and end with 1.
+
+    Returns
+    -------
+        Colour map.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
+    if float_list:
+        pass
+    else:
+        float_list = list(np.linspace(0, 1, len(rgb_list)))
+
+    cdict = dict()
+    for num, col in enumerate(['red', 'green', 'blue']):
+        col_list = [[float_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(float_list))]
+        cdict[col] = col_list
+    cmp = colors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
+
+    return cmp
 
 
 def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
