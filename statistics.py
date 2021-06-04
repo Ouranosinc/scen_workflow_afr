@@ -794,7 +794,7 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
             if j == 0:
                 per_hors = [cfg.per_ref]
             elif per_hor_forced is not None:
-                per_hors = [per_hor_forced]
+                per_hors = [cfg.per_ref, per_hor_forced]
             else:
                 per_hors = cfg.per_hors
             for per_hor in per_hors:

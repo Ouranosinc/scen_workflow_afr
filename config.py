@@ -675,6 +675,8 @@ def get_plot_title(stn: str, var_or_idx_code: str, rcp: str = None, per: [int] =
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    var_or_idx = var_or_idx_code if var_or_idx_code in variables_cordex else extract_idx(var_or_idx_code)
+
     # Format items.
     stn_str = (str.upper(stn).replace("_", "") if opt_ra else stn.capitalize())
     rcp_str = ("" if rcp is None else
@@ -689,7 +691,7 @@ def get_plot_title(stn: str, var_or_idx_code: str, rcp: str = None, per: [int] =
         else:
             stat_str = ", q" + str(int(q * 100)).rjust(2, "0")
 
-    title = get_desc(var_or_idx_code) + "\n(" + stn_str + rcp_str + per_str + stat_str + ")"
+    title = var_or_idx + "\n" + stn_str + rcp_str + per_str + stat_str
 
     return title
 

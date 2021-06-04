@@ -722,11 +722,13 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
     fs_title      = 8
     fs_labels     = 10
     fs_ticks      = 10
-    fs_ticks_cbar = 12
+    fs_ticks_cbar = 10
     # Resolution.
     dpi = 300
     # Number of clusters (for discrete color scale).
     n_cluster = 10 * (2 if is_delta else 1)
+    # Maximum number of decimal places for colorbar ticks.
+    n_dec_max = 4
 
     # Extract variable name.
     var_or_idx = var_or_idx_code if var_or_idx_code in cfg.variables_cordex else cfg.extract_idx(var_or_idx_code)
@@ -800,55 +802,40 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         else:
             vmin = z_min
             vmax = z_max
-        vrange = vmax - vmin
 
+        ticks = None
         if cfg.opt_map_discrete:
-
-            # Round to nearest 1.
-            if vrange >= n_cluster:
-                vmin = math.floor(vmin)
-                vmax = math.ceil(vmax)
-                if vrange >= 10 * n_cluster:
-                    n_dec = 0
-                else:
-                    n_dec = 1
-            # Round to nearest 0.5.
-            elif vrange >= n_cluster / 2:
-                vmin = round(vmin*2)/2
-                vmax = round(vmax*2)/2
-                n_dec = 1
-            # Round to nearest 0.25.
-            elif vrange >= n_cluster / 4:
-                vmin = round(vmin*4)/4
-                vmax = round(vmax*4)/4
-                n_dec = 2
-            # Round to nearest 0.10.
-            elif vrange >= n_cluster / 10:
-                vmin = round(vmin*10)/10
-                vmax = round(vmax*10)/10
-                n_dec = 2
-            # Round to nearest 0.01.
-            elif vrange >= n_cluster / 100:
-                vmin = round(vmin*100)/100
-                vmax = round(vmax*100)/100
-                n_dec = 3
-            # Round to nearest 0.001.
-            else:
-                vmin = round(vmin*1000)/1000
-                vmax = round(vmax*1000)/1000
-                n_dec = 4
 
             # Transform color scale into a discrete format.
             cmap = plt.cm.get_cmap(cmap_name, n_cluster)
 
-            # Calculate ticks.
-            ticks = None
-            if cfg.opt_map_discrete:
+            # Loop through potential numbers of decimal places.
+            for n_dec in range(0, n_dec_max):
+
+                # Loop through ticks.
+                unique_ticks = True
                 ticks = []
                 for i in range(n_cluster + 1):
                     tick = i / float(n_cluster) * (vmax - vmin) + vmin
                     tick = round(tick, n_dec)
                     ticks.append(tick)
+
+                    # Two consecutive ticks have the same value.
+                    if i > 0:
+                        if ticks[i - 1] == ticks[i]:
+                            unique_ticks = False
+
+                # Stop loop if all ticks are unique.
+                if unique_ticks or (n_dec == n_dec_max):
+                    break
+
+        # Adjust minimum and maximum values.
+        if ticks is None:
+            vmin_adj = vmin
+            vmax_adj = vmax
+        else:
+            vmin_adj = ticks[0]
+            vmax_adj = ticks[n_cluster]
 
         # Create figure.
         plt.figure(figsize=(4.5, 4), dpi=dpi)
@@ -860,7 +847,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         cbar_ax = plt.subplot(gs[1])
         da.plot.pcolormesh(ax=ax, cbar_ax=cbar_ax, add_colorbar=True, add_labels=True,
                            cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label, ticks=ticks),
-                           cmap=cmap, vmin=vmin, vmax=vmax)
+                           cmap=cmap, vmin=vmin_adj, vmax=vmax_adj)
 
         # Format.
         ax.set_title(title, fontsize=fs_title)
