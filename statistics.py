@@ -906,7 +906,7 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
             # CSV files ------------------------------------------------------------------------------------------------
 
             # Path.
-            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "/" + per_str + "_csv")
+            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "_csv" + "/" + per_str)
             fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
             p_csv = d_csv + fn_csv
             if j == 1:
