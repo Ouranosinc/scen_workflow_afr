@@ -726,7 +726,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
     # Resolution.
     dpi = 300
     # Number of clusters (for discrete color scale).
-    n_cluster = 10
+    n_cluster = 10 * (2 if is_delta else 1)
 
     # Extract variable name.
     var_or_idx = var_or_idx_code if var_or_idx_code in cfg.variables_cordex else cfg.extract_idx(var_or_idx_code)
@@ -800,37 +800,35 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         else:
             vmin = z_min
             vmax = z_max
+        vrange = vmax - vmin
 
         if cfg.opt_map_discrete:
 
-            is_tas =\
-                (not is_delta) and (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax])
-            vrange = vmax - vmin
-
             # Round to nearest 1.
-            if ((vrange >= 10) and not is_delta) or (vrange >= 20) or is_tas:
+            if vrange >= n_cluster:
                 vmin = math.floor(vmin)
                 vmax = math.ceil(vmax)
-                n_dec = 0
-                if is_tas:
-                    n_cluster = vmax - vmin
+                if vrange >= 10 * n_cluster:
+                    n_dec = 0
+                else:
+                    n_dec = 1
             # Round to nearest 0.5.
-            elif ((vrange >= 5) and not is_delta) or (vrange >= 10):
+            elif vrange >= n_cluster / 2:
                 vmin = round(vmin*2)/2
                 vmax = round(vmax*2)/2
                 n_dec = 1
             # Round to nearest 0.25.
-            elif ((vrange >= 2.5) and not is_delta) or (vrange >= 5):
+            elif vrange >= n_cluster / 4:
                 vmin = round(vmin*4)/4
                 vmax = round(vmax*4)/4
                 n_dec = 2
             # Round to nearest 0.10.
-            elif ((vrange >= 1.0) and not is_delta) or (vrange >= 2):
+            elif vrange >= n_cluster / 10:
                 vmin = round(vmin*10)/10
                 vmax = round(vmax*10)/10
                 n_dec = 2
             # Round to nearest 0.01.
-            elif ((vrange >= 0.1) and not is_delta) or (vrange >= 0.2):
+            elif vrange >= n_cluster / 100:
                 vmin = round(vmin*100)/100
                 vmax = round(vmax*100)/100
                 n_dec = 3

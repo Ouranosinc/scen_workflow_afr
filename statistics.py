@@ -754,7 +754,13 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
     var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.extract_idx(var_or_idx_code)
     rcps = [cfg.rcp_ref, cfg.rcp_xx] + cfg.rcps
 
-    utils.log("Calculating maps.", True)
+    if per_hor_forced is None:
+        per_str = str(cfg.per_ref[0]) + "-" + str(cfg.per_hors[len(cfg.per_hors) - 1][1])
+    else:
+        per_str = str(per_hor_forced[0]) + "-" + str(per_hor_forced[1])
+
+    msg = "Calculating maps (" + per_str + ")."
+    utils.log(msg, True)
 
     # Prepare data -----------------------------------------------------------------------------------------------------
 
@@ -877,11 +883,10 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
             else:
                 da_map = ds_map[var_or_idx] - ds_map_ref[var_or_idx]
 
-            # Plots ------------------------------------------------------------------------------------------------
+            # Plots ----------------------------------------------------------------------------------------------------
 
             # Path.
-            d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code) +\
-                "all/" if (per_hor_forced is None) else (str(per_hor_forced[0]) + "_" + str(per_hor_forced[1]))
+            d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps/" + per_str, var_or_idx_code)
             if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
                 stat_str = "_" + stat
             else:
@@ -898,10 +903,10 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
                 plot.plot_heatmap(da_map, stn, var_or_idx_code, grid_x, grid_y, rcp, per_hor, stat, q, z_min_map,
                                   z_max_map, j == 1, p_fig)
 
-            # CSV files --------------------------------------------------------------------------------------------
+            # CSV files ------------------------------------------------------------------------------------------------
 
             # Path.
-            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "_csv")
+            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps/" + per_str, var_or_idx_code + "_csv")
             fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
             p_csv = d_csv + fn_csv
             if j == 1:
