@@ -842,7 +842,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
                     if n_dec == 0:
                         str_ticks.append(str_tick)
                     else:
-                        str_ticks.append(str("{:." + str(n_dec) + "f}").format(str_tick))
+                        str_ticks.append(str("{:." + str(n_dec) + "f}").format(float(str_tick)))
 
                     # Two consecutive rounded tick labels are equal.
                     if i > 0:
