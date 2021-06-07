@@ -853,7 +853,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         ax = plt.subplot(gs[0])
         cbar_ax = plt.subplot(gs[1])
         da.plot.pcolormesh(ax=ax, cbar_ax=cbar_ax, add_colorbar=True, add_labels=True,
-                           cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
+                           cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label, ticks=ticks),
                            cmap=cmap, vmin=vmin_adj, vmax=vmax_adj)
 
         # Format.
@@ -902,7 +902,6 @@ def adjust_precision(vals: [float], n_dec_max: int = 4):
         str_vals = []
         for i in range(len(vals)):
             val = vals[i]
-            vals.append(val)
             if n_dec == 0:
                 str_val = str(int(round(val, n_dec)))
                 str_vals.append(str_val)
