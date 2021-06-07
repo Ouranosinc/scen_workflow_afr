@@ -853,21 +853,17 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         ax = plt.subplot(gs[0])
         cbar_ax = plt.subplot(gs[1])
         da.plot.pcolormesh(ax=ax, cbar_ax=cbar_ax, add_colorbar=True, add_labels=True,
-                           cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label, ticks=ticks),
+                           cbar_kwargs=dict(orientation='vertical', pad=0.05, label=label),
                            cmap=cmap, vmin=vmin_adj, vmax=vmax_adj)
 
         # Format.
         ax.set_title(title, fontsize=fs_title)
         ax.set_xlabel("Longitude (º)", fontsize=fs_labels)
         ax.set_ylabel("Latitude (º)", fontsize=fs_labels)
-        ax.tick_params(axis="x", labelsize=fs_ticks, length=0)
+        ax.tick_params(axis="x", labelsize=fs_ticks, length=0, rotation=90)
         ax.tick_params(axis="y", labelsize=fs_ticks, length=0)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            ax.set_xticklabels(adjust_precision(list(da.longitude.values)), rotation=90)
-            ax.set_yticklabels(adjust_precision(list(da.latitude.values)), rotation=0)
-        cbar_ax.tick_params(labelsize=fs_ticks_cbar, length=0)
         cbar_ax.set_ylabel(label, fontsize=fs_labels)
+        cbar_ax.tick_params(labelsize=fs_ticks_cbar, length=0)
         if cfg.opt_map_discrete:
             cbar_ax.set_yticklabels(str_ticks)
 
