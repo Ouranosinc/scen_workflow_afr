@@ -822,37 +822,19 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         if cfg.opt_map_discrete:
 
             # Transform color scale into a discrete format.
-
             if cmap_name == "Browns":
                 cmap = get_cmap_custom(["#ffffff", "#662506"])
             else:
                 cmap = plt.cm.get_cmap(cmap_name, n_cluster)
 
-            # Loop through potential numbers of decimal places.
-            for n_dec in range(0, n_dec_max):
+            # Calculate ticks.
+            ticks = []
+            for i in range(n_cluster + 1):
+                tick = i / float(n_cluster) * (vmax - vmin) + vmin
+                ticks.append(tick)
 
-                # Loop through ticks.
-                unique_ticks = True
-                ticks = []
-                str_ticks = []
-                for i in range(n_cluster + 1):
-                    tick = i / float(n_cluster) * (vmax - vmin) + vmin
-                    ticks.append(tick)
-                    if n_dec == 0:
-                        str_tick = str(int(round(tick, n_dec)))
-                        str_ticks.append(str_tick)
-                    else:
-                        str_tick = str(round(tick, n_dec))
-                        str_ticks.append(str("{:." + str(n_dec) + "f}").format(float(str_tick)))
-
-                    # Two consecutive rounded tick labels are equal.
-                    if i > 0:
-                        if str_ticks[i - 1] == str_ticks[i]:
-                            unique_ticks = False
-
-                # Stop loop if all ticks are unique.
-                if unique_ticks or (n_dec == n_dec_max):
-                    break
+            # Adjust tick precision.
+            str_ticks = adjust_precision(ticks, n_dec_max)
 
         # Adjust minimum and maximum values.
         if ticks is None:
@@ -882,8 +864,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         ax.tick_params(axis="y", labelsize=fs_ticks, length=0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
-            ax.set_xticklabels(list(da.longitude.values), rotation=90)
-            ax.set_yticklabels(list(da.latitude.values), rotation=0)
+            ax.set_xticklabels(adjust_precision(list(da.longitude.values)), rotation=90)
+            ax.set_yticklabels(adjust_precision(list(da.latitude.values)), rotation=0)
         cbar_ax.tick_params(labelsize=fs_ticks_cbar, length=0)
         cbar_ax.set_ylabel(label, fontsize=fs_labels)
         if cfg.opt_map_discrete:
@@ -897,6 +879,51 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             utils.save_plot(plt, p_fig)
 
         plt.close()
+
+
+def adjust_precision(vals: [float], n_dec_max: int = -4):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Adjust the precision of float values in a list so that each value is different than the following one.
+
+    Parameters
+    ----------
+    vals : [float]
+        List of values.
+    n_dec_max : int, optional
+        Maximum number of decimal places.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    str_vals = None
+
+    # Loop through potential numbers of decimal places.
+    for n_dec in range(0, n_dec_max):
+
+        # Loop through values.
+        unique_vals = True
+        str_vals = []
+        for i in range(len(vals)):
+            val = vals[i]
+            vals.append(val)
+            if n_dec == 0:
+                str_val = str(int(round(val, n_dec)))
+                str_vals.append(str_val)
+            else:
+                str_val = str(round(val, n_dec))
+                str_vals.append(str("{:." + str(n_dec) + "f}").format(float(str_val)))
+
+            # Two consecutive rounded values are equal.
+            if i > 0:
+                if str_vals[i - 1] == str_vals[i]:
+                    unique_vals = False
+
+        # Stop loop if all values are unique.
+        if unique_vals or (n_dec == n_dec_max):
+            break
+
+    return str_vals
 
 
 def draw_region_boundary(ax):
