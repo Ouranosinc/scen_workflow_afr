@@ -881,7 +881,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         plt.close()
 
 
-def adjust_precision(vals: [float], n_dec_max: int = -4):
+def adjust_precision(vals: [float], n_dec_max: int = 4):
 
     """
     --------------------------------------------------------------------------------------------------------------------
