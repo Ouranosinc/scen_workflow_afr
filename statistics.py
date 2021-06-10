@@ -121,6 +121,10 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                 ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
             elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                 ds = ds * cfg.spd
+                ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
+            elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
+                ds = ds * cfg.km_h_per_m_s
+                ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_km_h
 
         if cfg.opt_ra:
 
@@ -492,6 +496,9 @@ def calc_ts(cat: str):
                         if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
                             ds = ds * cfg.spd
                             ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
+                    elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
+                        ds = ds * cfg.km_h_per_m_s
+                        ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_km_h
 
                     # Calculate minimum and maximum values along the y-axis.
                     if not ylim:
@@ -1205,6 +1212,9 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
              (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
             ds_itp = ds_itp * cfg.spd
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
+        elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
+            ds_itp = ds_itp * cfg.km_h_per_m_s
+            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_km_h
         else:
             ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
 

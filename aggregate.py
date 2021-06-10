@@ -254,9 +254,9 @@ def gen_dataset_uv10(p_u10: str, p_v10: str, p_uv10: str, n_years: int):
     # Update meta information.
     da_uv10.name = cfg.var_era5_uv10
     da_uv10.attrs[cfg.attrs_lname] = "wind"
-    da_uv10.attrs[cfg.attrs_units] = cfg.unit_m_s1
+    da_uv10.attrs[cfg.attrs_units] = cfg.unit_m_s
     da_uv10.attrs[cfg.attrs_lname] = "wind"
-    da_uv10.attrs[cfg.attrs_units] = cfg.unit_m_s1
+    da_uv10.attrs[cfg.attrs_units] = cfg.unit_m_s
 
     # Save NetCDF file.
     utils.save_netcdf(da_uv10, p_uv10)

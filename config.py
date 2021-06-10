@@ -42,20 +42,36 @@ attrs_stn           = "Station Name"
 attrs_group         = "group"
 attrs_kind          = "kind"
 
-# Units.
+# Units (general).
+unit_deg            = "°"
+unit_pct            = "%"
+
+# Units (NetCDF).
 unit_C              = "C"
 unit_K              = "K"
 unit_kg_m2s1        = "kg m-2 s-1"
 unit_m              = "m"
 unit_mm             = "mm"
 unit_mm_d           = "mm d-1"
-unit_m_s1           = "m s-1"
-unit_1              = "1"
+unit_m_s            = "m s-1"
 unit_J_m2           = "J m-2"
 unit_Pa             = "Pa"
-unit_deg            = "°"
-unit_pct            = "%"
 unit_d              = "d"
+unit_km_h           = "km h-1"
+unit_1              = "1"
+
+# Units (description; for plots).
+unit_C_desc         = unit_deg + unit_C
+unit_K_desc         = unit_K
+unit_kg_m2s1_desc   = "kg/m²s)"
+unit_m_desc         = unit_m
+unit_mm_desc        = unit_mm
+unit_mm_d_desc      = "mm/jour"
+unit_m_s_desc       = "m/s"
+unit_J_m2_desc      = "J/m²"
+unit_Pa_desc        = unit_Pa
+unit_d_desc         = "jours"
+unit_km_h_desc      = "km/h"
 
 # Dataset dimensions.
 dim_lon             = "lon"
@@ -230,9 +246,10 @@ stat_max            = "max"         # Maximum value.
 stat_sum            = "sum"         # Sum of values.
 stat_quantile       = "quantile"    # Value associated with a given quantile.
 
-# Numerical parameters.
+# Conversion coefficients.
 spd                 = 86400         # Number of seconds per day.
 d_KC                = 273.15        # Temperature difference between Kelvin and Celcius.
+km_h_per_m_s        = 3.6           # Number of km/h per m/s.
 
 # Files.
 f_sep               = ","           # File separator (only in CSV files containing observations).
@@ -401,29 +418,52 @@ opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
 opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).
 opt_map_res           = -1              # Map resolution.
-opt_map_discrete    = False             # If true, discrete color scale in maps (rather than continuous).
+opt_map_discrete      = False           # If true, discrete color scale in maps (rather than continuous).
 
-# Color associated with specific datasets (for consistency).
+# Color associated with specific datasets (calibration plots).
 col_sim_adj_ref     = "blue"            # Simulation (bias-adjusted) for the reference period.
 col_sim_ref         = "orange"          # Simulation (non-adjusted) for the reference period
 col_obs             = "green"           # Observations.
 col_sim_adj         = "red"             # Simulation (bias-adjusted).
 col_sim_fut         = "purple"          # Simulation (non-adjusted) for the future period.
+
+# Colors for reference dataset and RCPs.
 col_ref             = "black"           # Reference period.
 col_rcp26           = "blue"            # RCP 2.6.
 col_rcp45           = "green"           # RCP 4.5.
 col_rcp85           = "red"             # RCP 8.5.
-col_2cla_tas        = ["cornflowerblue", "indianred"]  # Colors low/hi values (temperature).
-col_2cla_pr         = ["darkgoldenrod", "g"]           # Colors low/hi values (precipitation).
-col_map_negpos_def  = "RdBu"            # Color scale in heat maps (default; positive and negative values).
-col_map_neg_def     = "Blues"           # Color scale in heat maps (default; negative values).
-col_map_pos_def     = "Reds"            # Color scale in heat maps (default; positive values).
-col_map_negpos_veg  = "BrBG"            # Color scale in heat maps (vegetation; positive and negative values).
-col_map_neg_veg     = "Browns"          # Color scale in heat maps (vegetation; positive and negative values).
-col_map_pos_veg     = "Greens"          # Color scale in heat maps (vegetation; positive and negative values).
-col_map_water       = "Blues"           # Color scale in heat maps involving water.
-col_map_dry         = "Oranges"         # Color scale in heat maps involving dryness.
-col_map_def         = "plasma"         # Color scale in other heat maps.
+
+# Colors for monthly diagraes.
+col_2cla_temp       = ["cornflowerblue", "indianred"]     # Colors low/hi values (temperature).
+col_2cla_prec       = ["darkgoldenrod", "g"]              # Colors low/hi values (precipitation).
+
+# Color maps.
+# The 1st scheme is for absolute values.
+# The 2nd scheme is divergent and his made to represent delta values when both negative and positive values are present.
+# It combines the 3rd and 4th schemes.
+# The 3rd scheme is for negative-only delta values.
+# The 4th scheme is for positive-only delta values.
+#
+# Variable, category            Variable       Index
+# temperature, high values    temp_var_1  temp_idx_1
+# temperature, low values              -  temp_idx_2
+# precipitation, high values  prec_var_1  prec_idx_1
+# precipitation, low values               prec_idx_2
+# precipitation, other                    prec_idx_3
+# wind, -/+                   wind_var_1           -
+# wind, +                     wind_var_2  wind_idx_2
+#
+col_maps_temp_var_1 = ["inferno", "RdBu_r", "Blues_r", "Reds"]        # Color maps for temperature variables.
+col_maps_temp_idx_1 = ["YlOrRd", "BuYlRd", "YlGnBu_r", "YlOrRd"]      # Color maps for temperature indices (high).
+col_maps_temp_idx_2 = ["YlOrRd_r", "BuYlRd_r", "YlOrRd_r", "YlGnBu"]  # Color maps for temperature indices (low).
+col_maps_prec_var_1 = ["Blues", "BrBG", "Browns_r", "Greens"]         # Color maps for precipitation variables.
+col_maps_prec_idx_1 = ["summer_r", "BrYlGr", "YlBr_r", "summer_r"]    # Color maps for precipitation indices (high).
+col_maps_prec_idx_2 = ["Oranges", "BrBG_r", "Greens_r", "Browns"]     # Color maps for precipitation indices (low).
+col_maps_prec_idx_3 = ["Blues", "PiPu", "Pinks_r", "Purples"]         # Color maps for precipitation indices (other).
+col_maps_wind_var_1 = ["PuOr", "PuOr", "Oranges_r", "Purples"]        # Color maps for wind variables (-/+).
+col_maps_wind_var_2 = ["Purples", "PuOr", "Oranges_r", "Purples"]     # Color maps for wind variables (+).
+col_maps_wind_idx_2 = ["copper", "RdGy_r", "Greys_r", "Reds"]         # Color maps for wind indices (+).
+col_maps_default    = ["viridis", "RdBu_r", "Blues_r", "Reds"]        # Color maps for other variables and indices.
 
 
 def get_rank_inst():
@@ -642,7 +682,7 @@ def get_desc(var_or_idx_code: str, set_name: str = "cordex"):
         # Wind.
         elif var_or_idx in [idx_wgdaysabove, idx_wxdaysabove]:
             desc = "Durée totale vent fort (V" + ("moy" if var_or_idx == idx_wgdaysabove else "max") + "≥" +\
-                       str(idx_params_loc[0]) + unit_m_s1
+                       str(idx_params_loc[0]) + unit_km_h
             if str(idx_params_loc[2]) != "nan":
                 desc += "; " + str(idx_params_loc[2]) + "±" + str(idx_params_loc[3]) + "º"
             if (var_or_idx == idx_wgdaysabove) and (len(idx_params_loc) == 6):
@@ -827,13 +867,13 @@ def get_unit(var_or_idx: str, set_name: str = prj_src_cordex):
 
     if var_or_idx in variables_cordex:
         if (var_or_idx == var_cordex_tas) or (var_or_idx == var_cordex_tasmin) or (var_or_idx == var_cordex_tasmax):
-            unit = unit_deg + unit_C
+            unit = unit_C_desc
         elif var_or_idx == var_cordex_rsds:
-            unit = unit_Pa
+            unit = unit_Pa_desc
         elif var_or_idx == var_cordex_pr:
-            unit = unit_mm
+            unit = unit_mm_desc
         elif (var_or_idx == var_cordex_uas) or (var_or_idx == var_cordex_vas) or (var_or_idx == var_cordex_sfcwindmax):
-            unit = unit_m_s1
+            unit = unit_km_h_desc
         elif var_or_idx == var_cordex_clt:
             unit = unit_pct
         elif var_or_idx == var_cordex_huss:
@@ -846,7 +886,7 @@ def get_unit(var_or_idx: str, set_name: str = prj_src_cordex):
             unit = unit_Pa
         elif (var_or_idx == var_era5_u10) or (var_or_idx == var_era5_u10min) or (var_or_idx == var_era5_u10max) or\
              (var_or_idx == var_era5_v10) or (var_or_idx == var_era5_v10min) or (var_or_idx == var_era5_v10max):
-            unit = unit_m_s1
+            unit = unit_m_s
         elif var_or_idx == var_era5_ssrd:
             unit = unit_J_m2
         elif (var_or_idx == var_era5_tp) or (var_or_idx == var_era5_e) or (var_or_idx == var_era5_pev):

@@ -771,30 +771,49 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         title = cfg.get_plot_title(stn, var_or_idx_code, rcp, per, stat, q) + (" (delta)" if is_delta else "")
         label = cfg.get_plot_ylabel(var_or_idx)
 
-        # Determine color scale.
-        if var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
-            cmap_name = cfg.col_map_negpos_def + "_r"
+        # Determine color scale index.
+        if ((not is_delta) and
+            ((var_or_idx not in cfg.var_cordex_uas, cfg.var_cordex_vas) or
+             ((var_or_idx in cfg.var_cordex_uas, cfg.var_cordex_vas) and ((z_min < 0) and (z_max > 0))))):
+            cmap_idx = 0
+        elif is_delta and ((z_min < 0) and (z_max > 0)):
+            cmap_idx = 1
         else:
-            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot,
-                              cfg.idx_rnnmm, cfg.idx_prcptot, cfg.idx_raindur, cfg.idx_rainqty,
-                              cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rx1day, cfg.idx_rx5day,
-                              cfg.idx_sdii, cfg.idx_wetdays]:
-                if not is_delta:
-                    cmap_name = cfg.col_map_water
-                else:
-                    cmap_name = cfg.col_map_negpos_veg
-            elif var_or_idx in [cfg.idx_drydurtot, cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc]:
-                if not is_delta:
-                    cmap_name = cfg.col_map_dry
-                else:
-                    cmap_name = cfg.col_map_negpos_veg + "_r"
-            elif (not is_delta) and (var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]):
-                cmap_name = cfg.col_map_def + "_r"
+            if (z_min < 0) and (z_max < 0):
+                cmap_idx = 2
             else:
-                if not is_delta:
-                    cmap_name = cfg.col_map_def
-                else:
-                    cmap_name = cfg.col_map_negpos_def + "_r"
+                cmap_idx = 3
+
+        # Temperature-related.
+        if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.idx_etr, cfg.idx_tgg,
+                          cfg.idx_tng, cfg.idx_tnx, cfg.idx_txx, cfg.idx_txg]:
+            cmap_name = cfg.col_maps_temp_var_1[cmap_idx]
+        elif var_or_idx in [cfg.idx_txdaysabove, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_hotspellfreq,
+                            cfg.idx_hotspellmaxlen, cfg.idx_tropicalnights, cfg.idx_tx90p, cfg.idx_wsdi]:
+            cmap_name = cfg.col_maps_temp_idx_1[cmap_idx]
+        elif var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
+            cmap_name = cfg.col_maps_temp_idx_2[cmap_idx]
+
+        # Precipitation-related.
+        elif var_or_idx in [cfg.var_cordex_pr, cfg.idx_prcptot, cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii,
+                            cfg.idx_rainqty]:
+            cmap_name = cfg.col_maps_prec_var_1[cmap_idx]
+        elif var_or_idx in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_wetdays, cfg.idx_raindur, cfg.idx_rnnmm]:
+            cmap_name = cfg.col_maps_prec_idx_1[cmap_idx]
+        elif var_or_idx in [cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc, cfg.idx_drydurtot]:
+            cmap_name = cfg.col_maps_prec_idx_2[cmap_idx]
+        elif var_or_idx in [cfg.idx_rainstart, cfg.idx_rainend]:
+            cmap_name = cfg.col_maps_prec_idx_3[cmap_idx]
+
+        # Wind-related.
+        elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
+            cmap_name = cfg.col_maps_wind_var_1[cmap_idx]
+        elif var_or_idx in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
+            cmap_name = cfg.col_maps_wind_idx_2[cmap_idx]
+
+        # Default values.
+        else:
+            cmap_name = cfg.col_maps_default[cmap_idx]
 
         # Adjust minimum and maximum values so that zero is attributed the intermediate color in a scale or
         # use only the positive or negative side of the color scale if the other part is not required.
@@ -804,30 +823,45 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             vmax = vmax_abs
             n_cluster = n_cluster * 2
         else:
-            if (z_min >= 0) and (z_max >= 0):
-                if cmap_name == cfg.col_map_negpos_def + "_r":
-                    cmap_name = cfg.col_map_pos_def
-                elif cmap_name == cfg.col_map_negpos_veg + "_r":
-                    cmap_name = cfg.col_map_pos_veg
-            else:
-                if cmap_name == cfg.col_map_negpos_def + "_r":
-                    cmap_name = cfg.col_map_neg_def
-                elif cmap_name == cfg.col_map_negpos_veg + "_r":
-                    cmap_name = cfg.col_map_neg_veg
             vmin = z_min
             vmax = z_max
 
+        # Custom color maps (not in matplotlib). The order assumes a vertical color bar.
+        if ("Pinks" in cmap_name) or ("PiPu" in cmap_name) or\
+           ("Browns" in cmap_name) or ("YlBr" in cmap_name) or ("BrYlGr" in cmap_name) or ("BuYlRd" in cmap_name):
+
+            # List of HEX codes (first hex is upper color; last hex is lower color).
+            if "Pinks" in cmap_name:
+                hex_list = ["#ffffff", "#ff00ff"]
+            elif "PiPu" in cmap_name:
+                hex_list = ["#ffc0cb", "#ffffff", "#800080"]
+            elif "Browns" in cmap_name:
+                hex_list = ["#ffffff", "#662506"]
+            elif "YlBr" in cmap_name:
+                hex_list = ["#ffff00", "#662506"]
+            elif "BrYlGr" in cmap_name:
+                hex_list = ["#662506", "#ffff00", "#008000"]
+            else:
+                hex_list = ["#0000ff", "#ffff00", "#ff0000"]
+
+            # List of positions.
+            if len(hex_list) == 2:
+                pos_list = [0.0, 1.0]
+            else:
+                pos_list = [0.0, 0.5, 1.0]
+
+            # Assemble map.
+            if "_r" not in cmap_name:
+                cmap = get_cmap_custom(hex_list, pos_list)
+            else:
+                cmap = get_cmap_custom(hex_list.reverse(), pos_list)
+        elif cfg.opt_map_discrete:
+            cmap = plt.cm.get_cmap(cmap_name, n_cluster)
+
+        # Calculate ticks.
         ticks = None
         str_ticks = None
         if cfg.opt_map_discrete:
-
-            # Transform color scale into a discrete format.
-            if cmap_name == "Browns":
-                cmap = get_cmap_custom(["#ffffff", "#662506"])
-            else:
-                cmap = plt.cm.get_cmap(cmap_name, n_cluster)
-
-            # Calculate ticks.
             ticks = []
             for i in range(n_cluster + 1):
                 tick = i / float(n_cluster) * (vmax - vmin) + vmin
@@ -1429,9 +1463,9 @@ def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_ty
         plt.subplots_adjust(top=0.93, bottom=0.13, left=0.04, right=0.99, hspace=0.10, wspace=0.10)
 
     # Select colors.
-    col_2cla = cfg.col_2cla_tas
+    col_2cla = cfg.col_2cla_temp
     if var == cfg.var_cordex_pr:
-        col_2cla = cfg.col_2cla_pr
+        col_2cla = cfg.col_2cla_prec
 
     # Draw areas.
     if plt_type == 1:

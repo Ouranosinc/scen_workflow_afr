@@ -367,7 +367,7 @@ def generate_single(idx_code: str, idx_params, var_or_idx_list: [str], p_sim: [s
             idx_params_str.append(str(idx_param) + " mm/day")
 
         elif (idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 1):
-            idx_params_str.append(str(idx_param) + " " + cfg.unit_m_s1)
+            idx_params_str.append(str(idx_param) + " " + cfg.unit_m_s)
 
         elif not ((idx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]) and (i == 4)):
             idx_params_str.append(str(idx_param))

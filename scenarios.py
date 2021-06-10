@@ -119,7 +119,7 @@ def load_observations(var: str):
             obs_vv = pd.DataFrame(data=np.array(obs.iloc[:, 3:].drop("dd", axis=1)), index=time, columns=[stn])
             arr_vv = np.expand_dims(np.expand_dims(obs_vv[stn].values, axis=1), axis=2)
             da_vv = xr.DataArray(arr_vv, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
-            da_vv.attrs[cfg.attrs_units] = cfg.unit_m_s1
+            da_vv.attrs[cfg.attrs_units] = cfg.unit_m_s
 
             # Calculate wind components.
             da_uas, da_vas = utils.sfcwind_2_uas_vas(da_vv, da_dd)
@@ -134,7 +134,7 @@ def load_observations(var: str):
             else:
                 da.attrs[cfg.attrs_sname] = "northward_wind"
                 da.attrs[cfg.attrs_lname] = "Northward near-surface wind"
-            da.attrs[cfg.attrs_units] = cfg.unit_m_s1
+            da.attrs[cfg.attrs_units] = cfg.unit_m_s
             da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
 
             # Create dataset.
@@ -151,7 +151,7 @@ def load_observations(var: str):
             da.name = var
             da.attrs[cfg.attrs_sname] = "wind"
             da.attrs[cfg.attrs_lname] = "near-surface wind"
-            da.attrs[cfg.attrs_units] = cfg.unit_m_s1
+            da.attrs[cfg.attrs_units] = cfg.unit_m_s
             da.attrs[cfg.attrs_gmap]  = "regular_lon_lat"
 
             # Create dataset.
@@ -265,7 +265,7 @@ def load_reanalysis(var_ra: str):
             else:
                 ds[var].attrs[cfg.attrs_sname] = "wind"
                 ds[var].attrs[cfg.attrs_lname] = "near-surface wind"
-            ds[var].attrs[cfg.attrs_units] = cfg.unit_m_s1
+            ds[var].attrs[cfg.attrs_units] = cfg.unit_m_s
         elif var == cfg.var_cordex_rsds:
             ds[var].attrs[cfg.attrs_sname] = "surface_solar_radiation_downwards"
             ds[var].attrs[cfg.attrs_lname] = "Surface solar radiation downwards"
