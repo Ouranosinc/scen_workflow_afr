@@ -437,12 +437,7 @@ col_rcp85           = "red"             # RCP 8.5.
 col_2cla_temp       = ["cornflowerblue", "indianred"]     # Colors low/hi values (temperature).
 col_2cla_prec       = ["darkgoldenrod", "g"]              # Colors low/hi values (precipitation).
 
-# Color maps.
-# The 1st scheme is for absolute values.
-# The 2nd scheme is divergent and his made to represent delta values when both negative and positive values are present.
-# It combines the 3rd and 4th schemes.
-# The 3rd scheme is for negative-only delta values.
-# The 4th scheme is for positive-only delta values.
+# Color maps apply to categories of variables and indices.
 # +----------------------------+------------+------------+
 # | Variable, category         |   Variable |      Index |
 # +----------------------------+------------+------------+
@@ -453,6 +448,11 @@ col_2cla_prec       = ["darkgoldenrod", "g"]              # Colors low/hi values
 # | precipitation, dates       |          - | prec_idx_3 |
 # | wind                       | wind_var_1 | wind_idx_1 |
 # +----------------------------+------------+------------+
+# The 1st scheme is for absolute values.
+# The 2nd scheme is divergent and his made to represent delta values when both negative and positive values are present.
+# It combines the 3rd and 4th schemes.
+# The 3rd scheme is for negative-only delta values.
+# The 4th scheme is for positive-only delta values.
 col_maps_temp_var   = ["viridis", "RdBu_r", "Blues_r", "Reds"]       # Tor temperature variables.
 col_maps_temp_idx_1 = col_maps_temp_var                              # Temperature indices (high).
 col_maps_temp_idx_2 = ["plasma_r", "RdBu", "Reds_r", "Blues"]        # Temperature indices (low).
