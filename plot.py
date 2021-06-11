@@ -719,7 +719,10 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
 
     # Hardcoded parameters.
     # Number of clusters (for discrete color scale).
-    n_cluster = 10
+    if cfg.opt_map_discrete:
+        n_cluster = 10
+    else:
+        n_cluster = 256
     # Maximum number of decimal places for colorbar ticks.
     n_dec_max = 4
     # Font size.
@@ -772,11 +775,10 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         label = cfg.get_plot_ylabel(var_or_idx)
 
         # Determine color scale index.
-        if ((not is_delta) and
-            ((var_or_idx not in cfg.var_cordex_uas, cfg.var_cordex_vas) or
-             ((var_or_idx in cfg.var_cordex_uas, cfg.var_cordex_vas) and ((z_min < 0) and (z_max > 0))))):
+        is_wind_var = var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]
+        if (not is_delta) and (not is_wind_var):
             cmap_idx = 0
-        elif is_delta and ((z_min < 0) and (z_max > 0)):
+        elif is_delta or ((z_min < 0) and (z_max > 0)):
             cmap_idx = 1
         else:
             if (z_min < 0) and (z_max < 0):
@@ -787,7 +789,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         # Temperature-related.
         if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.idx_etr, cfg.idx_tgg,
                           cfg.idx_tng, cfg.idx_tnx, cfg.idx_txx, cfg.idx_txg]:
-            cmap_name = cfg.col_maps_temp_var_1[cmap_idx]
+            cmap_name = cfg.col_maps_temp_var[cmap_idx]
         elif var_or_idx in [cfg.idx_txdaysabove, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_hotspellfreq,
                             cfg.idx_hotspellmaxlen, cfg.idx_tropicalnights, cfg.idx_tx90p, cfg.idx_wsdi]:
             cmap_name = cfg.col_maps_temp_idx_1[cmap_idx]
@@ -797,7 +799,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         # Precipitation-related.
         elif var_or_idx in [cfg.var_cordex_pr, cfg.idx_prcptot, cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii,
                             cfg.idx_rainqty]:
-            cmap_name = cfg.col_maps_prec_var_1[cmap_idx]
+            cmap_name = cfg.col_maps_prec_var[cmap_idx]
         elif var_or_idx in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_wetdays, cfg.idx_raindur, cfg.idx_rnnmm]:
             cmap_name = cfg.col_maps_prec_idx_1[cmap_idx]
         elif var_or_idx in [cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc, cfg.idx_drydurtot]:
@@ -807,9 +809,9 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
 
         # Wind-related.
         elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
-            cmap_name = cfg.col_maps_wind_var_1[cmap_idx]
+            cmap_name = cfg.col_maps_wind_var[cmap_idx]
         elif var_or_idx in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
-            cmap_name = cfg.col_maps_wind_idx_2[cmap_idx]
+            cmap_name = cfg.col_maps_wind_idx_1[cmap_idx]
 
         # Default values.
         else:
@@ -827,22 +829,75 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             vmax = z_max
 
         # Custom color maps (not in matplotlib). The order assumes a vertical color bar.
-        if ("Pinks" in cmap_name) or ("PiPu" in cmap_name) or\
-           ("Browns" in cmap_name) or ("YlBr" in cmap_name) or ("BrYlGr" in cmap_name) or ("BuYlRd" in cmap_name):
+        hex_wh  = "#ffffff"  # White.
+        hex_gy  = "#808080"  # Grey.
+        hex_gr  = "#008000"  # Green.
+        hex_yl  = "#ffffcc"  # Yellow.
+        hex_or  = "#f97306"  # Orange.
+        hex_br  = "#662506"  # Brown.
+        hex_rd  = "#ff0000"  # Red.
+        hex_pi  = "#ffc0cb"  # Pink.
+        hex_pu  = "#800080"  # Purple.
+        hex_bu  = "#0000ff"  # Blue.
+        hex_lbu = "#7bc8f6"  # Light blue.
+        hex_lbr = "#d2b48c"  # Light brown.
+        hex_sa  = "#a52a2a"  # Salmon.
+        hex_tu  = "#008080"  # Turquoise.
 
-            # List of HEX codes (first hex is upper color; last hex is lower color).
-            if "Pinks" in cmap_name:
-                hex_list = ["#ffffff", "#ff00ff"]
-            elif "PiPu" in cmap_name:
-                hex_list = ["#ffc0cb", "#ffffff", "#800080"]
-            elif "Browns" in cmap_name:
-                hex_list = ["#ffffff", "#662506"]
-            elif "YlBr" in cmap_name:
-                hex_list = ["#ffff00", "#662506"]
-            elif "BrYlGr" in cmap_name:
-                hex_list = ["#662506", "#ffff00", "#008000"]
-            else:
-                hex_list = ["#0000ff", "#ffff00", "#ff0000"]
+        hex_list = None
+        if "Pinks" in cmap_name:
+            hex_list = [hex_wh, hex_pi]
+        elif "PiPu" in cmap_name:
+            hex_list = [hex_pi, hex_wh, hex_pu]
+        elif "Browns" in cmap_name:
+            hex_list = [hex_wh, hex_br]
+        elif "YlBr" in cmap_name:
+            hex_list = [hex_yl, hex_br]
+        elif "BrYlGr" in cmap_name:
+            hex_list = [hex_br, hex_yl, hex_gr]
+        elif "YlGr" in cmap_name:
+            hex_list = [hex_yl, hex_gr]
+        elif "BrWhGr" in cmap_name:
+            hex_list = [hex_br, hex_wh, hex_gr]
+        elif "TuYlSa" in cmap_name:
+            hex_list = [hex_tu, hex_yl, hex_sa]
+        elif "YlTu" in cmap_name:
+            hex_list = [hex_yl, hex_tu]
+        elif "YlSa" in cmap_name:
+            hex_list = [hex_yl, hex_sa]
+        elif "LBuWhLBr" in cmap_name:
+            hex_list = [hex_lbu, hex_wh, hex_lbr]
+        elif "LBlues" in cmap_name:
+            hex_list = [hex_wh, hex_lbu]
+        elif "LBrowns" in cmap_name:
+            hex_list = [hex_wh, hex_lbr]
+        elif "LBuYlLBr" in cmap_name:
+            hex_list = [hex_lbu, hex_yl, hex_lbr]
+        elif "YlLBu" in cmap_name:
+            hex_list = [hex_yl, hex_lbu]
+        elif "YlLBr" in cmap_name:
+            hex_list = [hex_yl, hex_lbr]
+        elif "YlBu" in cmap_name:
+            hex_list = [hex_yl, hex_bu]
+        elif "Turquoises" in cmap_name:
+            hex_list = [hex_wh, hex_tu]
+        elif "PuYlOr" in cmap_name:
+            hex_list = [hex_pu, hex_yl, hex_or]
+        elif "YlOrRd" in cmap_name:
+            hex_list = [hex_yl, hex_or, hex_rd]
+        elif "YlOr" in cmap_name:
+            hex_list = [hex_yl, hex_or]
+        elif "YlPu" in cmap_name:
+            hex_list = [hex_yl, hex_pu]
+        elif "GyYlRd" in cmap_name:
+            hex_list = [hex_gy, hex_yl, hex_rd]
+        elif "YlGy" in cmap_name:
+            hex_list = [hex_yl, hex_gy]
+        elif "YlRd" in cmap_name:
+            hex_list = [hex_yl, hex_rd]
+
+        # Build custom map.
+        if hex_list is not None:
 
             # List of positions.
             if len(hex_list) == 2:
@@ -850,12 +905,15 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             else:
                 pos_list = [0.0, 0.5, 1.0]
 
-            # Assemble map.
+            # Custom map.
             if "_r" not in cmap_name:
-                cmap = get_cmap_custom(hex_list, pos_list)
+                cmap = build_custom_cmap(hex_list, n_cluster, pos_list)
             else:
-                cmap = get_cmap_custom(hex_list.reverse(), pos_list)
-        elif cfg.opt_map_discrete:
+                hex_list.reverse()
+                cmap = build_custom_cmap(hex_list, n_cluster, pos_list)
+
+        # Build Matplotlib map.
+        else:
             cmap = plt.cm.get_cmap(cmap_name, n_cluster)
 
         # Calculate ticks.
@@ -1059,7 +1117,7 @@ def rgb_to_dec(value):
     return [v/256 for v in value]
 
 
-def get_cmap_custom(hex_list, float_list=None):
+def build_custom_cmap(hex_list: [str], n_cluster: int, pos_list: [float]=None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1071,8 +1129,10 @@ def get_cmap_custom(hex_list, float_list=None):
     ----------
     hex_list: [str]
         List of hex code strings.
-    float_list: [float]
-        List of floats between 0 and 1, same length as hex_list. Must start with 0 and end with 1.
+    n_cluster: int
+        Number of clusters.
+    pos_list: [float]
+        List of positions (float between 0 and 1), same length as hex_list. Must start with 0 and end with 1.
 
     Returns
     -------
@@ -1081,16 +1141,16 @@ def get_cmap_custom(hex_list, float_list=None):
     """
 
     rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
-    if float_list:
+    if pos_list:
         pass
     else:
-        float_list = list(np.linspace(0, 1, len(rgb_list)))
+        pos_list = list(np.linspace(0, 1, len(rgb_list)))
 
     cdict = dict()
-    for num, col in enumerate(['red', 'green', 'blue']):
-        col_list = [[float_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(float_list))]
+    for num, col in enumerate(["red", "green", "blue"]):
+        col_list = [[pos_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(pos_list))]
         cdict[col] = col_list
-    cmp = colors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
+    cmp = colors.LinearSegmentedColormap("custom_cmp", segmentdata=cdict, N=n_cluster)
 
     return cmp
 

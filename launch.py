@@ -249,6 +249,24 @@ def load_params(p_ini: str):
                 cfg.opt_map_res = ast.literal_eval(value)
             elif key == "opt_map_discrete":
                 cfg.opt_map_discrete = ast.literal_eval(value)
+            elif key == "col_maps_temp_var":
+                cfg.col_maps_temp_var = convert_to_1d(value, str)
+            elif key == "col_maps_temp_idx_1":
+                cfg.col_maps_temp_idx_1 = convert_to_1d(value, str)
+            elif key == "col_maps_temp_idx_2":
+                cfg.col_maps_temp_idx_2 = convert_to_1d(value, str)
+            elif key == "col_maps_prec_var":
+                cfg.col_maps_prec_var = convert_to_1d(value, str)
+            elif key == "col_maps_prec_idx_1":
+                cfg.col_maps_prec_idx_1 = convert_to_1d(value, str)
+            elif key == "col_maps_prec_idx_2":
+                cfg.col_maps_prec_idx_2 = convert_to_1d(value, str)
+            elif key == "col_maps_prec_idx_3":
+                cfg.col_maps_prec_idx_3 = convert_to_1d(value, str)
+            elif key == "col_maps_wind_var":
+                cfg.col_maps_wind_var = convert_to_1d(value, str)
+            elif key == "col_maps_wind_idx_1":
+                cfg.col_maps_wind_idx_1 = convert_to_1d(value, str)
 
             # ENVIRONMENT:
             elif key == "n_proc":
