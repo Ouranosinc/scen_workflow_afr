@@ -778,7 +778,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         is_wind_var = var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]
         if (not is_delta) and (not is_wind_var):
             cmap_idx = 0
-        elif is_delta or ((z_min < 0) and (z_max > 0)):
+        elif (z_min < 0) and (z_max > 0):
             cmap_idx = 1
         else:
             if (z_min < 0) and (z_max < 0):
