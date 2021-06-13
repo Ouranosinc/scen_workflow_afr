@@ -895,6 +895,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             hex_list = [hex_yl, hex_gy]
         elif "YlRd" in cmap_name:
             hex_list = [hex_yl, hex_rd]
+        elif "GyWhRd" in cmap_name:
+            hex_list = [hex_gy, hex_wh, hex_rd]
 
         # Build custom map.
         if hex_list is not None:
