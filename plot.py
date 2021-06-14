@@ -869,6 +869,8 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             hex_list = [hex_lbu, hex_wh, hex_lbr]
         elif "LBlues" in cmap_name:
             hex_list = [hex_wh, hex_lbu]
+        elif "BuYlRd" in cmap_name:
+            hex_list = [hex_bu, hex_yl, hex_rd]
         elif "LBrowns" in cmap_name:
             hex_list = [hex_wh, hex_lbr]
         elif "LBuYlLBr" in cmap_name:
