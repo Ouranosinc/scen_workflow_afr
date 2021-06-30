@@ -229,6 +229,12 @@ def load_params(p_ini: str):
             # VISUALIZATION:
             elif key == "opt_plot":
                 cfg.opt_plot = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+            elif key == "opt_plot_col_2cla_temp":
+                cfg.opt_plot_col_2cla_temp = convert_to_1d(value, str)
+            elif key == "opt_plot_col_2cla_prec":
+                cfg.opt_plot_col_2cla_prec = convert_to_1d(value, str)
+            elif key == "opt_plot_col_2cla_wind":
+                cfg.opt_plot_col_2cla_wind = convert_to_1d(value, str)
             elif key == "opt_map":
                 cfg.opt_map = [False, False]
                 if cfg.opt_ra:
@@ -249,24 +255,24 @@ def load_params(p_ini: str):
                 cfg.opt_map_res = ast.literal_eval(value)
             elif key == "opt_map_discrete":
                 cfg.opt_map_discrete = ast.literal_eval(value)
-            elif key == "col_maps_temp_var":
-                cfg.col_maps_temp_var = convert_to_1d(value, str)
-            elif key == "col_maps_temp_idx_1":
-                cfg.col_maps_temp_idx_1 = convert_to_1d(value, str)
-            elif key == "col_maps_temp_idx_2":
-                cfg.col_maps_temp_idx_2 = convert_to_1d(value, str)
-            elif key == "col_maps_prec_var":
-                cfg.col_maps_prec_var = convert_to_1d(value, str)
-            elif key == "col_maps_prec_idx_1":
-                cfg.col_maps_prec_idx_1 = convert_to_1d(value, str)
-            elif key == "col_maps_prec_idx_2":
-                cfg.col_maps_prec_idx_2 = convert_to_1d(value, str)
-            elif key == "col_maps_prec_idx_3":
-                cfg.col_maps_prec_idx_3 = convert_to_1d(value, str)
-            elif key == "col_maps_wind_var":
-                cfg.col_maps_wind_var = convert_to_1d(value, str)
-            elif key == "col_maps_wind_idx_1":
-                cfg.col_maps_wind_idx_1 = convert_to_1d(value, str)
+            elif key == "opt_map_col_temp_var":
+                cfg.opt_map_col_temp_var = convert_to_1d(value, str)
+            elif key == "opt_map_col_temp_idx_1":
+                cfg.opt_map_col_temp_idx_1 = convert_to_1d(value, str)
+            elif key == "opt_map_col_temp_idx_2":
+                cfg.opt_map_col_temp_idx_2 = convert_to_1d(value, str)
+            elif key == "opt_map_col_prec_var":
+                cfg.opt_map_col_prec_var = convert_to_1d(value, str)
+            elif key == "opt_map_col_prec_idx_1":
+                cfg.opt_map_col_prec_idx_1 = convert_to_1d(value, str)
+            elif key == "opt_map_col_prec_idx_2":
+                cfg.opt_map_col_prec_idx_2 = convert_to_1d(value, str)
+            elif key == "opt_map_col_prec_idx_3":
+                cfg.opt_map_col_prec_idx_3 = convert_to_1d(value, str)
+            elif key == "opt_map_col_wind_var":
+                cfg.opt_map_col_wind_var = convert_to_1d(value, str)
+            elif key == "opt_map_col_wind_idx_1":
+                cfg.opt_map_col_wind_idx_1 = convert_to_1d(value, str)
 
             # ENVIRONMENT:
             elif key == "n_proc":

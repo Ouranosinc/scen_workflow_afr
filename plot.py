@@ -780,42 +780,41 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             cmap_idx = 0
         elif (z_min < 0) and (z_max > 0):
             cmap_idx = 1
+        elif (z_min < 0) and (z_max < 0):
+            cmap_idx = 2
         else:
-            if (z_min < 0) and (z_max < 0):
-                cmap_idx = 2
-            else:
-                cmap_idx = 3
+            cmap_idx = 3
 
         # Temperature-related.
         if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.idx_etr, cfg.idx_tgg,
                           cfg.idx_tng, cfg.idx_tnx, cfg.idx_txx, cfg.idx_txg]:
-            cmap_name = cfg.col_maps_temp_var[cmap_idx]
+            cmap_name = cfg.opt_map_col_temp_var[cmap_idx]
         elif var_or_idx in [cfg.idx_txdaysabove, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_hotspellfreq,
                             cfg.idx_hotspellmaxlen, cfg.idx_tropicalnights, cfg.idx_tx90p, cfg.idx_wsdi]:
-            cmap_name = cfg.col_maps_temp_idx_1[cmap_idx]
+            cmap_name = cfg.opt_map_col_temp_idx_1[cmap_idx]
         elif var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
-            cmap_name = cfg.col_maps_temp_idx_2[cmap_idx]
+            cmap_name = cfg.opt_map_col_temp_idx_2[cmap_idx]
 
         # Precipitation-related.
         elif var_or_idx in [cfg.var_cordex_pr, cfg.idx_prcptot, cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii,
                             cfg.idx_rainqty]:
-            cmap_name = cfg.col_maps_prec_var[cmap_idx]
+            cmap_name = cfg.opt_map_col_prec_var[cmap_idx]
         elif var_or_idx in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_wetdays, cfg.idx_raindur, cfg.idx_rnnmm]:
-            cmap_name = cfg.col_maps_prec_idx_1[cmap_idx]
+            cmap_name = cfg.opt_map_col_prec_idx_1[cmap_idx]
         elif var_or_idx in [cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc, cfg.idx_drydurtot]:
-            cmap_name = cfg.col_maps_prec_idx_2[cmap_idx]
+            cmap_name = cfg.opt_map_col_prec_idx_2[cmap_idx]
         elif var_or_idx in [cfg.idx_rainstart, cfg.idx_rainend]:
-            cmap_name = cfg.col_maps_prec_idx_3[cmap_idx]
+            cmap_name = cfg.opt_map_col_prec_idx_3[cmap_idx]
 
         # Wind-related.
         elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
-            cmap_name = cfg.col_maps_wind_var[cmap_idx]
+            cmap_name = cfg.opt_map_col_wind_var[cmap_idx]
         elif var_or_idx in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
-            cmap_name = cfg.col_maps_wind_idx_1[cmap_idx]
+            cmap_name = cfg.opt_map_col_wind_idx_1[cmap_idx]
 
         # Default values.
         else:
-            cmap_name = cfg.col_maps_default[cmap_idx]
+            cmap_name = cfg.opt_map_col_default[cmap_idx]
 
         # Adjust minimum and maximum values so that zero is attributed the intermediate color in a scale or
         # use only the positive or negative side of the color scale if the other part is not required.
@@ -1527,9 +1526,11 @@ def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_ty
         plt.subplots_adjust(top=0.93, bottom=0.13, left=0.04, right=0.99, hspace=0.10, wspace=0.10)
 
     # Select colors.
-    col_2cla = cfg.col_2cla_temp
+    col_2cla = cfg.opt_plot_col_2cla_temp
     if var == cfg.var_cordex_pr:
-        col_2cla = cfg.col_2cla_prec
+        col_2cla = cfg.opt_plot_col_2cla_prec
+    elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
+        col_2cla = cfg.opt_plot_col_2cla_wind
 
     # Draw areas.
     if plt_type == 1:

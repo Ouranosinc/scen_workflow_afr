@@ -111,6 +111,10 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
         # Load dataset.
         ds = utils.open_netcdf(p_sim_list[i_sim])
 
+        # TODO: The following patch was added to fix dimensions for cfg.idx_dc.
+        if var_or_idx_code in cfg.idx_codes:
+            ds = ds.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
+
         # Select years and adjust units.
         years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
@@ -742,7 +746,7 @@ def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
     return ds_list
 
 
-def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
+def calc_heatmap(var_or_idx_code: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -752,8 +756,6 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
     ----------
     var_or_idx_code: str
         Climate index code.
-    per_hor_forced: [int], optional
-        Only considering a single horizon, rather than taking all available horizons.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -761,12 +763,7 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
     var_or_idx = var_or_idx_code if cat == cfg.cat_scen else cfg.extract_idx(var_or_idx_code)
     rcps = [cfg.rcp_ref, cfg.rcp_xx] + cfg.rcps
 
-    if per_hor_forced is None:
-        per_str = str(cfg.per_ref[0]) + "-" + str(cfg.per_hors[len(cfg.per_hors) - 1][1])
-    else:
-        per_str = str(per_hor_forced[0]) + "-" + str(per_hor_forced[1])
-
-    msg = "Calculating maps (" + per_str + ")."
+    msg = "Calculating maps."
     utils.log(msg, True)
 
     # Prepare data -----------------------------------------------------------------------------------------------------
@@ -775,7 +772,12 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
     grid_x = grid_y = None
 
     # Calculate the overall minimum and maximum values (considering all maps for the current 'var_or_idx').
-    z_min = z_max = z_min_delta = z_max_delta = np.nan
+    # There is one z-value per period.
+    n_per_hors = len(cfg.per_hors)
+    z_min = [np.nan] * n_per_hors
+    z_max = [np.nan] * n_per_hors
+    z_min_delta = [np.nan] * n_per_hors
+    z_max_delta = [np.nan] * n_per_hors
 
     # Calculated datasets and item description.
     arr_ds_maps = []
@@ -787,6 +789,9 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
     if cfg.opt_map_quantiles is not None:
         arr_stat = arr_stat + ([cfg.stat_quantile] * len(cfg.opt_map_quantiles))
         arr_q = arr_q + cfg.opt_map_quantiles
+
+    # Reference map (to calculate deltas).
+    ds_map_ref = None
 
     # Loop through statistics.
     for i in range(len(arr_stat)):
@@ -800,11 +805,10 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
             # Loop through horizons.
             if j == 0:
                 per_hors = [cfg.per_ref]
-            elif per_hor_forced is not None:
-                per_hors = [cfg.per_ref, per_hor_forced]
             else:
                 per_hors = cfg.per_hors
-            for per_hor in per_hors:
+            for k_per_hor in range(len(per_hors)):
+                per_hor = per_hors[k_per_hor]
 
                 # Current map.
                 ds_map = calc_heatmap_rcp(var_or_idx_code, rcp, per_hor, stat, q)
@@ -813,16 +817,10 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
                 arr_ds_maps.append(ds_map)
                 arr_items.append([stat, q, rcp, per_hor])
 
-                # Reference map.
-                ds_map_ref = None
-                if per_hor != cfg.per_ref:
-                    for k in range(len(arr_ds_maps)):
-                        if (arr_items[k][0] == stat) and\
-                           (arr_items[k][1] == q) and\
-                           (arr_items[k][2] == cfg.rcp_xx) and\
-                           (arr_items[k][3] == cfg.per_ref):
-                            ds_map_ref = arr_ds_maps[k]
-                            break
+                # Calculate reference map.
+                if (ds_map_ref is None) and\
+                   (stat == cfg.stat_mean) and (rcp == cfg.rcp_xx) and (per_hor == cfg.per_ref):
+                    ds_map_ref = ds_map
 
                 # Record XY grid boundaries.
                 if ((grid_x is None) or (grid_y is None)) and (not cfg.opt_ra):
@@ -831,21 +829,23 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
                 # Extract values.
                 vals = ds_map[var_or_idx].values
                 vals_delta = None
-                if ds_map_ref is not None:
+                if per_hor != cfg.per_ref:
                     vals_delta = ds_map[var_or_idx].values - ds_map_ref[var_or_idx].values
 
                 # Record mean values.
                 # Mean absolute values.
                 z_min_j = np.nanmin(vals)
                 z_max_j = np.nanmax(vals)
-                z_min = z_min_j if np.isnan(z_min) else min(z_min, z_min_j)
-                z_max = z_max_j if np.isnan(z_max) else max(z_max, z_max_j)
+                z_min[k_per_hor] = z_min_j if np.isnan(z_min[k_per_hor]) else min(z_min[k_per_hor], z_min_j)
+                z_max[k_per_hor] = z_max_j if np.isnan(z_max[k_per_hor]) else max(z_max[k_per_hor], z_max_j)
                 # Mean delta values.
                 if vals_delta is not None:
                     z_min_delta_j = np.nanmin(vals_delta)
                     z_max_delta_j = np.nanmax(vals_delta)
-                    z_min_delta = z_min_delta_j if np.isnan(z_min_delta) else min(z_min_delta, z_min_delta_j)
-                    z_max_delta = z_max_delta_j if np.isnan(z_max_delta) else max(z_max_delta, z_max_delta_j)
+                    z_min_delta[k_per_hor] = z_min_delta_j if np.isnan(z_min_delta[k_per_hor])\
+                        else min(z_min_delta[k_per_hor], z_min_delta_j)
+                    z_max_delta[k_per_hor] = z_max_delta_j if np.isnan(z_max_delta[k_per_hor])\
+                        else max(z_max_delta[k_per_hor], z_max_delta_j)
 
     # Generate maps ----------------------------------------------------------------------------------------------------
 
@@ -858,28 +858,18 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
         ds_map = arr_ds_maps[i]
 
         # Current RCP and horizon.
-        stat = arr_items[i][0]
-        q = arr_items[i][1]
-        rcp = arr_items[i][2]
-        per_hor = arr_items[i][3]
-
-        # Reference map.
-        ds_map_ref = None
-        if per_hor != cfg.per_ref:
-            for j in range(len(arr_ds_maps)):
-                if (arr_items[j][0] == stat) and \
-                   (arr_items[j][1] == q) and \
-                   (arr_items[j][2] == cfg.rcp_xx) and \
-                   (arr_items[j][3] == cfg.per_ref):
-                    ds_map_ref = arr_ds_maps[j]
-                    break
+        stat      = arr_items[i][0]
+        q         = arr_items[i][1]
+        rcp       = arr_items[i][2]
+        per_hor   = arr_items[i][3]
+        i_per_hor = cfg.per_hors.index(per_hor)
 
         # Perform twice (for values, then for deltas).
         for j in range(2):
 
-            # Skip if not relevant.
+            # Skip if delta map generation if the option is disabled or if it's the reference period.
             if (j == 1) and \
-               ((ds_map_ref is None) or
+               ((per_hor == cfg.per_ref) or
                 ((cat == cfg.cat_scen) and (not cfg.opt_map_delta[0])) or
                 ((cat == cfg.cat_idx) and (not cfg.opt_map_delta[1]))):
                 continue
@@ -890,54 +880,67 @@ def calc_heatmap(var_or_idx_code: str, per_hor_forced: [int] = None):
             else:
                 da_map = ds_map[var_or_idx] - ds_map_ref[var_or_idx]
 
-            # Plots ----------------------------------------------------------------------------------------------------
+            # Perform twice (for min/max values specific to a period, then for overall min/max values).
+            for k in range(2):
 
-            # Path.
-            d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "/" + per_str)
-            if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
-                stat_str = "_" + stat
-            else:
-                stat_str = "_q" + str(int(q*100)).rjust(2, "0")
-            fn_fig = var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + stat_str + cfg.f_ext_png
-            p_fig = d_fig + fn_fig
-            if j == 1:
-                p_fig = p_fig.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
+                # Specific period.
+                if k == 0:
+                    per_str = str(per_hor[0]) + "-" + str(per_hor[1])
+                    z_min_map = z_min[i_per_hor] if j == 0 else z_min_delta[i_per_hor]
+                    z_max_map = z_max[i_per_hor] if j == 0 else z_max_delta[i_per_hor]
+                # All periods combined.
+                else:
+                    per_str = str(cfg.per_ref[0]) + "-" + str(cfg.per_hors[len(cfg.per_hors) - 1][1])
+                    z_min_map = np.nanmin(z_min if j == 0 else z_min_delta)
+                    z_max_map = np.nanmax(z_max if j == 0 else z_max_delta)
 
-            # Generate plot.
-            if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
-                z_min_map = z_min if j == 0 else z_min_delta
-                z_max_map = z_max if j == 0 else z_max_delta
-                plot.plot_heatmap(da_map, stn, var_or_idx_code, grid_x, grid_y, rcp, per_hor, stat, q, z_min_map,
-                                  z_max_map, j == 1, p_fig)
+                # Plots ------------------------------------------------------------------------------------------------
 
-            # CSV files ------------------------------------------------------------------------------------------------
+                # Path.
+                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "/" + per_str)
+                if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
+                    stat_str = "_" + stat
+                else:
+                    stat_str = "_q" + str(int(q*100)).rjust(2, "0")
+                fn_fig =\
+                    var_or_idx + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + stat_str + cfg.f_ext_png
+                p_fig = d_fig + fn_fig
+                if j == 1:
+                    p_fig = p_fig.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
 
-            # Path.
-            d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "_csv" + "/" + per_str)
-            fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
-            p_csv = d_csv + fn_csv
-            if j == 1:
-                p_csv = p_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
+                # Generate plot.
+                if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
+                    plot.plot_heatmap(da_map, stn, var_or_idx_code, grid_x, grid_y, rcp, per_hor, stat, q, z_min_map,
+                                      z_max_map, j == 1, p_fig)
 
-            # Save.
-            if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
+                # CSV files --------------------------------------------------------------------------------------------
 
-                # Extract data.
-                lon_list = []
-                lat_list = []
-                val_list = []
-                for k in range(len(da_map.longitude.values)):
-                    for l in range(len(da_map.latitude.values)):
-                        lon_list.append(da_map.longitude.values[k])
-                        lat_list.append(da_map.latitude.values[l])
-                        val_list.append(da_map.values[l, k])
+                # Path.
+                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", var_or_idx_code + "_csv" + "/" + per_str)
+                fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
+                p_csv = d_csv + fn_csv
+                if j == 1:
+                    p_csv = p_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
 
-                # Build dataframe.
-                dict_pd = {cfg.dim_longitude: lon_list, cfg.dim_latitude: lat_list, var_or_idx: val_list}
-                df = pd.DataFrame(dict_pd)
+                # Save.
+                if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
 
-                # Save to file.
-                utils.save_csv(df, p_csv)
+                    # Extract data.
+                    lon_list = []
+                    lat_list = []
+                    val_list = []
+                    for k in range(len(da_map.longitude.values)):
+                        for m in range(len(da_map.latitude.values)):
+                            lon_list.append(da_map.longitude.values[k])
+                            lat_list.append(da_map.latitude.values[m])
+                            val_list.append(da_map.values[m, k])
+
+                    # Build dataframe.
+                    dict_pd = {cfg.dim_longitude: lon_list, cfg.dim_latitude: lat_list, var_or_idx: val_list}
+                    df = pd.DataFrame(dict_pd)
+
+                    # Save to file.
+                    utils.save_csv(df, p_csv)
 
 
 def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: float) -> xr.Dataset:
@@ -1089,6 +1092,10 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
                 return xr.Dataset(None)
             ds_sim = utils.open_netcdf(p_sim)
 
+            # TODO: The following patch was added to fix dimensions for cfg.idx_dc.
+            if var_or_idx_code in cfg.idx_codes:
+                ds_sim = ds_sim.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
+
             # Select period.
             ds_sim = utils.remove_feb29(ds_sim)
             ds_sim = utils.sel_period(ds_sim, per)
@@ -1129,6 +1136,10 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
 
                     # Open dataset.
                     ds_sim = utils.open_netcdf(p_sim)
+
+                    # TODO: The following patch was added to fix dimensions for cfg.idx_dc.
+                    if var_or_idx_code in cfg.idx_codes:
+                        ds_sim = ds_sim.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
 
                     # Extract units.
                     if cfg.attrs_units in ds_sim[var_or_idx].attrs:

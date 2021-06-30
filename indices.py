@@ -1366,12 +1366,8 @@ def run():
         # Loop through indices.
         for i in range(len(cfg.idx_codes)):
 
-            # Generate maps (all horizons).
+            # Generate maps.
             statistics.calc_heatmap(cfg.idx_codes[i])
-
-            # Generate maps (per horizon).
-            for j in range(len(cfg.per_hors)):
-                statistics.calc_heatmap(cfg.idx_codes[i], cfg.per_hors[j])
 
     else:
         utils.log(msg + " (not required)")

@@ -1333,12 +1333,8 @@ def run():
         # Loop through variables.
         for i in range(len(cfg.variables_cordex)):
 
-            # Generate maps (all horizons).
+            # Generate maps.
             statistics.calc_heatmap(cfg.variables_cordex[i])
-
-            # Generate maps (per horizon).
-            for j in range(len(cfg.per_hors)):
-                statistics.calc_heatmap(cfg.variables_cordex[i], cfg.per_hors[j])
 
     else:
         utils.log(msg + " (not required)")

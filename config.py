@@ -433,9 +433,11 @@ col_rcp26           = "blue"            # RCP 2.6.
 col_rcp45           = "green"           # RCP 4.5.
 col_rcp85           = "red"             # RCP 8.5.
 
-# Colors for monthly diagraes.
-col_2cla_temp       = ["cornflowerblue", "indianred"]     # Colors low/hi values (temperature).
-col_2cla_prec       = ["darkgoldenrod", "g"]              # Colors low/hi values (precipitation).
+# Colors for plots.
+# The first color is for low values, and the second color is for high values.
+opt_plot_col_2cla_temp = ["cornflowerblue", "indianred"]  # Temperature variables.
+opt_plot_col_2cla_prec = ["darkgoldenrod", "g"]           # Precipitation variables.
+opt_plot_col_2cla_wind = ["mediumpurple", "orange"]       # Wind variables.
 
 # Color maps apply to categories of variables and indices.
 # +----------------------------+------------+------------+
@@ -453,16 +455,16 @@ col_2cla_prec       = ["darkgoldenrod", "g"]              # Colors low/hi values
 # It combines the 3rd and 4th schemes.
 # The 3rd scheme is for negative-only delta values.
 # The 4th scheme is for positive-only delta values.
-col_maps_temp_var   = ["viridis", "RdBu_r", "Blues_r", "Reds"]       # Tor temperature variables.
-col_maps_temp_idx_1 = col_maps_temp_var                              # Temperature indices (high).
-col_maps_temp_idx_2 = ["plasma_r", "RdBu", "Reds_r", "Blues"]        # Temperature indices (low).
-col_maps_prec_var   = ["Blues", "BrWhGr", "Browns_r", "Greens"]      # Precipitation variables.
-col_maps_prec_idx_1 = col_maps_prec_var                              # Precipitation indices (high).
-col_maps_prec_idx_2 = ["Oranges", "BrWhGr_r", "Greens_r", "Browns"]  # Precipitation indices (low).
-col_maps_prec_idx_3 = ["viridis", "RdBu_r", "Blues_r", "Reds"]       # Precipitation indices (other).
-col_maps_wind_var   = ["None", "RdBu_r", "Blues_r", "Reds"]          # Wind variables.
-col_maps_wind_idx_1 = ["Reds", "RdBu_r", "Blues_r", "Reds"]          # Wind indices.
-col_maps_default    = ["viridis", "RdBu_r", "Blues_r", "Reds"]       # Other variables and indices.
+opt_map_col_temp_var   = ["viridis", "RdBu_r", "Blues_r", "Reds"]       # Temperature variables.
+opt_map_col_temp_idx_1 = opt_map_col_temp_var                           # Temperature indices (high).
+opt_map_col_temp_idx_2 = ["plasma_r", "RdBu", "Reds_r", "Blues"]        # Temperature indices (low).
+opt_map_col_prec_var   = ["Blues", "BrWhGr", "Browns_r", "Greens"]      # Precipitation variables.
+opt_map_col_prec_idx_1 = opt_map_col_prec_var                           # Precipitation indices (high).
+opt_map_col_prec_idx_2 = ["Oranges", "BrWhGr_r", "Greens_r", "Browns"]  # Precipitation indices (low).
+opt_map_col_prec_idx_3 = ["viridis", "RdBu_r", "Blues_r", "Reds"]       # Precipitation indices (other).
+opt_map_col_wind_var   = ["None", "RdBu_r", "Blues_r", "Reds"]          # Wind variables.
+opt_map_col_wind_idx_1 = ["Reds", "RdBu_r", "Blues_r", "Reds"]          # Wind indices.
+opt_map_col_default    = ["viridis", "RdBu_r", "Blues_r", "Reds"]       # Other variables and indices.
 
 
 def get_rank_inst():
