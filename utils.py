@@ -710,7 +710,7 @@ def open_netcdf(p: Union[str, List[str]], drop_variables: [str] = None, chunks: 
         log("Opening NetCDF file: " + desc, True)
 
     if isinstance(p, str):
-        ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks).copy()
+        ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks).copy(deep=True)
         close_netcdf(ds)
     else:
         ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim)
@@ -857,7 +857,7 @@ def save_csv(df: pd.DataFrame, p: str, desc=""):
         log("Saved CSV file", True)
 
 
-def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var: str = "") -> Union[xr.Dataset, xr.Dataset]:
+def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var_or_idx: str = "") -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -868,27 +868,27 @@ def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var: str = "") -> Union[x
     ----------
     ds : Union[xr.Dataset, xr.Dataset]
         Dataset or DataArray.
-    var : str
-        Variable.
+    var_or_idx : str
+        Variable or index.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds_squeeze = ds
+    ds_res = ds.copy(deep=True)
 
     # Squeeze data.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
         if cfg.dim_lon in ds.dims:
-            ds_squeeze = ds.mean([cfg.dim_lon, cfg.dim_lat])
+            ds_res = ds.mean([cfg.dim_lon, cfg.dim_lat])
         elif cfg.dim_rlon in ds.dims:
-            ds_squeeze = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
+            ds_res = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
         elif cfg.dim_longitude in ds.dims:
-            ds_squeeze = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
+            ds_res = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
 
     # Transfer units.
-    ds_squeeze = copy_attributes(ds, ds_squeeze, var)
+    ds_res = copy_attributes(ds, ds_res, var_or_idx)
 
-    return ds_squeeze
+    return ds_res
 
 
 def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Dataset]:
@@ -904,7 +904,7 @@ def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Da
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds_ctr = None
+    ds_res = None
 
     # Determine control point.
     lon = cfg.lon_bnds.mean()
@@ -929,15 +929,15 @@ def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Da
     # Perform subset.
     if cfg.dim_rlon in ds.dims:
         if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
-            ds_ctr = ds.isel(rlon=lon, rlat=lat, drop=True)
+            ds_res = ds.isel(rlon=lon, rlat=lat, drop=True)
     elif cfg.dim_lon in ds.dims:
         if (len(ds.lat) > 1) or (len(ds.lon) > 1):
-            ds_ctr = ds.isel(lon=lon, lat=lat, drop=True)
+            ds_res = ds.isel(lon=lon, lat=lat, drop=True)
     else:
         if (len(ds.latitude) > 1) or (len(ds.longitude) > 1):
-            ds_ctr = ds.isel(longitude=lon, latitude=lat, drop=True)
+            ds_res = ds.isel(longitude=lon, latitude=lat, drop=True)
 
-    return ds_ctr
+    return ds_res
 
 
 def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_a: int, doy_b) -> Union[xr.DataArray, xr.Dataset]:
@@ -956,18 +956,20 @@ def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_a: int, doy_b) -> 
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    da_or_ds_res = da_or_ds.copy(deep=True)
+
     if (doy_a > -1) or (doy_b > -1):
         if doy_a == -1:
             doy_a = 1
         if doy_b == -1:
             doy_b = 365
         if doy_b >= doy_a:
-            cond = (da_or_ds.time.dt.dayofyear >= doy_a) & (da_or_ds.time.dt.dayofyear <= doy_b)
+            cond = (da_or_ds_res.time.dt.dayofyear >= doy_a) & (da_or_ds_res.time.dt.dayofyear <= doy_b)
         else:
-            cond = (da_or_ds.time.dt.dayofyear <= doy_b) | (da_or_ds.time.dt.dayofyear >= doy_a)
-        da_or_ds = da_or_ds[cond]
+            cond = (da_or_ds_res.time.dt.dayofyear <= doy_b) | (da_or_ds_res.time.dt.dayofyear >= doy_a)
+        da_or_ds_res = da_or_ds_res[cond]
 
-    return da_or_ds
+    return da_or_ds_res
 
 
 def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None) -> xr.Dataset:
@@ -989,30 +991,32 @@ def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None) -> xr.Dataset:
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    ds_res = ds.copy(deep=True)
+
     if lon_bnds is None:
         lon_bnds = cfg.lon_bnds
     if lat_bnds is None:
         lat_bnds = cfg.lat_bnds
 
     # Latitude.
-    if cfg.dim_latitude in ds.dims:
-        n_lat = len(ds.latitude)
-        lat_min = ds.latitude.min()
-        lat_max = ds.latitude.max()
+    if cfg.dim_latitude in ds_res.dims:
+        n_lat = len(ds_res.latitude)
+        lat_min = ds_res.latitude.min()
+        lat_max = ds_res.latitude.max()
     else:
-        n_lat = len(ds.rlat)
-        lat_min = ds.rlat.min()
-        lat_max = ds.rlat.max()
+        n_lat = len(ds_res.rlat)
+        lat_min = ds_res.rlat.min()
+        lat_max = ds_res.rlat.max()
 
     # Longitude.
-    if cfg.dim_longitude in ds.dims:
-        n_lon = len(ds.longitude)
-        lon_min = ds.longitude.min()
-        lon_max = ds.longitude.max()
+    if cfg.dim_longitude in ds_res.dims:
+        n_lon = len(ds_res.longitude)
+        lon_min = ds_res.longitude.min()
+        lon_max = ds_res.longitude.max()
     else:
-        n_lon = len(ds.rlon)
-        lon_min = ds.rlon.min()
-        lon_max = ds.rlon.max()
+        n_lon = len(ds_res.rlon)
+        lon_min = ds_res.rlon.min()
+        lon_max = ds_res.rlon.max()
 
     # Calculate latitude.
     lat_range = lat_max - lat_min
@@ -1030,11 +1034,11 @@ def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None) -> xr.Dataset:
 
     # Slice.
     if cfg.dim_latitude in ds.dims:
-        ds = ds.isel(latitude=slice(i_lat_min, i_lat_max), longitude=slice(i_lon_min, i_lon_max))
+        ds_res = ds_res.isel(latitude=slice(i_lat_min, i_lat_max), longitude=slice(i_lon_min, i_lon_max))
     else:
-        ds = ds.isel(rlat=slice(i_lat_min, i_lat_max), rlon=slice(i_lon_min, i_lon_max))
+        ds_res = ds_res.isel(rlat=slice(i_lat_min, i_lat_max), rlon=slice(i_lon_min, i_lon_max))
 
-    return ds
+    return ds_res
 
 
 def remove_feb29(ds: xr.Dataset) -> xr.Dataset:
@@ -1050,9 +1054,11 @@ def remove_feb29(ds: xr.Dataset) -> xr.Dataset:
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds = ds.sel(time=~((ds.time.dt.month == 2) & (ds.time.dt.day == 29)))
+    ds_res = ds.copy(deep=True)
 
-    return ds
+    ds_res = ds_res.sel(time=~((ds_res.time.dt.month == 2) & (ds_res.time.dt.day == 29)))
+
+    return ds_res
 
 
 def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
@@ -1070,9 +1076,11 @@ def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds = ds.where((ds.time.dt.year >= per[0]) & (ds.time.dt.year <= per[1]), drop=True)
+    ds_res = ds.copy(deep=True)
 
-    return ds
+    ds_res = ds_res.where((ds_res.time.dt.year >= per[0]) & (ds_res.time.dt.year <= per[1]), drop=True)
+
+    return ds_res
 
 
 def get_coordinates(ds: Union[xr.Dataset, xr.DataArray], array_format: bool = False) ->\
@@ -1200,32 +1208,34 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    ds_res = ds.copy(deep=True)
+
     if cfg.d_bounds != "":
 
         try:
             # Memorize dimension names and attributes.
-            dim_lon, dim_lat = get_coord_names(ds)
+            dim_lon, dim_lat = get_coord_names(ds_res)
             if dim_lat != cfg.dim_lat:
-                ds = ds.rename({dim_lon: cfg.dim_lon, dim_lat: cfg.dim_lat})
+                ds_res = ds_res.rename({dim_lon: cfg.dim_lon, dim_lat: cfg.dim_lat})
             if var != "":
-                if cfg.attrs_gmap not in ds[var].attrs:
-                    ds[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
+                if cfg.attrs_gmap not in ds_res[var].attrs:
+                    ds_res[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
 
             # Subset by shape.
             logger = logging.getLogger()
             level = logger.level
             logger.setLevel(logging.CRITICAL)
-            ds = subset.subset_shape(ds, cfg.d_bounds)
+            ds_res = subset.subset_shape(ds_res, cfg.d_bounds)
             logger.setLevel(level)
 
             # Recover initial dimension names.
             if dim_lat != cfg.dim_lat:
-                ds = ds.rename({cfg.dim_lon: dim_lon, cfg.dim_lat: dim_lat})
+                ds_res = ds_res.rename({cfg.dim_lon: dim_lon, cfg.dim_lat: dim_lat})
 
         except (TypeError, ValueError):
-            pass
+            return ds.copy(deep=True)
 
-    return ds
+    return ds_res
 
 
 def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
@@ -1243,38 +1253,40 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    da_res = da.copy(deep=True)
+
     # Get coordinates names.
-    dims_data = get_coord_names(da)
+    dims_data = get_coord_names(da_res)
     dims_mask = get_coord_names(da_mask)
 
     # Record units.
     units = None
-    if cfg.attrs_units in da.attrs:
-        units = da.attrs[cfg.attrs_units]
+    if cfg.attrs_units in da_res.attrs:
+        units = da_res.attrs[cfg.attrs_units]
 
     # Rename spatial dimensions.
     if dims_data != dims_mask:
-        da = da.rename({list(dims_data)[0]: list(dims_mask)[0], list(dims_data)[1]: list(dims_mask)[1]})
+        da_res = da_res.rename({list(dims_data)[0]: list(dims_mask)[0], list(dims_data)[1]: list(dims_mask)[1]})
 
     # Apply mask.
     n_time = len(da[cfg.dim_time])
-    da[0:n_time, :, :] = da[0:n_time, :, :].values * da_mask.values
+    da_res[0:n_time, :, :] = da_res[0:n_time, :, :].values * da_mask.values
 
     # Restore spatial dimensions.
     if dims_data != dims_mask:
-        da = da.rename({list(dims_mask)[0]: list(dims_data)[0], list(dims_mask)[1]: list(dims_data)[1]})
+        da_res = da_res.rename({list(dims_mask)[0]: list(dims_data)[0], list(dims_mask)[1]: list(dims_data)[1]})
 
     # Restore units.
     if units is not None:
-        da.attrs[cfg.attrs_units] = units
+        da_res.attrs[cfg.attrs_units] = units
 
     # Drop coordinates.
     try:
-        da = da.reset_coords(names=cfg.dim_time, drop=True)
+        da_res = da_res.reset_coords(names=cfg.dim_time, drop=True)
     except:
         pass
 
-    return da
+    return da_res
 
 
 def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> set:
@@ -1316,41 +1328,45 @@ def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Da
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    ds_or_da_res = ds_or_da.copy(deep=True)
+
     # Extract coordinates and determine if they are increasing.
-    lon_vals = ds_or_da[cfg.dim_longitude]
-    lat_vals = ds_or_da[cfg.dim_latitude]
+    lon_vals = ds_or_da_res[cfg.dim_longitude]
+    lat_vals = ds_or_da_res[cfg.dim_latitude]
     lon_monotonic_inc = bool(lon_vals[0] < lon_vals[len(lon_vals) - 1])
     lat_monotonic_inc = bool(lat_vals[0] < lat_vals[len(lat_vals) - 1])
 
     # Flip values.
     if not lon_monotonic_inc:
-        ds_or_da = ds_or_da.sortby(cfg.dim_longitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_longitude, ascending=True)
     if not lat_monotonic_inc:
-        ds_or_da = ds_or_da.sortby(cfg.dim_latitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_latitude, ascending=True)
 
     # Interpolate, layer by layer (limit=1).
-    for t in range(len(ds_or_da[cfg.dim_time])):
-        n_i = max(len(ds_or_da[t].longitude), len(ds_or_da[t].latitude))
+    for t in range(len(ds_or_da_res[cfg.dim_time])):
+        n_i = max(len(ds_or_da_res[t].longitude), len(ds_or_da_res[t].latitude))
         for i in range(n_i):
-            df_t = ds_or_da[t].to_pandas()
-            ds_or_da_lat_t = ds_or_da[t].copy()
-            ds_or_da_lon_t = ds_or_da[t].copy()
+            df_t = ds_or_da_res[t].to_pandas()
+            ds_or_da_lat_t = ds_or_da_res[t].copy(deep=True)
+            ds_or_da_lon_t = ds_or_da_res[t].copy(deep=True)
             ds_or_da_lat_t.values = df_t.interpolate(axis=0, limit=1, limit_direction="both")
             ds_or_da_lon_t.values = df_t.interpolate(axis=1, limit=1, limit_direction="both")
-            ds_or_da[t] = (ds_or_da_lon_t + ds_or_da_lat_t) / 2.0
-            ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lon_t.values[np.isnan(ds_or_da[t].values)]
-            ds_or_da[t].values[np.isnan(ds_or_da[t].values)] = ds_or_da_lat_t.values[np.isnan(ds_or_da[t].values)]
-            n_nan = np.isnan(ds_or_da[t].values).astype(float).sum()
+            ds_or_da_res[t] = (ds_or_da_lon_t + ds_or_da_lat_t) / 2.0
+            ds_or_da_res[t].values[np.isnan(ds_or_da_res[t].values)] =\
+                ds_or_da_lon_t.values[np.isnan(ds_or_da_res[t].values)]
+            ds_or_da_res[t].values[np.isnan(ds_or_da_res[t].values)] =\
+                ds_or_da_lat_t.values[np.isnan(ds_or_da_res[t].values)]
+            n_nan = np.isnan(ds_or_da_res[t].values).astype(float).sum()
             if n_nan == 0:
                 break
 
     # Unflip values.
     if not lon_monotonic_inc:
-        ds_or_da = ds_or_da.sortby(cfg.dim_longitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_longitude, ascending=False)
     if not lat_monotonic_inc:
-        ds_or_da = ds_or_da.sortby(cfg.dim_latitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_latitude, ascending=False)
 
-    return ds_or_da
+    return ds_or_da_res
 
 
 def create_mask(stn: str) -> xr.DataArray:
@@ -1377,10 +1393,6 @@ def create_mask(stn: str) -> xr.DataArray:
         var = list(ds.data_vars)[0]
         if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
 
-            # Flag 'nan' values.
-            # if var == cfg.var_cordex_pr:
-            #     p_dry_error = convert_units_to(str(0.0000008) + " mm/day", ds[var])
-            #     ds[var].values[(ds[var].values > 0) & (ds[var].values <= p_dry_error)] = np.nan
 
             # Create mask.
             da_mask = ds[var][0] * 0 + 1

@@ -26,7 +26,7 @@ from typing import Union, List
 
 
 def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_code: str, rcp: str, hor: [int],
-              use_bounds: bool, stat: str, q: float = -1) -> Union[xr.Dataset, None]:
+              per_region: bool, use_bounds: bool, stat: str, q: float = -1) -> Union[xr.Dataset, None]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -34,6 +34,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
 
     Parameters
     ----------
+
     data_type : str
         Dataset type: {cfg.obs, cfg.cat_scen}
     freq_in : str
@@ -49,6 +50,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
     hor : [int]
         Horizon: ex: [1981, 2010]
         If None is specified, the complete time range is considered.
+    per_region : bool
+        If True, statistics are calculated for a region as a whole.
     use_bounds : bool
         If True, use cfg.d_bounds.
     stat : str
@@ -176,6 +179,13 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
                 vals = [i * cfg.spd for i in vals]
             arr_vals.append(vals)
+
+    # Calculate the mean value of all years.
+    if per_region:
+        for i in range(len(arr_vals)):
+            arr_vals[i] = [np.mean(arr_vals[i])]
+        n_time = 1
+        year_n = year_1
 
     # Transpose.
     arr_vals_t = []
@@ -334,8 +344,10 @@ def calc_stats(cat: str):
                         for hor in hors:
 
                             # Calculate statistics.
-                            ds_stat =\
-                                calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx_code, rcp, hor, True, stat, q)
+                            # The use of boundaries was disabled, because the function cliops.subset does not always
+                            # work (different result obtained for different runs with same exact data).
+                            ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, var_or_idx_code, rcp, hor,
+                                                True, False, stat, q)
                             if ds_stat is None:
                                 continue
 
@@ -1001,11 +1013,11 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
 
             # Calculate statistics.
             if rcp == cfg.rcp_ref:
-                ds_stat =\
-                    calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx_code, rcp, None, False, stat, q)
+                ds_stat = calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx_code, rcp, None,
+                                    False, False, stat, q)
             else:
-                ds_stat =\
-                    calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx_code, rcp, None, False, stat, q)
+                ds_stat = calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, var_or_idx_code, rcp, None,
+                                    False, False, stat, q)
             if ds_stat is None:
                 continue
 
@@ -1073,7 +1085,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
         da_itp = xr.DataArray(new_grid_data,
                               coords={cfg.dim_time: grid_time, cfg.dim_lat: grid_y, cfg.dim_lon: grid_x},
                               dims=[cfg.dim_time, cfg.dim_lat, cfg.dim_lon])
-        ds_itp = da_itp.to_dataset(name=var_or_idx)
+        ds_res = da_itp.to_dataset(name=var_or_idx)
 
     # There is no need to interpolate.
     else:
@@ -1108,13 +1120,13 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
                 units = ds_sim[cfg.attrs_units]
 
             # Calculate mean.
-            ds_itp = ds_sim.mean(dim=cfg.dim_time)
+            ds_res = ds_sim.mean(dim=cfg.dim_time)
             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                ds_itp = ds_itp * 365
+                ds_res = ds_res * 365
             if cat == cfg.cat_scen:
-                ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
+                ds_res[var_or_idx].attrs[cfg.attrs_units] = units
             else:
-                ds_itp.attrs[cfg.attrs_units] = units
+                ds_res.attrs[cfg.attrs_units] = units
 
         # Future period.
         else:
@@ -1128,7 +1140,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
 
             # Collect simulations.
             arr_sim = []
-            ds_itp  = None
+            ds_res  = None
             n_sim   = 0
             units   = 1
             for p_sim in p_sim_list:
@@ -1163,23 +1175,24 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
 
                     # The first dataset will be used to return result.
                     if n_sim == 0:
-                        ds_itp = ds_sim
+                        ds_res = ds_sim.copy(deep=True)
+                        ds_res[var_or_idx][:, :] = np.nan
                     n_sim = n_sim + 1
 
-            if ds_itp is None:
+            if ds_res is None:
                 return xr.Dataset(None)
 
             # Calculate statistics.
-            dims_itp = ds_itp[var_or_idx].dims
+            dims_itp = ds_sim[var_or_idx].dims
             if cfg.dim_rlat in dims_itp:
-                lat = ds_itp[var_or_idx][cfg.dim_rlat]
-                lon = ds_itp[var_or_idx][cfg.dim_rlon]
+                lat = ds_sim[var_or_idx][cfg.dim_rlat]
+                lon = ds_sim[var_or_idx][cfg.dim_rlon]
             elif cfg.dim_lat in dims_itp:
-                lat = ds_itp[var_or_idx][cfg.dim_lat]
-                lon = ds_itp[var_or_idx][cfg.dim_lon]
+                lat = ds_sim[var_or_idx][cfg.dim_lat]
+                lon = ds_sim[var_or_idx][cfg.dim_lon]
             else:
-                lat = ds_itp[var_or_idx][cfg.dim_latitude]
-                lon = ds_itp[var_or_idx][cfg.dim_longitude]
+                lat = ds_sim[var_or_idx][cfg.dim_latitude]
+                lon = ds_sim[var_or_idx][cfg.dim_longitude]
             len_lat = len(lat)
             len_lon = len(lon)
             for i_lat in range(len_lat):
@@ -1188,7 +1201,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
                     # Extract the value for the current cell for all simulations.
                     vals = []
                     for ds_sim in arr_sim:
-                        dims_sim = ds_itp[var_or_idx].dims
+                        dims_sim = ds_sim[var_or_idx].dims
                         if cfg.dim_rlat in dims_sim:
                             val_sim = float(ds_sim[var_or_idx].isel(rlon=i_lon, rlat=i_lat))
                         elif cfg.dim_lat in dims_sim:
@@ -1209,42 +1222,42 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
                         val = np.quantile(vals, q)
 
                     # Record value.
-                    ds_itp[var_or_idx][i_lat, i_lon] = val
+                    ds_res[var_or_idx][i_lat, i_lon] = val
 
         # Remember units.
-        units = ds_itp[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds_itp.attrs[cfg.attrs_units]
+        units = ds_res[var_or_idx].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds_res.attrs[cfg.attrs_units]
 
         # Convert units.
         if (var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and\
-           (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
-            ds_itp = ds_itp - cfg.d_KC
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
+           (ds_res[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
+            ds_res = ds_res - cfg.d_KC
+            ds_res[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
         elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]) and \
-             (ds_itp[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
-            ds_itp = ds_itp * cfg.spd
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
+             (ds_res[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
+            ds_res = ds_res * cfg.spd
+            ds_res[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
         elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
-            ds_itp = ds_itp * cfg.km_h_per_m_s
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_km_h
+            ds_res = ds_res * cfg.km_h_per_m_s
+            ds_res[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_km_h
         else:
-            ds_itp[var_or_idx].attrs[cfg.attrs_units] = units
+            ds_res[var_or_idx].attrs[cfg.attrs_units] = units
 
         # Adjust coordinate names (required for clipping).
-        if cfg.dim_longitude not in list(ds_itp.dims):
-            if cfg.dim_rlon in ds_itp.dims:
-                ds_itp = ds_itp.rename_dims({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-                ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_rlon]
-                del ds_itp[cfg.dim_rlon]
-                ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_rlat]
-                del ds_itp[cfg.dim_rlat]
+        if cfg.dim_longitude not in list(ds_res.dims):
+            if cfg.dim_rlon in ds_res.dims:
+                ds_res = ds_res.rename_dims({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+                ds_res[cfg.dim_longitude] = ds_res[cfg.dim_rlon]
+                del ds_res[cfg.dim_rlon]
+                ds_res[cfg.dim_latitude] = ds_res[cfg.dim_rlat]
+                del ds_res[cfg.dim_rlat]
             else:
-                ds_itp = ds_itp.rename_dims({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
-                ds_itp[cfg.dim_longitude] = ds_itp[cfg.dim_lon]
-                del ds_itp[cfg.dim_lon]
-                ds_itp[cfg.dim_latitude] = ds_itp[cfg.dim_lat]
-                del ds_itp[cfg.dim_lat]
+                ds_res = ds_res.rename_dims({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
+                ds_res[cfg.dim_longitude] = ds_res[cfg.dim_lon]
+                del ds_res[cfg.dim_lon]
+                ds_res[cfg.dim_latitude] = ds_res[cfg.dim_lat]
+                del ds_res[cfg.dim_lat]
 
-    return ds_itp
+    return ds_res
 
 
 def conv_nc_csv(cat: str):
