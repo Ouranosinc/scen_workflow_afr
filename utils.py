@@ -608,7 +608,10 @@ def calc_error(da_obs: xr.DataArray, da_pred: xr.DataArray) -> float:
 
         # Method #4: Relative root mean square error.
         elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rrmse:
-            error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
+            if np.std(values_obs) != 0:
+                error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
+            else:
+                error = 0
 
     return error
 
