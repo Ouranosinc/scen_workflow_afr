@@ -433,7 +433,7 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
         plt.subplot(433 + i - 1)
 
         stat     = "quantile"
-        quantile = cfg.stat_quantiles[i-1]
+        quantile = cfg.opt_stat_quantiles[i-1]
         title    = "Q_" + "{0:.2f}".format(quantile)
         if quantile == 0:
             stat = cfg.stat_min

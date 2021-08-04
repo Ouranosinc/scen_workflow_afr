@@ -682,7 +682,9 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
     # The files p_stn and p_ref cannot be opened using xr.open_mfdataset.
     if not cfg.opt_ra:
         if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+            da_stn_attrs = ds_stn[var].attrs
             ds_stn[var] = ds_stn[var] + cfg.d_KC
+            ds_stn[var].attrs = da_stn_attrs
             ds_stn[var].attrs[cfg.attrs_units] = cfg.unit_K
         da_stn = ds_stn[var][:, 0, 0]
     else:

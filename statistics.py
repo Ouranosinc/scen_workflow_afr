@@ -356,7 +356,11 @@ def calc_stats(cat: str):
 
                             # Extract value.
                             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                                val = ds_stat_hor.sum() / (hor[1] - hor[0] + 1)
+                                n_years = hor[1] - hor[0] + 1
+                                val = ds_stat_hor.sum() / n_years
+                                if freq == cfg.freq_D:
+                                    n_days = n_years * 365
+                                    val = val * n_days
                             else:
                                 val = ds_stat_hor.mean()
                             val = float(val[var_or_idx])
@@ -712,7 +716,8 @@ def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
     # Summarize data per month.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
-        da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
+        if cfg.opt_ra:
+            da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
         if freq != cfg.freq_MS:
 
             # Extract values.
@@ -734,6 +739,11 @@ def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
                     ds_m = da_min.to_dataset()
                 else:
                     ds_m = da_max.to_dataset()
+
+                # No longitude and latitude for a station.
+                if not cfg.opt_ra:
+                    ds_m = ds_m.squeeze()
+
                 ds_m[var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
                 ds_list.append(ds_m)
 
@@ -746,6 +756,11 @@ def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
                     vals_m = list(da_m[da_m["time.month"] == m].resample(time=cfg.freq_YS).sum().values)
                 else:
                     vals_m = list(da_m[da_m["time.month"] == m].resample(time=cfg.freq_YS).mean().values)
+
+                # No longitude and latitude at a station.
+                if (not cfg.opt_ra) and (len(np.array(vals_m).shape) > 1):
+                    for n in range(len(vals_m)):
+                        vals_m[n] = vals_m[n][0][0]
 
                 arr_all.append(vals_m)
 
