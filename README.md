@@ -116,7 +116,8 @@ The following feature was implemented:
 
 The following features were implemented:
 - ensured compatibility with at-a-station analysis (only for scenarios);
-- fixed a bug where the precipitation values were n_days (ex: 10950 for 30 years) too small in statistic tables.
+- fixed a bug where the precipitation values were n_days (ex: 10950 for 30 years) too small in statistic tables;
+- improved daily and month plot generation function (applied to all periods and more robust).
 
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
