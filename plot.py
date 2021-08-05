@@ -297,7 +297,6 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     fs_legend    = 6
     fs_axes      = 8
     f = plt.figure(figsize=(15, 6))
-    f.add_subplot(211)
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.07, right=0.99, hspace=0.40, wspace=0.00)
     sup_title = os.path.basename(p_fig).replace(cfg.f_ext_png, "") +\
         "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)

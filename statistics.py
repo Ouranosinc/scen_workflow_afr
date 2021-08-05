@@ -179,7 +179,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                                 vals[(i_year - year_1) * 365 + day_of_year - 1] = val
                         except:
                             pass
-            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+            if (not cfg.opt_ra) and\
+               (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]):
                 vals = [i * cfg.spd for i in vals]
             arr_vals.append(vals)
 
@@ -188,13 +189,12 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
         for i in range(len(arr_vals)):
             arr_vals[i] = [np.nanmean(arr_vals[i])]
         n_time = 1
-        year_n = year_1
 
     # Transpose.
     arr_vals_t = []
 
     # Collapse to yearly frequency.
-    if (freq_in == cfg.freq_D) and (freq_out == cfg.freq_YS):
+    if (freq_in == cfg.freq_D) and (freq_out == cfg.freq_YS) and cfg.opt_ra:
         for i_sim in range(n_sim):
             vals_sim = []
             for i_year in range(0, year_n - year_1 + 1):
@@ -220,7 +220,10 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
         vals = []
         for i_sim in range(n_sim):
             if (var_or_idx != cfg.idx_rainqty) or ((var_or_idx == cfg.idx_rainqty) and (max(arr_vals[i_sim]) > 0)):
-                vals.append(arr_vals[i_sim][i_time])
+                if n_time == 1:
+                    vals.append(arr_vals[i_sim][0])
+                else:
+                    vals.append(arr_vals[i_sim][i_time])
         arr_vals_t.append(vals)
 
     # Calculate statistics.
@@ -253,7 +256,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
     if not(cfg.dim_lon in ds_stat.dims):
         ds_stat[cfg.dim_lon] = lon
         ds_stat[cfg.dim_lat] = lat
-    ds_stat[cfg.dim_time] = utils.reset_calendar(ds_stat, year_1, year_n, freq_out)
+    if n_time > 1:
+        ds_stat[cfg.dim_time] = utils.reset_calendar(ds_stat, year_1, year_n, freq_out)
 
     # Adjust units.
     ds_stat[var_or_idx].attrs[cfg.attrs_units] = units
@@ -355,18 +359,21 @@ def calc_stats(cat: str):
                                 continue
 
                             # Select period.
-                            ds_stat_hor = utils.sel_period(ds_stat.squeeze(), hor)
+                            if cfg.opt_ra:
+                                ds_stat_hor = utils.sel_period(ds_stat.squeeze(), hor)
+                            else:
+                                ds_stat_hor = ds_stat.copy(deep=True)
 
                             # Extract value.
                             if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                                # Mean daily value.
                                 n_years = hor[1] - hor[0] + 1
-                                val = ds_stat_hor.sum() / n_years
+                                val = float(ds_stat_hor[var_or_idx].sum()) / n_years
+                                # Mean annual value.
                                 if freq == cfg.freq_D:
-                                    n_days = n_years * 365
-                                    val = val * n_days
+                                    val = val * n_years * 365
                             else:
-                                val = ds_stat_hor.mean()
-                            val = float(val[var_or_idx])
+                                val = float(ds_stat_hor[var_or_idx].mean())
 
                             # Add row.
                             stn_list.append(stn)
