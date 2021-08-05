@@ -694,7 +694,7 @@ def calc_stat_mean_min_max(ds_list: [xr.Dataset], var_or_idx: str):
     return ds_mean_min_max
 
 
-def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
+def calc_by_freq(ds: xr.Dataset, var: str, per: [int, int], freq: str) -> List[xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -706,6 +706,8 @@ def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
         Dataset.
     var: str
         Climate variable.
+    per: [int, int]
+        Period of interest, for instance, [1981, 2010].
     freq: str
         Frequency.
     --------------------------------------------------------------------------------------------------------------------
@@ -762,19 +764,18 @@ def calc_monthly(ds: xr.Dataset, var: str, freq: str) -> List[xr.Dataset]:
 
         else:
 
-            # Extract values.
+            # Calculate statistics for each month-year combination.
+            # Looping through years is less efficient but required to avoid a problem with incomplete at-a-station
+            # datasets.
             arr_all = []
             for m in range(1, 13):
-                if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-                    vals_m = list(da_m[da_m["time.month"] == m].resample(time=cfg.freq_YS).sum().values)
-                else:
-                    vals_m = list(da_m[da_m["time.month"] == m].resample(time=cfg.freq_YS).mean().values)
-
-                # No longitude and latitude at a station.
-                if (not cfg.opt_ra) and (len(np.array(vals_m).shape) > 1):
-                    for n in range(len(vals_m)):
-                        vals_m[n] = vals_m[n][0][0]
-
+                vals_m = []
+                for y in range(per[0], per[1] + 1):
+                    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                        val_m_y = np.nansum(da_m[(da_m["time.year"] == y) & (da_m["time.month"] == m)].values)
+                    else:
+                        val_m_y = np.nanmean(da_m[(da_m["time.year"] == y) & (da_m["time.month"] == m)].values)
+                    vals_m.append(val_m_y)
                 arr_all.append(vals_m)
 
             # Create dataset.
