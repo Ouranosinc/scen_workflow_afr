@@ -1305,16 +1305,18 @@ def run():
                     title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, cfg.cat_fig_daily)
                     gen_plot_freq(ds_qqmap, stn, var, cfg.freq_D, title)
 
-                # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
-                # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
-                ds_stn = utils.open_netcdf(p_stn)
-                title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_monthly
-                gen_plot_freq(ds_stn, stn, var, cfg.freq_MS, title)
+                if os.path.exists(p_stn):
 
-                # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
-                # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
-                title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_daily
-                gen_plot_freq(ds_stn, stn, var, cfg.freq_D, title)
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
+                    ds_stn = utils.open_netcdf(p_stn)
+                    title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_monthly
+                    gen_plot_freq(ds_stn, stn, var, cfg.freq_MS, title)
+
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
+                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
+                    title = var + "_" + cfg.rcp_ref + "_" + cfg.cat_fig_daily
+                    gen_plot_freq(ds_stn, stn, var, cfg.freq_D, title)
 
         if not cfg.opt_save_csv[0]:
             utils.log("-")

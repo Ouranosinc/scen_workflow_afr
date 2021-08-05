@@ -172,7 +172,10 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                             ds_i = ds.sel(time=slice(date_str, date_str))
                             if ds_i[var_or_idx].size != 0:
                                 day_of_year = ds_i[var_or_idx].time.dt.dayofyear.values[0]
-                                val = ds_i[var_or_idx].values[0][0][0]
+                                if len(np.array(ds_i[var_or_idx].values).shape) > 1:
+                                    val = ds_i[var_or_idx].values[0][0][0]
+                                else:
+                                    val = ds_i[var_or_idx].values[0]
                                 vals[(i_year - year_1) * 365 + day_of_year - 1] = val
                         except:
                             pass
@@ -183,7 +186,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
     # Calculate the mean value of all years.
     if per_region:
         for i in range(len(arr_vals)):
-            arr_vals[i] = [np.mean(arr_vals[i])]
+            arr_vals[i] = [np.nanmean(arr_vals[i])]
         n_time = 1
         year_n = year_1
 
@@ -457,6 +460,10 @@ def calc_ts(cat: str):
 
                 # Loop through simulation files.
                 for i_sim in range(len(p_sim_list)):
+
+                    # Skip iteration if file doesn't exist.
+                    if not os.path.exists(p_sim_list[i_sim]):
+                        continue
 
                     # Load dataset.
                     ds = utils.open_netcdf(p_sim_list[i_sim]).squeeze()
