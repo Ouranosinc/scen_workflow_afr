@@ -179,8 +179,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                                 vals[(i_year - year_1) * 365 + day_of_year - 1] = val
                         except:
                             pass
-            if (not cfg.opt_ra) and\
-               (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]):
+            if cfg.opt_ra and (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]):
                 vals = [i * cfg.spd for i in vals]
             arr_vals.append(vals)
 
