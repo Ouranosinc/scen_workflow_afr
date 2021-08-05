@@ -794,13 +794,12 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
 
         # Convert units.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
-            if cfg.opt_ra:
-                da_stn       = convert_units(da_stn, cfg.unit_mm)
-                da_ref       = convert_units(da_ref, cfg.unit_mm)
-                da_fut       = convert_units(da_fut, cfg.unit_mm)
-                da_qqmap     = convert_units(da_qqmap, cfg.unit_mm)
-                da_qqmap_ref = convert_units(da_qqmap_ref, cfg.unit_mm)
-                da_qmf       = convert_units(da_qmf, cfg.unit_mm)
+            da_stn       = convert_units(da_stn, cfg.unit_mm)
+            da_ref       = convert_units(da_ref, cfg.unit_mm)
+            da_fut       = convert_units(da_fut, cfg.unit_mm)
+            da_qqmap     = convert_units(da_qqmap, cfg.unit_mm)
+            da_qqmap_ref = convert_units(da_qqmap_ref, cfg.unit_mm)
+            da_qmf       = convert_units(da_qmf, cfg.unit_mm)
         elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
             da_stn       = convert_units(da_stn, cfg.unit_C)
             da_ref       = convert_units(da_ref, cfg.unit_C)
