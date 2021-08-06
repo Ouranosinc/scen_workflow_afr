@@ -1223,7 +1223,7 @@ def run():
         utils.log(msg)
         utils.log("-")
         utils.log("Step #7b1 Generating times series (scenarios)")
-        # TODO.Remove: statistics.calc_ts(cfg.cat_scen)
+        statistics.calc_ts(cfg.cat_scen)
         if not cfg.opt_ra:
             utils.log("-")
             utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios)")
@@ -1285,13 +1285,13 @@ def run():
                         replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
-                    # TODO.Remove: plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+                    plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
                         p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc,
                                                             cfg.cat_fig_workflow + cfg.f_ext_png)
-                    # TODO.Remove: plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+                    plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
                     # Generate monthly and daily plots.
                     ds_qqmap = utils.open_netcdf(p_qqmap)
@@ -1301,12 +1301,12 @@ def run():
                         # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                         # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
                         title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, per_str + "_" + cfg.cat_fig_monthly)
-                        # TODO.Remove: gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_MS, title)
+                        gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_MS, title)
 
                         # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                         # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                         title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, per_str + "_" + cfg.cat_fig_daily)
-                        # TODO.Remove: gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_D, title)
+                        gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_D, title)
 
                 if os.path.exists(p_stn):
 
@@ -1321,7 +1321,7 @@ def run():
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                     title = var + "_" + per_str + "_" + cfg.cat_fig_daily
-                    # TODO.Remove: gen_plot_freq(ds_stn, stn, var, cfg.per_ref, cfg.freq_D, title)
+                    gen_plot_freq(ds_stn, stn, var, cfg.per_ref, cfg.freq_D, title)
 
         if not cfg.opt_save_csv[0]:
             utils.log("-")
