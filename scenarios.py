@@ -1293,18 +1293,18 @@ def run():
                                                             cfg.cat_fig_workflow + cfg.f_ext_png)
                     # TODO.Remove: plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
-                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
-                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
+                    # Generate monthly and daily plots.
                     ds_qqmap = utils.open_netcdf(p_qqmap)
                     for per in cfg.per_hors:
                         per_str = str(per[0]) + "_" + str(per[1])
-                        title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, per_str + "_" + cfg.cat_fig_monthly)
-                        gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_MS, title)
 
-                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
-                    # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
-                    for per in cfg.per_hors:
-                        per_str = str(per[0]) + "_" + str(per[1])
+                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
+                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
+                        title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, per_str + "_" + cfg.cat_fig_monthly)
+                        # TODO.Remove: gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_MS, title)
+
+                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
+                        # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                         title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, per_str + "_" + cfg.cat_fig_daily)
                         gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_D, title)
 
@@ -1316,7 +1316,7 @@ def run():
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
                     title = var + "_" + per_str + "_" + cfg.cat_fig_monthly
-                    gen_plot_freq(ds_stn, stn, var, cfg.per_ref, cfg.freq_MS, title)
+                    # TODO.Remove: gen_plot_freq(ds_stn, stn, var, cfg.per_ref, cfg.freq_MS, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
@@ -1349,7 +1349,7 @@ def run():
         utils.log(msg + " (not required)")
 
 
-def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str, title: str):
+def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str, title: str, i_trial: int = 1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1369,13 +1369,17 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
         Frequency = {cfg.freq_D, cfg.freq_MS}
     title: str
         Plot title.
+    i_trial: int
+        Iteration number. The purpose is to attempt doing the analysis again. It happens once in a while that the
+        dictionary is missing values, which results in the impossibility to build a dataframe and save it.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Extract data.
-    ds = utils.sel_period(ds, per)
-    if freq == cfg.freq_D:
-        ds = utils.remove_feb29(ds)
+    if i_trial == 1:
+        ds = utils.sel_period(ds, per)
+        if freq == cfg.freq_D:
+            ds = utils.remove_feb29(ds)
 
     # Convert units.
     units = ds[var].attrs[cfg.attrs_units]
@@ -1405,6 +1409,8 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat_fig, var) + title + cfg.f_ext_png
     p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").replace(cfg.f_ext_png, cfg.f_ext_csv)
 
+    error = False
+
     if freq == cfg.freq_D:
 
         # Generate plot.
@@ -1416,8 +1422,11 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
                        "mean": list(ds_list[0][var].values),
                        "min": list(ds_list[1][var].values),
                        "max": list(ds_list[2][var].values), "var": [var] * n}
-            df = pd.DataFrame(dict_pd)
-            utils.save_csv(df, p_csv)
+            try:
+                df = pd.DataFrame(dict_pd)
+                utils.save_csv(df, p_csv)
+            except:
+                error = True
 
     else:
 
@@ -1434,8 +1443,24 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
                  "4": ds_list[var].values[3], "5": ds_list[var].values[4], "6": ds_list[var].values[5],
                  "7": ds_list[var].values[6], "8": ds_list[var].values[7], "9": ds_list[var].values[8],
                  "10": ds_list[var].values[9], "11": ds_list[var].values[10], "12": ds_list[var].values[11]}
-            df = pd.DataFrame(dict_pd)
-            utils.save_csv(df, p_csv)
+            try:
+                df = pd.DataFrame(dict_pd)
+                utils.save_csv(df, p_csv)
+            except:
+                error = True
+
+    # An error occurred.
+    if error:
+
+        # Log error.
+        msg_err = "Unable to save " + ("daily" if (freq == cfg.freq_D) else "monthly") +\
+                  " plot data (failed " + str(i_trial) + " time(s)):"
+        utils.log(msg_err, True)
+        utils.log(title, True)
+
+        # Attempt the same analysis again.
+        if i_trial < 3:
+            gen_plot_freq(ds, stn, var, per, freq, title, i_trial + 1)
 
 
 if __name__ == "__main__":
