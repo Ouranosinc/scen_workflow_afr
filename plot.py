@@ -322,7 +322,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 
         # Lower plot: Complete simulation.
         f.add_subplot(212)
-        arr_y_detrend = signal.detrend(da_fut * coef + delta_fut)
+        arr_y_detrend = signal.detrend(da_fut[np.isnan(da_fut) == False] * coef + delta_fut)
         arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
         arr_y_error  = (y - ffit)
         arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
