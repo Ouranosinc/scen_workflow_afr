@@ -150,11 +150,27 @@ def init_calib_params():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Simulations, stations and variables.
+    sim_name_list = []
+    stn_list      = []
+    var_list      = []
+    nq_list       = []
+    up_qmf_list   = []
+    time_win_list = []
+    bias_err_list = []
+
     # Attempt loading a calibration file.
     if os.path.exists(cfg.p_calib):
         cfg.df_calib = pd.read_csv(cfg.p_calib)
+        if len(cfg.df_calib) > 0:
+            sim_name_list = list(cfg.df_calib["sim_name"])
+            stn_list      = list(cfg.df_calib["stn"])
+            var_list      = list(cfg.df_calib["var"])
+            nq_list       = list(cfg.df_calib["nq"])
+            up_qmf_list   = list(cfg.df_calib["up_qmf"])
+            time_win_list = list(cfg.df_calib["time_win"])
+            bias_err_list = list(cfg.df_calib["bias_err"])
         utils.log("Calibration file loaded.", True)
-        return
 
     # List CORDEX files.
     list_cordex = utils.list_cordex(cfg.d_proj, cfg.rcps)
@@ -165,39 +181,44 @@ def init_calib_params():
         stns = [cfg.obs_src]
 
     # List simulation names, stations and variables.
-    sim_name_list = []
-    stn_list = []
-    var_list = []
-    for idx_rcp in range(len(cfg.rcps)):
-        rcp = cfg.rcps[idx_rcp]
+    for i_rcp in range(len(cfg.rcps)):
+        rcp = cfg.rcps[i_rcp]
         sim_list = list_cordex[rcp]
         sim_list.sort()
         for i_sim in range(0, len(sim_list)):
             list_i = list_cordex[rcp][i_sim].split("/")
             sim_name = list_i[cfg.get_rank_inst()] + "_" + list_i[cfg.get_rank_inst() + 1]
-            if sim_name not in sim_name_list:
-                for stn in stns:
-                    for var in cfg.variables_cordex:
+            for stn in stns:
+                for var in cfg.variables_cordex:
+
+                    # Add the combination if it does not already exist.
+                    if len(cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                                            (cfg.df_calib["stn"] == stn) &
+                                            (cfg.df_calib["var"] == var)]) == 0:
                         sim_name_list.append(sim_name)
                         stn_list.append(stn)
                         var_list.append(var)
+                        nq_list.append(cfg.nq_default)
+                        up_qmf_list.append(cfg.up_qmf_default)
+                        time_win_list.append(cfg.time_win_default)
+                        bias_err_list.append(cfg.bias_err_default)
 
     # Build pandas dataframe.
     dict_pd = {
         "sim_name": sim_name_list,
         "stn": stn_list,
         "var": var_list,
-        "nq": cfg.nq_default,
-        "up_qmf": cfg.up_qmf_default,
-        "time_win": cfg.time_win_default,
-        "bias_err": cfg.bias_err_default}
+        "nq": nq_list,
+        "up_qmf": up_qmf_list,
+        "time_win": time_win_list,
+        "bias_err": bias_err_list}
     cfg.df_calib = pd.DataFrame(dict_pd)
 
     # Save calibration parameters to a CSV file.
     if cfg.p_calib != "":
         cfg.df_calib.to_csv(cfg.p_calib, index=False)
         if os.path.exists(cfg.p_calib):
-            utils.log("Calibration file created.", True)
+            utils.log("Calibration file created or updated.", True)
 
 
 def adjust_date_format(ds: xr.Dataset):

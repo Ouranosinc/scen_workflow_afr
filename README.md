@@ -119,5 +119,11 @@ The following features were implemented:
 - fixed a bug where the precipitation values were n_days (ex: 10950 for 30 years) too small in statistic tables;
 - improved daily and month plot generation function (applied to all periods and more robust).
 
+### v1.3.3
+
+The following features were implemented:
+- adding missing lines in calib.csv file (containing bias adjustment error) when a new simulation, station, or variable
+  is added or if bias adjustment is performed with new nq, up_qmf and time_win parameters. 
+
 ## Contributing
 This is a private development that is being used in production by climate services specialists. If you're interested in participating to the development, want to suggest features or report bugs, please leave us a message on the [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
