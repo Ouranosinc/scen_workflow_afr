@@ -748,8 +748,8 @@ def save_netcdf(ds: Union[xr.Dataset, xr.DataArray], p, desc=""):
         log("Saving NetCDF file: " + desc, True)
 
     # Recursively create directories if the path does not exist.
-    d = os.path.exists(p)
-    if not (os.path.isdir(d)):
+    d = os.path.dirname(p)
+    if not (os.path.exists(d)):
         os.makedirs(d)
 
     # Discard file if it already exists.
