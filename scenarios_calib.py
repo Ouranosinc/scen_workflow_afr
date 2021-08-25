@@ -192,9 +192,10 @@ def init_calib_params():
                 for var in cfg.variables_cordex:
 
                     # Add the combination if it does not already exist.
-                    if len(cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
-                                            (cfg.df_calib["stn"] == stn) &
-                                            (cfg.df_calib["var"] == var)]) == 0:
+                    if (cfg.df_calib is None) or\
+                       (len(cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                                             (cfg.df_calib["stn"] == stn) &
+                                             (cfg.df_calib["var"] == var)]) == 0):
                         sim_name_list.append(sim_name)
                         stn_list.append(stn)
                         var_list.append(var)
