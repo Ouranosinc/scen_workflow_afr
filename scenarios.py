@@ -275,6 +275,13 @@ def load_reanalysis(var_ra: str):
             ds[var].attrs[cfg.attrs_lname] = "Specific humidity"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_1
 
+        # Change sign to have the same meaning between projections and reanalysis.
+        # A positive sign for the following variables means that the transfer direction is from the surface toward the
+        # atmosphere. A negative sign means that there is condensation.
+        if (var in [cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]) and \
+           (cfg.obs_src in [cfg.obs_src_era5, cfg.obs_src_era5_land]):
+            ds[var] = -ds[var]
+
         # Save data.
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
         utils.save_netcdf(ds, p_stn, desc=desc)
