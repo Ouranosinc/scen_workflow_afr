@@ -541,7 +541,7 @@ def get_desc(var_or_idx_code: str, set_name: str = "cordex"):
         elif var_or_idx == var_cordex_evspsbl:
             desc = "Évaporation"
         elif var_or_idx == var_cordex_evapsblpot:
-            desc = "Évapotranspiration potentielle"
+            desc = "Évapotransp. pot."
         elif var_or_idx == var_cordex_rsds:
             desc = "Radiation solaire"
         elif var_or_idx in [var_cordex_uas, var_cordex_vas, var_cordex_sfcwindmax]:
@@ -574,7 +574,7 @@ def get_desc(var_or_idx_code: str, set_name: str = "cordex"):
         elif var_or_idx == var_era5_e:
             desc = "Évaporation"
         elif var_or_idx == var_era5_pev:
-            desc = "Évapotranspiration potentielle"
+            desc = "Évapotransp. pot."
         elif var_or_idx == var_era5_sh:
             desc = "Humidité spécifique"
 
