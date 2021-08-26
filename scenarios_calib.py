@@ -168,6 +168,20 @@ def init_calib_params():
     time_win_list = []
     bias_err_list = []
 
+    # Function used to build the dataframe.
+    def build_df(sim_name_list: str, stn_list: str, var_list: str, nq_list: int, up_qmf_list: float,
+        time_win_list: int, bias_err_list: float) -> pd.DataFrame:
+
+        dict_pd = {
+            "sim_name": sim_name_list,
+            "stn": stn_list,
+            "var": var_list,
+            "nq": nq_list,
+            "up_qmf": up_qmf_list,
+            "time_win": time_win_list,
+            "bias_err": bias_err_list}
+        return pd.DataFrame(dict_pd)
+
     # Attempt loading a calibration file.
     if os.path.exists(cfg.p_calib):
         cfg.df_calib = pd.read_csv(cfg.p_calib)
@@ -194,7 +208,6 @@ def init_calib_params():
         rcp = cfg.rcps[i_rcp]
         sim_list = list_cordex[rcp]
         sim_list.sort()
-        sim_list = list(set(sim_list))
         for i_sim in range(0, len(sim_list)):
             list_i = list_cordex[rcp][i_sim].split("/")
             sim_name = list_i[cfg.get_rank_inst()] + "_" + list_i[cfg.get_rank_inst() + 1]
@@ -214,16 +227,12 @@ def init_calib_params():
                         time_win_list.append(cfg.time_win_default)
                         bias_err_list.append(cfg.bias_err_default)
 
-    # Build pandas dataframe.
-    dict_pd = {
-        "sim_name": sim_name_list,
-        "stn": stn_list,
-        "var": var_list,
-        "nq": nq_list,
-        "up_qmf": up_qmf_list,
-        "time_win": time_win_list,
-        "bias_err": bias_err_list}
-    cfg.df_calib = pd.DataFrame(dict_pd)
+                        # Update dataframe.
+                        cfg.df_calib = build_df(sim_name_list, stn_list, var_list, nq_list, up_qmf_list, time_win_list,
+                                                 bias_err_list)
+
+    # Build dataframe.
+    cfg.df_calib = build_df(sim_name_list, stn_list, var_list, nq_list, up_qmf_list, time_win_list, bias_err_list)
 
     # Save calibration parameters to a CSV file.
     if cfg.p_calib != "":
@@ -269,4 +278,4 @@ def run():
             utils.log("-", True)
 
             # Perform bias correction.
-            bias_correction(stn, var)
+            bias_adj(stn, var)
