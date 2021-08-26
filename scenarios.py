@@ -1013,6 +1013,11 @@ def generate():
                         if (cfg.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
                             break
 
+                # Calculate bias adjustment errors.
+                for i_sim in range(n_sim):
+                    sim_name = list_cordex_ref[i_sim]
+                    scenarios_calib.bias_adj(stn, var, sim_name, True)
+
 
 def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.Dataset, d_raw: str, var: str, stn: str,
                     rcp: str, extract_only: bool, i_sim_proc: int):
@@ -1146,7 +1151,7 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     msg = "Step #5a  Calculating adjustment factors"
     if cfg.opt_calib:
         utils.log(msg)
-        scenarios_calib.bias_correction(stn, var, sim_name)
+        scenarios_calib.bias_adj(stn, var, sim_name)
     else:
         utils.log(msg + " (not required)")
     df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &

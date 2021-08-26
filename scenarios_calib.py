@@ -21,11 +21,11 @@ import xarray as xr
 import warnings
 
 
-def bias_correction(stn: str, var: str, sim_name: str = ""):
+def bias_adj(stn: str, var: str, sim_name: str = "", calc_err: bool = False):
 
     """
     -------------------------------------------------------------------------------------------------------------------
-    Performs bias correction.
+    Performs bias adjustment.
 
     Parameters
     ----------
@@ -35,6 +35,8 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
         Weather variable.
     sim_name : str
         Simulation name.
+    calc_err : bool
+        If True, only calculate the error (will not work properly in parallel mode).
     -------------------------------------------------------------------------------------------------------------------
     """
 
@@ -106,40 +108,47 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var) + comb + "/" + fn_fig
                     p_fig_ts = p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png)
 
-                    # Calculate QQ and generate calibration plots.
-                    msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
-                          ", time_win=" + str(time_win) + " is "
-                    if not(os.path.exists(p_fig)) or not(os.path.exists(p_fig_ts)) or\
-                       not(os.path.exists(p_qqmap)) or not(os.path.exists(p_qmf)) or cfg.opt_force_overwrite:
-                        utils.log(msg + "running", True)
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", category=RuntimeWarning)
-                            scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap,
-                                             p_qmf, title, p_fig)
-                    else:
-                        utils.log(msg + "not required", True)
+                    # Bias adjustment ----------------------------------------------------------------------------------
 
-                    # Error --------------------------------------------------------------------------------------------
+                    if not calc_err:
 
-                    # Extract the reference period from the adjusted simulation.
-                    ds_qqmap_ref = utils.open_netcdf(p_qqmap)
-                    ds_qqmap_ref = utils.remove_feb29(ds_qqmap_ref)
-                    ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cfg.per_ref)
+                        msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
+                              ", time_win=" + str(time_win) + " is "
+                        if not(os.path.exists(p_fig)) or not(os.path.exists(p_fig_ts)) or\
+                           not(os.path.exists(p_qqmap)) or not(os.path.exists(p_qmf)) or cfg.opt_force_overwrite:
+                            utils.log(msg + "running", True)
 
-                    # Calculate the error between observations and simulation for the reference period.
-                    bias_err_current = float(round(utils.calc_error(ds_stn[var], ds_qqmap_ref[var]), 4))
+                            # Calculate QQ and generate calibration plots.
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("ignore", category=RuntimeWarning)
+                                scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap,
+                                                 p_qmf, title, p_fig)
+                        else:
+                            utils.log(msg + "not required", True)
 
-                    # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
-                    # selected method.
-                    if (not cfg.opt_calib_auto) or\
-                       (cfg.opt_calib_auto and ((bias_err_best < 0) or (bias_err_current < bias_err_best))):
-                        col_names = ["nq", "up_qmf", "time_win", "bias_err"]
-                        col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
-                        calib_row = (cfg.df_calib["sim_name"] == sim_name) &\
-                                    (cfg.df_calib["stn"] == stn) &\
-                                    (cfg.df_calib["var"] == var)
-                        cfg.df_calib.loc[calib_row, col_names] = col_values
-                        cfg.df_calib.to_csv(cfg.p_calib, index=False)
+                    # Bias error ---------------------------------------------------------------------------------------
+
+                    elif os.path.exists(p_qqmap):
+
+                        # Extract the reference period from the adjusted simulation.
+                        ds_qqmap_ref = utils.open_netcdf(p_qqmap)
+                        ds_qqmap_ref = utils.remove_feb29(ds_qqmap_ref)
+                        ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cfg.per_ref)
+
+                        # Calculate the error between observations and simulation for the reference period.
+                        bias_err_current = float(round(utils.calc_error(ds_stn[var], ds_qqmap_ref[var]), 4))
+
+                        # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
+                        # selected method.
+                        if (not cfg.opt_calib_auto) or\
+                           (cfg.opt_calib_auto and ((bias_err_best < 0) or (bias_err_current < bias_err_best))):
+                            col_names = ["nq", "up_qmf", "time_win", "bias_err"]
+                            col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
+                            calib_row = (cfg.df_calib["sim_name"] == sim_name) &\
+                                        (cfg.df_calib["stn"] == stn) &\
+                                        (cfg.df_calib["var"] == var)
+                            cfg.df_calib.loc[calib_row, col_names] = col_values
+                            cfg.df_calib.to_csv(cfg.p_calib, index=False)
 
 
 def init_calib_params():
