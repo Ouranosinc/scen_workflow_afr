@@ -88,7 +88,7 @@ def load_observations(var: str):
 
         # Precipitation, evaporation, evapotranspiration ---------------------------------------------------------------
 
-        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
 
             # Extract variable and convert from mm to kg m-2 s-1.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
@@ -242,7 +242,7 @@ def load_reanalysis(var_ra: str):
             ds[var].attrs[cfg.attrs_sname] = "temperature"
             ds[var].attrs[cfg.attrs_lname] = "Temperature"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_K
-        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
             if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
                 ds[var] = ds[var] * 1000 / cfg.spd
             if var == cfg.var_cordex_pr:
@@ -251,7 +251,7 @@ def load_reanalysis(var_ra: str):
             elif var == cfg.var_cordex_evspsbl:
                 ds[var].attrs[cfg.attrs_sname] = "evaporation_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Evaporation"
-            elif var == cfg.var_cordex_evapsblpot:
+            elif var == cfg.var_cordex_evspsblpot:
                 ds[var].attrs[cfg.attrs_sname] = "evapotranspiration_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Evapotranspiration"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
@@ -278,7 +278,7 @@ def load_reanalysis(var_ra: str):
         # Change sign to have the same meaning between projections and reanalysis.
         # A positive sign for the following variables means that the transfer direction is from the surface toward the
         # atmosphere. A negative sign means that there is condensation.
-        if (var in [cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]) and \
+        if (var in [cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]) and \
            (cfg.obs_src in [cfg.obs_src_era5, cfg.obs_src_era5_land]):
             ds[var] = -ds[var]
 
@@ -598,7 +598,7 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
         ds_obs = utils.sel_period(ds_obs, cfg.per_ref)
 
         # Add small perturbation.
-        # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+        # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
         #     ds_obs = perturbate(ds_obs, var)
 
         # Save NetCDF file.
@@ -618,14 +618,14 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
 
         # Adjust values that do not make sense.
         # TODO.YR: Verify if positive or negative values need to be considered for cfg.var_cordex_evspsbl and
-        #          cfg.var_cordex_evapsblpot.
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot, cfg.var_cordex_clt]:
+        #          cfg.var_cordex_evspsblpot.
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot, cfg.var_cordex_clt]:
             ds_regrid_fut[var].values[ds_regrid_fut[var] < 0] = 0
             if var == cfg.var_cordex_clt:
                 ds_regrid_fut[var].values[ds_regrid_fut[var] > 100] = 100
 
         # Add small perturbation.
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
             perturbate(ds_regrid_fut, var)
 
         # Convert to a 365-day calendar.
@@ -642,7 +642,7 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
         # Select reference period.
         ds_regrid_ref = utils.sel_period(ds_regrid_fut, cfg.per_ref)
 
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot, cfg.var_cordex_clt]:
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot, cfg.var_cordex_clt]:
             pos = np.where(np.squeeze(ds_regrid_ref[var].values) > 0.01)[0]
             ds_regrid_ref[var][pos] = 1e-12
 
@@ -716,7 +716,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
 
     # Observation ------------------------------------------------------------------------------------------------------
 
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
         kind = cfg.kind_mult
     elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
         kind = cfg.kind_add
@@ -737,7 +737,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
     else:
         da_qmf = xr.DataArray(train(da_ref.squeeze(), da_stn.squeeze(), nq, cfg.group, kind, time_win,
                                     detrend_order=cfg.detrend_order))
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
             da_qmf.values[da_qmf > up_qmf] = up_qmf
             da_qmf.values[da_qmf < -up_qmf] = -up_qmf
         ds_qmf = da_qmf.to_dataset(name=var)
@@ -800,7 +800,7 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
             return da
 
         # Convert units.
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
             da_stn       = convert_units(da_stn, cfg.unit_mm)
             da_ref       = convert_units(da_ref, cfg.unit_mm)
             da_fut       = convert_units(da_fut, cfg.unit_mm)
@@ -933,7 +933,7 @@ def generate():
             ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
 
             # Add small perturbation.
-            # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+            # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
             #     ds_stn = perturbate(ds_stn, var)
 
             # Create directories (required because of parallel processing).
@@ -1398,7 +1398,7 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
     if (var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and \
             (ds[var].attrs[cfg.attrs_units] == cfg.unit_K):
         ds = ds - cfg.d_KC
-    elif (var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]) and \
+    elif (var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]) and \
             (ds[var].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
         ds = ds * cfg.spd
     ds[var].attrs[cfg.attrs_units] = units

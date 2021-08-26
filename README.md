@@ -129,7 +129,7 @@ Implemented features:
   the error is now calculated in scalar mode to avoid a competition between processes when updating calib.csv.
 
 Bugs fixed:
-- fixed a typo in the name of CORDEX variable 'evspsbl';
+- fixed a typo in the name of CORDEX variables 'evspsbl' and 'evspsblpot';
 - ensured compatibility of script with CORDEX variable 'evspsbl';
 - fixed a bug that was happening when calculating statistics for scenarios (values must not be averaged over years).
 

@@ -126,7 +126,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
                 ds = ds - cfg.d_KC
                 ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
-            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+            elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                 ds = ds * cfg.spd
                 ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
             elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
@@ -179,7 +179,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                                 vals[(i_year - year_1) * 365 + day_of_year - 1] = val
                         except:
                             pass
-            if cfg.opt_ra and (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]):
+            if cfg.opt_ra and (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]):
                 vals = [i * cfg.spd for i in vals]
             arr_vals.append(vals)
 
@@ -202,7 +202,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, var_or_idx_
                 vals_year = list(da_vals[np.isnan(da_vals.values) == False].values)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
-                    if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+                    if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                         val_year = np.nansum(vals_year)
                     else:
                         val_year = np.nanmean(vals_year)
@@ -364,7 +364,7 @@ def calc_stats(cat: str):
                                 ds_stat_hor = ds_stat.copy(deep=True)
 
                             # Extract value.
-                            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+                            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                                 # Mean daily value.
                                 n_years = hor[1] - hor[0] + 1
                                 val = float(ds_stat_hor[var_or_idx].sum()) / n_years
@@ -507,7 +507,7 @@ def calc_ts(cat: str):
                     # Calculate statistics.
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=RuntimeWarning)
-                        if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+                        if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                             ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
                         else:
                             ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
@@ -525,7 +525,7 @@ def calc_ts(cat: str):
                         if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K:
                             ds = ds - cfg.d_KC
                             ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
-                    elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+                    elif var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                         if ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
                             ds = ds * cfg.spd
                             ds[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
@@ -736,7 +736,7 @@ def calc_by_freq(ds: xr.Dataset, var: str, per: [int, int], freq: str) -> List[x
         if freq != cfg.freq_MS:
 
             # Extract values.
-            if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+            if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                 da_mean = da_m.resample(time=time_str).sum().groupby(freq_str).mean()
                 da_min  = da_m.resample(time=time_str).sum().groupby(freq_str).min()
                 da_max  = da_m.resample(time=time_str).sum().groupby(freq_str).max()
@@ -771,7 +771,7 @@ def calc_by_freq(ds: xr.Dataset, var: str, per: [int, int], freq: str) -> List[x
             for m in range(1, 13):
                 vals_m = []
                 for y in range(per[0], per[1] + 1):
-                    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+                    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                         val_m_y = np.nansum(da_m[(da_m["time.year"] == y) & (da_m["time.month"] == m)].values)
                     else:
                         val_m_y = np.nanmean(da_m[(da_m["time.year"] == y) & (da_m["time.month"] == m)].values)
@@ -1150,7 +1150,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
 
             # Calculate mean.
             ds_res = ds_sim.mean(dim=cfg.dim_time)
-            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+            if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                 ds_res = ds_res * 365
             if cat == cfg.cat_scen:
                 ds_res[var_or_idx].attrs[cfg.attrs_units] = units
@@ -1194,7 +1194,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
 
                     # Calculate mean and add to array.
                     ds_sim = ds_sim.mean(dim=cfg.dim_time)
-                    if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
+                    if var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
                         ds_sim = ds_sim * 365
                     if cat == cfg.cat_scen:
                         ds_sim[var_or_idx].attrs[cfg.attrs_units] = units
@@ -1261,7 +1261,7 @@ def calc_heatmap_rcp(var_or_idx_code: str, rcp: str, per: [int], stat: str, q: f
            (ds_res[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_K):
             ds_res = ds_res - cfg.d_KC
             ds_res[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_C
-        elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]) and \
+        elif (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]) and \
              (ds_res[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
             ds_res = ds_res * cfg.spd
             ds_res[var_or_idx].attrs[cfg.attrs_units] = cfg.unit_mm
@@ -1425,7 +1425,7 @@ def conv_nc_csv_single(p_list: [str], var_or_idx_code: str, i_file: int):
                 val_list = list(val_list[0][0])
 
     # Convert values to more practical units (if required).
-    if (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]) and\
+    if (var_or_idx in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]) and\
        (ds[var_or_idx].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
         for i in range(n_time):
             val_list[i] = val_list[i] * cfg.spd

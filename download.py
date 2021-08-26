@@ -63,7 +63,7 @@ def download_from_copernicus(p_base: str, obs_src: str, area: [float], var: str,
     # Equivalent to cfg.var_cordex_evspsbl.
     elif var == cfg.var_era5_e:
         var_code = "evaporation"
-    # Equivalent to cfg.var_cordex_evapsblpot.
+    # Equivalent to cfg.var_cordex_evspsblpot.
     elif var == cfg.var_era5_pev:
         var_code = "potential_evaporation"
     # Equivalent to cfg.var_cordex_ps.
