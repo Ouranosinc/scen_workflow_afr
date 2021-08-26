@@ -538,6 +538,10 @@ def get_desc(var_or_idx_code: str, set_name: str = "cordex"):
             desc = "Pression barométrique"
         elif var_or_idx == var_cordex_pr:
             desc = "Précipitation"
+        elif var_or_idx == var_cordex_evspsbl:
+            desc = "Évaporation"
+        elif var_or_idx == var_cordex_evapsblpot:
+            desc = "Évapotranspiration potentielle"
         elif var_or_idx == var_cordex_rsds:
             desc = "Radiation solaire"
         elif var_or_idx in [var_cordex_uas, var_cordex_vas, var_cordex_sfcwindmax]:
@@ -871,7 +875,7 @@ def get_unit(var_or_idx: str, set_name: str = prj_src_cordex):
             unit = unit_C_desc
         elif var_or_idx == var_cordex_rsds:
             unit = unit_Pa_desc
-        elif var_or_idx == var_cordex_pr:
+        elif var_or_idx in [var_cordex_pr, var_cordex_evspsbl, var_cordex_evapsblpot]:
             unit = unit_mm_desc
         elif (var_or_idx == var_cordex_uas) or (var_or_idx == var_cordex_vas) or (var_or_idx == var_cordex_sfcwindmax):
             unit = unit_km_h_desc
