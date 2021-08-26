@@ -126,7 +126,8 @@ Implemented features:
 Implemented features:
 - adding missing lines in calib.csv file (containing bias adjustment error) automatically when a new simulation,
   station, or variable is added or if bias adjustment is performed with new nq, up_qmf and time_win parameters;
-  the error is now calculated in scalar mode to avoid a competition between processes when updating calib.csv.
+  the error is now calculated in scalar mode to avoid a competition between processes when updating calib.csv;
+- changed the location of calib.csv so that there is one file per region.
 
 Bugs fixed:
 - fixed a typo in the name of CORDEX variables 'evspsbl' and 'evspsblpot';
