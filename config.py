@@ -97,8 +97,8 @@ var_cordex_vas        = "vas"         # Wind speed, northward.
 var_cordex_sfcwindmax = "sfcWindmax"  # Wind speed (daily maximum).
 var_cordex_ps         = "ps"          # Barometric pressure.
 var_cordex_rsds       = "rsds"        # Solar radiation.
-var_cordex_evapsbl    = "evapsbl"     # Evaporation.
-var_cordex_evapsblpot = "evapsblpot"   # Potential evapotranspiration.
+var_cordex_evspsbl    = "evspsbl"     # Evaporation.
+var_cordex_evapsblpot = "evapsblpot"  # Potential evapotranspiration.
 var_cordex_huss       = "huss"        # Specific humidity.
 var_cordex_clt        = "clt"         # Cloud cover.
 
@@ -833,7 +833,7 @@ def convert_var_name(var: str):
     pairs = [[var_cordex_tas, var_era5_t2m], [var_cordex_tasmin, var_era5_t2mmin], [var_cordex_tasmax, var_era5_t2mmax],
              [var_cordex_pr, var_era5_tp], [var_cordex_uas, var_era5_u10], [var_cordex_vas, var_era5_v10],
              [var_cordex_sfcwindmax, var_era5_uv10max], [var_cordex_ps, var_era5_sp], [var_cordex_rsds, var_era5_ssrd],
-             [var_cordex_evapsbl, var_era5_e], [var_cordex_evapsblpot, var_era5_pev], [var_cordex_huss, var_era5_sh]]
+             [var_cordex_evspsbl, var_era5_e], [var_cordex_evapsblpot, var_era5_pev], [var_cordex_huss, var_era5_sh]]
 
     # Loop through pairs.
     for i in range(len(pairs)):

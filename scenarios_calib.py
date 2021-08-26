@@ -96,7 +96,7 @@ def bias_correction(stn: str, var: str, sim_name: str = ""):
                     ds_stn = utils.remove_feb29(ds_stn)
                     ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
                     # Add small perturbation.
-                    # if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+                    # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
                     #     ds_stn = scen.perturbate(ds_stn, var)
 
                     # Path and title of calibration figure.

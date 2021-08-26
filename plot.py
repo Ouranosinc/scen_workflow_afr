@@ -182,7 +182,7 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     delta_stn   = 0
     delta_fut   = 0
     delta_qqmap = 0
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd * 365
     elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
         if da_stn.units == cfg.unit_K:
@@ -277,7 +277,7 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     coef = 1
     delta_ref = 0
     delta_fut = 0
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
         coef = cfg.spd
     if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
         if da_ref.units == cfg.unit_K:
@@ -593,7 +593,7 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
 
     # Determine if sum is needed.
     stat_inner = stat
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evapsbl, cfg.var_cordex_evapsblpot]:
+    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evapsblpot]:
         if stat == cfg.stat_mean:
             stat_inner = cfg.stat_sum
         with warnings.catch_warnings():
