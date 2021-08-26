@@ -322,7 +322,7 @@ def main():
     cfg.p_log = cfg.d_res + "log/" + utils.get_datetime_str() + ".log"
 
     # Calibration file.
-    cfg.p_calib = cfg.d_res + cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.obs_src + cfg.f_ext_csv)
+    cfg.p_calib = cfg.d_stn + cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.obs_src + cfg.f_ext_csv)
     if cfg.region != "":
         cfg.p_calib = cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.region + cfg.f_ext_csv)
     d = os.path.dirname(cfg.p_calib)
