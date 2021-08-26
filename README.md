@@ -132,7 +132,8 @@ Implemented features:
 Bugs fixed:
 - fixed a typo in the name of CORDEX variables 'evspsbl' and 'evspsblpot';
 - ensured compatibility of script with CORDEX variable 'evspsbl';
-- fixed a bug that was happening when calculating statistics for scenarios (values must not be averaged over years).
+- fixed a bug that was happening when calculating statistics for scenarios (values must not be averaged over years);
+- prevent duplicates in calib.csv.
 
 ## Contributing
 
