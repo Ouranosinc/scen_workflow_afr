@@ -1022,7 +1022,7 @@ def generate():
 
                 # Calculate bias adjustment errors.
                 for i_sim in range(n_sim):
-                    tokens = list_cordex_ref[i_sim].split("/")
+                    tokens = list_cordex_fut[i_sim].split("/")
                     sim_name = tokens[cfg.get_rank_inst()] + "_" + tokens[cfg.get_rank_gcm()]
                     scenarios_calib.bias_adj(stn, var, sim_name, True)
 
