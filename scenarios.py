@@ -1022,7 +1022,8 @@ def generate():
 
                 # Calculate bias adjustment errors.
                 for i_sim in range(n_sim):
-                    sim_name = list_cordex_ref[i_sim]
+                    tokens = list_cordex_ref[i_sim].split("/")
+                    sim_name = tokens[cfg.get_rank_inst()] + "_" + tokens[cfg.get_rank_gcm()]
                     scenarios_calib.bias_adj(stn, var, sim_name, True)
 
 
@@ -1063,8 +1064,8 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     d_sim_fut = list_cordex_fut[i_sim_proc]
 
     # Get simulation name.
-    c = d_sim_fut.split("/")
-    sim_name = c[cfg.get_rank_inst()] + "_" + c[cfg.get_rank_gcm()]
+    tokens = d_sim_fut.split("/")
+    sim_name = tokens[cfg.get_rank_inst()] + "_" + tokens[cfg.get_rank_gcm()]
 
     utils.log("=")
     utils.log("Variable   : " + var)
@@ -1083,8 +1084,8 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
 
     # Files within CORDEX or CORDEX-NA.
     if "cordex" in d_sim_fut.lower():
-        p_raw = d_raw + var + "_" + c[cfg.get_rank_inst()] + "_" +\
-                c[cfg.get_rank_gcm()].replace("*", "_") + cfg.f_ext_nc
+        p_raw = d_raw + var + "_" + tokens[cfg.get_rank_inst()] + "_" +\
+                tokens[cfg.get_rank_gcm()].replace("*", "_") + cfg.f_ext_nc
     elif len(d_sim_fut) == 3:
         p_raw = d_raw + var + "_Ouranos_" + d_sim_fut + cfg.f_ext_nc
     else:
