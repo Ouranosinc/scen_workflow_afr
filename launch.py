@@ -312,19 +312,17 @@ def main():
 
     # The following variables are determined automatically.
     d_base = cfg.d_exec + cfg.country + "/" + cfg.project + "/"
-    cfg.d_stn = d_base + cfg.cat_stn + "/" + cfg.obs_src +\
-        ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "") + "/"
+    obs_src_region = cfg.obs_src + ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "")
+    cfg.d_stn = d_base + cfg.cat_stn + "/" + obs_src_region + "/"
     cfg.d_res = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
     if cfg.d_bounds != "":
         cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
 
     # Log file.
-    cfg.p_log = cfg.d_res + "log/" + utils.get_datetime_str() + ".log"
+    cfg.p_log = cfg.d_res + "stn/" + obs_src_region + "/log/" + utils.get_datetime_str() + ".log"
 
     # Calibration file.
-    cfg.p_calib = cfg.d_stn + cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.obs_src + cfg.f_ext_csv)
-    if cfg.region != "":
-        cfg.p_calib = cfg.p_calib.replace(cfg.f_ext_csv, "_" + cfg.region + cfg.f_ext_csv)
+    cfg.p_calib = cfg.d_res + "stn/" + obs_src_region + "/" + cfg.p_calib
     d = os.path.dirname(cfg.p_calib)
     if not (os.path.isdir(d)):
         os.makedirs(d)
