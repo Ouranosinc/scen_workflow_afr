@@ -9,7 +9,6 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
-import math
 import matplotlib.cbook
 import matplotlib.cm
 import matplotlib.colors as colors
@@ -18,18 +17,17 @@ import matplotlib.ticker as mtick
 import numpy as np
 import numpy.polynomial.polynomial as poly
 import os.path
+import pandas as pd
 import rioxarray as rio  # Do not delete this line: see comment below.
-import seaborn as sns
 import simplejson
 import utils
 import warnings
 import xarray as xr
 import xesmf as xe
 from descartes import PolygonPatch
-from matplotlib import pyplot
 from matplotlib.lines import Line2D
 from scipy import signal
-from typing import Union, List
+from typing import List
 
 # Package 'xesmf' can be installed with:
 #   conda install -c conda-forge xesmf
@@ -124,7 +122,7 @@ def plot_dayofyear(ds_day, set_name, var, date):
 # ======================================================================================================================
 
 
-def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
+def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -132,8 +130,8 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
 
     Parameters
     ----------
-    p_stn : str
-        Path of NetCDF file containing station data.
+    p_obs : str
+        Path of NetCDF file containing observations.
     p_fut : str
         Path of NetCDF file containing simulation data (future period).
     p_qqmap : str
@@ -148,28 +146,28 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     """
 
     # Load datasets.
-    da_stn = utils.open_netcdf(p_stn)[var]
-    if cfg.dim_longitude in da_stn.dims:
-        da_stn = da_stn.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
+    da_obs = utils.open_netcdf(p_obs)[var]
+    if cfg.dim_longitude in da_obs.dims:
+        da_obs = da_obs.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
     da_fut = utils.open_netcdf(p_fut)[var]
     da_qqmap = utils.open_netcdf(p_qqmap)[var]
 
     # Select control point.
     if cfg.opt_ra:
         subset_ctrl_pt = False
-        if cfg.dim_rlon in da_stn.dims:
-            subset_ctrl_pt = (len(da_stn.rlon) > 1) or (len(da_stn.rlat) > 1)
-        elif cfg.dim_lon in da_stn.dims:
-            subset_ctrl_pt = (len(da_stn.lon) > 1) or (len(da_stn.lat) > 1)
-        elif cfg.dim_longitude in da_stn.dims:
-            subset_ctrl_pt = (len(da_stn.longitude) > 1) or (len(da_stn.latitude) > 1)
+        if cfg.dim_rlon in da_obs.dims:
+            subset_ctrl_pt = (len(da_obs.rlon) > 1) or (len(da_obs.rlat) > 1)
+        elif cfg.dim_lon in da_obs.dims:
+            subset_ctrl_pt = (len(da_obs.lon) > 1) or (len(da_obs.lat) > 1)
+        elif cfg.dim_longitude in da_obs.dims:
+            subset_ctrl_pt = (len(da_obs.longitude) > 1) or (len(da_obs.latitude) > 1)
         if subset_ctrl_pt:
             if cfg.d_bounds == "":
-                da_stn   = utils.subset_ctrl_pt(da_stn)
+                da_obs   = utils.subset_ctrl_pt(da_obs)
                 da_fut   = utils.subset_ctrl_pt(da_fut)
                 da_qqmap = utils.subset_ctrl_pt(da_qqmap)
             else:
-                da_stn   = utils.squeeze_lon_lat(da_stn)
+                da_obs   = utils.squeeze_lon_lat(da_obs)
                 da_fut   = utils.squeeze_lon_lat(da_fut)
                 da_qqmap = utils.squeeze_lon_lat(da_qqmap)
 
@@ -179,18 +177,25 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
 
     # Conversion coefficient.
     coef = 1
-    delta_stn   = 0
+    delta_obs   = 0
     delta_fut   = 0
     delta_qqmap = 0
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
         coef = cfg.spd * 365
     elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-        if da_stn.units == cfg.unit_K:
-            delta_stn = -cfg.d_KC
+        if da_obs.units == cfg.unit_K:
+            delta_obs = -cfg.d_KC
         if da_fut.units == cfg.unit_K:
             delta_fut = -cfg.d_KC
         if da_qqmap.units == cfg.unit_K:
             delta_qqmap = -cfg.d_KC
+
+    # Calculate annual mean values.
+    da_qqmap_mean = None
+    if da_qqmap is not None:
+        da_qqmap_mean = (da_qqmap * coef + delta_qqmap).groupby(da_qqmap.time.dt.year).mean()
+    da_fut_mean = (da_fut * coef + delta_fut).groupby(da_fut.time.dt.year).mean()
+    da_obs_mean = (da_obs * coef + delta_obs).groupby(da_obs.time.dt.year).mean()
 
     # Plot.
     f = plt.figure(figsize=(15, 3))
@@ -202,9 +207,9 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
     legend_items = ["Simulation", "Observation"]
     if da_qqmap is not None:
         legend_items.insert(0, "Sim. ajustée")
-        (da_qqmap * coef + delta_qqmap).groupby(da_qqmap.time.dt.year).mean().plot.line(color=cfg.col_sim_adj)
-    (da_fut * coef + delta_fut).groupby(da_fut.time.dt.year).mean().plot.line(color=cfg.col_sim_fut)
-    (da_stn * coef + delta_stn).groupby(da_stn.time.dt.year).mean().plot(color=cfg.col_obs)
+        da_qqmap_mean.plot.line(color=cfg.col_sim_adj)
+    da_fut_mean.plot.line(color=cfg.col_sim_fut)
+    da_obs_mean.plot(color=cfg.col_obs)
 
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
@@ -221,6 +226,19 @@ def plot_postprocess(p_stn, p_fut, p_qqmap, var, p_fig, title):
 
     # Close plot.
     plt.close()
+
+    # Save to CSV.
+    if cfg.opt_save_csv[0]:
+        p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/"). \
+            replace(cfg.f_ext_png, cfg.f_ext_csv)
+        n_obs_mean = len(list(da_obs_mean.values))
+        n_qqmap_mean = len(list(da_qqmap_mean.values))
+        dict_pd = {"year": list(range(1, n_qqmap_mean + 1)),
+                   "obs": list(da_obs_mean.values) + [np.nan] * (n_qqmap_mean - n_obs_mean),
+                   "qqmap": list(da_qqmap_mean.values),
+                   "fut": list(da_fut_mean.values)}
+        df = pd.DataFrame(dict_pd)
+        utils.save_csv(df, p_csv)
 
 
 def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
@@ -381,6 +399,9 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     var_desc = cfg.get_desc(var)
     var_unit = cfg.get_unit(var)
 
+    # Files.
+    p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").replace(cfg.f_ext_png, cfg.f_ext_csv)
+
     # Quantile ---------------------------------------------------------------------------------------------------------
 
     fs_sup_title = 8
@@ -395,7 +416,6 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     # Quantile mapping function.
     img1 = ax.imshow(da_qmf, extent=[0, 1, 365, 1], cmap="coolwarm")
     cb = f.colorbar(img1, ax=ax)
-    # cb.set_label("Ajustement", fontsize=fs_axes)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=UserWarning)
         cb.ax.set_yticklabels(cb.ax.get_yticks(), fontsize=fs_axes)
@@ -415,7 +435,7 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
 
     # Plot.
     f.add_subplot(432)
-    draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, cfg.stat_mean)
+    draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, cfg.stat_mean, -1, p_csv)
     plt.title("Moyenne", fontsize=fs_title)
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlim([1, 12])
@@ -431,15 +451,15 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
 
         plt.subplot(433 + i - 1)
 
-        stat     = "quantile"
-        quantile = cfg.opt_stat_quantiles[i-1]
-        title    = "Q_" + "{0:.2f}".format(quantile)
-        if quantile == 0:
+        stat  = "quantile"
+        q     = cfg.opt_stat_quantiles[i-1]
+        title = "Q_" + "{0:.2f}".format(q)
+        if q == 0:
             stat = cfg.stat_min
-        elif quantile == 1:
+        elif q == 1:
             stat = cfg.stat_max
 
-        draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, stat, quantile)
+        draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, stat, q)
 
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
@@ -545,9 +565,22 @@ def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataA
     # Close plot.
     plt.close()
 
+    # Save to CSV.
+    if cfg.opt_save_csv[0]:
+        p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").\
+            replace(cfg.f_ext_png, cfg.f_ext_csv)
+        n_obs = len(list(da_obs.values))
+        n_qqmap = len(list(da_qqmap.values))
+        dict_pd = {"day": list(range(1, n_qqmap + 1)),
+                   "obs": list(da_obs.values) + [np.nan] * (n_qqmap - n_obs),
+                   "qqmap": list(da_qqmap.values),
+                   "fut": list(da_fut.values)}
+        df = pd.DataFrame(dict_pd)
+        utils.save_csv(df, p_csv)
+
 
 def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataArray,
-                da_qqmap_ref: xr.DataArray, stat: str, quantile: float = -1.0):
+                da_qqmap_ref: xr.DataArray, stat: str, q: float, p_csv = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -569,8 +602,10 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
         Adjusted simulation for the reference period.
     stat : str
         Statistic: {cfg.stat_max, cfg.stat_quantile, cfg.stat_mean, cfg.stat_sum}
-    quantile : float, optional
+    q : float, optional
         Quantile.
+    p_csv : str
+        Path of CSV file to create.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -604,12 +639,12 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
             da_qqmap     = da_qqmap.resample(time="1M").sum()
             da_qqmap_ref = da_qqmap_ref.resample(time="1M").sum()
 
-    # Calculate statistics
-    da_obs       = da_groupby(da_obs, stat_inner, quantile)
-    da_ref       = da_groupby(da_ref, stat_inner, quantile)
-    da_fut       = da_groupby(da_fut, stat_inner, quantile)
-    da_qqmap     = da_groupby(da_qqmap, stat_inner, quantile)
-    da_qqmap_ref = da_groupby(da_qqmap_ref, stat_inner, quantile)
+    # Calculate statistics.
+    da_obs       = da_groupby(da_obs, stat_inner, q)
+    da_ref       = da_groupby(da_ref, stat_inner, q)
+    da_fut       = da_groupby(da_fut, stat_inner, q)
+    da_qqmap     = da_groupby(da_qqmap, stat_inner, q)
+    da_qqmap_ref = da_groupby(da_qqmap_ref, stat_inner, q)
 
     # Draw curves.
     da_obs.plot.line(color=cfg.col_obs)
@@ -617,6 +652,22 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
     da_fut.plot.line(color=cfg.col_sim_fut)
     da_qqmap.plot.line(color=cfg.col_sim_adj)
     da_qqmap_ref.plot.line(color=cfg.col_sim_adj_ref)
+
+    # Save to CSV.
+    if cfg.opt_save_csv[0] and (p_csv != ""):
+        if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_sum]:
+            suffix = stat
+        else:
+            suffix = "q" + str(round(q * 100)).zfill(2)
+        p_csv = p_csv.replace(cfg.f_ext_csv, "_" + suffix + cfg.f_ext_csv)
+        dict_pd = {"month": list(range(1, 13)),
+                   "obs": list(da_obs.values),
+                   "ref": list(da_ref.values),
+                   "fut": list(da_fut.values),
+                   "qqmap": list(da_qqmap.values),
+                   "qqmap_ref": list(da_qqmap_ref.values)}
+        df = pd.DataFrame(dict_pd)
+        utils.save_csv(df, p_csv)
 
 
 def plot_360_vs_365(ds_360: xr.Dataset, ds_365: xr.Dataset, var: str = ""):
@@ -677,7 +728,7 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # Scenarios and indices.
 # ======================================================================================================================
 
-def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [float], grid_y: [float], rcp: str,
+def plot_heatmap(da: xr.DataArray, stn: str, varidx_code: str, grid_x: [float], grid_y: [float], rcp: str,
                  per: [int, int], stat: str, q: float, z_min: float, z_max: float, is_delta: bool, p_fig: str):
 
     """
@@ -691,7 +742,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         DataArray (with 2 dimensions: longitude and latitude).
     stn : str
         Station name.
-    var_or_idx_code : str
+    varidx_code : str
         Climate variable or index code.
     grid_x: [float]
         X-coordinates.
@@ -735,7 +786,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
     dpi = 300
 
     # Extract variable name.
-    var_or_idx = var_or_idx_code if var_or_idx_code in cfg.variables_cordex else cfg.extract_idx(var_or_idx_code)
+    varidx_name = varidx_code if varidx_code in cfg.variables_cordex else cfg.extract_idx(varidx_code)
 
     # Export to GeoTIFF.
     if cfg.f_tif in cfg.opt_map_formats:
@@ -759,7 +810,7 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             da_tif.values[da_tif.values == -9999] = np.nan
             da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
 
-        p_fig_tif = p_fig.replace(var_or_idx_code + "/", var_or_idx_code + "_" + cfg.f_tif + "/").\
+        p_fig_tif = p_fig.replace(varidx_code + "/", varidx_code + "_" + cfg.f_tif + "/").\
             replace(cfg.f_ext_png, cfg.f_ext_tif)
         d = os.path.dirname(p_fig_tif)
         if not (os.path.isdir(d)):
@@ -770,11 +821,11 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
     if cfg.f_png in cfg.opt_map_formats:
 
         # Get title and label.
-        title = cfg.get_plot_title(stn, var_or_idx_code, rcp, per, stat, q) + (" (delta)" if is_delta else "")
-        label = cfg.get_plot_ylabel(var_or_idx)
+        title = cfg.get_plot_title(stn, varidx_code, rcp, per, stat, q) + (" (delta)" if is_delta else "")
+        label = cfg.get_plot_ylabel(varidx_name)
 
         # Determine color scale index.
-        is_wind_var = var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]
+        is_wind_var = varidx_name in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]
         if (not is_delta) and (not is_wind_var):
             cmap_idx = 0
         elif (z_min < 0) and (z_max > 0):
@@ -785,30 +836,30 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
             cmap_idx = 3
 
         # Temperature-related.
-        if var_or_idx in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.idx_etr, cfg.idx_tgg,
-                          cfg.idx_tng, cfg.idx_tnx, cfg.idx_txx, cfg.idx_txg]:
+        if varidx_name in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.idx_etr, cfg.idx_tgg,
+                           cfg.idx_tng, cfg.idx_tnx, cfg.idx_txx, cfg.idx_txg]:
             cmap_name = cfg.opt_map_col_temp_var[cmap_idx]
-        elif var_or_idx in [cfg.idx_txdaysabove, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_hotspellfreq,
-                            cfg.idx_hotspellmaxlen, cfg.idx_tropicalnights, cfg.idx_tx90p, cfg.idx_wsdi]:
+        elif varidx_name in [cfg.idx_txdaysabove, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_hotspellfreq,
+                             cfg.idx_hotspellmaxlen, cfg.idx_tropicalnights, cfg.idx_tx90p, cfg.idx_wsdi]:
             cmap_name = cfg.opt_map_col_temp_idx_1[cmap_idx]
-        elif var_or_idx in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
+        elif varidx_name in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
             cmap_name = cfg.opt_map_col_temp_idx_2[cmap_idx]
 
         # Precipitation-related.
-        elif var_or_idx in [cfg.var_cordex_pr, cfg.idx_prcptot, cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii,
-                            cfg.idx_rainqty]:
+        elif varidx_name in [cfg.var_cordex_pr, cfg.idx_prcptot, cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii,
+                             cfg.idx_rainqty]:
             cmap_name = cfg.opt_map_col_prec_var[cmap_idx]
-        elif var_or_idx in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_wetdays, cfg.idx_raindur, cfg.idx_rnnmm]:
+        elif varidx_name in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_wetdays, cfg.idx_raindur, cfg.idx_rnnmm]:
             cmap_name = cfg.opt_map_col_prec_idx_1[cmap_idx]
-        elif var_or_idx in [cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc, cfg.idx_drydurtot]:
+        elif varidx_name in [cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc, cfg.idx_drydurtot]:
             cmap_name = cfg.opt_map_col_prec_idx_2[cmap_idx]
-        elif var_or_idx in [cfg.idx_rainstart, cfg.idx_rainend]:
+        elif varidx_name in [cfg.idx_rainstart, cfg.idx_rainend]:
             cmap_name = cfg.opt_map_col_prec_idx_3[cmap_idx]
 
         # Wind-related.
-        elif var_or_idx in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
+        elif varidx_name in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
             cmap_name = cfg.opt_map_col_wind_var[cmap_idx]
-        elif var_or_idx in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
+        elif varidx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
             cmap_name = cfg.opt_map_col_wind_idx_1[cmap_idx]
 
         # Default values.
@@ -842,78 +893,78 @@ def plot_heatmap(da: xr.DataArray, stn: str, var_or_idx_code: str, grid_x: [floa
         hex_sa  = "#a52a2a"  # Salmon.
         hex_tu  = "#008080"  # Turquoise.
 
-        hex_list = None
+        hex_l = None
         if "Pinks" in cmap_name:
-            hex_list = [hex_wh, hex_pi]
+            hex_l = [hex_wh, hex_pi]
         elif "PiPu" in cmap_name:
-            hex_list = [hex_pi, hex_wh, hex_pu]
+            hex_l = [hex_pi, hex_wh, hex_pu]
         elif "Browns" in cmap_name:
-            hex_list = [hex_wh, hex_br]
+            hex_l = [hex_wh, hex_br]
         elif "YlBr" in cmap_name:
-            hex_list = [hex_yl, hex_br]
+            hex_l = [hex_yl, hex_br]
         elif "BrYlGr" in cmap_name:
-            hex_list = [hex_br, hex_yl, hex_gr]
+            hex_l = [hex_br, hex_yl, hex_gr]
         elif "YlGr" in cmap_name:
-            hex_list = [hex_yl, hex_gr]
+            hex_l = [hex_yl, hex_gr]
         elif "BrWhGr" in cmap_name:
-            hex_list = [hex_br, hex_wh, hex_gr]
+            hex_l = [hex_br, hex_wh, hex_gr]
         elif "TuYlSa" in cmap_name:
-            hex_list = [hex_tu, hex_yl, hex_sa]
+            hex_l = [hex_tu, hex_yl, hex_sa]
         elif "YlTu" in cmap_name:
-            hex_list = [hex_yl, hex_tu]
+            hex_l = [hex_yl, hex_tu]
         elif "YlSa" in cmap_name:
-            hex_list = [hex_yl, hex_sa]
+            hex_l = [hex_yl, hex_sa]
         elif "LBuWhLBr" in cmap_name:
-            hex_list = [hex_lbu, hex_wh, hex_lbr]
+            hex_l = [hex_lbu, hex_wh, hex_lbr]
         elif "LBlues" in cmap_name:
-            hex_list = [hex_wh, hex_lbu]
+            hex_l = [hex_wh, hex_lbu]
         elif "BuYlRd" in cmap_name:
-            hex_list = [hex_bu, hex_yl, hex_rd]
+            hex_l = [hex_bu, hex_yl, hex_rd]
         elif "LBrowns" in cmap_name:
-            hex_list = [hex_wh, hex_lbr]
+            hex_l = [hex_wh, hex_lbr]
         elif "LBuYlLBr" in cmap_name:
-            hex_list = [hex_lbu, hex_yl, hex_lbr]
+            hex_l = [hex_lbu, hex_yl, hex_lbr]
         elif "YlLBu" in cmap_name:
-            hex_list = [hex_yl, hex_lbu]
+            hex_l = [hex_yl, hex_lbu]
         elif "YlLBr" in cmap_name:
-            hex_list = [hex_yl, hex_lbr]
+            hex_l = [hex_yl, hex_lbr]
         elif "YlBu" in cmap_name:
-            hex_list = [hex_yl, hex_bu]
+            hex_l = [hex_yl, hex_bu]
         elif "Turquoises" in cmap_name:
-            hex_list = [hex_wh, hex_tu]
+            hex_l = [hex_wh, hex_tu]
         elif "PuYlOr" in cmap_name:
-            hex_list = [hex_pu, hex_yl, hex_or]
+            hex_l = [hex_pu, hex_yl, hex_or]
         elif "YlOrRd" in cmap_name:
-            hex_list = [hex_yl, hex_or, hex_rd]
+            hex_l = [hex_yl, hex_or, hex_rd]
         elif "YlOr" in cmap_name:
-            hex_list = [hex_yl, hex_or]
+            hex_l = [hex_yl, hex_or]
         elif "YlPu" in cmap_name:
-            hex_list = [hex_yl, hex_pu]
+            hex_l = [hex_yl, hex_pu]
         elif "GyYlRd" in cmap_name:
-            hex_list = [hex_gy, hex_yl, hex_rd]
+            hex_l = [hex_gy, hex_yl, hex_rd]
         elif "YlGy" in cmap_name:
-            hex_list = [hex_yl, hex_gy]
+            hex_l = [hex_yl, hex_gy]
         elif "YlRd" in cmap_name:
-            hex_list = [hex_yl, hex_rd]
+            hex_l = [hex_yl, hex_rd]
         elif "GyWhRd" in cmap_name:
-            hex_list = [hex_gy, hex_wh, hex_rd]
+            hex_l = [hex_gy, hex_wh, hex_rd]
 
         # Build custom map.
-        if hex_list is not None:
+        if hex_l is not None:
 
             # List of positions.
-            if len(hex_list) == 2:
-                pos_list = [0.0, 1.0]
+            if len(hex_l) == 2:
+                pos_l = [0.0, 1.0]
             else:
-                pos_list = [0.0, 0.5, 1.0]
+                pos_l = [0.0, 0.5, 1.0]
 
             # Custom map.
             if "_r" not in cmap_name:
-                cmap = build_custom_cmap(hex_list, n_cluster, pos_list)
+                cmap = build_custom_cmap(hex_l, n_cluster, pos_l)
             else:
-                hex_list.reverse()
-                cmap = build_custom_cmap(hex_list, n_cluster, pos_list)
-
+                hex_l.reverse()
+                cmap = build_custom_cmap(hex_l, n_cluster, pos_l)
+                
         # Build Matplotlib map.
         else:
             cmap = plt.cm.get_cmap(cmap_name, n_cluster)
@@ -1119,22 +1170,22 @@ def rgb_to_dec(value):
     return [v/256 for v in value]
 
 
-def build_custom_cmap(hex_list: [str], n_cluster: int, pos_list: [float]=None):
+def build_custom_cmap(hex_l: [str], n_cluster: int, pos_l: [float]=None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Create a color map that can be used in heat map figures.
-    If float_list is not provided, colour map graduates linearly between each color in hex_list.
-    If float_list is provided, each color in hex_list is mapped to the respective location in float_list.
+    If pos_l is not provided, colour map graduates linearly between each color in hex_l.
+    If pos_l is provided, each color in hex_l is mapped to the respective location in pos_l.
 
     Parameters
     ----------
-    hex_list: [str]
+    hex_l: [str]
         List of hex code strings.
     n_cluster: int
         Number of clusters.
-    pos_list: [float]
-        List of positions (float between 0 and 1), same length as hex_list. Must start with 0 and end with 1.
+    pos_l: [float]
+        List of positions (float between 0 and 1), same length as hex_l. Must start with 0 and end with 1.
 
     Returns
     -------
@@ -1142,23 +1193,23 @@ def build_custom_cmap(hex_list: [str], n_cluster: int, pos_list: [float]=None):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
-    if pos_list:
+    rgb_l = [rgb_to_dec(hex_to_rgb(i)) for i in hex_l]
+    if pos_l:
         pass
     else:
-        pos_list = list(np.linspace(0, 1, len(rgb_list)))
+        pos_l = list(np.linspace(0, 1, len(rgb_l)))
 
     cdict = dict()
     for num, col in enumerate(["red", "green", "blue"]):
-        col_list = [[pos_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(pos_list))]
-        cdict[col] = col_list
+        col_l = [[pos_l[i], rgb_l[i][num], rgb_l[i][num]] for i in range(len(pos_l))]
+        cdict[col] = col_l
     cmp = colors.LinearSegmentedColormap("custom_cmp", segmentdata=cdict, N=n_cluster)
 
     return cmp
 
 
 def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
-            stn: str, var_or_idx_code: str, rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
+            stn: str, varidx_code: str, rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1176,7 +1227,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         Dataset for RCP 8.5.
     stn : str
         Station name.
-    var_or_idx_code : str
+    varidx_code : str
         Climate variable  (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
     rcps : [str]
         Emission scenarios.
@@ -1190,19 +1241,20 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var_or_idx = var_or_idx_code if (var_or_idx_code in cfg.variables_cordex) else cfg.extract_idx(var_or_idx_code)
+    varidx_name = varidx_code if (varidx_code in cfg.variables_cordex) else cfg.extract_idx(varidx_code)
 
     # Get title and label.
-    title = cfg.get_plot_title(stn, var_or_idx_code)
-    label = cfg.get_plot_ylabel(var_or_idx)
+    title = cfg.get_plot_title(stn, varidx_code)
+    label = cfg.get_plot_ylabel(varidx_name)
 
     # Add precision in title.
     y_param = None
-    if var_or_idx not in cfg.variables_cordex:
-        y_param_str = str(cfg.idx_params[cfg.idx_codes.index(var_or_idx_code)][0])
-        if (var_or_idx == cfg.idx_prcptot) and (y_param_str != "nan"):
-            y_param = float(y_param_str)
-            title += " (seuil à " + str(int(round(y_param, 0))) + cfg.unit_mm + ")"
+    if varidx_name not in cfg.variables_cordex:
+        if varidx_name == cfg.idx_prcptot:
+            y_param_str = str(cfg.idx_params[cfg.idx_codes.index(varidx_code)][0])
+            if y_param_str != "nan":
+                y_param = float(y_param_str)
+                title += " (seuil à " + str(int(round(y_param, 0))) + cfg.unit_mm + ")"
 
     # Fonts.
     fs_sup_title = 9
@@ -1251,7 +1303,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         if mode == 1:
 
             if (rcp == cfg.rcp_ref) and (ds_ref is not None):
-                ax.plot(ds_ref[cfg.dim_time], ds_ref[var_or_idx], color="black", alpha=1.0)
+                ax.plot(ds_ref[cfg.dim_time], ds_ref[varidx_name], color="black", alpha=1.0)
             else:
                 if rcp == cfg.rcp_26:
                     ds_mean = ds_rcp_26[0]
@@ -1265,8 +1317,8 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
                     ds_mean = ds_rcp_85[0]
                     ds_min  = ds_rcp_85[1]
                     ds_max  = ds_rcp_85[2]
-                ax.plot(ds_mean[cfg.dim_time], ds_mean[var_or_idx], color=color, alpha=1.0)
-                ax.fill_between(np.array(ds_max[cfg.dim_time]), ds_min[var_or_idx], ds_max[var_or_idx],
+                ax.plot(ds_mean[cfg.dim_time], ds_mean[varidx_name], color=color, alpha=1.0)
+                ax.fill_between(np.array(ds_max[cfg.dim_time]), ds_min[varidx_name], ds_max[varidx_name],
                                 color=color, alpha=0.25)
 
         # Mode #2: Curves only.
@@ -1275,25 +1327,25 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
             # Draw curves.
             if (rcp == cfg.rcp_ref) and (ds_ref is not None):
                 ds = ds_ref
-                ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color="black", alpha=1.0)
+                ax.plot(ds[cfg.dim_time], ds[varidx_name].values, color="black", alpha=1.0)
             elif rcp == cfg.rcp_26:
                 for ds in ds_rcp_26:
-                    ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
+                    ax.plot(ds[cfg.dim_time], ds[varidx_name].values, color=color, alpha=0.5)
             elif rcp == cfg.rcp_45:
                 for ds in ds_rcp_45:
-                    ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
+                    ax.plot(ds[cfg.dim_time], ds[varidx_name].values, color=color, alpha=0.5)
             elif rcp == cfg.rcp_85:
                 for ds in ds_rcp_85:
-                    ax.plot(ds[cfg.dim_time], ds[var_or_idx].values, color=color, alpha=0.5)
+                    ax.plot(ds[cfg.dim_time], ds[varidx_name].values, color=color, alpha=0.5)
 
     # Finalize plot.
-    legend_list = ["Référence"]
+    legend_l = ["Référence"]
     if cfg.rcp_26 in rcps:
-        legend_list.append("RCP 2,6")
+        legend_l.append("RCP 2,6")
     if cfg.rcp_45 in rcps:
-        legend_list.append("RCP 4,5")
+        legend_l.append("RCP 4,5")
     if cfg.rcp_85 in rcps:
-        legend_list.append("RCP 8,5")
+        legend_l.append("RCP 8,5")
     custom_lines = [Line2D([0], [0], color="black", lw=4)]
     if cfg.rcp_26 in rcps:
         custom_lines.append(Line2D([0], [0], color="blue", lw=4))
@@ -1301,7 +1353,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
         custom_lines.append(Line2D([0], [0], color="green", lw=4))
     if cfg.rcp_85 in rcps:
         custom_lines.append(Line2D([0], [0], color="red", lw=4))
-    ax.legend(custom_lines, legend_list, loc="upper left", frameon=False)
+    ax.legend(custom_lines, legend_l, loc="upper left", frameon=False)
     plt.ylim(ylim[0], ylim[1])
 
     # Add horizontal line.
@@ -1343,7 +1395,7 @@ def plot_ts_single(stn: str, var: str):
 
     # Paths and NetCDF files.
     d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
-    p_list   = utils.list_files(d_regrid)
+    p_l   = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
     # Plot.
@@ -1356,9 +1408,9 @@ def plot_ts_single(stn: str, var: str):
     plt.subplots_adjust(top=0.9, bottom=0.18, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
 
     # Loop through simulation sets.
-    for i in range(int(len(p_list) / 3)):
+    for i in range(int(len(p_l) / 3)):
 
-        p_ref   = [i for i in p_list if cfg.rcp_ref in i][i]
+        p_ref   = [i for i in p_l if cfg.rcp_ref in i][i]
         p_fut   = p_ref.replace(cfg.rcp_ref + "_", "")
         p_qqmap = p_fut.replace("_4qqmap", "").replace(cfg.cat_regrid, cfg.cat_qqmap)
         ds_fut   = utils.open_netcdf(p_fut)
@@ -1423,7 +1475,7 @@ def plot_ts_mosaic(stn: str, var: str):
 
     # Paths and NetCDF files.
     d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
-    p_list   = utils.list_files(d_regrid)
+    p_l      = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
     # Plot.
@@ -1435,10 +1487,10 @@ def plot_ts_mosaic(stn: str, var: str):
 
     # Loop through simulation sets.
     title = ""
-    for i in range(int(len(p_list) / 3)):
+    for i in range(int(len(p_l) / 3)):
 
         # NetCDF files.
-        p_fut_i   = [i for i in p_list if cfg.rcp_ref in i][i].replace(cfg.rcp_ref + "_", "")
+        p_fut_i   = [i for i in p_l if cfg.rcp_ref in i][i].replace(cfg.rcp_ref + "_", "")
         p_qqmap_i = p_fut_i.replace("_4" + cfg.cat_qqmap, "").replace(cfg.cat_regrid, cfg.cat_qqmap)
 
         # Open datasets.
@@ -1461,7 +1513,7 @@ def plot_ts_mosaic(stn: str, var: str):
         # Format.
         plt.xlabel("", fontsize=fs_axes)
         plt.ylabel(var_desc + " (" + var_unit + ")", fontsize=fs_axes)
-        title = os.path.basename(p_list[i]).replace(cfg.f_ext_nc, "")
+        title = os.path.basename(p_l[i]).replace(cfg.f_ext_nc, "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
@@ -1478,7 +1530,7 @@ def plot_ts_mosaic(stn: str, var: str):
     plt.close()
 
 
-def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_type: int = 0, p_fig: str = ""):
+def plot_freq(ds_l: List[xr.Dataset], var: str, freq: str, title: str, plt_type: int = 0, p_fig: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1486,7 +1538,7 @@ def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_ty
 
     Parameters:
     ----------
-    ds_list: List[xr.Dataset]
+    ds_l: List[xr.Dataset]
         List of datasets (mean, minimum and maximum).
     var: str
         Weather variable.
@@ -1512,7 +1564,7 @@ def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_ty
     fs_axes   = 8
 
     # Number of values on the x-axis.
-    n = len(list(ds_list[0][var].values))
+    n = len(list(ds_l[0][var].values))
 
     # Draw curve (mean values) and shadow (zone between minimum and maximum values).
     f, ax = plt.subplots()
@@ -1533,19 +1585,19 @@ def plot_freq(ds_list: List[xr.Dataset], var: str, freq: str, title: str, plt_ty
 
     # Draw areas.
     if plt_type == 1:
-        ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
-        ax.fill_between(np.array(range(1, n + 1)), list(ds_list[0][var].values), list(ds_list[2][var].values),
+        ax.plot(range(1, n + 1), list(ds_l[0][var].values), color=cfg.col_ref, alpha=1.0)
+        ax.fill_between(np.array(range(1, n + 1)), list(ds_l[0][var].values), list(ds_l[2][var].values),
                         color=col_2cla[1], alpha=1.0)
-        ax.fill_between(np.array(range(1, n + 1)), list(ds_list[0][var].values), list(ds_list[1][var].values),
+        ax.fill_between(np.array(range(1, n + 1)), list(ds_l[0][var].values), list(ds_l[1][var].values),
                         color=col_2cla[0], alpha=1.0)
     else:
         bar_width = 1.0
-        plt.bar(range(1, n + 1), list(ds_list[2][var].values), width=bar_width, color=col_2cla)
-        plt.bar(range(1, n + 1), list(ds_list[0][var].values), width=bar_width, color=col_2cla)
-        plt.bar(range(1, n + 1), list(ds_list[1][var].values), width=bar_width, color="white")
-        ax.plot(range(1, n + 1), list(ds_list[0][var].values), color=cfg.col_ref, alpha=1.0)
-        y_lim_lower = min(list(ds_list[1][var].values))
-        y_lim_upper = max(list(ds_list[2][var].values))
+        plt.bar(range(1, n + 1), list(ds_l[2][var].values), width=bar_width, color=col_2cla)
+        plt.bar(range(1, n + 1), list(ds_l[0][var].values), width=bar_width, color=col_2cla)
+        plt.bar(range(1, n + 1), list(ds_l[1][var].values), width=bar_width, color="white")
+        ax.plot(range(1, n + 1), list(ds_l[0][var].values), color=cfg.col_ref, alpha=1.0)
+        y_lim_lower = min(list(ds_l[1][var].values))
+        y_lim_upper = max(list(ds_l[2][var].values))
         plt.ylim([y_lim_lower, y_lim_upper])
 
     # Format.
@@ -1577,10 +1629,10 @@ def plot_boxplot(ds: xr.Dataset, var: str, title: str, p_fig: str):
 
     Parameters:
     ----------
-    ds_list: xr.Dataset
+    ds: xr.Dataset
         Dataset (2D: month and year).
     var: str
-        Weather variable.
+        Climate variable.
     title: str
         Plot title.
     p_fig: str

@@ -135,6 +135,13 @@ Bugs fixed:
 - fixed a bug that was happening when calculating statistics for scenarios (values must not be averaged over years);
 - prevent duplicates in calib.csv.
 
+### Upcoming version
+
+Implemented features:
+- created a rain season group of indices comprising rainstart, rainend, raindur and rainqty (now calculated at once);
+- now exporting calibration and post-process plots if opt_save_csv is enabled (only mean values);
+- uniformized variable names.
+
 ## Contributing
 
 This is a private development that is being used in production by climate services specialists. If you're interested in

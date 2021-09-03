@@ -11,7 +11,6 @@
 
 import config as cfg
 import glob
-import logging
 import numpy as np
 import os
 import utils
@@ -66,36 +65,36 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
     if "cordex" in d_ref.lower():
 
         # Find the data at the requested timestep.
-        p_ref  = d_ref.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
-        p_fut  = d_fut.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
-        p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
+        p_ref = d_ref.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
+        p_fut = d_fut.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
+        p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
         # Since CORDEX-NA (once again) screwed up their directories, we need
         # to check in /raw/ as well.
-        if not p_list:
-            p_ref  = d_ref.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
-            p_fut  = d_fut.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
-            p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
+        if not p_l:
+            p_ref = d_ref.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
+            p_fut = d_fut.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
+            p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
         # If no data was found, search other time resolutions.
-        if not p_list:
+        if not p_l:
             timestep_order = ["ann", "mon", "day", "6h", "6hr", "3h", "3hr", "1h", "1hr"]
             index_ts       = timestep_order.index(priority_timestep) + 1
 
-            while not p_list and index_ts <= len(timestep_order)-1:
-                p_ref  = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
-                p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
-                p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
-                if not p_list:
+            while not p_l and index_ts <= len(timestep_order)-1:
+                p_ref = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
+                p_fut = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
+                p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
+                if not p_l:
                     p_ref  = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
                         cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
                     p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
                         cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
-                    p_list = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
+                    p_l = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
                 index_ts = index_ts + 1
 
         # Extract the files with xarray.
-        ds = utils.open_netcdf(p_list, chunks={cfg.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
+        ds = utils.open_netcdf(p_l, chunks={cfg.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
                                combine="by_coords")
         ds_subset = ds.sel(rlat=slice(min(lat_bnds), max(lat_bnds)), rlon=slice(min(lon_bnds), max(lon_bnds))).\
             sel(time=slice(str(min(all_yr)), str(max(all_yr))))
@@ -113,25 +112,25 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
         suffix = "/series/" + ("[0-9]"*6) + "/" + var + "_*" + cfg.f_ext_nc
 
         # List files for the reference and future periods.
-        p_ref_list = glob.glob(cfg.d_proj + d_ref + suffix)
-        p_fut_list = glob.glob(cfg.d_proj + d_fut + suffix)
-        p_all_list = p_ref_list + p_fut_list
+        p_ref_l = glob.glob(cfg.d_proj + d_ref + suffix)
+        p_fut_l = glob.glob(cfg.d_proj + d_fut + suffix)
+        p_all_l = p_ref_l + p_fut_l
 
         # Because there is so much data, we only keep the files for the years we actually want.
-        p_list = []
+        p_l = []
         for x in range(len(all_yr)):
-            p_list.extend([s for s in p_all_list if "/" + str(all_yr[x]) in s])
-        p_list = sorted(p_list)
+            p_l.extend([s for s in p_all_l if "/" + str(all_yr[x]) in s])
+        p_l = sorted(p_l)
 
         # This takes a while, but allows us to use the code without overloading the server. Basically, for each year
         # (12 files), we extract the data and save it to a NetCDF.
         for y in np.arange(all_yr[0], all_yr[len(all_yr)-1], 10):
 
-            p_list_sub = [f for f in p_list if "/" + str(y) in f]
+            p_l_sub = [f for f in p_l if "/" + str(y) in f]
             for yy in range(y + 1, y + 10):
-                p_list_sub.extend([f for f in p_list if "/" + str(yy) in f])
+                p_l_sub.extend([f for f in p_l if "/" + str(yy) in f])
 
-            ds_tmp = utils.open_netcdf(p_list_sub, chunks={cfg.dim_time: 31},
+            ds_tmp = utils.open_netcdf(p_l_sub, chunks={cfg.dim_time: 31},
                                        drop_variables=["time_vectors", "ts", "time_bnds"])
 
             # Spatio-temporal averaging.
@@ -144,11 +143,11 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
             # Save each year as a temporary NetCDF.
             utils.save_netcdf(ds_subset_tmp, tmpdir + str(y) + cfg.f_ext_nc)
 
-        p_list_new = sorted(glob.glob(tmpdir + ("[0-9]"*4) + cfg.f_ext_nc))
-        ds_subset = utils.open_netcdf(p_list_new, chunks={cfg.dim_time: 365})
+        p_l_new = sorted(glob.glob(tmpdir + ("[0-9]"*4) + cfg.f_ext_nc))
+        ds_subset = utils.open_netcdf(p_l_new, chunks={cfg.dim_time: 365})
 
         # Remove temporary files.
-        for f in p_list_new:
+        for f in p_l_new:
             os.remove(f)
 
     else:

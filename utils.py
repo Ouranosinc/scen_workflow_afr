@@ -168,24 +168,24 @@ def list_cordex(p_ds: str, rcps: [str]):
     for r in range(len(rcps)):
 
         d_format = p_ds + "*/*/AFR-*{r}".format(r=rcps[r]) + "/*/atmos/*/"
-        d_list = glob.glob(d_format)
-        d_list = [i for i in d_list if "day" in i]
-        d_list.sort()
+        d_l = glob.glob(d_format)
+        d_l = [i for i in d_l if "day" in i]
+        d_l.sort()
 
         # Remove timestep information.
-        for i in range(0, len(d_list)):
-            tokens = d_list[i].split("/")
-            d_list[i] = d_list[i].replace(tokens[len(tokens) - 4], "*")
+        for i in range(0, len(d_l)):
+            tokens = d_l[i].split("/")
+            d_l[i] = d_l[i].replace(tokens[len(tokens) - 4], "*")
 
         # Keep only the unique simulation folders (with a * as the timestep).
-        d_list = list(set(d_list))
-        d_list_valid = [True] * len(d_list)
+        d_l = list(set(d_l))
+        d_l_valid = [True] * len(d_l)
 
         # Keep only the simulations with all the variables we need.
-        d_list = list(compress(d_list, d_list_valid))
+        d_l = list(compress(d_l, d_l_valid))
 
-        list_f[rcps[r] + "_historical"] = [w.replace(rcps[r], "historical") for w in d_list]
-        list_f[rcps[r]] = d_list
+        list_f[rcps[r] + "_historical"] = [w.replace(rcps[r], "historical") for w in d_l]
+        list_f[rcps[r]] = d_l
 
     return list_f
 
@@ -347,19 +347,19 @@ def extract_date_field(ds: Union[xr.DataArray, xr.Dataset], field: str = None) -
     res = []
 
     # Loop through days.
-    time_list = list(ds.time.values)
-    for i in range(len(time_list)):
+    time_l = list(ds.time.values)
+    for i in range(len(time_l)):
 
         # Extract fields.
         try:
-            year  = time_list[i].year
-            month = time_list[i].month
-            day   = time_list[i].day
-            doy   = time_list[i].dayofyear
+            year  = time_l[i].year
+            month = time_l[i].month
+            day   = time_l[i].day
+            doy   = time_l[i].dayofyear
         except:
-            year  = int(str(time_list[i])[0:4])
-            month = int(str(time_list[i])[5:7])
-            day   = int(str(time_list[i])[8:10])
+            year  = int(str(time_l[i])[0:4])
+            month = int(str(time_l[i])[5:7])
+            day   = int(str(time_l[i])[8:10])
             doy = day
             doy += 31 if month > 1 else 0
             doy += 28 if (month > 2) and (year % 4 > 0) else 0
@@ -433,7 +433,7 @@ def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, fr
     return new_time
 
 
-def reset_calendar_list(years: [int]):
+def reset_calendar_l(years: [int]):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -501,17 +501,17 @@ def list_files(p: str) -> [str]:
     """
 
     # List.
-    p_list = []
+    p_l = []
     # r=root, d=directories, f = files
     for r, d, f in os.walk(p):
         for p in f:
             if cfg.f_ext_nc in p:
-                p_list.append(os.path.join(r, p))
+                p_l.append(os.path.join(r, p))
 
     # Sort.
-    p_list.sort()
+    p_l.sort()
 
-    return p_list
+    return p_l
 
 
 def create_multi_dict(n: int, data_type: type) -> dict:
@@ -854,13 +854,13 @@ def save_csv(df: pd.DataFrame, p: str, desc=""):
         os.remove(p)
 
     # Save CSV file.
-    df.to_csv(p)
+    df.to_csv(p, index=False)
 
     if cfg.opt_trace:
         log("Saved CSV file", True)
 
 
-def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var_or_idx: str = "") -> Union[xr.Dataset, xr.Dataset]:
+def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], varidx_name: str = "") -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -871,7 +871,7 @@ def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var_or_idx: str = "") -> 
     ----------
     ds : Union[xr.Dataset, xr.Dataset]
         Dataset or DataArray.
-    var_or_idx : str
+    varidx_name : str
         Variable or index.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -889,7 +889,7 @@ def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], var_or_idx: str = "") -> 
             ds_res = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
 
     # Transfer units.
-    ds_res = copy_attributes(ds, ds_res, var_or_idx)
+    ds_res = copy_attributes(ds, ds_res, varidx_name)
 
     return ds_res
 
@@ -1315,6 +1315,42 @@ def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> set:
     return coord_dict
 
 
+def rename_dimensions(da: xr.DataArray, lat_name: str = cfg.dim_latitude, lon_name: str = cfg.dim_longitude)\
+        -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    # Function that renames dimensions.
+
+    Parameters
+    ----------
+    da: xr.DataArray
+        DataArray.
+    lat_name: str
+        Latitude name to transform to.
+    lon_name: str
+        Longitude name to transform to.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if (lat_name not in da.dims) or (lon_name not in da.dims):
+
+        if "dim_0" in list(da.dims):
+            da = da.rename({"dim_0": cfg.dim_time})
+            da = da.rename({"dim_1": lat_name, "dim_2": lon_name})
+        elif (cfg.dim_lat in list(da.dims)) or (cfg.dim_lon in list(da.dims)):
+            da = da.rename({cfg.dim_lat: lat_name, cfg.dim_lon: lon_name})
+        elif (cfg.dim_rlat in list(da.dims)) or (cfg.dim_rlon in list(da.dims)):
+            da = da.rename({cfg.dim_rlat: lat_name, cfg.dim_rlon: lon_name})
+        elif (lat_name not in list(da.dims)) and (lon_name not in list(da.dims)):
+            if lat_name == cfg.dim_latitude:
+                da = da.expand_dims(latitude=1)
+            if lon_name == cfg.dim_longitude:
+                da = da.expand_dims(longitude=1)
+
+    return da
+
+
 def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dataset, xr.DataArray]:
 
     """
@@ -1388,14 +1424,13 @@ def create_mask(stn: str) -> xr.DataArray:
 
     da_mask = None
 
-    f_list = glob.glob(cfg.d_stn + "*/*" + cfg.f_ext_nc)
-    for i in range(len(f_list)):
+    f_l = glob.glob(cfg.d_stn + "*/*" + cfg.f_ext_nc)
+    for i in range(len(f_l)):
 
         # Open NetCDF file.
-        ds = open_netcdf(f_list[i])
+        ds = open_netcdf(f_l[i])
         var = list(ds.data_vars)[0]
         if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-
 
             # Create mask.
             da_mask = ds[var][0] * 0 + 1

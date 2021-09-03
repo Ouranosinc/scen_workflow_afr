@@ -46,18 +46,18 @@ def load_observations(var: str):
     # Station list file and station files.
     d_stn      = cfg.get_d_stn(var)
     p_stn_info = glob.glob(d_stn + "../*" + cfg.f_ext_csv)
-    p_stn_list = glob.glob(d_stn + "*" + cfg.f_ext_csv)
-    p_stn_list.sort()
+    p_stn_l = glob.glob(d_stn + "*" + cfg.f_ext_csv)
+    p_stn_l.sort()
 
     # Compile data.
-    for i in range(0, len(p_stn_list)):
+    for i in range(0, len(p_stn_l)):
 
-        stn = os.path.basename(p_stn_list[i]).replace(cfg.f_ext_nc, "").split("_")[1]
+        stn = os.path.basename(p_stn_l[i]).replace(cfg.f_ext_nc, "").split("_")[1]
 
         if not(stn in cfg.stns):
             continue
 
-        obs  = pd.read_csv(p_stn_list[i], sep=cfg.f_sep)
+        obs  = pd.read_csv(p_stn_l[i], sep=cfg.f_sep)
         time = pd.to_datetime(
             obs["annees"].astype("str") + "-" + obs["mois"].astype("str") + "-" + obs["jours"].astype("str"))
 
@@ -203,7 +203,7 @@ def load_reanalysis(var_ra: str):
     var = cfg.convert_var_name(var_ra)
 
     # Paths.
-    p_stn_list = list(glob.glob(cfg.d_ra_day + var_ra + "/*" + cfg.f_ext_nc))
+    p_stn_l = list(glob.glob(cfg.d_ra_day + var_ra + "/*" + cfg.f_ext_nc))
     p_stn = cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + cfg.f_ext_nc
     d_stn = os.path.dirname(p_stn)
     if not (os.path.isdir(d_stn)):
@@ -212,7 +212,7 @@ def load_reanalysis(var_ra: str):
     if (not os.path.exists(p_stn)) or cfg.opt_force_overwrite:
 
         # Combine datasets (the 'load' is necessary to apply the mask later).
-        ds = utils.open_netcdf(p_stn_list, combine='by_coords', concat_dim=cfg.dim_time).load()
+        ds = utils.open_netcdf(p_stn_l, combine='by_coords', concat_dim=cfg.dim_time).load()
 
         # Rename variables.
         if var_ra in [cfg.var_era5_t2mmin, cfg.var_era5_t2mmax]:
@@ -837,13 +837,13 @@ def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Data
                 da_qqmap_ref_xy = utils.squeeze_lon_lat(da_qqmap_ref_xy)
                 da_qmf_xy       = utils.squeeze_lon_lat(da_qmf_xy)
 
-        # Generate summary plot.
         if cfg.opt_plot[0]:
+
+            # Generate summary plot.
             plot.plot_calib(da_stn_xy, da_ref_xy, da_fut_xy, da_qqmap_xy, da_qqmap_ref_xy, da_qmf_xy,
                             var, title, p_fig)
 
-        # Generate time series only.
-        if cfg.opt_plot[0]:
+            # Generate time series only.
             plot.plot_calib_ts(da_stn_xy, da_fut_xy, da_qqmap_xy, var, title,
                                p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png))
 
@@ -899,16 +899,16 @@ def generate():
         # Select file names for observation (or reanalysis).
         if not cfg.opt_ra:
             d_stn = cfg.get_d_stn(var)
-            p_stn_list = glob.glob(d_stn + "*" + cfg.f_ext_nc)
-            p_stn_list.sort()
+            p_stn_l = glob.glob(d_stn + "*" + cfg.f_ext_nc)
+            p_stn_l.sort()
         else:
-            p_stn_list = [cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + cfg.f_ext_nc]
+            p_stn_l = [cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + cfg.f_ext_nc]
 
         # Loop through stations.
-        for i_stn in range(0, len(p_stn_list)):
+        for i_stn in range(0, len(p_stn_l)):
 
             # Station name.
-            p_stn = p_stn_list[i_stn]
+            p_stn = p_stn_l[i_stn]
             if not cfg.opt_ra:
                 stn = os.path.basename(p_stn).replace(cfg.f_ext_nc, "").replace(var + "_", "")
                 if not (stn in cfg.stns):
@@ -1075,10 +1075,10 @@ def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.D
     utils.log("=")
 
     # Skip iteration if the variable 'var' is not available in the current directory.
-    p_sim_ref_list = list(glob.glob(d_sim_ref + "/" + var + "/*" + cfg.f_ext_nc))
-    p_sim_fut_list = list(glob.glob(d_sim_fut + "/" + var + "/*" + cfg.f_ext_nc))
+    p_sim_ref_l = list(glob.glob(d_sim_ref + "/" + var + "/*" + cfg.f_ext_nc))
+    p_sim_fut_l = list(glob.glob(d_sim_fut + "/" + var + "/*" + cfg.f_ext_nc))
 
-    if (len(p_sim_ref_list) == 0) or (len(p_sim_fut_list) == 0):
+    if (len(p_sim_ref_l) == 0) or (len(p_sim_fut_l) == 0):
         utils.log("Skipping iteration: data not available for simulation-variable.", True)
         return
 
@@ -1231,16 +1231,11 @@ def run():
         utils.log(msg + not_req)
 
     utils.log("-")
-    msg = "Step #7b  Exporting results to CSV files (scenarios)"
-    if cfg.opt_save_csv[0]:
+    msg = "Step #7b  Converting NetCDF to CSV files (scenarios)"
+    if cfg.opt_save_csv[0] and not cfg.opt_ra:
         utils.log(msg)
         utils.log("-")
-        utils.log("Step #7b1 Generating times series (scenarios)")
-        statistics.calc_ts(cfg.cat_scen)
-        if not cfg.opt_ra:
-            utils.log("-")
-            utils.log("Step #7b2 Converting NetCDF to CSV files (scenarios)")
-            statistics.conv_nc_csv(cfg.cat_scen)
+        statistics.conv_nc_csv(cfg.cat_scen)
     else:
         utils.log(msg + not_req)
 
@@ -1269,12 +1264,13 @@ def run():
                 utils.log("Processing: '" + var + "', '" + stn + "'", True)
 
                 # Path ofo NetCDF file containing station data.
-                p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc
+                # p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc
+                p_obs = cfg.get_p_obs(stn, var)
 
                 # Loop through raw NetCDF files.
-                p_raw_list = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*" + cfg.f_ext_nc))
-                for i in range(len(p_raw_list)):
-                    p_raw = p_raw_list[i]
+                p_raw_l = list(glob.glob(cfg.get_d_scen(stn, cfg.cat_raw, var) + "*" + cfg.f_ext_nc))
+                for i in range(len(p_raw_l)):
+                    p_raw = p_raw_l[i]
 
                     # Path of NetCDF files.
                     p_regrid     = p_raw.replace(cfg.cat_raw, cfg.cat_regrid)
@@ -1298,7 +1294,7 @@ def run():
                         replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
-                    plot.plot_postprocess(p_stn, p_regrid_fut, p_qqmap, var, p_fig, title)
+                    plot.plot_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
@@ -1321,20 +1317,20 @@ def run():
                         title = fn_fig[:-4].replace(cfg.cat_fig_postprocess, per_str + "_" + cfg.cat_fig_daily)
                         gen_plot_freq(ds_qqmap, stn, var, per, cfg.freq_D, title)
 
-                if os.path.exists(p_stn):
+                if os.path.exists(p_obs):
 
-                    ds_stn = utils.open_netcdf(p_stn)
+                    ds_obs = utils.open_netcdf(p_obs)
                     per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/monthly/<var>_csv/.
                     title = var + "_" + per_str + "_" + cfg.cat_fig_monthly
-                    gen_plot_freq(ds_stn, stn, var, cfg.per_ref, cfg.freq_MS, title)
+                    gen_plot_freq(ds_obs, stn, var, cfg.per_ref, cfg.freq_MS, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>/.
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/daily/<var>_csv/.
                     title = var + "_" + per_str + "_" + cfg.cat_fig_daily
-                    gen_plot_freq(ds_stn, stn, var, cfg.per_ref, cfg.freq_D, title)
+                    gen_plot_freq(ds_obs, stn, var, cfg.per_ref, cfg.freq_D, title)
 
         if not cfg.opt_save_csv[0]:
             utils.log("-")
@@ -1405,17 +1401,17 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
     ds[var].attrs[cfg.attrs_units] = units
 
     # Calculate statistics.
-    ds_list = statistics.calc_by_freq(ds, var, per, freq)
+    ds_l = statistics.calc_by_freq(ds, var, per, freq)
 
     n = 12 if freq == cfg.freq_MS else 365
 
     # Remove February 29th.
-    if (freq == cfg.freq_D) and (len(ds_list[0][var]) > 365):
+    if (freq == cfg.freq_D) and (len(ds_l[0][var]) > 365):
         for i in range(3):
-            ds_list[i] = ds_list[i].rename_dims({"dayofyear": "time"})
-            ds_list[i] = ds_list[i][var][ds_list[i][cfg.dim_time] != 59].to_dataset()
-            ds_list[i][cfg.dim_time] = utils.reset_calendar(ds_list[i], cfg.per_ref[0], cfg.per_ref[0], cfg.freq_D)
-            ds_list[i][var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
+            ds_l[i] = ds_l[i].rename_dims({"dayofyear": "time"})
+            ds_l[i] = ds_l[i][var][ds_l[i][cfg.dim_time] != 59].to_dataset()
+            ds_l[i][cfg.dim_time] = utils.reset_calendar(ds_l[i], cfg.per_ref[0], cfg.per_ref[0], cfg.freq_D)
+            ds_l[i][var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
 
     # Files.
     cat_fig = cfg.cat_fig_monthly if freq == cfg.freq_MS else cfg.cat_fig_daily
@@ -1427,14 +1423,14 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
     if freq == cfg.freq_D:
 
         # Generate plot.
-        plot.plot_freq(ds_list, var, freq, title, 1, p_fig)
+        plot.plot_freq(ds_l, var, freq, title, 1, p_fig)
 
         # Generate CSV file.
         if cfg.opt_save_csv[0]:
             dict_pd = {("month" if freq == cfg.freq_MS else "day"): range(1, n + 1),
-                       "mean": list(ds_list[0][var].values),
-                       "min": list(ds_list[1][var].values),
-                       "max": list(ds_list[2][var].values), "var": [var] * n}
+                       "mean": list(ds_l[0][var].values),
+                       "min": list(ds_l[1][var].values),
+                       "max": list(ds_l[2][var].values), "var": [var] * n}
             try:
                 df = pd.DataFrame(dict_pd)
                 utils.save_csv(df, p_csv)
@@ -1444,18 +1440,18 @@ def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str
     else:
 
         # Generate plot.
-        plot.plot_boxplot(ds_list, var, title, p_fig)
+        plot.plot_boxplot(ds_l, var, title, p_fig)
 
         # Generate CSV file.
         if cfg.opt_save_csv[0]:
 
-            year_list = list(range(per[0], per[1] + 1))
+            year_l = list(range(per[0], per[1] + 1))
             dict_pd =\
-                {"year": year_list,
-                 "1": ds_list[var].values[0], "2": ds_list[var].values[1], "3": ds_list[var].values[2],
-                 "4": ds_list[var].values[3], "5": ds_list[var].values[4], "6": ds_list[var].values[5],
-                 "7": ds_list[var].values[6], "8": ds_list[var].values[7], "9": ds_list[var].values[8],
-                 "10": ds_list[var].values[9], "11": ds_list[var].values[10], "12": ds_list[var].values[11]}
+                {"year": year_l,
+                 "1": ds_l[var].values[0], "2": ds_l[var].values[1], "3": ds_l[var].values[2],
+                 "4": ds_l[var].values[3], "5": ds_l[var].values[4], "6": ds_l[var].values[5],
+                 "7": ds_l[var].values[6], "8": ds_l[var].values[7], "9": ds_l[var].values[8],
+                 "10": ds_l[var].values[9], "11": ds_l[var].values[10], "12": ds_l[var].values[11]}
             try:
                 df = pd.DataFrame(dict_pd)
                 utils.save_csv(df, p_csv)
