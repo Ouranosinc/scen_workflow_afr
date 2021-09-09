@@ -10,6 +10,7 @@
 import config as cfg
 import functools
 import glob
+import math
 import multiprocessing
 import numpy as np
 import os.path
@@ -72,12 +73,22 @@ def generate(idx_code: str):
                     cfg.idx_rainend, cfg.idx_rainqty, cfg.idx_drydurtot, cfg.idx_rainseason]:
         varidx_name_l.append(cfg.var_cordex_pr)
 
+        if idx_name in [cfg.idx_rainend, cfg.idx_rainseason]:
+            if cfg.var_cordex_evspsblpot in cfg.variables_cordex:
+                varidx_name_l.append(cfg.var_cordex_evspsblpot)
+            elif cfg.var_cordex_evspsbl in cfg.variables_cordex:
+                varidx_name_l.append(cfg.var_cordex_evspsbl)
+            else:
+                varidx_name_l.append("nan")
+
         if idx_name in [cfg.idx_rainend, cfg.idx_raindur, cfg.idx_rainqty]:
             varidx_name_l.append(idx_code.replace(idx_name, cfg.idx_rainstart))
 
-        rainstart_next = str(idx_params[len(idx_params) - 1])
-        if (idx_name in [cfg.idx_rainend, cfg.idx_rainseason]) and (rainstart_next != "nan"):
-            varidx_name_l.append(rainstart_next)
+        if idx_name == cfg.idx_rainseason:
+            varidx_name_l.append("nan")
+
+        if idx_name in [cfg.idx_rainend, cfg.idx_rainseason]:
+            varidx_name_l.append(str(idx_params[len(idx_params) - 1]))
 
         if idx_name in [cfg.idx_raindur, cfg.idx_rainqty]:
             varidx_name_l.append(idx_code.replace(idx_name, cfg.idx_rainend))
@@ -107,10 +118,11 @@ def generate(idx_code: str):
         utils.log("Verifying data availability (based on directories).", True)
         varidx_name_l_avail = True
         for varidx_name in varidx_name_l:
-            if ((cfg.extract_idx(varidx_name) in cfg.variables_cordex) and
-                not os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, varidx_name))) or\
-               ((cfg.extract_idx(varidx_name) not in cfg.variables_cordex) and
-                not os.path.isdir(cfg.get_d_idx(stn, varidx_name))):
+            if (varidx_name != "nan") and \
+               (((cfg.extract_idx(varidx_name) in cfg.variables_cordex) and
+                 not os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, varidx_name))) or
+                ((cfg.extract_idx(varidx_name) not in cfg.variables_cordex) and
+                 not os.path.isdir(cfg.get_d_idx(stn, varidx_name)))):
                 varidx_name_l_avail = False
                 break
         if not varidx_name_l_avail:
@@ -124,7 +136,7 @@ def generate(idx_code: str):
         # Loop through emissions scenarios.
         for rcp in rcps:
 
-            utils.log("Processing: '" + idx_code + "', '" + stn + "', '" + cfg.get_rcp_desc(rcp) + "'", True)
+            utils.log("Processing: " + idx_code + ", " + stn + ", " + cfg.get_rcp_desc(rcp) + "", True)
 
             # List simulation files for the first variable. As soon as there is no file for one variable, the analysis
             # for the current RCP needs to abort.
@@ -173,10 +185,11 @@ def generate(idx_code: str):
                 for p_sim_i in p_sim:
                     missing = False
                     for varidx_name_j in varidx_name_l[1:]:
-                        p_sim_j = cfg.get_equivalent_idx_path(p_sim_i, varidx_name_l[0], varidx_name_j, stn, rcp)
-                        if not os.path.exists(p_sim_j):
-                            missing = True
-                            break
+                        if varidx_name_j != "nan":
+                            p_sim_j = cfg.get_equivalent_idx_path(p_sim_i, varidx_name_l[0], varidx_name_j, stn, rcp)
+                            if not os.path.exists(p_sim_j):
+                                missing = True
+                                break
                     if not missing:
                         p_sim_fix.append(p_sim_i)
                 p_sim = p_sim_fix
@@ -280,24 +293,28 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
     for i_varidx in range(0, len(varidx_name_l)):
         varidx_name = varidx_name_l[i_varidx]
 
-        # Open dataset.
-        p_sim_j =\
-            cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
-        ds = utils.open_netcdf(p_sim_j)
+        try:
+            # Open dataset.
+            p_sim_j = cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
+            ds = utils.open_netcdf(p_sim_j)
 
-        # Remove February 29th and select reference period.
-        if (rcp == cfg.rcp_ref) and (varidx_name in cfg.variables_cordex):
-            ds = utils.remove_feb29(ds)
-            ds = utils.sel_period(ds, cfg.per_ref)
+            # Remove February 29th and select reference period.
+            if (rcp == cfg.rcp_ref) and (varidx_name in cfg.variables_cordex):
+                ds = utils.remove_feb29(ds)
+                ds = utils.sel_period(ds, cfg.per_ref)
 
-        # Adjust temperature units.
-        if cfg.extract_idx(varidx_name) in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-            if ds[varidx_name].attrs[cfg.attrs_units] == cfg.unit_K:
-                ds[varidx_name] = ds[varidx_name] - cfg.d_KC
-            elif rcp == cfg.rcp_ref:
-                ds[varidx_name][cfg.attrs_units] = cfg.unit_C
-            ds[varidx_name].attrs[cfg.attrs_units] = cfg.unit_C
+            # Adjust temperature units.
+            if cfg.extract_idx(varidx_name) in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+                if ds[varidx_name].attrs[cfg.attrs_units] == cfg.unit_K:
+                    ds[varidx_name] = ds[varidx_name] - cfg.d_KC
+                elif rcp == cfg.rcp_ref:
+                    ds[varidx_name][cfg.attrs_units] = cfg.unit_C
+                ds[varidx_name].attrs[cfg.attrs_units] = cfg.unit_C
 
+        except:
+            ds = None
+
+        # Add dataset.
         ds_varidx_l.append(ds)
 
     # ======================================================================================================
@@ -625,7 +642,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             dt_tot = int(idx_params_str[6])
 
             # Calculate index.
-            da_idx = xr.DataArray(rain_start(da_pr, pr_wet, dt_wet, doy_a, doy_b, pr_dry, dt_dry, dt_tot))
+            da_idx = xr.DataArray(rain_start_new(da_pr, pr_wet, dt_wet, doy_a, doy_b, pr_dry, dt_dry, dt_tot))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -634,11 +651,19 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
         elif idx_name == cfg.idx_rainend:
 
             # Collect required datasets and parameters.
-            da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
-            da_rainstart1 = ds_varidx_l[1][cfg.idx_rainstart]
-            da_rainstart2 = None
-            if len(ds_varidx_l) > 2:
-                da_rainstart2 = ds_varidx_l[2][cfg.idx_rainstart]
+            da_pr  = ds_varidx_l[0][cfg.var_cordex_pr]
+            da_etp = None
+            if ds_varidx_l[1] is not None:
+                if cfg.var_cordex_evspsblpot in cfg.variables_cordex:
+                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsblpot]
+                elif cfg.var_cordex_evspsbl in cfg.variables_cordex:
+                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsbl]
+            da_rainstart = None
+            if ds_varidx_l[2] is not None:
+                da_rainstart = ds_varidx_l[2][cfg.idx_rainstart]
+            da_rainstart_next = None
+            if ds_varidx_l[3] is not None:
+                da_rainstart_next = ds_varidx_l[3][cfg.idx_rainstart]
             meth  = idx_params_str[0]
             pr    = float(idx_params_str[1])
             etp   = -1.0 if str(idx_params_str[2]) == "nan" else float(idx_params_str[2])
@@ -647,7 +672,8 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             doy_b = -1.0 if str(idx_params_str[5]) == "nan" else int(idx_params_str[5])
 
             # Calculate index.
-            da_idx = xr.DataArray(rain_end(da_pr, da_rainstart1, da_rainstart2, meth, pr, etp, dt, doy_a, doy_b))
+            da_idx =\
+                xr.DataArray(rain_end_new(da_pr, da_etp, da_rainstart, da_rainstart_next, meth, pr, etp, dt, doy_a, doy_b))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -660,7 +686,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             da_rainend   = ds_varidx_l[1][cfg.idx_rainend]
 
             # Calculate index.
-            da_idx = da_rainend - da_rainstart
+            da_idx = da_rainend - da_rainstart + 1
             da_idx.values[da_idx.values < 0] = 0
 
             # Add to list.
@@ -675,7 +701,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             da_rainend = ds_varidx_l[2][cfg.idx_rainend]
 
             # Calculate index.
-            da_idx = xr.DataArray(rain_qty(da_pr, da_rainstart, da_rainend))
+            da_idx = xr.DataArray(rain_qty_new(da_pr, da_rainstart, da_rainend))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -694,9 +720,15 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             rs_dt_dry = int(idx_params_str[5])
             rs_dt_tot = int(idx_params_str[6])
             # Rain end:
+            da_etp = None
+            if ds_varidx_l[1] is not None:
+                if cfg.var_cordex_evspsblpot in cfg.variables_cordex:
+                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsblpot]
+                elif cfg.var_cordex_evspsbl in cfg.variables_cordex:
+                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsbl]
             da_rainstart_next = None
-            if len(ds_varidx_l) > 1:
-                da_rainstart_next = ds_varidx_l[1][cfg.idx_rainstart]
+            if ds_varidx_l[3] is not None:
+                da_rainstart_next = ds_varidx_l[3][cfg.idx_rainstart]
             re_meth  = idx_params_str[7]
             re_pr    = float(idx_params_str[8])
             re_etp   = -1.0 if str(idx_params_str[9]) == "nan" else float(idx_params_str[9])
@@ -706,8 +738,8 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
 
             # Calculate indices.
             da_rainstart, da_rainend, da_raindur, da_rainqty =\
-                xr.DataArray(rain_season(da_pr, da_rainstart_next, rs_pr_wet, rs_dt_wet, rs_doy_a, rs_doy_b, rs_pr_dry,
-                                         rs_dt_dry, rs_dt_tot, re_meth, re_pr, re_etp, re_dt, re_doy_a, re_doy_b))
+                rain_season(da_pr, da_etp, da_rainstart_next, rs_pr_wet, rs_dt_wet, rs_doy_a, rs_doy_b, rs_pr_dry,
+                            rs_dt_dry, rs_dt_tot, re_meth, re_pr, re_etp, re_dt, re_doy_a, re_doy_b)
 
             # Add to list.
             da_idx_l = [da_rainstart, da_rainend, da_raindur, da_rainqty]
@@ -1084,9 +1116,9 @@ def tot_duration_dry_periods(da_pr: xr.DataArray,  per: str, pr_tot: float, dt_d
     return da_idx
 
 
-def rain_season(da_pr: xr.DataArray, da_rainstart_next: xr.DataArray, rs_pr_wet: float, rs_dt_wet: int, rs_doy_a: int,
-                rs_doy_b: int, rs_pr_dry: float, rs_dt_dry: int, rs_dt_tot: int, re_method: str, re_pr: float,
-                re_etp: float, re_dt: float, re_doy_a: int, re_doy_b: int)\
+def rain_season(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart_next: xr.DataArray, rs_pr_wet: float,
+                rs_dt_wet: int, rs_doy_a: int, rs_doy_b: int, rs_pr_dry: float, rs_dt_dry: int, rs_dt_tot: int,
+                re_method: str, re_pr: float, re_etp: float, re_dt: float, re_doy_a: int, re_doy_b: int)\
         -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
 
     """
@@ -1097,6 +1129,8 @@ def rain_season(da_pr: xr.DataArray, da_rainstart_next: xr.DataArray, rs_pr_wet:
     ----------
     da_pr : xr.DataArray
         Precipitation data.
+    da_etp : xr.DataArray
+        Evapotranspiration data.
     da_rainstart_next : xr.DataArray
         First day of the next rain season.
     rs_pr_wet : float
@@ -1136,30 +1170,40 @@ def rain_season(da_pr: xr.DataArray, da_rainstart_next: xr.DataArray, rs_pr_wet:
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Rename dimensions to have latitude and longitude dimensions.
+    da_pr = utils.rename_dimensions(da_pr)
+    da_etp = utils.rename_dimensions(da_etp)
+
     # Calculate rain start.
+    # time1 = utils.get_current_time()
     da_rainstart =\
-        xr.DataArray(rain_start(da_pr, rs_pr_wet, rs_dt_wet, rs_doy_a, rs_doy_b, rs_pr_dry, rs_dt_dry, rs_dt_tot))
-    da_rainstart = utils.rename_dimensions(da_rainstart)
+        xr.DataArray(rain_start_new(da_pr, rs_pr_wet, rs_dt_wet, rs_doy_a, rs_doy_b, rs_pr_dry, rs_dt_dry, rs_dt_tot))
+    # da_rainstart = utils.rename_dimensions(da_rainstart)
 
     # Calculate rain end.
-    da_rainend = xr.DataArray(rain_end(da_pr, da_rainstart, da_rainstart_next, re_method, re_pr, re_etp, re_dt,
-                                       re_doy_a, re_doy_b))
+    # time2 = utils.get_current_time()
+    da_rainend = xr.DataArray(rain_end_new(da_pr, da_etp, da_rainstart, da_rainstart_next, re_method, re_pr, re_etp,
+                                           re_dt, re_doy_a, re_doy_b))
     da_rainend = utils.rename_dimensions(da_rainend)
 
     # Calculate rain duration.
-    da_raindur = da_rainend - da_rainstart
+    # time3 = utils.get_current_time()
+    da_raindur = da_rainend - da_rainstart + 1
     da_raindur = utils.rename_dimensions(da_raindur)
     da_raindur.values[da_raindur.values < 0] = 0
 
     # Calculate rain quantity.
-    da_rainqty = xr.DataArray(rain_qty(da_pr, da_rainstart, da_rainend))
+    # time4 = utils.get_current_time()
+    da_rainqty = xr.DataArray(rain_qty_new(da_pr, da_rainstart, da_rainend))
     da_rainqty = utils.rename_dimensions(da_rainqty)
+
+    # time5 = utils.get_current_time()
 
     return da_rainstart, da_rainend, da_raindur, da_rainqty
 
 
-def rain_start(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_b: int, pr_dry: float, dt_dry: int,
-               dt_tot: int) -> xr.DataArray:
+def rain_start_old(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_b: int, pr_dry: float, dt_dry: int,
+                   dt_tot: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1229,8 +1273,97 @@ def rain_start(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_
     return da_start
 
 
-def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr.DataArray, method: str, pr: float,
-             etp: float, dt: float, doy_a: int, doy_b: int) -> xr.DataArray:
+def rain_start_new(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_b: int, pr_dry: float, dt_dry: int,
+                   dt_tot: int) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the first day of the rain season.
+    This algorithm is fast.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray
+        Precipitation data.
+    pr_wet : float
+        Daily precipitation amount required in first 'dt_wet' days.
+    dt_wet: int
+        Number of days with precipitation at season start (related to 'pr_wet').
+    doy_a: int
+        First day of year where season can start.
+    doy_b: int
+        Last day of year where season can start.
+    pr_dry: float
+        Daily precipitation amount under which precipitation is considered negligible.
+    dt_dry: int
+        Maximum number of days in a dry period embedded into the period of 'dt_tot' days.
+    dt_tot: int
+        Number of days (after the first 'dt_wet' days) after which a dry season is searched for.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Eliminate negative values.
+    da_pr.values[da_pr.values < 0] = 0
+
+    # Unit conversion.
+    pr_wet = convert_units_to(str(pr_wet) + " mm/day", da_pr)
+    pr_dry = convert_units_to(str(pr_dry) + " mm/day", da_pr)
+
+    # Length of dimensions.
+    n_t = len(da_pr[cfg.dim_time])
+
+    # Assign search boundaries.
+    if (doy_a == -1) and (doy_b == -1):
+        doy_a = 1
+        doy_b = 365
+    elif doy_a == -1:
+        doy_a = 1 if doy_b == 365 else doy_b + 1
+    elif doy_b == -1:
+        doy_b = 365 if doy_a == 1 else doy_a - 1
+
+    # Flag the first day of each sequence of 'dt_wet' days with a total of 'pr_wet' in precipitation
+    # (assign True).
+    da_onset = xr.DataArray(da_pr.rolling(time=dt_wet).sum() >= pr_wet)
+    da_onset[0:(n_t-dt_wet)] = da_onset[dt_wet:n_t].values
+    da_onset[(n_t-dt_wet):n_t] = False
+
+    # Determine if it rains (assign 1) or not (assign 0).
+    da_rainy_day = da_pr.copy()
+    da_rainy_day.values[da_rainy_day.values < pr_dry] = 0
+    da_rainy_day.values[da_rainy_day.values > 0] = 1
+
+    # Flag the first day of each sequence of 'dt_dry' consecutive dry days (assign 1)
+    da_dry_seq = xr.DataArray(da_rainy_day.rolling(time=dt_dry).sum() == 0)
+    da_dry_seq[0:(n_t-dt_dry)] = da_dry_seq[dt_dry:n_t].values
+    da_dry_seq[(n_t-dt_dry):n_t] = False
+    da_dry_seq = da_dry_seq.astype(int)
+
+    # Flag the first day of each sequence of fewer than 'dt_dry' consecutive dry days (assign True).
+    da_no_dry_per = xr.DataArray(da_dry_seq.rolling(time=dt_tot).sum() < dt_dry)
+    da_no_dry_per[0:(n_t-dt_dry)] = da_no_dry_per[dt_dry:n_t].values
+    da_no_dry_per[(n_t-dt_dry):n_t] = False
+
+    # Flag days between 'doy_a' and 'doy_b' (or the opposite).
+    da_doy = xr.ones_like(da_pr).astype(bool)
+    if doy_b >= doy_a:
+        da_doy.values[(da_pr.time.dt.dayofyear < doy_a) | (da_pr.time.dt.dayofyear > doy_b)] = False
+    else:
+        da_doy.values[(da_pr.time.dt.dayofyear > doy_b) & (da_pr.time.dt.dayofyear < doy_a)] = False
+
+    # Combine conditions.
+    da_conds = da_onset & da_no_dry_per & da_doy
+
+    # Obtain the first day of each year where conditions apply.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=Warning)
+        da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+    da_start.values[(da_start.values < 0) | (da_start.values > 365)] = np.nan
+
+    return da_start
+
+
+def rain_end_old(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr.DataArray, method: str, pr: float,
+                 etp: float, dt: float, doy_a: int, doy_b: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1246,23 +1379,24 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
         First day of the next rain season.
     method : str
         Calculation method = {"depletion", "event"]
-        The 'depletion' method is based on the period required for an amount of water (mm) to evaporate at a rate of
-        'et_rate' (mm/day), considering that any amount of precipitation received during that period must evaporate as
-        well.
-        The 'event' method is based on the occurrence (or not) of an event preventing the end of the rain season. The
-        rain season stops when no daily precipitation greater than 'p_event' have occurred over a period of 'd_event'
-        days.
+        If method == "depletion": based on the period required for an amount of water (mm) to evaporate, considering
+        that any amount of precipitation received during that period must evaporate. The evapotranspiration rate is
+        assumed to be 'etp' (mm/day).
+        If method == "event": based on the occurrence (or not) of an event during the last days of a rain season.
+        The rain season stops when no daily precipitation greater than 'pr' have occurred over a period of 'dt' days.
     pr : float
-        'Depletion' method: precipitation amount that must evaporate (mm).
-        'Event' method: last non-negligible precipitation event of the rain season (mm).
+        If method == "depletion": precipitation amount that must evaporate (mm).
+        If method == "event": threshold daily precipitation amount during a period (mm/day).
     etp: float
-        'Depletion' method: Evapotranspiration rate (mm/day).
+        If method == "depletion": evapotranspiration rate (mm/day).
+        Otherwise: not used.
     dt: float
-        'Event' method: period (number of days) during which there must not be a day with 'pr' precipitation.
+        If method == "event": length of period (number of days) used to verify if the rain season is ending.
+        Otherwise: not used.
     doy_a: int
-        First day of year at or after which the season ends.
+        First day of year at or after which the season can end.
     doy_b: int
-        Last day of year at or before which the season ends.
+        Last day of year at or before which the season can end.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1344,9 +1478,6 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
 
     # Event method -----------------------------------------------------------------------------------------------------
 
-    # TODO: Ideally, the algorithm should not depend on user-specified boundaries (doy_a and doy_b). This could be
-    #       problematic if the climate changes substantially.
-
     else:
 
         # Combined conditions.
@@ -1407,7 +1538,176 @@ def rain_end(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr
     return da_end
 
 
-def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.DataArray) -> xr.DataArray:
+def rain_end_new(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart: xr.DataArray, da_rainstart_next: xr.DataArray,
+                 method: str, pr: float, etp: float, dt: float, doy_a: int, doy_b: int) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the last day of the rain season.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray
+        Precipitation data.
+    da_etp : xr.DataArray
+        Evapotranspiration data.
+    da_rainstart : xr.DataArray
+        First day of the current rain season.
+    da_rainstart_next : xr.DataArray
+        First day of the next rain season.
+    method : str
+        Calculation method = {"depletion", "event", "total"]
+        If method == "depletion": based on the period required for an amount of water (mm) to evaporate, considering
+        that any amount of precipitation received during that period must evaporate. If 'da_etp' is not available, the
+        evapotranspiration rate is assumed to be 'etp' (mm/day).
+        If method == "event": based on the occurrence (or not) of an event during the last days of a rain season.
+        The rain season stops when no daily precipitation greater than 'pr' have occurred over a period of 'dt' days.
+        If method == "total": based on a total amount of precipitation received during the last days of the rain season.
+        The rain season stops when the total amount of precipitation is less than 'pr' over a period of 'dt' days.
+    pr : float
+        If method == "depletion": precipitation amount that must evaporate (mm).
+        If method == "event": threshold daily precipitation amount during a period (mm/day).
+        If method == "total": threshold total precipitation amount over a period (mm).
+    etp: float
+        If method == "depletion": evapotranspiration rate (mm/day).
+        Otherwise: not used.
+    dt: float
+        If method in ["event", "total"]: length of period (number of days) used to verify if the rain season is ending.
+        Otherwise: not used.
+    doy_a: int
+        First day of year at or after which the season can end.
+    doy_b: int
+        Last day of year at or before which the season can end.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Eliminate negative values.
+    da_pr.values[da_pr.values < 0] = 0
+    if da_etp is not None:
+        da_etp.values[da_etp.values < 0] = 0
+
+    # Rename coordinates.
+    if (cfg.dim_rlat in list(da_pr.dims)) or (cfg.dim_rlon in list(da_pr.dims)):
+        da_pr = da_pr.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+        if da_etp is not None:
+            da_etp = da_etp.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
+
+    # Unit conversion.
+    pr  = convert_units_to(str(pr) + " mm/day", da_pr)
+    etp = convert_units_to(str(etp) + " mm/day", da_pr)
+
+    # Length of dimensions.
+    n_t = len(da_pr[cfg.dim_time])
+
+    # Assign search boundaries.
+    if (doy_a == -1) and (doy_b == -1):
+        doy_a = 1
+        doy_b = 365
+    elif doy_a == -1:
+        doy_a = 1 if doy_b == 365 else doy_b + 1
+    elif doy_b == -1:
+        doy_b = 365 if doy_a == 1 else doy_a - 1
+
+    # Flag days between 'doy_a' and 'doy_b' (or the opposite).
+    da_doy = xr.ones_like(da_pr).astype(bool)
+    if doy_b >= doy_a:
+        da_doy.values[(da_pr.time.dt.dayofyear < doy_a) |
+                      (da_pr.time.dt.dayofyear > doy_b)] = False
+    else:
+        da_doy.values[(da_pr.time.dt.dayofyear > doy_b) &
+                      (da_pr.time.dt.dayofyear < doy_a)] = False
+
+    # Depletion method -------------------------------------------------------------------------------------------------
+
+    if method == "depletion":
+
+        da_rainend = None
+
+        # Calculate the minimum length of the period.
+        dt_min = math.ceil(pr / etp)
+        dt_max = (doy_b - doy_a + 1 if doy_b >= doy_a else (365 - doy_a + 1 + doy_b)) - dt_min
+
+        for dt in list(range(dt_min, dt_max + 1)):
+
+            # Flag the day before each sequence of 'dt' days that results in evaporating a water column, considering
+            # precipitation falling during this period (assign 1).
+            if da_etp is None:
+                da_dry_seq = xr.DataArray((da_pr.rolling(time=int(dt)).sum() + pr) < (dt * etp))
+            else:
+                da_dry_seq = xr.DataArray((da_pr.rolling(time=int(dt)).sum() + pr) < da_etp.rolling(time=int(dt)).sum())
+            da_dry_seq[0:(n_t - int(dt) - 1)] = da_dry_seq[(int(dt) + 1):n_t].values
+            da_dry_seq[(n_t - int(dt) - 1):n_t] = False
+
+            # Combine conditions.
+            da_conds = da_dry_seq & da_doy
+
+            # Obtain the first day of each year where conditions apply.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=Warning)
+                da_rainend_i = \
+                    da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+
+            # Update the cells that were not assigned yet.
+            if da_rainend is None:
+                da_rainend = da_rainend_i.copy()
+            else:
+                sel = (np.isnan(da_rainend.values)) &\
+                      ((np.isnan(da_rainend_i.values).astype(int) == 0) | (da_rainend_i.values < da_rainend.values))
+                da_rainend.values[sel] = da_rainend_i.values[sel]
+
+            # Exit loop if all cells were assigned a value.
+            if np.isnan(da_rainend).astype(int).sum() == 0:
+                break
+
+    # Event method -----------------------------------------------------------------------------------------------------
+
+    elif method in ["event", "total"]:
+
+        # Determine if it rains heavily (assign 1) or not (assign 0).
+        da_heavy_rain = da_pr.copy()
+        da_heavy_rain.values[da_heavy_rain.values < pr] = 0
+        da_heavy_rain.values[da_heavy_rain.values > 0] = 1
+
+        # Flag the day (assign 1) before each sequence of:
+        # 'dt' days with no amount reaching 'pr':
+        if method == "event":
+            da_dry_seq = xr.DataArray(da_heavy_rain.rolling(time=int(dt)).sum() == 0)
+        # 'dt' days with a total amount reaching 'pr':
+        else:
+            da_dry_seq = xr.DataArray(da_pr.rolling(time=int(dt)).sum() < pr)
+
+        da_dry_seq[0:(n_t - int(dt) - 1)] = da_dry_seq[(int(dt) + 1):n_t].values
+        da_dry_seq[(n_t - int(dt) - 1):n_t] = False
+
+        # Combine conditions.
+        da_conds = da_dry_seq & da_doy
+
+        # Obtain the first day of each year where conditions apply.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=Warning)
+            da_rainend =\
+                da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+
+    # Adjust or discard rain end values that are not compatible with the current or next season start values.
+    # If the season ends before or on start day, discard rain end.
+    if da_rainstart is not None:
+        sel = (np.isnan(da_rainstart.values).astype(int) == 0) &\
+              (np.isnan(da_rainend.values).astype(int) == 0) & \
+              (da_rainend.values <= da_rainstart.values)
+        da_rainend.values[sel] = np.nan
+    # If the season ends after or on start day of the next season, the end day of the current season becomes the day
+    # before the next season.
+    if da_rainstart_next is not None:
+        sel = (np.isnan(da_rainstart_next.values).astype(int) == 0) &\
+              (np.isnan(da_rainend.values).astype(int) == 0) & \
+              (da_rainend.values >= da_rainstart_next.values)
+        da_rainend.values[sel] = da_rainstart_next.values[sel] - 1
+        da_rainend.values[da_rainend.values < 1] = 365
+
+    return da_rainend
+
+
+def rain_qty_old(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.DataArray) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1468,6 +1768,28 @@ def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.Dat
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
         da_qty = da_pr.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+
+    return da_qty
+
+
+def rain_qty_new(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.DataArray) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the last day of the rain season.
+
+    Parameters
+    ----------
+    da_pr : xr.DataArray
+        Precipitation data.
+    da_rainstart : xr.DataArray
+        Rain start (first day of year).
+    da_rainend: xr.DataArray
+        Rain end (last day of year).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    da_qty = indices_gen.aggregate_between_dates(da_pr, da_rainstart, da_rainend, "sum") * cfg.spd
 
     return da_qty
 

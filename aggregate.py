@@ -298,7 +298,7 @@ def run():
             p_raw = p_raw_lst[i_raw]
             p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
 
-            utils.log("Processing: '" + p_raw + "'", True)
+            utils.log("Processing: " + p_raw, True)
 
             # Perform aggregation.
             if (not os.path.exists(p_day)) or cfg.opt_force_overwrite:

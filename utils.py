@@ -15,11 +15,11 @@ import glob
 import logging
 import math
 import matplotlib.pyplot
-import matplotlib.colors as colors
 import numpy as np
 import os
 import pandas as pd
 import re
+import time
 import xarray as xr
 import warnings
 from cmath import rect, phase
@@ -629,6 +629,17 @@ def get_datetime_str() -> str:
         str(dt.hour).zfill(2) + str(dt.minute).zfill(2) + str(dt.second).zfill(2)
 
     return dt_str
+
+
+def get_current_time():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get current time (in seconds).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    return time.time()
 
 
 def log(msg: str, indent=False):

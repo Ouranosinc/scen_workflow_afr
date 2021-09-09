@@ -139,6 +139,7 @@ Bugs fixed:
 
 Implemented features:
 - created a rain season group of indices comprising rainstart, rainend, raindur and rainqty (now calculated at once);
+- increased the calculation speed of rain season indices;
 - now exporting calibration and post-process plots if opt_save_csv is enabled (only mean values);
 - uniformized variable names.
 

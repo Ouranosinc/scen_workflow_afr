@@ -1387,7 +1387,7 @@ def plot_ts_single(stn: str, var: str):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("Processing (single): '" + stn + "', '" + var + "'", True)
+    utils.log("Processing (single): " + stn + ", " + var, True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_desc(var)
@@ -1462,7 +1462,7 @@ def plot_ts_mosaic(stn: str, var: str):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("Processing (mosaic): '" + stn + "', '" + var + "'", True)
+    utils.log("Processing (mosaic): " + stn + ", " + var, True)
 
     # Weather variable description and unit.
     var_desc = cfg.get_desc(var)

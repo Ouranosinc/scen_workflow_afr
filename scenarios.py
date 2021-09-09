@@ -966,7 +966,7 @@ def generate():
                 list_cordex_fut.sort()
                 n_sim = len(list_cordex_ref)
 
-                utils.log("Processing: '" + var + "', '" + stn + "', '" + rcp + "'", True)
+                utils.log("Processing: " + var + ", " + stn + ", " + rcp, True)
 
                 # Perform extraction.
                 # A first call to generate_single is required for the extraction to be done in scalar mode (before
@@ -1261,7 +1261,7 @@ def run():
             stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
             for stn in stns:
 
-                utils.log("Processing: '" + var + "', '" + stn + "'", True)
+                utils.log("Processing: " + var + ", " + stn, True)
 
                 # Path ofo NetCDF file containing station data.
                 # p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc

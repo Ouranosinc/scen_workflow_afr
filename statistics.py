@@ -337,7 +337,10 @@ def calc_stats(cat: str):
                 if not os.path.isdir(d):
                     continue
 
-                utils.log("Processing: '" + stn + "', '" + varidx_code_grp + "', '" + rcp + "'", True)
+                idx_desc = varidx_name
+                if varidx_code_grp != varidx_name:
+                    idx_desc = varidx_code_grp + "." + idx_desc
+                utils.log("Processing: " + stn + ", " + idx_desc + ", " + rcp + "", True)
 
                 # Loop through statistics.
                 stats = [cfg.stat_mean]
@@ -440,7 +443,10 @@ def calc_ts(cat: str):
             # Minimum and maximum values along the y-axis
             ylim = []
 
-            utils.log("Processing: '" + stn + "', '" + varidx_code_grp + "'", True)
+            idx_desc = varidx_name
+            if varidx_code_grp != varidx_name:
+                idx_desc = varidx_code_grp + "." + idx_desc
+            utils.log("Processing: " + stn + ", " + idx_desc, True)
 
             # Files to be created.
             p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", varidx_code_grp + "_csv") +\
@@ -1346,7 +1352,7 @@ def conv_nc_csv(cat: str):
                     continue
                 p_l.sort()
 
-                utils.log("Processing: '" + stn + "', '" + varidx_code + "'", True)
+                utils.log("Processing: " + stn + ", " + varidx_code, True)
 
                 # Scalar processing mode.
                 if cfg.n_proc == 1:

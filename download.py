@@ -222,7 +222,7 @@ def run():
                 # Parallel processing mode.
                 else:
                     try:
-                        utils.log("Processing: '" + var + "'", True)
+                        utils.log("Processing: " + var, True)
                         utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                         pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(years)))
                         func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
