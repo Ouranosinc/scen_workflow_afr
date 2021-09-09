@@ -135,13 +135,13 @@ Bugs fixed:
 - fixed a bug that was happening when calculating statistics for scenarios (values must not be averaged over years);
 - prevent duplicates in calib.csv.
 
-### Upcoming version
+### v1.3.4
 
 Implemented features:
 - created a rain season group of indices comprising rainstart, rainend, raindur and rainqty (now calculated at once);
 - increased the calculation speed of rain season indices;
 - now exporting calibration and post-process plots if opt_save_csv is enabled (only mean values);
-- uniformized variable names.
+- standardized variable names (within the code).
 
 ## Contributing
 
