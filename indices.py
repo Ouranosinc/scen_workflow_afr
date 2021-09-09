@@ -1177,102 +1177,21 @@ def rain_season(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart_next: xr
     da_etp = utils.rename_dimensions(da_etp)
 
     # Calculate rain start.
-    # time1 = utils.get_current_time()
     da_rainstart =\
         xr.DataArray(rain_start(da_pr, rs_pr_wet, rs_dt_wet, rs_doy_a, rs_doy_b, rs_pr_dry, rs_dt_dry, rs_dt_tot))
-    # da_rainstart = utils.rename_dimensions(da_rainstart)
 
     # Calculate rain end.
-    # time2 = utils.get_current_time()
     da_rainend = xr.DataArray(rain_end(da_pr, da_etp, da_rainstart, da_rainstart_next, re_method, re_pr, re_etp, re_dt,
                                        re_doy_a, re_doy_b))
-    da_rainend = utils.rename_dimensions(da_rainend)
 
     # Calculate rain duration.
-    # time3 = utils.get_current_time()
     da_raindur = da_rainend - da_rainstart + 1
-    da_raindur = utils.rename_dimensions(da_raindur)
     da_raindur.values[da_raindur.values < 0] = 0
 
     # Calculate rain quantity.
-    # time4 = utils.get_current_time()
     da_rainqty = xr.DataArray(rain_qty(da_pr, da_rainstart, da_rainend))
-    da_rainqty = utils.rename_dimensions(da_rainqty)
-
-    # time5 = utils.get_current_time()
 
     return da_rainstart, da_rainend, da_raindur, da_rainqty
-
-
-def rain_start_old(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_b: int, pr_dry: float, dt_dry: int,
-                   dt_tot: int) -> xr.DataArray:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Determine the first day of the rain season.
-    This algorithm is fast.
-
-    Parameters
-    ----------
-    da_pr : xr.DataArray
-        Precipitation data.
-    pr_wet : float
-        Daily precipitation amount required in first 'dt_wet' days.
-    dt_wet: int
-        Number of days with precipitation at season start (related to 'pr_wet').
-    doy_a: int
-        First day of year where season can start.
-    doy_b: int
-        Last day of year where season can start.
-    pr_dry: float
-        Daily precipitation amount under which precipitation is considered negligible.
-    dt_dry: int
-        Maximum number of days in a dry period embedded into the period of 'dt_tot' days.
-    dt_tot: int
-        Number of days (after the first 'dt_wet' days) after which a dry season is searched for.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Eliminate negative values.
-    da_pr.values[da_pr.values < 0] = 0
-
-    # Unit conversion.
-    pr_wet = convert_units_to(str(pr_wet) + " mm/day", da_pr)
-    pr_dry = convert_units_to(str(pr_dry) + " mm/day", da_pr)
-
-    # Length of dimensions.
-    n_t = len(da_pr[cfg.dim_time])
-
-    # Condition #1: Flag the first day of each series of 'dt_wet' days with a total of 'pr_wet' in precipitation.
-    da_cond1 = xr.DataArray(da_pr.rolling(time=dt_wet).sum() >= pr_wet)
-    da_cond1[0:(n_t-dt_wet), :, :] = da_cond1[dt_wet:n_t, :, :].values
-    da_cond1[(n_t-dt_wet):n_t] = False
-
-    # Condition #2: Flag days that are not followed by a sequence of 'dt_dry' consecutive days over the next 'dt_wet' +
-    # 'dt_tot' days. These days must also consider 'doy_a' and 'doy_b'.
-    da_cond2 = da_cond1.copy()
-    da_cond2[:, :, :] = True
-    for t in range(n_t):
-        if ((doy_a < 0) | ((doy_a >= 0) and (da_pr[t].time.dt.dayofyear >= doy_a))) and \
-           ((doy_b < 0) | ((doy_b >= 0) and (da_pr[t].time.dt.dayofyear <= doy_b))) and \
-           (t < n_t - dt_dry):
-            t1 = t + dt_wet
-            t2 = t1 + dt_tot
-            da_t = (da_pr[t1:t2, :, :].max(dim=cfg.dim_time) >= pr_dry)
-            da_cond2[t] = da_cond2[t] & da_t
-        else:
-            da_cond2[t] = False
-
-    # Combine conditions.
-    da_conds = da_cond1 & da_cond2
-
-    # Obtain the first day of each year where conditions apply.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=Warning)
-        da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
-    da_start.values[(da_start.values < 0) | (da_start.values > 365)] = np.nan
-
-    return da_start
 
 
 def rain_start(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_b: int, pr_dry: float, dt_dry: int,
@@ -1363,182 +1282,6 @@ def rain_start(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_
     return da_start
 
 
-def rain_end_old(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2: xr.DataArray, method: str, pr: float,
-                 etp: float, dt: float, doy_a: int, doy_b: int) -> xr.DataArray:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Determine the last day of the rain season.
-
-    Parameters
-    ----------
-    da_pr : xr.DataArray
-        Precipitation data.
-    da_rainstart1 : xr.DataArray
-        First day of the current rain season.
-    da_rainstart2 : xr.DataArray
-        First day of the next rain season.
-    method : str
-        Calculation method = {"depletion", "event"]
-        If method == "depletion": based on the period required for an amount of water (mm) to evaporate, considering
-        that any amount of precipitation received during that period must evaporate. The evapotranspiration rate is
-        assumed to be 'etp' (mm/day).
-        If method == "event": based on the occurrence (or not) of an event during the last days of a rain season.
-        The rain season stops when no daily precipitation greater than 'pr' have occurred over a period of 'dt' days.
-    pr : float
-        If method == "depletion": precipitation amount that must evaporate (mm).
-        If method == "event": threshold daily precipitation amount during a period (mm/day).
-    etp: float
-        If method == "depletion": evapotranspiration rate (mm/day).
-        Otherwise: not used.
-    dt: float
-        If method == "event": length of period (number of days) used to verify if the rain season is ending.
-        Otherwise: not used.
-    doy_a: int
-        First day of year at or after which the season can end.
-    doy_b: int
-        Last day of year at or before which the season can end.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Eliminate negative values.
-    da_pr.values[da_pr.values < 0] = 0
-
-    # Rename coordinates.
-    if (cfg.dim_rlat in list(da_pr.dims)) or (cfg.dim_rlon in list(da_pr.dims)):
-        da_pr = da_pr.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-
-    # Unit conversion.
-    pr  = convert_units_to(str(pr) + " mm/day", da_pr)
-    etp = convert_units_to(str(etp) + " mm/day", da_pr)
-
-    # Length of dimensions.
-    n_t = len(da_pr[cfg.dim_time])
-
-    # Provide default values.
-    if doy_a == -1:
-        doy_a = 1
-    if doy_b == -1:
-        doy_b = 365
-
-    # Depletion method -------------------------------------------------------------------------------------------------
-
-    if method == "depletion":
-
-        # DataArray that will hold results (one value per year).
-        # Only the resulting structure is needed.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=Warning)
-            da_end = da_pr.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
-            da_end[:, :, :] = -1
-
-        # Calculate the minimum number of days that is required for evapotranspiration (assuming no rain).
-        n_et = int(pr / etp)
-
-        # Loop through combinations of intervals.
-        da_end_y = None
-        t1_prev_y = -1
-        t_first_doy = 0
-        for t1 in range(n_t - n_et):
-
-            # Day of year and year of 't1'.
-            t1_doy = int(da_pr[t1].time.dt.dayofyear.values)
-            t1_y = int(da_pr[t1].time.dt.year.values)
-
-            # Initialize the array that will hold annual results.
-            if (da_end_y is None) or (t1_y != t1_prev_y):
-                da_end_y = da_end[da_end.time.dt.year == t1_y].squeeze().copy()
-                t_first_doy = t1
-            t1_prev_y = t1_y
-
-            # Determine the range of cells to evaluate.
-            t2_min = max(t_first_doy + doy_a - 1, t1 + n_et)
-            if doy_a <= doy_b:
-                t2_max = min(t_first_doy + doy_b - 1, t2_min + 365 - t1_doy - n_et + 1)
-            else:
-                t2_max = min(t2_min + (365 - doy_a - 1) + doy_b - 1, n_t)
-
-            # Loop through ranges.
-            for t2 in range(t2_min, t2_max):
-
-                # Day of year and year of 't1'.
-                t2_doy = int(da_pr[t2].time.dt.dayofyear.values)
-                t2_y = int(da_pr[t2].time.dt.year.values)
-
-                # Examine the current 't1'-'t2' combination.
-                if (doy_a == doy_b) or\
-                   ((doy_a < doy_b) and (t1_doy >= doy_a) and (t2_doy <= doy_b)) or\
-                   ((doy_a > doy_b) and (t1_y == t2_y) and (t2_doy <= doy_a)) or\
-                   ((doy_a > doy_b) and (t1_y < t2_y) and (t2_doy <= doy_b)):
-                    da_t1t2 = (da_pr[t1:t2, :, :].sum(dim=cfg.dim_time) - (t2 - t1 + 1) * etp)
-                    da_better     = (da_t1t2 < -pr) & ((da_end_y == -1) | (t2_doy < da_end_y))
-                    da_not_better = (da_t1t2 >= -pr) | ((da_end_y == -1) | (t2_doy >= da_end_y))
-                    da_end_y = (da_better * t2_doy) + (da_not_better * da_end_y)
-
-            da_end[da_end.time.dt.year == t1_y] = da_end_y
-
-    # Event method -----------------------------------------------------------------------------------------------------
-
-    else:
-
-        # Combined conditions.
-        da_conds = da_pr.copy().astype(float)
-        da_conds[:, :, :] = 0
-
-        # Extract year and day of year.
-        year_l = utils.extract_date_field(da_pr, "year")
-        doy_l = utils.extract_date_field(da_pr, "doy")
-
-        # Calculate conditions at each time step.
-        for t in range(n_t):
-
-            year     = year_l[t]
-            doy      = doy_l[t]
-
-            # Condition #1: Rain season ends within imposed boundaries (doy_a and doy_b).
-            case_1 = (doy_a <= doy_b) & (doy >= doy_a) & (doy <= doy_b)
-            case_2 = (doy_a > doy_b) & (doy >= doy_a)
-            case_3 = (doy_a > doy_b) & (doy <= doy_b)
-            cond1 = case_1 | case_2 | case_3
-
-            # Condition #2a: Rain season can't stop before it begins.
-            da_rainstart1_t = da_rainstart1[da_rainstart1[cfg.dim_time].dt.year == year].squeeze()
-            da_cond2a = ((case_1 | case_2) & (doy >= da_rainstart1_t)) | (case_3 & (doy <= da_rainstart1_t))
-            # Condition #2b: Rain season can't stop after the beginning of the following rain season.
-            da_cond2b = True
-            if da_rainstart2 is not None:
-                da_rainstart2_t = da_rainstart2[da_rainstart2[cfg.dim_time].dt.year == year].squeeze()
-                da_cond2b = ((case_1 | case_3) & (doy <= da_rainstart2_t)) | (case_2 & (doy >= da_rainstart2_t))
-
-            # Condition #3: Current precipitation exceeds threshold.
-            da_cond3 = da_pr[t] >= pr
-
-            # Condition #4: No precipitation exceeding threshold in the next 'dt' days.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=Warning)
-                da_cond4 = (da_pr[(t+1):(t+int(dt)+1)].max(dim=cfg.dim_time) < pr) if (t < n_t - int(dt) - 1) else False
-
-            # Combine conditions.
-            da_conds[t] = xr.DataArray(cond1 & da_cond2a & da_cond2b & da_cond3 & da_cond4)
-            da_conds[t].values[da_conds[t].values == 0] = np.nan
-            da_conds[t] = da_conds[t].astype(float) * doy
-
-        # Summarize by year.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=Warning)
-            da_end = da_conds.resample(time=cfg.freq_YS).min(dim=cfg.dim_time)
-
-        # Impose an end day if there is a start day. It can be associated with the start of the following rain season or
-        # 'doy_b'.
-        for t in range(len(da_end[cfg.dim_time])):
-            if da_rainstart2 is not None:
-                sel = (np.isnan(da_end[t].values)) & (np.isnan(da_rainstart1[t].values).astype(int) == 0)
-                da_end[t].values[sel] = da_rainstart2[t].values[sel] - 1
-            da_end[t].values[da_end[t].values >= doy_b] = doy_b - 1
-
-    return da_end
-
-
 def rain_end(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart: xr.DataArray, da_rainstart_next: xr.DataArray,
              method: str, pr: float, etp: float, dt: float, doy_a: int, doy_b: int) -> xr.DataArray:
 
@@ -1586,12 +1329,6 @@ def rain_end(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart: xr.DataArr
     da_pr.values[da_pr.values < 0] = 0
     if da_etp is not None:
         da_etp.values[da_etp.values < 0] = 0
-
-    # Rename coordinates.
-    if (cfg.dim_rlat in list(da_pr.dims)) or (cfg.dim_rlon in list(da_pr.dims)):
-        da_pr = da_pr.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-        if da_etp is not None:
-            da_etp = da_etp.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
 
     # Unit conversion.
     pr  = convert_units_to(str(pr) + " mm/day", da_pr)
@@ -1706,71 +1443,6 @@ def rain_end(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart: xr.DataArr
         da_rainend.values[da_rainend.values < 1] = 365
 
     return da_rainend
-
-
-def rain_qty_old(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.DataArray) -> xr.DataArray:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Determine the last day of the rain season.
-
-    Parameters
-    ----------
-    da_pr : xr.DataArray
-        Precipitation data.
-    da_rainstart : xr.DataArray
-        Rain start (first day of year).
-    da_rainend: xr.DataArray
-        Rain end (last day of year).
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Eliminate negative values.
-    da_pr.values[da_pr.values < 0] = 0
-
-    # Convert units.
-    if da_pr.attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
-        da_pr.values *= cfg.spd
-
-    # Rename coordinates.
-    if (cfg.dim_rlat in list(da_pr.dims)) or (cfg.dim_rlon in list(da_pr.dims)):
-        da_pr = da_pr.rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-
-    # Extract years.
-    years_idx = utils.extract_date_field(da_rainstart.time, "year")
-
-    # Discard precipitation amounts that are not happening during rain season.
-    n_t = len(da_pr[cfg.dim_time])
-    doy_prev = 365
-    for t in range(n_t):
-
-        # Extract year and day of year.
-        y = int(da_pr[cfg.dim_time][t].dt.year)
-        doy = int(da_pr[cfg.dim_time][t].dt.dayofyear)
-
-        # Extract start and end days of rain season.
-        if doy < doy_prev:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=FutureWarning)
-                da_start = da_rainstart[np.array(years_idx) == str(y)].squeeze()
-                da_end = da_rainend[np.array(years_idx) == str(y)].squeeze()
-
-        # Condition.
-        da_cond = (da_end > da_start) &\
-                  (((da_start <= da_end) & (doy >= da_start) & (doy <= da_end)) |
-                   ((da_start > da_end) & ((doy <= da_start) | (doy >= da_end))))
-
-        # Discard values.
-        da_pr[t] = da_pr[t] * da_cond.astype(float)
-
-        doy_prev = doy
-
-    # Sum by year.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=Warning)
-        da_qty = da_pr.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
-
-    return da_qty
 
 
 def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.DataArray) -> xr.DataArray:
