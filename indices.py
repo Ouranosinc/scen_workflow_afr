@@ -295,7 +295,8 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
 
         try:
             # Open dataset.
-            p_sim_j = cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
+            p_sim_j =\
+                cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
             ds = utils.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.
@@ -323,8 +324,9 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
     # ======================================================================================================
 
     # Calculate the 90th percentile of tasmax for the reference period.
+    da_tx90p = None
     if (idx_name == cfg.idx_wsdi) and (rcp == cfg.rcp_ref):
-        da_tx90p = percentile_doy(ds_varidx_l[0][cfg.var_cordex_tasmax], per=0.9)
+        da_tx90p = xr.DataArray(percentile_doy(ds_varidx_l[0][cfg.var_cordex_tasmax], per=0.9))
 
     # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
     idx_params_str = []
@@ -642,7 +644,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             dt_tot = int(idx_params_str[6])
 
             # Calculate index.
-            da_idx = xr.DataArray(rain_start_new(da_pr, pr_wet, dt_wet, doy_a, doy_b, pr_dry, dt_dry, dt_tot))
+            da_idx = xr.DataArray(rain_start(da_pr, pr_wet, dt_wet, doy_a, doy_b, pr_dry, dt_dry, dt_tot))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -673,7 +675,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
 
             # Calculate index.
             da_idx =\
-                xr.DataArray(rain_end_new(da_pr, da_etp, da_rainstart, da_rainstart_next, meth, pr, etp, dt, doy_a, doy_b))
+                xr.DataArray(rain_end(da_pr, da_etp, da_rainstart, da_rainstart_next, meth, pr, etp, dt, doy_a, doy_b))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -701,7 +703,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             da_rainend = ds_varidx_l[2][cfg.idx_rainend]
 
             # Calculate index.
-            da_idx = xr.DataArray(rain_qty_new(da_pr, da_rainstart, da_rainend))
+            da_idx = xr.DataArray(rain_qty(da_pr, da_rainstart, da_rainend))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -1177,13 +1179,13 @@ def rain_season(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart_next: xr
     # Calculate rain start.
     # time1 = utils.get_current_time()
     da_rainstart =\
-        xr.DataArray(rain_start_new(da_pr, rs_pr_wet, rs_dt_wet, rs_doy_a, rs_doy_b, rs_pr_dry, rs_dt_dry, rs_dt_tot))
+        xr.DataArray(rain_start(da_pr, rs_pr_wet, rs_dt_wet, rs_doy_a, rs_doy_b, rs_pr_dry, rs_dt_dry, rs_dt_tot))
     # da_rainstart = utils.rename_dimensions(da_rainstart)
 
     # Calculate rain end.
     # time2 = utils.get_current_time()
-    da_rainend = xr.DataArray(rain_end_new(da_pr, da_etp, da_rainstart, da_rainstart_next, re_method, re_pr, re_etp,
-                                           re_dt, re_doy_a, re_doy_b))
+    da_rainend = xr.DataArray(rain_end(da_pr, da_etp, da_rainstart, da_rainstart_next, re_method, re_pr, re_etp, re_dt,
+                                       re_doy_a, re_doy_b))
     da_rainend = utils.rename_dimensions(da_rainend)
 
     # Calculate rain duration.
@@ -1194,7 +1196,7 @@ def rain_season(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart_next: xr
 
     # Calculate rain quantity.
     # time4 = utils.get_current_time()
-    da_rainqty = xr.DataArray(rain_qty_new(da_pr, da_rainstart, da_rainend))
+    da_rainqty = xr.DataArray(rain_qty(da_pr, da_rainstart, da_rainend))
     da_rainqty = utils.rename_dimensions(da_rainqty)
 
     # time5 = utils.get_current_time()
@@ -1273,13 +1275,12 @@ def rain_start_old(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, 
     return da_start
 
 
-def rain_start_new(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_b: int, pr_dry: float, dt_dry: int,
-                   dt_tot: int) -> xr.DataArray:
+def rain_start(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_a: int, doy_b: int, pr_dry: float, dt_dry: int,
+               dt_tot: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Determine the first day of the rain season.
-    This algorithm is fast.
 
     Parameters
     ----------
@@ -1538,8 +1539,8 @@ def rain_end_old(da_pr: xr.DataArray, da_rainstart1: xr.DataArray, da_rainstart2
     return da_end
 
 
-def rain_end_new(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart: xr.DataArray, da_rainstart_next: xr.DataArray,
-                 method: str, pr: float, etp: float, dt: float, doy_a: int, doy_b: int) -> xr.DataArray:
+def rain_end(da_pr: xr.DataArray, da_etp: xr.DataArray, da_rainstart: xr.DataArray, da_rainstart_next: xr.DataArray,
+             method: str, pr: float, etp: float, dt: float, doy_a: int, doy_b: int) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1772,7 +1773,7 @@ def rain_qty_old(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr
     return da_qty
 
 
-def rain_qty_new(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.DataArray) -> xr.DataArray:
+def rain_qty(da_pr: xr.DataArray, da_rainstart: xr.DataArray, da_rainend: xr.DataArray) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
