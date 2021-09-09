@@ -1332,10 +1332,9 @@ def run():
                     title = var + "_" + per_str + "_" + cfg.cat_fig_daily
                     gen_plot_freq(ds_obs, stn, var, cfg.per_ref, cfg.freq_D, title)
 
-        if not cfg.opt_save_csv[0]:
-            utils.log("-")
-            utils.log("Step #8b  Generating time series (scenarios)")
-            statistics.calc_ts(cfg.cat_scen)
+        utils.log("-")
+        utils.log("Step #8b  Generating time series (scenarios)")
+        statistics.calc_ts(cfg.cat_scen)
 
     # Heat maps --------------------------------------------------------------------------------------------------------
 

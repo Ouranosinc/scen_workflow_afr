@@ -1906,11 +1906,9 @@ def run():
 
     # Generate plots.
     if cfg.opt_plot[1]:
-
-        if not cfg.opt_save_csv[1]:
-            utils.log("=")
-            utils.log("Step #8b  Generating time series (indices)")
-            statistics.calc_ts(cfg.cat_idx)
+        utils.log("=")
+        utils.log("Step #8b  Generating time series (indices)")
+        statistics.calc_ts(cfg.cat_idx)
 
     # Generate maps.
     # Heat maps are not generated from data at stations:
