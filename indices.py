@@ -571,8 +571,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             # Calculate index
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                da_idx = xr.DataArray(indices.drought_code(
-                    da_tas, da_pr, da_lat, shut_down_mode="temperature")).resample(time=cfg.freq_YS).mean()
+                da_idx = xr.DataArray(indices.drought_code(da_tas, da_pr, da_lat)).resample(time=cfg.freq_YS).mean()
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -837,8 +836,13 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
                 ds_idx = utils.copy_coordinates(ds_varidx_l[0], ds_idx)
 
             # Add data array.
-            ds_idx[idx_name_l[i]] =\
-                utils.copy_coordinates(ds_varidx_l[0][cfg.extract_idx(varidx_name_l[0])], da_idx)
+            ds_idx[idx_name_l[i]] = utils.copy_coordinates(ds_varidx_l[0][cfg.extract_idx(varidx_name_l[0])], da_idx)
+
+        # Reorder dimensions.
+        dims = list(da_idx_l[0].dims)
+        ds_idx = ds_idx.transpose(dims[0], dims[1], dims[2])
+        dims = list(da_idx_l[0][idx_name_l[0]].dims)
+        ds_idx[idx_name] = da_idx_l[0][idx_name_l[0]].transpose(dims[0], dims[1], dims[2])
 
         # Adjust calendar.
         ds_idx = ds_idx.squeeze()

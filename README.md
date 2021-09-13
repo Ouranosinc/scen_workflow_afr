@@ -143,6 +143,9 @@ Implemented features:
 - now exporting calibration and post-process plots if opt_save_csv is enabled (only mean values);
 - standardized variable names (within the code).
 
+Bugs fixed:
+- Reordering dimensions after calculating climate indices (required for drought code, or "dc").
+
 ## Contributing
 
 This is a private development that is being used in production by climate services specialists. If you're interested in
