@@ -823,6 +823,10 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             if np.isnan(da_idx).astype(int).max() > 0:
                 da_idx = utils.interpolate_na_fix(da_idx)
 
+            # Reorder dimensions.
+            dims = list(ds_varidx_l[0][list(ds_varidx_l[0].data_vars.variables.mapping)[0]].dims)
+            da_idx = da_idx.transpose(dims[0], dims[1], dims[2])
+
             # Apply mask.
             if da_mask is not None:
                 da_idx = utils.apply_mask(da_idx, da_mask)
@@ -837,12 +841,6 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
 
             # Add data array.
             ds_idx[idx_name_l[i]] = utils.copy_coordinates(ds_varidx_l[0][cfg.extract_idx(varidx_name_l[0])], da_idx)
-
-        # Reorder dimensions.
-        dims = list(da_idx_l[0].dims)
-        ds_idx = ds_idx.transpose(dims[0], dims[1], dims[2])
-        dims = list(da_idx_l[0][idx_name_l[0]].dims)
-        ds_idx[idx_name] = da_idx_l[0][idx_name_l[0]].transpose(dims[0], dims[1], dims[2])
 
         # Adjust calendar.
         ds_idx = ds_idx.squeeze()
