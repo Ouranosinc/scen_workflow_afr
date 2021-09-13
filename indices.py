@@ -825,6 +825,12 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
 
             # Reorder dimensions.
             dims = list(ds_varidx_l[0][list(ds_varidx_l[0].data_vars.variables.mapping)[0]].dims)
+            for j in range(len(dims)):
+                dims[j] = dims[j].replace(cfg.dim_rlat, cfg.dim_latitude).replace(cfg.dim_rlon, cfg.dim_longitude)
+                if dims[j] == cfg.dim_lat:
+                    dims[j] = cfg.dim_latitude
+                if dims[j] == cfg.dim_lon:
+                    dims[j] = cfg.dim_longitude
             da_idx = da_idx.transpose(dims[0], dims[1], dims[2])
 
             # Apply mask.
