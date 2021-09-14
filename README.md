@@ -144,7 +144,9 @@ Implemented features:
 - standardized variable names (within the code).
 
 Bugs fixed:
-- Reordering dimensions after calculating climate indices (required for drought code, or "dc").
+- reordering dimensions after calculating climate indices (required for drought code, or "dc");
+- the function utils.get_coord_names was returning a set (rather than an array), and the fact that the order was not
+  always the same from one run to another had consequences on the subsequent analyses.
 
 ## Contributing
 

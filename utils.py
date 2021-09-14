@@ -1303,7 +1303,7 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
     return da_res
 
 
-def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> set:
+def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> [str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1313,15 +1313,20 @@ def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> set:
     ----------
     ds_or_da: Union[xr.Dataset, xr.DataArray]
         Dataset.
+
+    Returns
+    -------
+    coord_dict: [str]
+        [<longitude_field>, <latitude_field>]
     --------------------------------------------------------------------------------------------------------------------
     """
 
     if cfg.dim_lat in ds_or_da.dims:
-        coord_dict = {cfg.dim_lat, cfg.dim_lon}
+        coord_dict = [cfg.dim_lon, cfg.dim_lat]
     elif cfg.dim_rlat in ds_or_da.dims:
-        coord_dict = {cfg.dim_rlat, cfg.dim_rlon}
+        coord_dict = [cfg.dim_rlon, cfg.dim_rlat]
     else:
-        coord_dict = {cfg.dim_latitude, cfg.dim_longitude}
+        coord_dict = [cfg.dim_longitude, cfg.dim_latitude]
 
     return coord_dict
 
