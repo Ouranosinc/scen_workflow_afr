@@ -146,7 +146,9 @@ Implemented features:
 Bugs fixed:
 - reordering dimensions after calculating climate indices (required for drought code, or "dc");
 - the function utils.get_coord_names was returning a set (rather than an array), and the fact that the order was not
-  always the same from one run to another had consequences on the subsequent analyses.
+  always the same from one run to another had consequences on the subsequent analyses,
+- added options 'opt_stat_clip' and 'opt_map_clip' to clip according to a polygon (default is False) when calculating 
+  statistics or generating a map.
 
 ## Contributing
 

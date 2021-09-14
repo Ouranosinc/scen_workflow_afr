@@ -823,7 +823,7 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
             if np.isnan(da_idx).astype(int).max() > 0:
                 da_idx = utils.interpolate_na_fix(da_idx)
 
-            # Reorder dimensions.
+            # Reorder dimensions to fit input data.
             dims = list(ds_varidx_l[0][list(ds_varidx_l[0].data_vars.variables.mapping)[0]].dims)
             for j in range(len(dims)):
                 dims[j] = dims[j].replace(cfg.dim_rlat, cfg.dim_latitude).replace(cfg.dim_rlon, cfg.dim_longitude)

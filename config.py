@@ -411,6 +411,7 @@ idx_params          = []            # Index parameters.
 
 opt_stat            = [True, True]    # If True, calculate statistics [for scenarios, for indices].
 opt_stat_quantiles  = [1.00, 0.90, 0.50, 0.10, 0.00]  # Quantiles.
+opt_stat_clip       = False           # If True, clip according to 'd_bounds'.
 opt_save_csv        = [False, False]  # If True, save results to CSV files [for scenarios, for indices].
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
@@ -419,6 +420,7 @@ opt_save_csv        = [False, False]  # If True, save results to CSV files [for 
 opt_plot              = [True, True]    # If True, actives plot generation [for scenarios, for indices].
 opt_map               = [False, False]  # If True, generate heat maps [for scenarios, for indices].
 opt_map_delta         = [False, False]  # If True, generate delta heat maps [for scenarios, for indices].
+opt_map_clip          = False           # If True, clip according to 'd_bounds'.
 opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
 opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).

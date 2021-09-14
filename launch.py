@@ -223,6 +223,8 @@ def load_params(p_ini: str):
                 cfg.opt_stat = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_stat_quantiles":
                 cfg.opt_stat_quantiles = convert_to_1d(value, float)
+            elif key == "opt_stat_clip":
+                cfg.opt_stat_clip = ast.literal_eval(value)
             elif key == "opt_save_csv":
                 cfg.opt_save_csv = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
 
@@ -243,6 +245,8 @@ def load_params(p_ini: str):
                 cfg.opt_map_delta = [False, False]
                 if cfg.opt_ra:
                     cfg.opt_map_delta = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+            elif key == "opt_map_clip":
+                cfg.opt_map_clip = ast.literal_eval(value)
             elif key == "opt_map_quantiles":
                 cfg.opt_map_quantiles = convert_to_1d(value, float)
                 if str(cfg.opt_map_quantiles).replace("['']", "") == "":

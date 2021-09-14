@@ -26,7 +26,7 @@ from typing import Union, List
 
 
 def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code: str, rcp: str, hor: [int],
-              per_region: bool, use_bounds: bool, stat: str, q: float = -1) -> Union[xr.Dataset, None]:
+              per_region: bool, clip: bool, stat: str, q: float = -1) -> Union[xr.Dataset, None]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -52,8 +52,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code
         If None is specified, the complete time range is considered.
     per_region : bool
         If True, statistics are calculated for a region as a whole.
-    use_bounds : bool
-        If True, use cfg.d_bounds.
+    clip : bool
+        If True, clip according to 'cfg.d_bounds'.
     stat : str
         Statistic: {cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantile"}
     q : float, optional
@@ -115,7 +115,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code
         # Load dataset.
         ds = utils.open_netcdf(p_sim_l[i_sim])
 
-        # TODO: The following patch was added to fix dimensions for cfg.idx_dc.
+        # Patch used to fix potentially unordered dimensions of index 'cfg.idx_dc'.
         if varidx_code in cfg.idx_codes:
             ds = ds.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
 
@@ -144,7 +144,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code
             else:
 
                 # Clip to geographic boundaries.
-                if use_bounds and (cfg.d_bounds != ""):
+                if clip and (cfg.d_bounds != ""):
                     ds = utils.subset_shape(ds)
 
                 # Calculate mean value.
@@ -360,8 +360,9 @@ def calc_stats(cat: str):
                             # Calculate statistics.
                             # The use of boundaries was disabled, because the function cliops.subset does not always
                             # work (different result obtained for different runs with same exact data).
-                            ds_stat = calc_stat(cat_rcp, freq, cfg.freq_YS, stn, varidx_code, rcp, hor,
-                                                (freq == cfg.freq_YS) and (cat == cfg.cat_scen), False, stat, q)
+                            ds_stat =\
+                                calc_stat(cat_rcp, freq, cfg.freq_YS, stn, varidx_code, rcp, hor,
+                                          (freq == cfg.freq_YS) and (cat == cfg.cat_scen), cfg.opt_stat_clip, stat, q)
                             if ds_stat is None:
                                 continue
 
@@ -1063,12 +1064,8 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
             lat = df[df["station"] == stn][cfg.dim_lat].values[0]
 
             # Calculate statistics.
-            if rcp == cfg.rcp_ref:
-                ds_stat = calc_stat(cfg.cat_obs, cfg.freq_YS, cfg.freq_YS, stn, varidx_code, rcp, None,
-                                    False, False, stat, q)
-            else:
-                ds_stat = calc_stat(cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn, varidx_code, rcp, None,
-                                    False, False, stat, q)
+            ds_stat = calc_stat(cfg.cat_obs if rcp == cfg.rcp_ref else cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn,
+                                varidx_code, rcp, None, False, cfg.opt_map_clip, stat, q)
             if ds_stat is None:
                 continue
 
