@@ -18,7 +18,9 @@ import numpy as np
 import numpy.polynomial.polynomial as poly
 import os.path
 import pandas as pd
-import rioxarray as rio  # Do not delete this line: see comment below.
+# Do not delete the line below: 'rioxarray' must be added even if it's not explicitly used in order to have a 'rio'
+# variable in DataArrays.
+import rioxarray as rio
 import simplejson
 import utils
 import warnings
@@ -32,7 +34,6 @@ from typing import List
 # Package 'xesmf' can be installed with:
 #   conda install -c conda-forge xesmf
 #   pip install xesmf
-# Package 'rioxarray' must be added even if it's not explicitly used in order to have a 'rio' variable in DataArrays.
 
 
 # ======================================================================================================================
@@ -580,7 +581,7 @@ def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataA
 
 
 def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataArray,
-                da_qqmap_ref: xr.DataArray, stat: str, q: float, p_csv = ""):
+                da_qqmap_ref: xr.DataArray, stat: str, q: float, p_csv: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -627,10 +628,10 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
         return da_group_stat
 
     # Determine if sum is needed.
-    stat_inner = stat
+    stat_actual = stat
     if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
         if stat == cfg.stat_mean:
-            stat_inner = cfg.stat_sum
+            stat_actual = cfg.stat_sum
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
             da_obs       = da_obs.resample(time="1M").sum()
@@ -640,11 +641,11 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
             da_qqmap_ref = da_qqmap_ref.resample(time="1M").sum()
 
     # Calculate statistics.
-    da_obs       = da_groupby(da_obs, stat_inner, q)
-    da_ref       = da_groupby(da_ref, stat_inner, q)
-    da_fut       = da_groupby(da_fut, stat_inner, q)
-    da_qqmap     = da_groupby(da_qqmap, stat_inner, q)
-    da_qqmap_ref = da_groupby(da_qqmap_ref, stat_inner, q)
+    da_obs       = da_groupby(da_obs, stat_actual, q)
+    da_ref       = da_groupby(da_ref, stat_actual, q)
+    da_fut       = da_groupby(da_fut, stat_actual, q)
+    da_qqmap     = da_groupby(da_qqmap, stat_actual, q)
+    da_qqmap_ref = da_groupby(da_qqmap_ref, stat_actual, q)
 
     # Draw curves.
     da_obs.plot.line(color=cfg.col_obs)
@@ -728,8 +729,8 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # Scenarios and indices.
 # ======================================================================================================================
 
-def plot_heatmap(da: xr.DataArray, stn: str, varidx_code: str, grid_x: [float], grid_y: [float], rcp: str,
-                 per: [int, int], stat: str, q: float, z_min: float, z_max: float, is_delta: bool, p_fig: str):
+def plot_heatmap(da: xr.DataArray, stn: str, varidx_code: str, rcp: str, per: [int, int], stat: str, q: float,
+                 z_min: float, z_max: float, is_delta: bool, p_fig: str):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -744,10 +745,6 @@ def plot_heatmap(da: xr.DataArray, stn: str, varidx_code: str, grid_x: [float], 
         Station name.
     varidx_code : str
         Climate variable or index code.
-    grid_x: [float]
-        X-coordinates.
-    grid_y: [float]
-        Y-coordinates.
     rcp: str
         RCP emission scenario.
     per: [int, int]
@@ -839,27 +836,29 @@ def plot_heatmap(da: xr.DataArray, stn: str, varidx_code: str, grid_x: [float], 
         if varidx_name in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax, cfg.idx_etr, cfg.idx_tgg,
                            cfg.idx_tng, cfg.idx_tnx, cfg.idx_txx, cfg.idx_txg]:
             cmap_name = cfg.opt_map_col_temp_var[cmap_idx]
-        elif varidx_name in [cfg.idx_txdaysabove, cfg.idx_heatwavemaxlen, cfg.idx_heatwavetotlen, cfg.idx_hotspellfreq,
-                             cfg.idx_hotspellmaxlen, cfg.idx_tropicalnights, cfg.idx_tx90p, cfg.idx_wsdi]:
+        elif varidx_name in [cfg.idx_tx_days_above, cfg.idx_heat_wave_max_length, cfg.idx_heat_wave_total_length,
+                             cfg.idx_hot_spell_frequency, cfg.idx_hot_spell_max_length, cfg.idx_tropical_nights,
+                             cfg.idx_tx90p, cfg.idx_wsdi]:
             cmap_name = cfg.opt_map_col_temp_idx_1[cmap_idx]
-        elif varidx_name in [cfg.idx_tndaysbelow, cfg.idx_tngmonthsbelow]:
+        elif varidx_name in [cfg.idx_tn_days_below, cfg.idx_tng_months_below]:
             cmap_name = cfg.opt_map_col_temp_idx_2[cmap_idx]
 
         # Precipitation-related.
         elif varidx_name in [cfg.var_cordex_pr, cfg.idx_prcptot, cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_sdii,
-                             cfg.idx_rainqty]:
+                             cfg.idx_rain_season_prcptot]:
             cmap_name = cfg.opt_map_col_prec_var[cmap_idx]
-        elif varidx_name in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_wetdays, cfg.idx_raindur, cfg.idx_rnnmm]:
+        elif varidx_name in [cfg.idx_cwd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_wet_days, cfg.idx_rain_season_length,
+                             cfg.idx_rnnmm]:
             cmap_name = cfg.opt_map_col_prec_idx_1[cmap_idx]
-        elif varidx_name in [cfg.idx_cdd, cfg.idx_drydays, cfg.idx_dc, cfg.idx_drydurtot]:
+        elif varidx_name in [cfg.idx_cdd, cfg.idx_dry_days, cfg.idx_drought_code, cfg.idx_dry_spell_total_length]:
             cmap_name = cfg.opt_map_col_prec_idx_2[cmap_idx]
-        elif varidx_name in [cfg.idx_rainstart, cfg.idx_rainend]:
+        elif varidx_name in [cfg.idx_rain_season_start, cfg.idx_rain_season_end]:
             cmap_name = cfg.opt_map_col_prec_idx_3[cmap_idx]
 
         # Wind-related.
         elif varidx_name in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
             cmap_name = cfg.opt_map_col_wind_var[cmap_idx]
-        elif varidx_name in [cfg.idx_wgdaysabove, cfg.idx_wxdaysabove]:
+        elif varidx_name in [cfg.idx_wg_days_above, cfg.idx_wx_days_above]:
             cmap_name = cfg.opt_map_col_wind_idx_1[cmap_idx]
 
         # Default values.
@@ -1079,20 +1078,20 @@ def draw_region_boundary(ax):
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    def configure_plot(ax):
+    def configure_plot(ax_inner):
 
-        ax.set_aspect("equal")
-        ax.set_anchor("C")
+        ax_inner.set_aspect("equal")
+        ax_inner.set_anchor("C")
 
         return ax
 
-    def set_plot_extent(ax, vertices):
+    def set_plot_extent(ax_inner, vertices_inner):
 
         # Extract limits.
         x_min = x_max = y_min = y_max = None
-        for i in range(len(vertices)):
-            x_i = vertices[i][0]
-            y_i = vertices[i][1]
+        for i in range(len(vertices_inner)):
+            x_i = vertices_inner[i][0]
+            y_i = vertices_inner[i][1]
             if i == 0:
                 x_min = x_max = x_i
                 y_min = y_max = y_i
@@ -1103,14 +1102,13 @@ def draw_region_boundary(ax):
                 y_max = max(y_i, y_max)
 
         # Set the graph axes to the feature extents
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
+        ax_inner.set_xlim(x_min, x_max)
+        ax_inner.set_ylim(y_min, y_max)
 
-    def plot_feature(coordinates, myplot):
-
-        poly = {"type": "Polygon", "coordinates": coordinates}
-        patch = PolygonPatch(poly, fill=False, ec="black", alpha=0.75, zorder=2)
-        myplot.add_patch(patch)
+    def plot_feature(coordinates_inner, myplot_inner):
+        patch = PolygonPatch({"type": "Polygon", "coordinates": coordinates_inner},
+                             fill=False, ec="black", alpha=0.75, zorder=2)
+        myplot_inner.add_patch(patch)
 
     # Read geojson file.
     with open(cfg.d_bounds) as f:
@@ -1170,7 +1168,7 @@ def rgb_to_dec(value):
     return [v/256 for v in value]
 
 
-def build_custom_cmap(hex_l: [str], n_cluster: int, pos_l: [float]=None):
+def build_custom_cmap(hex_l: [str], n_cluster: int, pos_l: [float] = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1228,7 +1226,7 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
     stn : str
         Station name.
     varidx_code : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
+        Climate variable or index code.
     rcps : [str]
         Emission scenarios.
     ylim : [int]
@@ -1669,4 +1667,3 @@ def plot_boxplot(ds: xr.Dataset, var: str, title: str, p_fig: str):
 
     # Close plot.
     plt.close("all")
-

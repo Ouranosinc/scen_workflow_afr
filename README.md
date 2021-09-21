@@ -150,6 +150,20 @@ Bugs fixed:
 - added options 'opt_stat_clip' and 'opt_map_clip' to clip according to a polygon (default is False) when calculating 
   statistics or generating a map.
 
+### v1.3.5
+
+Implemented features:
+- Renamed the following indices: 'rainseason'->'rain_season', rainstart'->'rain_season_start',
+  'rainend'->'rain_season_end', 'raindur'->'rain_season_length', 'rainqty'->'rain_season_prcptot', 'dc'->'drought_code',
+  'hotspellfreq'->'hot_spell_frequency','hotspellmaxlen'->'hot_spell_max_length','heatwavemaxlen'->'heat_wave_max_len',
+  'heatwavetotlen'->'heat_wave_total_len', 'wetdays'->'wet_days','drydays'->'dry_days',
+  'txdaysabove' -> 'tx_days_above', 'wgdaysabove'->'wg_days_above','wxdaysabove'->'wx_days_above',
+  'tropicalnights'->'tropical_nights', tngmonthsbelow'->'tng_months_below', 'drydurtot'->'dry_spell_total_length'; 
+  modified ini files accordingly;
+- Added information about the climate indices parameters in config.py;
+- Now using a dayofyear string (ex: '04-14' for April 14th) instead of dayofyear (ex: 104 for April 14th) as the input
+  to climate index functions (also applies to .ini files).
+
 ## Contributing
 
 This is a private development that is being used in production by climate services specialists. If you're interested in

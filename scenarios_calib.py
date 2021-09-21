@@ -97,9 +97,6 @@ def bias_adj(stn: str, var: str, sim_name: str = "", calc_err: bool = False):
                     ds_stn = utils.open_netcdf(p_stn)
                     ds_stn = utils.remove_feb29(ds_stn)
                     ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
-                    # Add small perturbation.
-                    # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
-                    #     ds_stn = scen.perturbate(ds_stn, var)
 
                     # Path and title of calibration figure and csv file.
                     fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + cfg.f_ext_png
@@ -176,17 +173,17 @@ def init_calib_params():
     bias_err_l = []
 
     # Function used to build the dataframe.
-    def build_df(sim_name_l: str, stn_l: str, var_l: str, nq_l: int, up_qmf_l: float, time_win_l: int,
-                 bias_err_l: float) -> pd.DataFrame:
+    def build_df(sim_name_inner_l: [str], stn_inner_l: [str], var_inner_l: [str], nq_inner_l: [int],
+                 up_qmf_inner_l: [float], time_win_inner_l: [int], bias_err_inner_l: [float]) -> pd.DataFrame:
 
         dict_pd = {
-            "sim_name": sim_name_l,
-            "stn": stn_l,
-            "var": var_l,
-            "nq": nq_l,
-            "up_qmf": up_qmf_l,
-            "time_win": time_win_l,
-            "bias_err": bias_err_l}
+            "sim_name": sim_name_inner_l,
+            "stn": stn_inner_l,
+            "var": var_inner_l,
+            "nq": nq_inner_l,
+            "up_qmf": up_qmf_inner_l,
+            "time_win": time_win_inner_l,
+            "bias_err": bias_err_inner_l}
         return pd.DataFrame(dict_pd)
 
     # Attempt loading a calibration file.

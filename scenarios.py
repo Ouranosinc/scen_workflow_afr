@@ -232,7 +232,7 @@ def load_reanalysis(var_ra: str):
         # Apply and create mask.
         if (cfg.obs_src == cfg.obs_src_era5_land) and \
            (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
-            da_mask = utils.create_mask(cfg.obs_src_era5_land)
+            da_mask = utils.create_mask()
             da = utils.apply_mask(ds[var], da_mask)
             ds = da.to_dataset(name=var)
 
@@ -512,7 +512,7 @@ def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
     if (cfg.obs_src == cfg.obs_src_era5_land) and \
        (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
         ds_regrid = da_regrid.to_dataset(name=var)
-        da_mask = utils.create_mask(cfg.obs_src_era5_land)
+        da_mask = utils.create_mask()
         da_regrid = utils.apply_mask(ds_regrid[var], da_mask)
 
     # Create dataset.
@@ -597,10 +597,6 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
         ds_obs = utils.remove_feb29(ds_stn)
         ds_obs = utils.sel_period(ds_obs, cfg.per_ref)
 
-        # Add small perturbation.
-        # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
-        #     ds_obs = perturbate(ds_obs, var)
-
         # Save NetCDF file.
         desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_obs)
         utils.save_netcdf(ds_obs, p_obs, desc=desc)
@@ -617,8 +613,6 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
         ds_regrid_fut = utils.remove_feb29(ds_fut)
 
         # Adjust values that do not make sense.
-        # TODO.YR: Verify if positive or negative values need to be considered for cfg.var_cordex_evspsbl and
-        #          cfg.var_cordex_evspsblpot.
         if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot, cfg.var_cordex_clt]:
             ds_regrid_fut[var].values[ds_regrid_fut[var] < 0] = 0
             if var == cfg.var_cordex_clt:
@@ -931,10 +925,6 @@ def generate():
             ds_stn = utils.open_netcdf(p_stn)
             ds_stn = utils.remove_feb29(ds_stn)
             ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
-
-            # Add small perturbation.
-            # if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
-            #     ds_stn = perturbate(ds_stn, var)
 
             # Create directories (required because of parallel processing).
             if not (os.path.isdir(d_stn)):

@@ -102,7 +102,7 @@ def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bn
         try:
             grid = ds[var].attrs[cfg.attrs_gmap]
             ds_subset[grid] = ds[grid]
-        except Exception as e:
+        except:
             utils.log("Warning: Could not overwrite grid mapping:", True)
 
     # CRCM5-Ouranos ----------------------------------------------------------------------------------------------------

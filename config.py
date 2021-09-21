@@ -180,65 +180,278 @@ opt_calib_bias_meth_rrmse  = "rrmse"    # Relative root mean square error.
 # Add new index below.
 # ======================================================================================================================
 
-# Temperature indices.
-idx_etr             = "etr"             # Extreme temperature range = f(Tmin, Tmax).
-idx_tx90p           = "tx90p"           # Number of days with Tmax > 90th percentile.
-idx_heatwavemaxlen  = "heatwavemaxlen"  # Maximum heat wave length = f(Tmax, n_days).
-idx_heatwavetotlen  = "heatwavetotlen"  # Total heat wave length = f(Tmax, n_days).
-idx_hotspellfreq    = "hotspellfreq"    # Number of hot spells = f(Tmin, Tmax, n_days).
-idx_hotspellmaxlen  = "hotspellmaxlen"  # Maximum hot spell length = f(Tmin, Tmax, n_days).
-idx_tgg             = "tgg"             # Mean = f(Tmin, Tmax).
-idx_tng             = "tng"             # Mean of Tmin.
-idx_tngmonthsbelow  = "tngmonthsbelow"  # Number of months per year with mean(Tmin) below a threshold value.
-idx_tnx             = "tnx"             # Maximum of Tmin.
-idx_txg             = "txg"             # Mean of Tmax.
-idx_txx             = "txx"             # Maximum of Tmax.
-idx_txdaysabove     = "txdaysabove"     # Number of days per year with Tmax above a threshold value.
-idx_tndaysbelow     = "tndaysbelow"     # Number of days per year with Tmin below a threshold value.
-idx_tropicalnights  = "tropicalnights"  # Number of tropical nights = f(Tmin).
-idx_wsdi            = "wsdi"            # Warm spell duration index = f(Tmax, Tmax90p).
+# Temperature indices --------------------------------------------------------------------------------------------------
 
-# Precipitation indices.
-# Regarding idx_rain* indices:
-# - Pwet is the daily precipitation amount required during the first Dwet consecutive days occurring at or after the
-#   DOY th day of year. There must not be a sequence of Ddry days with less than Pdry precipitation per day over the
-#   following Dtot days.
-# - Pstock is the amount of precipitation that must evaporate at a rate of ETrate per day occurring at or after the
-#   DOY th day of year.
-# - per = period over which to combine data {"1d" = one day, "tot" = total}
-idx_rx1day          = "rx1day"          # Highest 1-day precipitation amount.
-idx_rx5day          = "rx5day"          # Highest 5-day precipitation amount.
-idx_cdd             = "cdd"             # Maximum number of consecutive dry days (above a threshold).
-idx_cwd             = "cwd"             # Maximum number of consecutive wet days (above a threshold).
-idx_drydays         = "drydays"         # Number of dry days (below a threshold).
-idx_prcptot         = "prcptot"         # Accumulated total precipitation.
-idx_r10mm           = "r10mm"           # Number of days with precipitation >= 10 mm.
-idx_r20mm           = "r20mm"           # Number of days with precipitation >= 20 mm.
-idx_rainstart       = "rainstart"       # Day of year where rain season starts = f(Pwet, Dwet, DOY, Pdry, Ddry, Dtot).
-idx_rainend         = "rainend"         # Day of year where rain season ends = f(Pstock, ETrate, DOYa, DOYb).
-idx_raindur         = "raindur"         # Duration of the rain season = idx_rainend - idx_rainstart + 1.
-idx_rainqty         = "rainqty"         # Quantity received during rain season = f(idx_rainstart, idx_rainend).
-idx_rnnmm           = "rnnmm"           # Number of days with precipitation >= nn mm.
-idx_sdii            = "sdii"            # Mean daily precipitation intensity.
-idx_wetdays         = "wetdays"         # Number of wet days (above a threshold).
-idx_drydurtot       = "drydurtot"       # Total length of dry period = f(Ddry, Pdry, per, DOYa, DOYb).
-idx_rainseason      = "rainseason"      # Combination of idx_rainstart, idx_rainend, idx_raindur and idx_rainqty.
+# Extreme temperature range.
+# Requirements: tasmin, tasmax
+# Parameters:   [nan]
+idx_etr = "etr"
 
-# Wind indices.
-# Regarding idx_wxdaysabove and idx_wgdaysabove:
-# WS = wind speed; WSneg = wind speed threshold under which wind is considered negligible; Wdir = wind direction
-# consider; Wdirtol = wind direction tolerance with respect to 'Wdir' (in both directions); months =
-# array of month numbers to consider.
-# In other cases: = f(WS, WSneg, Wdir, Wdirtol, months).
-idx_wgdaysabove     = "wgdaysabove"     # Number of days per year with Wmean above a threshold value.
-idx_wxdaysabove     = "wxdaysabove"     # Number of days per year with Wmax above a threshold value.
+# Number of days with extreme maximum temperature (> 90th percentile).
+# Requirements: tasmax
+# Parameters:   [nan]
+idx_tx90p = "tx90p"
 
-# Temperature-precipiation indices.
-idx_dc              = "dc"              # Drought code = f(Tmean,P,lat).
+# Maximum heat wave length.
+# Requirements: tasmin, tasmax
+# Parameters:   [tasmin_thresh: float, tasmax_thresh: float, n_days: int]
+#               tasmin_thresh: daily minimum temperature must be greater than a threshold value.
+#               tasmax_thresh: daily maximum temperature must be greater than a threshold value.
+#               n_days: minimum number of consecutive days.
+idx_heat_wave_max_length = "heat_wave_max_length"
 
-# Index groups.
+# Total heat wave length.
+# Requirements: tasmin, tasmax
+# Parameters:   [tasmin_thresh: float, tasmax_thresh: float, n_days: int]
+#               tasmin_thresh: daily minimum temperature must be greater than a threshold value.
+#               tasmax_thresh: daily maximum temperature must be greater than a threshold value.
+#               n_days: Minimum number of consecutive days.
+idx_heat_wave_total_length = "heat_wave_total_len"
+
+# Number of hot spells.
+# Requirements: tasmax
+# Parameters:   [tasmax_thresh: float, n_days: int]
+#               tasmax_thresh: daily maximum temperature must be greater than a threshold value.
+#               n_days: minimum number of consecutive days.
+idx_hot_spell_frequency = "hot_spell_frequency"
+
+# Maximum hot spell length.
+# Requirements: tasmax
+# Parameters:   [tasmax_threshold: float, n_days: int]
+#               tasmax_threshold: daily maximum temperature must be greater than this threshold.
+#               n_days: minimum number of consecutive days.
+idx_hot_spell_max_length = "hot_spell_max_length"
+
+# Mean of mean temperature.
+# Requirements: tasmin, tasmax
+# Parameters:   [nan]
+idx_tgg = "tgg"
+
+# Mean of minimum temperature.
+# Requirements: tasmin
+# Parameters:   [nan]
+idx_tng = "tng"
+
+# Maximum of minimum temperature.
+# Requirements: tasmin
+# Parameters:   [nan]
+idx_tnx = "tnx"
+
+# Mean of maximum temperature.
+# Requirements: tasmax
+# Parameters:   [nan]
+idx_txg = "txg"
+
+# Maximum of maximum temperature.
+# Parameters: [nan]
+idx_txx = "txx"
+
+# Number of months per year with a mean minimum temperature below a threshold.
+# Requirements: tasmin
+# Parameters:   [tasmin_thresh: float]
+#               tasmin_thresh: daily minimum temperature must be greater than a threshold value.
+idx_tng_months_below = "tng_months_below"
+
+# Number of days per year with maximum temperature above a threshold.
+# Requirements: tasmax
+# Parameters:   [tasmax_thresh: float]
+#               tasmax_thresh: daily maximum temperature must be greater than a threshold value.
+idx_tx_days_above = "tx_days_above"
+
+# Number of days per year with a minimum temperature below a threshold.
+# Requirements: tasmin
+# Parameters:   [tasmin_thresh: float, doy_min: int, doy_max: int]
+#               tasmin_thresh: daily minimum temperature must be greater than a threshold value.
+#               doy_min: minimum day of year to consider.
+#               doy_max: maximum day of year to consider.
+idx_tn_days_below = "tn_days_below"
+
+# Number of tropical nights, i.e. with minimum temperature above a threshold.
+# Requirements: tasmin
+# Parameters:   [tasmin_thresh: float]
+#               tasmin_thresh: daily minimum temperature must be greater than a threshold value.
+idx_tropical_nights = "tropical_nights"
+
+# Warm spell duration index.
+# Requirements: tasmax
+# Parameters:   [tasmax_thresh=nan, n_days: int]
+#               tasmax_thresh: daily maximum temperature must be greater than a threshold value; this value is
+#               calculated automatically and corresponds to the 90th percentile of tasmax values.
+#               n_days: minimum number of consecutive days.
+idx_wsdi = "wsdi"
+
+# Precipitation indices ------------------------------------------------------------------------------------------------
+
+# Largest 1-day precipitation amount.
+# Requirements: pr
+# Parameters:   [nan]
+idx_rx1day = "rx1day"
+
+# Largest 5-day precipitation amount.
+# Requirements: pr
+# Parameters:   [nan]
+idx_rx5day = "rx5day"
+
+# Maximum number of consecutive dry days.
+# Requirements: pr
+# Parameters:   [pr_thresh: float]
+#               pr_thresh: a daily precipitation amount lower than a threshold value is considered dry.
+idx_cdd = "cdd"
+
+# Maximum number of consecutive wet days.
+# Requirements: pr
+# Parameters:   [pr_thresh: float]
+#               pr_thresh: a daily precipitation amount greater than or equal to a threshold value is considered wet.
+idx_cwd = "cwd"
+
+# Number of dry days.
+# Requirements: pr
+# Parameters:   [pr_thresh: float]
+#               pr_thresh: a daily precipitation amount lower than a threshold value is considered dry.
+idx_dry_days = "dry_days"
+
+# Number of wet days.
+# Requirements: pr
+# Parameters:   [pr_thresh: float]
+#               pr_thresh: a daily precipitation amount greater than or equal to a threshold value is considered wet.
+idx_wet_days = "wet_days"
+
+# Accumulated total precipitation.
+# Requirements: pr
+# Parameters:   [pct=nan, doy_min: int, doy_max: int]
+#               pct: the default value is nan;
+#                    if a value is provided, an horizontal line is drawn on time series;
+#                    if a percentile is provided (ex: 90p), the equivalent value is calculated and an horizontal line is
+#                    drawn on time series.
+#               doy_min: minimum day of year to consider.
+#               doy_max: maximum day of year to consider.
+idx_prcptot = "prcptot"
+
+# Number of days with precipitation greater than or equal to 10 mm.
+# Requirements: pr
+# Parameters:   [nan]
+idx_r10mm = "r10mm"
+
+# Number of days with precipitation greater than or equal to 20 mm.
+# Requirements: pr
+# Parameters:   [nan]
+idx_r20mm = "r20mm"
+
+# Number of days with precipitation greater than or equal to a user-provided value.
+# Requirements: pr
+# Parameters:   [pr_thresh: float]
+#               pr_thresh: daily precipitation amount must be greater than or equal to a threshold value.
+idx_rnnmm = "rnnmm"
+
+# Mean daily precipitation intensity.
+# Requirements: pr
+# Parameters:   [pr_thresh: float]
+#               pr_thresh: daily precipitation amount must be greater than or equal to a threshold value.
+idx_sdii = "sdii"
+
+# Rain season.
+# Requirements: pr (mandatory), evspsbl* (optional)
+# Parameters:   combination of the parameters of indices idx_rain_season_start and idx_rain_season_end.
+idx_rain_season = "rain_season"
+
+# Day of year where rain season starts.
+# Requirements: pr
+# Parameters:   [pr_wet: float, dt_wet: int, doy_min: int, doy_max: int, pr_dry: float, dt_dry: int, dt_tot: int]
+#               pr_wet: daily precipitation amount required in first 'dt_wet' days.
+#               dt_wet: number of days with precipitation at season start (related to 'pr_wet').
+#               doy_min: minimum day of year where season can start.
+#               doy_max: minimum day of year where season can start.
+#               pr_dry: daily precipitation amount under which precipitation is considered negligible.
+#               dt_dry: maximum number of days in a dry period embedded into the period of 'dt_tot' days.
+#               dt_tot: number of days (after the first 'dt_wet' days) after which a dry season is searched for.
+idx_rain_season_start = "rain_season_start"
+
+# Day of year where rain season ends.
+# Requirements: pr (mandatory), rain_season_start_next (optional), evspsbl* (optional)
+#               will search for evspsblpot, then for evspsbl
+# Parameters:   [meth: str, pr: float, etp: float, dt: int, doy_min: int, doy_max: int]
+#               meth: calculation method
+#                   if method == "depletion": based on the period required for an amount of water to evaporate,
+#                       considering that any amount of precipitation received during that period must also evaporate. If
+#                       the evspsbl* dataset is not available, the daily evapotranspiration rate is assumed to be 'etp'.
+#                   if method == "event": based on the occurrence (or not) of an event during the last days of a rain
+#                       season. The rain season stops when no daily precipitation greater than 'pr' have occurred over a
+#                       period of 'dt' days.
+#                   if method == "total": based on a total amount of precipitation received during the last days of the
+#                       rain season. The rain season stops when the total amount of precipitation is less than 'pr' over
+#                       a period of 'dt' days.
+#               pr: precipitation threshold
+#                   if method == "depletion": precipitation amount that must evaporate.
+#                   if method == "event": threshold daily precipitation amount during a period.
+#                   if method == "total": threshold total precipitation amount over a period.
+#               etp: evapotranspiration rate
+#                   if method == "depletion": evapotranspiration rate.
+#                   otherwise: not used.
+#               dt: period length
+#                   if method in ["event", "total"]: length of period (number of days) used to verify if the rain season
+#                       is ending.
+#                   otherwise: not used.
+#               doy_min: minimum day of year where season can end.
+#               doy_max: minimum day of year where season can end.
+idx_rain_season_end = "rain_season_end"
+
+# Duration of the rain season.
+# Requirements: rain_season_start, rain_season_end
+# Parameters:   [nan]
+idx_rain_season_length = "rain_season_length"
+
+# Quantity received during rain season.
+# Requirements: pr, rain_season_start, rain_season_end
+# Parameters:   [nan]
+idx_rain_season_prcptot = "rain_season_prcptot"
+
+# Total length of dry period.
+# Requirements: pr
+# Parameters:   [per: str, pr_tot: float, dt_dry: int, pr_dry: float, doy_min: int, doy_max: int]
+#               per: period over which to combine data {"1d" = one day, "tot" = total}.
+#               pr_tot: sum of daily precipitation amounts under which the period is considered dry (only if per="tot).
+#               dt_dry: number of days to have a dry period.
+#               pr_dry: daily precipitation amount under which precipitation is considered negligible.
+#               doy_min: minimum day of year to consider.
+#               doy_max: maximum day of year to consider.
+idx_dry_spell_total_length = "dry_spell_total_length"
+
+# Wind indices ---------------------------------------------------------------------------------------------------------
+
+# Number of days per year with mean wind speed above a threshold value coming from a given direction.
+# Requirements: uas, vas
+# Parameters:   [speed_tresh: float, velocity_thresh_neg: float, dir_thresh: float, dir_thresh_tol: float,
+#                doy_min: int, doy_max: int]
+#               speed_tresh: wind speed must be greater than or equal to a threshold value.
+#                    if a percentile is provided (ex: 90p), the equivalent value is calculated.
+#               speed_tresh_neg: wind speed is considered negligible if smaller than or equal to a threshold value.
+#               dir_thresh: wind direction (angle, in degrees) must be close to a direction given by a threshold value.
+#               dir_thresh_tol: wind direction tolerance (angle, in degrees).
+#               doy_min: minimum day of year to consider (nan can be provided).
+#               doy_max: maximum day of year to consider (nan can be provided).
+idx_wg_days_above = "wg_days_above"
+
+# Number of days per year with maximum wind speed above a threshold value.
+# Requirements: sfcWindmax
+# Parameters:   [speed_tresh: float, nan, nan, nan, doy_min: int, doy_max: int]
+#               speed_tresh: wind speed must be greater than or equal to a threshold value.
+#                    if a percentile is provided (ex: 90p), the equivalent value is calculated.
+#               doy_min: minimum day of year to consider (nan can be provided).
+#               doy_max: maximum day of year to consider (nan can be provided).
+idx_wx_days_above = "wx_days_above"
+
+# Temperature-precipitation indices ------------------------------------------------------------------------------------
+
+# Drought code.
+# Requirements: tas, pr
+# Parameters:   [nan]
+idx_drought_code = "drought_code"
+
+# Groups of indices ----------------------------------------------------------------------------------------------------
+
 # Indices that are part of a group are saved in a single NetCDF file.
-idx_groups = [[idx_rainseason, [idx_rainstart, idx_rainend, idx_raindur, idx_rainqty]]]
+idx_groups = [[idx_rain_season, [idx_rain_season_start, idx_rain_season_end, idx_rain_season_length,
+                                 idx_rain_season_prcptot]]]
 
 # ==========================================================
 # TODO.CUSTOMIZATION.INDEX.END
@@ -596,31 +809,32 @@ def get_desc(varidx_code: str, set_name: str = "cordex"):
         # ==================================================================================================================
 
         # Temperature.
-        if varidx_name in [idx_txdaysabove, idx_tx90p, idx_tndaysbelow]:
-            if varidx_name in [idx_txdaysabove, idx_tx90p]:
+        if varidx_name in [idx_tx_days_above, idx_tx90p, idx_tn_days_below]:
+            if varidx_name in [idx_tx_days_above, idx_tx90p]:
                 desc = "Nbr jours chauds (Tmax>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmax)
             else:
                 desc = "Nbr jours frais (Tmin<" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin)
             if len(idx_params_loc) == 3:
                 desc += "; jours " + str(idx_params_loc[1]) + "-" + str(idx_params_loc[2])
             desc += ")"
-        elif varidx_name == idx_tropicalnights:
+        elif varidx_name == idx_tropical_nights:
             desc = "Nbr nuits chaudes (Tmin>" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
-        elif varidx_name == idx_tngmonthsbelow:
+        elif varidx_name == idx_tng_months_below:
             desc = "Nbr mois frais (μ(Tmin,mois)<" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmin) + ")"
 
-        elif varidx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen, idx_wsdi]:
-            if varidx_name == idx_hotspellfreq:
+        elif varidx_name in [idx_hot_spell_frequency, idx_hot_spell_max_length, idx_heat_wave_max_length,
+                             idx_heat_wave_total_length, idx_wsdi]:
+            if varidx_name == idx_hot_spell_frequency:
                 desc = "Nbr pér chaudes"
-            elif varidx_name == idx_hotspellmaxlen:
+            elif varidx_name == idx_hot_spell_max_length:
                 desc = "Durée max pér chaudes"
-            elif varidx_name == idx_heatwavemaxlen:
+            elif varidx_name == idx_heat_wave_max_length:
                 desc = "Durée max vagues chaleur"
-            elif varidx_name == idx_heatwavetotlen:
+            elif varidx_name == idx_heat_wave_total_length:
                 desc = "Durée tot vagues chaleur"
             elif varidx_name == idx_wsdi:
                 desc = "Indice durée pér chaudes"
-            if varidx_name in [idx_hotspellfreq, idx_hotspellmaxlen, idx_wsdi]:
+            if varidx_name in [idx_hot_spell_frequency, idx_hot_spell_max_length, idx_wsdi]:
                 desc += " (Tmax≥" + str(idx_params_loc[0]) + get_unit(var_cordex_tasmax) + ", " +\
                     str(idx_params_loc[1]) + "j)"
             else:
@@ -648,29 +862,29 @@ def get_desc(varidx_code: str, set_name: str = "cordex"):
             desc = "Écart extreme (Tmax-Tmin)"
 
         # Precipitation.
-        elif varidx_name in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty]:
+        elif varidx_name in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rain_season_prcptot]:
             desc =\
                 "Cumul P " + ("(1j" if varidx_name == idx_rx1day else "(5j" if varidx_name == idx_rx5day else "(total")
             if (varidx_name == idx_prcptot) and (len(idx_params_loc) == 3):
                 desc += "; jours " + str(idx_params_loc[1]) + "-" + str(idx_params_loc[2])
             desc += ")"
 
-        elif varidx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays]:
+        elif varidx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wet_days, idx_dry_days]:
             desc = "Nbr jours"
             if varidx_name == idx_cwd:
                 desc += " consécutifs"
-            desc += " où P" + ("<" if varidx_name in [idx_cdd, idx_drydays] else "≥") +\
+            desc += " où P" + ("<" if varidx_name in [idx_cdd, idx_dry_days] else "≥") +\
                     str(idx_params_loc[0]) + get_unit(var_cordex_pr)
 
         elif varidx_name == idx_sdii:
             desc = "Intensité moyenne P"
 
-        if varidx_name == idx_rainstart:
+        if varidx_name == idx_rain_season_start:
             desc = "Début saison pluie (ΣP≥" + str(idx_params_loc[0]) + unit_mm + " en " + \
                        str(idx_params_loc[1]) + "j; sans P<" + str(idx_params_loc[4]) + "mm/j * " + \
                        str(idx_params_loc[5]) + "j sur " + str(idx_params_loc[6]) + "j)"
 
-        elif varidx_name == idx_rainend:
+        elif varidx_name == idx_rain_season_end:
             if idx_params_loc[0] == "depletion":
                 desc = "Fin saison pluie (Σ(P-ETP)<" + str(idx_params_loc[1]) + unit_mm + " en ≥" +\
                        str(idx_params_loc[1]) + "/" + str(idx_params_loc[2]) + "j)"
@@ -678,10 +892,10 @@ def get_desc(varidx_code: str, set_name: str = "cordex"):
                 desc = "Fin saison pluie (P<" + str(idx_params_loc[1]) + unit_mm + "/j pendant " +\
                        str(idx_params_loc[3]) + "j)"
 
-        elif varidx_name == idx_raindur:
+        elif varidx_name == idx_rain_season_length:
             desc = "Durée saison pluie"
 
-        elif varidx_name == idx_drydurtot:
+        elif varidx_name == idx_dry_spell_total_length:
             desc = "Durée totale périodes sèches (P<" + str(idx_params_loc[0]) + "mm/j * " +\
                        str(idx_params_loc[1]) + "j"
             if (idx_params_loc[2] == "day") and (str(idx_params_loc[3]) != "nan") and (str(idx_params_loc[4]) != "nan"):
@@ -689,16 +903,16 @@ def get_desc(varidx_code: str, set_name: str = "cordex"):
             desc += ")"
 
         # Temperature-precipitation.
-        elif varidx_name == idx_dc:
+        elif varidx_name == idx_drought_code:
             desc = "Code sécheresse"
 
         # Wind.
-        elif varidx_name in [idx_wgdaysabove, idx_wxdaysabove]:
-            desc = "Durée totale vent fort (V" + ("moy" if varidx_name == idx_wgdaysabove else "max") + "≥" +\
+        elif varidx_name in [idx_wg_days_above, idx_wx_days_above]:
+            desc = "Durée totale vent fort (V" + ("moy" if varidx_name == idx_wg_days_above else "max") + "≥" +\
                        str(idx_params_loc[0]) + unit_km_h
             if str(idx_params_loc[2]) != "nan":
                 desc += "; " + str(idx_params_loc[2]) + "±" + str(idx_params_loc[3]) + "º"
-            if (varidx_name == idx_wgdaysabove) and (len(idx_params_loc) == 6):
+            if (varidx_name == idx_wg_days_above) and (len(idx_params_loc) == 6):
                 desc += "; jours " + str(idx_params_loc[4]) + " à " + str(idx_params_loc[5])
             desc += ")"
 
@@ -779,12 +993,13 @@ def get_plot_ylabel(varidx_name: str):
         ylabel = ""
 
         # Temperature.
-        if varidx_name in [idx_txdaysabove, idx_tndaysbelow, idx_tngmonthsbelow, idx_hotspellfreq, idx_hotspellmaxlen,
-                          idx_heatwavemaxlen, idx_heatwavetotlen, idx_tropicalnights, idx_tx90p]:
+        if varidx_name in [idx_tx_days_above, idx_tn_days_below, idx_tng_months_below, idx_hot_spell_frequency,
+                           idx_hot_spell_max_length, idx_heat_wave_max_length, idx_heat_wave_total_length,
+                           idx_tropical_nights, idx_tx90p]:
             ylabel = "Nbr"
-            if varidx_name == idx_tngmonthsbelow:
+            if varidx_name == idx_tng_months_below:
                 ylabel += " mois"
-            elif varidx_name != idx_hotspellfreq:
+            elif varidx_name != idx_hot_spell_frequency:
                 ylabel += " jours"
 
         elif varidx_name in [idx_txx, idx_txg]:
@@ -802,23 +1017,24 @@ def get_plot_ylabel(varidx_name: str):
         elif varidx_name == idx_wsdi:
             ylabel = "Indice"
 
-        elif varidx_name == idx_dc:
+        elif varidx_name == idx_drought_code:
             ylabel = "Code"
 
         # Precipitation.
-        elif varidx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays, idx_drydays, idx_raindur]:
+        elif varidx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wet_days, idx_dry_days,
+                             idx_rain_season_length]:
             ylabel = "Nbr jours"
 
-        elif varidx_name in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty, idx_sdii]:
+        elif varidx_name in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rain_season_prcptot, idx_sdii]:
             ylabel = get_desc(var_cordex_pr) + " (" + get_unit(var_cordex_pr)
             if varidx_name == idx_sdii:
                 ylabel += "/day"
             ylabel += ")"
 
-        elif varidx_name in [idx_rainstart, idx_rainend]:
+        elif varidx_name in [idx_rain_season_start, idx_rain_season_end]:
             ylabel = "Jour de l'année"
 
-        elif varidx_name in [idx_wgdaysabove, idx_wxdaysabove, idx_drydurtot]:
+        elif varidx_name in [idx_wg_days_above, idx_wx_days_above, idx_dry_spell_total_length]:
             ylabel += "Nbr jours"
 
         # ==============================================================================================================
@@ -915,15 +1131,17 @@ def get_unit(varidx_name: str, set_name: str = prj_src_cordex):
         # TODO.CUSTOMIZATION.INDEX.BEGIN
         # ==============================================================================================================
 
-        if varidx_name in [idx_txdaysabove, idx_tndaysbelow, idx_tx90p, idx_tropicalnights, idx_tngmonthsbelow,
-                          idx_hotspellfreq, idx_wsdi, idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wetdays,
-                          idx_drydays, idx_rainstart, idx_rainend, idx_dc, idx_wgdaysabove, idx_wxdaysabove]:
+        if varidx_name in [idx_tx_days_above, idx_tn_days_below, idx_tx90p, idx_tropical_nights, idx_tng_months_below,
+                           idx_hot_spell_frequency, idx_wsdi, idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm,
+                           idx_wet_days, idx_dry_days, idx_rain_season_start, idx_rain_season_end, idx_drought_code,
+                           idx_wg_days_above, idx_wx_days_above]:
             unit = unit_1
-        elif varidx_name in [idx_hotspellmaxlen, idx_heatwavemaxlen, idx_heatwavetotlen]:
+        elif varidx_name in [idx_hot_spell_max_length, idx_heat_wave_max_length, idx_heat_wave_total_length]:
             unit = unit_d
-        elif varidx_name in [idx_tgg, idx_tng, idx_tnx, idx_txg, idx_txx, idx_etr, idx_raindur, idx_drydurtot]:
+        elif varidx_name in [idx_tgg, idx_tng, idx_tnx, idx_txg, idx_txx, idx_etr, idx_rain_season_length,
+                             idx_dry_spell_total_length]:
             unit = unit_C
-        elif varidx_name in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rainqty]:
+        elif varidx_name in [idx_rx1day, idx_rx5day, idx_prcptot, idx_rain_season_prcptot]:
             unit = unit_mm
         elif varidx_name in [idx_sdii]:
             unit = unit_mm_d
@@ -1106,8 +1324,9 @@ def explode_idx_l(idx_group_l) -> [str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Explode a list of index names or codes, e.g. [rainseason_1, rainseason_2] into
-    [rainstart_1, rainend_1, raindur_1, rainqty_1, rainstart_2, rainend_2, raindur_2, rainqty_2].
+    Explode a list of index names or codes, e.g. [rain_season_1, rain_season_2] into
+    [rain_season_start_1, rain_season_end_1, rain_season_length_1, rain_season_prcptot_1,
+     rain_season_start_2, rain_season_end_2, rain_season_length_2, rain_season_prcptot_2].
 
     Parameters
     ----------

@@ -954,7 +954,7 @@ def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Da
     return ds_res
 
 
-def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_a: int, doy_b) -> Union[xr.DataArray, xr.Dataset]:
+def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_min: int, doy_max) -> Union[xr.DataArray, xr.Dataset]:
 
     """
     Subset based on day of year.
@@ -963,24 +963,24 @@ def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_a: int, doy_b) -> 
     ----------
     da_or_ds: Union[xr.DataArray, xr.Dataset]
         DataArray or Dataset.
-    doy_a: int
-        First day of year to consider.
-    doy_b: int
-        Last day of year to consider.
+    doy_min: int
+        Minimum day of year to consider.
+    doy_max: int
+        Maximum day of year to consider.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     da_or_ds_res = da_or_ds.copy(deep=True)
 
-    if (doy_a > -1) or (doy_b > -1):
-        if doy_a == -1:
-            doy_a = 1
-        if doy_b == -1:
-            doy_b = 365
-        if doy_b >= doy_a:
-            cond = (da_or_ds_res.time.dt.dayofyear >= doy_a) & (da_or_ds_res.time.dt.dayofyear <= doy_b)
+    if (doy_min > -1) or (doy_max > -1):
+        if doy_min == -1:
+            doy_min = 1
+        if doy_max == -1:
+            doy_max = 365
+        if doy_max >= doy_min:
+            cond = (da_or_ds_res.time.dt.dayofyear >= doy_min) & (da_or_ds_res.time.dt.dayofyear <= doy_max)
         else:
-            cond = (da_or_ds_res.time.dt.dayofyear <= doy_b) | (da_or_ds_res.time.dt.dayofyear >= doy_a)
+            cond = (da_or_ds_res.time.dt.dayofyear <= doy_max) | (da_or_ds_res.time.dt.dayofyear >= doy_min)
         da_or_ds_res = da_or_ds_res[cond]
 
     return da_or_ds_res
@@ -1424,17 +1424,12 @@ def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Da
     return ds_or_da_res
 
 
-def create_mask(stn: str) -> xr.DataArray:
+def create_mask() -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Calculate a mask, based on climate scenarios for the temperature or precipitation variable.
     All values with a value are attributed a value of 1. Other values are assigned 'nan'.
-
-    Parameters
-    ----------
-    stn : str
-        Station name.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1454,3 +1449,52 @@ def create_mask(stn: str) -> xr.DataArray:
             break
 
     return da_mask
+
+
+def doy_str_to_doy(doy_str: str) -> int:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert from DayOfYearStr to DayOfYear.
+
+    Parameters
+    ----------
+    doy_str: str
+        Day of year, as a string ("mm-dd").
+
+    Returns
+    -------
+    doy: int
+        Day of year, as an integer (value between 1 and 366).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    doy = datetime.datetime.strptime(doy_str, "%m-%d").timetuple().tm_yday
+
+    return doy
+
+
+def doy_to_doy_str(doy: int, n_days: int = 365) -> str:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert from DayOfYearStr to DayOfYear.
+
+    Parameters
+    ----------
+    doy: int
+        Day of year, as an integer (value between 1 and 366).
+    n_days: int, optional
+        Number of days in year {365, 366}.
+
+    Returns
+    -------
+    doy_str: str
+        Day of year, as a string ("mm-dd").
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    dt = datetime.datetime(1971 if n_days == 365 else 1970, 1, 1) + datetime.timedelta(doy - 1)
+    doy_str = str(dt.month).zfill(2) + "-" + str(dt.day).zfill(2)
+
+    return doy_str

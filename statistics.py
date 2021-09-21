@@ -44,7 +44,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code
     stn : str
         Station.
     varidx_code : str
-        Climate variable  (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
+        Climate variable or index code.
     rcp : str
         Emission scenario: {cfg.rcp_26, cfg.rcp_45, cfg_rcp_85, cfg_rcp_xx}
     hor : [int]
@@ -115,7 +115,7 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code
         # Load dataset.
         ds = utils.open_netcdf(p_sim_l[i_sim])
 
-        # Patch used to fix potentially unordered dimensions of index 'cfg.idx_dc'.
+        # Patch used to fix potentially unordered dimensions of index 'cfg.idx_drought_code'.
         if varidx_code in cfg.idx_codes:
             ds = ds.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
 
@@ -219,7 +219,8 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code
     for i_time in range(n_time):
         vals = []
         for i_sim in range(n_sim):
-            if (varidx_name != cfg.idx_rainqty) or ((varidx_name == cfg.idx_rainqty) and (max(arr_vals[i_sim]) > 0)):
+            if (varidx_name != cfg.idx_rain_season_prcptot) or\
+               ((varidx_name == cfg.idx_rain_season_prcptot) and (max(arr_vals[i_sim]) > 0)):
                 if n_time == 1:
                     vals.append(arr_vals[i_sim][0])
                 else:
@@ -564,7 +565,7 @@ def calc_ts(cat: str):
                         ds_ref = ds
                     else:
                         ds_is_ok = True
-                        if (varidx_name == cfg.idx_rainqty) and (float(ds[varidx_name].max().values) == 0):
+                        if (varidx_name == cfg.idx_rain_season_prcptot) and (float(ds[varidx_name].max().values) == 0):
                             ds_is_ok = False
                         if ds_is_ok:
                             if rcp == cfg.rcp_26:
@@ -660,7 +661,7 @@ def calc_stat_mean_min_max(ds_l: [xr.Dataset], varidx_name: str):
     ds_l : [xr.Dataset]
         Array of datasets from a given group.
     varidx_name : str
-        Climate variable (ex: cfg.var_cordex_tasmax) or climate index (ex: cfg.idx_txdaysabove).
+        Climate variable or index code.
 
     Returns
     -------
@@ -829,9 +830,6 @@ def calc_heatmap(varidx_code: str):
 
     # Prepare data -----------------------------------------------------------------------------------------------------
 
-    # XY grid boundaries.
-    grid_x = grid_y = None
-
     # Calculate the overall minimum and maximum values (considering all maps for the current 'varidx').
     # There is one z-value per period.
     n_per_hors = len(cfg.per_hors)
@@ -883,10 +881,6 @@ def calc_heatmap(varidx_code: str):
                    (stat == cfg.stat_mean) and (rcp == cfg.rcp_xx) and (per_hor == cfg.per_ref):
                     ds_map_ref = ds_map
 
-                # Record XY grid boundaries.
-                if ((grid_x is None) or (grid_y is None)) and (not cfg.opt_ra):
-                    grid_x, grid_y = utils.get_coordinates(ds_map, True)
-
                 # Extract values.
                 vals = ds_map[varidx_name].values
                 vals_delta = None
@@ -929,10 +923,10 @@ def calc_heatmap(varidx_code: str):
         for j in range(2):
 
             # Skip if delta map generation if the option is disabled or if it's the reference period.
-            if (j == 1) and \
-               ((per_hor == cfg.per_ref) or
-                ((cat == cfg.cat_scen) and (not cfg.opt_map_delta[0])) or
-                ((cat == cfg.cat_idx) and (not cfg.opt_map_delta[1]))):
+            if (j == 1) and\
+                ((per_hor == cfg.per_ref) or
+                 ((cat == cfg.cat_scen) and (not cfg.opt_map_delta[0])) or
+                 ((cat == cfg.cat_idx) and (not cfg.opt_map_delta[1]))):
                 continue
 
             # Extract dataset (calculate delta if required).
@@ -972,8 +966,8 @@ def calc_heatmap(varidx_code: str):
 
                 # Generate plot.
                 if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
-                    plot.plot_heatmap(da_map, stn, varidx_code, grid_x, grid_y, rcp, per_hor, stat, q, z_min_map,
-                                      z_max_map, j == 1, p_fig)
+                    plot.plot_heatmap(da_map, stn, varidx_code, rcp, per_hor, stat, q, z_min_map, z_max_map, j == 1,
+                                      p_fig)
 
                 # CSV files --------------------------------------------------------------------------------------------
 
@@ -989,17 +983,17 @@ def calc_heatmap(varidx_code: str):
                 if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
 
                     # Extract data.
-                    lon_l = []
-                    lat_l = []
-                    val_l = []
-                    for k in range(len(da_map.longitude.values)):
-                        for m in range(len(da_map.latitude.values)):
-                            lon_l.append(da_map.longitude.values[k])
-                            lat_l.append(da_map.latitude.values[m])
-                            val_l.append(da_map.values[m, k])
+                    arr_lon = []
+                    arr_lat = []
+                    arr_val = []
+                    for m in range(len(da_map.longitude.values)):
+                        for n in range(len(da_map.latitude.values)):
+                            arr_lon.append(da_map.longitude.values[m])
+                            arr_lat.append(da_map.latitude.values[n])
+                            arr_val.append(da_map.values[n, m])
 
                     # Build dataframe.
-                    dict_pd = {cfg.dim_longitude: lon_l, cfg.dim_latitude: lat_l, varidx_name: val_l}
+                    dict_pd = {cfg.dim_longitude: arr_lon, cfg.dim_latitude: arr_lat, varidx_name: arr_val}
                     df = pd.DataFrame(dict_pd)
 
                     # Save to file.
@@ -1015,7 +1009,7 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
     Parameters
     ----------
     varidx_code: str
-        Climate variable (ex: cfg.var_cordex_tasmax) or climate index code (ex: cfg.idx_txdaysabove).
+        Climate variable or index code.
     rcp: str
         Emission scenario.
     per: [int]
@@ -1099,11 +1093,11 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
         utils.log("Collecting the coordinates of stations.", True)
         grid_time = range(0, n_year)
 
-        def round_to_nearest_decimal(val, step):
-            if val < 0:
-                val_rnd = math.floor(val/step) * step
+        def round_to_nearest_decimal(val_inner, step):
+            if val_inner < 0:
+                val_rnd = math.floor(val_inner/step) * step
             else:
-                val_rnd = math.ceil(val/step) * step
+                val_rnd = math.ceil(val_inner/step) * step
             return val_rnd
 
         for i in range(0, 2):
@@ -1152,7 +1146,7 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
                 return xr.Dataset(None)
             ds_sim = utils.open_netcdf(p_sim)
 
-            # TODO: The following patch was added to fix dimensions for cfg.idx_dc.
+            # TODO: The following patch was added to fix dimensions for cfg.idx_drought_code.
             if varidx_code in cfg.idx_codes:
                 ds_sim = ds_sim.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
 
@@ -1197,7 +1191,7 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
                     # Open dataset.
                     ds_sim = utils.open_netcdf(p_sim)
 
-                    # TODO: The following patch was added to fix dimensions for cfg.idx_dc.
+                    # TODO: The following patch was added to fix dimensions for cfg.idx_drought_code.
                     if varidx_code in cfg.idx_codes:
                         ds_sim = ds_sim.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
 
@@ -1230,32 +1224,25 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
             if ds_res is None:
                 return xr.Dataset(None)
 
+            # Get longitude and latitude.
+            lon_l, lat_l = utils.get_coordinates(arr_sim[0][varidx_name], True)
+
             # Calculate statistics.
-            dims_itp = ds_sim[varidx_name].dims
-            if cfg.dim_rlat in dims_itp:
-                lat = ds_sim[varidx_name][cfg.dim_rlat]
-                lon = ds_sim[varidx_name][cfg.dim_rlon]
-            elif cfg.dim_lat in dims_itp:
-                lat = ds_sim[varidx_name][cfg.dim_lat]
-                lon = ds_sim[varidx_name][cfg.dim_lon]
-            else:
-                lat = ds_sim[varidx_name][cfg.dim_latitude]
-                lon = ds_sim[varidx_name][cfg.dim_longitude]
-            len_lat = len(lat)
-            len_lon = len(lon)
+            len_lat = len(lat_l)
+            len_lon = len(lon_l)
             for i_lat in range(len_lat):
-                for i_lon in range(len_lon):
+                for j_lon in range(len_lon):
 
                     # Extract the value for the current cell for all simulations.
                     vals = []
-                    for ds_sim in arr_sim:
-                        dims_sim = ds_sim[varidx_name].dims
+                    for ds_sim_k in arr_sim:
+                        dims_sim = ds_sim_k[varidx_name].dims
                         if cfg.dim_rlat in dims_sim:
-                            val_sim = float(ds_sim[varidx_name].isel(rlon=i_lon, rlat=i_lat))
+                            val_sim = float(ds_sim_k[varidx_name].isel(rlon=j_lon, rlat=i_lat))
                         elif cfg.dim_lat in dims_sim:
-                            val_sim = float(ds_sim[varidx_name].isel(lon=i_lon, lat=i_lat))
+                            val_sim = float(ds_sim_k[varidx_name].isel(lon=j_lon, lat=i_lat))
                         else:
-                            val_sim = float(ds_sim[varidx_name].isel(longitude=i_lon, latitude=i_lat))
+                            val_sim = float(ds_sim_k[varidx_name].isel(longitude=j_lon, latitude=i_lat))
                         vals.append(val_sim)
 
                     # Calculate statistic.
@@ -1270,7 +1257,7 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
                         val = np.quantile(vals, q)
 
                     # Record value.
-                    ds_res[varidx_name][i_lat, i_lon] = val
+                    ds_res[varidx_name][i_lat, j_lon] = val
 
         # Remember units.
         units = ds_res[varidx_name].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds_res.attrs[cfg.attrs_units]

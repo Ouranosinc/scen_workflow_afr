@@ -4,29 +4,7 @@
 #
 # Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos Inc., Canada
-# ----------------------------------------------------------------------------------------------------------------------
-# Notes:
-# 1. When using reanalysis data (instead of observations), the script requires a value of 1 in the following file:
-#      /proc/sys/vm/overcommit_memory
-#    If this is not the case, the following statement (from scenarios.extract()) will result in a memory error:
-#      new_grid_data = np.empty((t_len, lat_shp, lon_shp))
-#    To fix this issue, execute the following command:
-#      $ cat /proc/sys/vm/overcommit_memory
-#      $ echo 1 | sudo tee /proc/sys/vm/overcommit_memory
-#    The script also requires lots RAM or swap space (>64GB). Here is the procedure to do so on Ubuntu:
-#      $ sudo swapoff /swapfile
-#      $ swapon -s
-#      $ sudo fallocate -l 100G /swapfile
-#        or
-#        sudo dd if=/dev/zero of=/swapfile bs=1024 count=1048576
-#      $ sudo chmod 600 /swapfile
-#      $ sudo mkswap /swapfile
-#      $ sudo swapon /swapfile
-#      $ sudo gedit /etc/fstab
-#        /swapfile swap swap defaults 0 0
-#      $ sudo swapon --show
-#      $ sudo free -h
+# (C) 2021 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
 import aggregate
@@ -61,11 +39,11 @@ def load_params(p_ini: str):
         li = s.rsplit(old, occurrence)
         return new.join(li)
 
-    def convert_to_1d(vals, type):
+    def convert_to_1d(vals, type_inner):
 
-        if type == str:
+        if type_inner == str:
             vals = ast.literal_eval(vals)
-        elif type == bool:
+        elif type_inner == bool:
             vals = replace_right(vals.replace("[", "", 1), "]", "", 1).split(",")
             vals = [True if val == 'True' else False for val in vals]
         else:
@@ -81,12 +59,12 @@ def load_params(p_ini: str):
 
         return vals
 
-    def convert_to_2d(vals, type):
+    def convert_to_2d(vals, type_inner):
 
         vals_new = []
         vals = vals[1:(len(vals) - 1)].split("],")
         for i_val in range(len(vals)):
-            val_i = convert_to_1d(vals[i_val], type)
+            val_i = convert_to_1d(vals[i_val], type_inner)
             vals_new.append(val_i)
 
         return vals_new
