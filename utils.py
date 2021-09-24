@@ -819,10 +819,10 @@ def save_netcdf(
     if not (os.path.exists(d)):
         os.makedirs(d)
 
-    # Create an empty file to indicate that writing is in progress.
-    p_tmp = p.replace(cfg.f_ext_nc, ".tmp")
-    if not os.path.exists(p_tmp):
-        open(p_tmp, 'a').close()
+    # Create a temporary file to indicate that writing is in progress.
+    p_inc = p.replace(cfg.f_ext_nc, ".incomplete")
+    if not os.path.exists(p_inc):
+        open(p_inc, 'a').close()
 
     # Discard file if it already exists.
     if os.path.exists(p):
@@ -832,8 +832,8 @@ def save_netcdf(
     ds.to_netcdf(p, "w")
 
     # Discard the temporary file.
-    if os.path.exists(p_tmp):
-        os.remove(p_tmp)
+    if os.path.exists(p_inc):
+        os.remove(p_inc)
 
     if cfg.opt_trace:
         log("Saved NetCDF file", True)
@@ -846,8 +846,8 @@ def clean_netcdf(
     """
     --------------------------------------------------------------------------------------------------------------------
     Clean NetCDF files.
-    A .nc file will be removed if there's a .tmp file with the same name. The .tmp file is removed as well.
-    This is done to avoid having potentially incomplete NetCDF files, which can result in a crash.
+    A .nc file will be removed if there's an .incomplete file with the same name. The .incomplete file is removed as
+    well. This is done to avoid having potentially incomplete NetCDF files, which can result in a crash.
 
     Parameters
     ----------
@@ -861,21 +861,21 @@ def clean_netcdf(
     # List temporary files.
     if d[len(d) - 1] != "/":
         d = d + "/"
-    p_tmp_l = glob.glob(d + "**/*.tmp", recursive=True)
+    p_inc_l = glob.glob(d + "**/*.incomplete", recursive=True)
 
     # Loop through temporary files.
-    for p_tmp in p_tmp_l:
+    for p_inc in p_inc_l:
 
         # Attempt removing an associated NetCDF file.
-        p_nc = p_tmp.replace(".tmp", cfg.f_ext_nc)
+        p_nc = p_inc.replace(".incomplete", cfg.f_ext_nc)
         if os.path.exists(p_nc):
             log("Removing: " + p_nc)
             os.remove(p_nc)
 
         # Remove the temporary file.
-        if os.path.exists(p_tmp):
-            log("Removing: " + p_tmp)
-            os.remove(p_tmp)
+        if os.path.exists(p_inc):
+            log("Removing: " + p_inc)
+            os.remove(p_inc)
 
 
 def close_netcdf(
