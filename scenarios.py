@@ -47,7 +47,7 @@ def load_observations(
 
     # Station list file and station files.
     d_stn      = cfg.get_d_stn(var)
-    p_stn_info = glob.glob(d_stn + "../*" + cfg.f_ext_csv)
+    p_stn_info = glob.glob(d_stn + ".." + cfg.sep + "*" + cfg.f_ext_csv)
     p_stn_l = glob.glob(d_stn + "*" + cfg.f_ext_csv)
     p_stn_l.sort()
 

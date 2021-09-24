@@ -263,6 +263,8 @@ def load_params(
                 cfg.n_proc = int(value)
             elif key == "d_exec":
                 cfg.d_exec = ast.literal_eval(value)
+                if "\\" in cfg.d_exec:
+                    sep = "\\"
             elif key == "d_proj":
                 cfg.d_proj = ast.literal_eval(value)
             elif key == "d_ra_raw":

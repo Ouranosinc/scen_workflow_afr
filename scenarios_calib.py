@@ -56,7 +56,7 @@ def bias_adj(
 
     # Loop through simulation sets.
     for i in range(len(p_regrid_l)):
-        p_regrid_tokens = p_regrid_l[i].split("/")
+        p_regrid_tokens = p_regrid_l[i].split(cfg.sep)
         sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var + "_", "").replace(cfg.f_ext_nc, "")
 
         # Skip iteration if it does not correspond to the specified simulation name.
@@ -107,11 +107,13 @@ def bias_adj(
                     fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + cfg.f_ext_png
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
-                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var) + comb + "/" + fn_fig
-                    p_fig_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").\
+                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_calibration, var) +\
+                            comb + cfg.sep + fn_fig
+                    p_fig_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
                         replace(cfg.f_ext_png, "_" + cfg.stat_mean + cfg.f_ext_csv)
                     p_fig_ts = p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png)
-                    p_fig_ts_csv = p_fig_ts.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").\
+                    p_fig_ts_csv =\
+                        p_fig_ts.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
                         replace(cfg.f_ext_png, cfg.f_ext_csv)
 
                     # Bias adjustment ----------------------------------------------------------------------------------

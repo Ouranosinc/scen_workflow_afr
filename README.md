@@ -153,17 +153,19 @@ Bugs fixed:
 ### v1.3.5
 
 Implemented features:
-- Renamed the following indices: 'rainseason'->'rain_season', rainstart'->'rain_season_start',
+- renamed the following indices: 'rainseason'->'rain_season', rainstart'->'rain_season_start',
   'rainend'->'rain_season_end', 'raindur'->'rain_season_length', 'rainqty'->'rain_season_prcptot', 'dc'->'drought_code',
   'hotspellfreq'->'hot_spell_frequency','hotspellmaxlen'->'hot_spell_max_length','heatwavemaxlen'->'heat_wave_max_len',
   'heatwavetotlen'->'heat_wave_total_len', 'wetdays'->'wet_days','drydays'->'dry_days',
   'txdaysabove' -> 'tx_days_above', 'wgdaysabove'->'wg_days_above','wxdaysabove'->'wx_days_above',
   'tropicalnights'->'tropical_nights', tngmonthsbelow'->'tng_months_below', 'drydurtot'->'dry_spell_total_length'; 
   modified ini files accordingly;
-- Added information about the climate indices parameters in config.py;
-- Now using a dayofyear string (ex: '04-14' for April 14th) instead of dayofyear (ex: 104 for April 14th) as the input
+- added information about the climate indices parameters in config.py;
+- now using a dayofyear string (ex: '04-14' for April 14th) instead of dayofyear (ex: 104 for April 14th) as the input
   to climate index functions (also applies to .ini files);
-- Adding function 'utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec directory. 
+- adding function 'utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec directory
+  (issue #9);
+- adjusting file separator automatically according to d_exec parameter to ensure compatibility with Windows (#5).
 
 ## Contributing
 

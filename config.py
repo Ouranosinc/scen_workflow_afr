@@ -128,6 +128,7 @@ var_era5_sh         = "sh"          # Specific humidity.
 # ======================================================================================================================
 
 # Directory names.
+sep                 = "/"            # Separator.
 # Reference data.
 cat_stn             = "stn"          # At-a-station or reanalysis data.
 # Scenario files (in order of generation).
@@ -709,7 +710,9 @@ def get_rank_gcm():
     return get_rank_inst() + 1
 
 
-def extract_idx(idx_code: str) -> str:
+def extract_idx(
+    idx_code: str
+) -> str:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -730,7 +733,10 @@ def extract_idx(idx_code: str) -> str:
     return idx_code
 
 
-def get_desc(varidx_code: str, set_name: str = "cordex"):
+def get_desc(
+    varidx_code: str,
+    set_name: str = "cordex"
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -923,7 +929,14 @@ def get_desc(varidx_code: str, set_name: str = "cordex"):
     return desc
 
 
-def get_plot_title(stn: str, varidx_code: str, rcp: str = None, per: [int] = None, stat: str = None, q: float = None):
+def get_plot_title(
+    stn: str,
+    varidx_code: str,
+    rcp: str = None,
+    per: [int] = None,
+    stat: str = None,
+    q: float = None
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -967,7 +980,9 @@ def get_plot_title(stn: str, varidx_code: str, rcp: str = None, per: [int] = Non
     return title
 
 
-def get_plot_ylabel(varidx_name: str):
+def get_plot_ylabel(
+    varidx_name: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1044,7 +1059,9 @@ def get_plot_ylabel(varidx_name: str):
     return ylabel
 
 
-def convert_var_name(var: str):
+def convert_var_name(
+    var: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1077,7 +1094,10 @@ def convert_var_name(var: str):
     return None
 
 
-def get_unit(varidx_name: str, set_name: str = prj_src_cordex):
+def get_unit(
+    varidx_name: str,
+    set_name: str = prj_src_cordex
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1153,7 +1173,9 @@ def get_unit(varidx_name: str, set_name: str = prj_src_cordex):
     return unit
 
 
-def get_rcp_desc(rcp: str):
+def get_rcp_desc(
+    rcp: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1175,7 +1197,9 @@ def get_rcp_desc(rcp: str):
     return rcp_desc
 
 
-def get_d_stn(var: str):
+def get_d_stn(
+    var: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1195,7 +1219,10 @@ def get_d_stn(var: str):
     return d
 
 
-def get_p_stn(var: str, stn: str):
+def get_p_stn(
+    var: str,
+    stn: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1215,7 +1242,11 @@ def get_p_stn(var: str, stn: str):
     return p
 
 
-def get_d_scen(stn: str, cat: str, var: str = ""):
+def get_d_scen(
+    stn: str,
+    cat: str,
+    var: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1246,7 +1277,10 @@ def get_d_scen(stn: str, cat: str, var: str = ""):
     return d
 
 
-def get_d_idx(stn: str, idx_name: str = ""):
+def get_d_idx(
+    stn: str,
+    idx_name: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1271,7 +1305,9 @@ def get_d_idx(stn: str, idx_name: str = ""):
     return d
 
 
-def get_idx_group(idx_item: str = ""):
+def get_idx_group(
+    idx_item: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1295,7 +1331,11 @@ def get_idx_group(idx_item: str = ""):
     return idx_group
 
 
-def get_p_obs(stn_name: str, var: str, cat: str = ""):
+def get_p_obs(
+    stn_name: str,
+    var: str,
+    cat: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1320,7 +1360,9 @@ def get_p_obs(stn_name: str, var: str, cat: str = ""):
     return p
 
 
-def explode_idx_l(idx_group_l) -> [str]:
+def explode_idx_l(
+    idx_group_l
+) -> [str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1362,7 +1404,9 @@ def explode_idx_l(idx_group_l) -> [str]:
     return idx_l_new
 
 
-# def sel_idx_group(idx_item: str):
+# def get_idx_group(
+#     idx_item: str
+# ):
 #
 #    """
 #    --------------------------------------------------------------------------------------------------------------------
@@ -1384,7 +1428,9 @@ def explode_idx_l(idx_group_l) -> [str]:
 #   return None
 
 
-# def sel_idx_groups(idx_items: [str]) -> [str]:
+# def get_idx_groups(
+#     idx_items: [str]
+# ) -> [str]:
 #
 #    """
 #    --------------------------------------------------------------------------------------------------------------------
@@ -1410,7 +1456,13 @@ def explode_idx_l(idx_group_l) -> [str]:
 #    return list(set(idx_groups_l))
 
 
-def get_equivalent_idx_path(p: str, varidx_code_a: str, varidx_code_b: str, stn: str, rcp: str) -> str:
+def get_equivalent_idx_path(
+    p: str,
+    varidx_code_a: str,
+    varidx_code_b: str,
+    stn: str,
+    rcp: str
+) -> str:
 
     """
     --------------------------------------------------------------------------------------------------------------------

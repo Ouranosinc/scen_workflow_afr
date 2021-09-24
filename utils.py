@@ -183,7 +183,8 @@ def list_cordex(
     # Find all the available simulations for a given RCP.
     for r in range(len(rcps)):
 
-        d_format = p_ds + "*/*/AFR-*{r}".format(r=rcps[r]) + "/*/atmos/*/"
+        d_format = p_ds + "*" + cfg.sep + "*" + cfg.sep + "AFR-*{r}".format(r=rcps[r]) + cfg.sep + "*" +\
+                   cfg.sep + "atmos" + cfg.sep + "*" + cfg.sep
         d_l = glob.glob(d_format)
         d_l = [i for i in d_l if "day" in i]
         d_l.sort()

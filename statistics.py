@@ -316,7 +316,7 @@ def calc_stats(
             varidx_code_grp = cfg.get_idx_group(varidx_code)
 
             # Skip iteration if the file already exists.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, cat + "/" + varidx_code_grp) + varidx_code + cfg.f_ext_csv
+            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, cat + cfg.sep + varidx_code_grp) + varidx_code + cfg.f_ext_csv
             if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
                 continue
 

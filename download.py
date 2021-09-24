@@ -95,7 +95,7 @@ def download_from_copernicus(
         var_code = "10m_wind"
 
     # Form file name.
-    fn = p_base + var + "/" + var + "_" + obs_src + "_hour_" + str(year) + cfg.f_ext_nc
+    fn = p_base + var + cfg.sep + var + "_" + obs_src + "_hour_" + str(year) + cfg.f_ext_nc
     if os.path.exists(fn):
         return
     p = os.path.dirname(fn)

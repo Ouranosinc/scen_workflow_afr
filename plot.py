@@ -247,7 +247,7 @@ def plot_postprocess(
 
     # Save to CSV.
     if cfg.opt_save_csv[0]:
-        p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/"). \
+        p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep). \
             replace(cfg.f_ext_png, cfg.f_ext_csv)
         n_obs_mean = len(list(da_obs_mean.values))
         n_qqmap_mean = len(list(da_qqmap_mean.values))
