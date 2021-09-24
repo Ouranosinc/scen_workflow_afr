@@ -19,7 +19,9 @@ import scenarios_calib as scen_calib
 import utils
 
 
-def load_params(p_ini: str):
+def load_params(
+    p_ini: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -413,6 +415,10 @@ def main():
     #    cfg.opt_calib      = True
     #    cfg.opt_calib_auto = True
     # c. Run the script.
+
+    # Clean NetCDF files.
+    utils.clean_netcdf(cfg.d_stn)
+    utils.clean_netcdf(cfg.get_d_scen(cfg.obs_src, "", ""))
 
     # Initialization.
     scen_calib.init_calib_params()

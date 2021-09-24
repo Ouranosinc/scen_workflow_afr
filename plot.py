@@ -40,7 +40,12 @@ from typing import List
 # Aggregation
 # ======================================================================================================================
 
-def plot_year(ds_hour: xr.Dataset, ds_day: xr.Dataset, set_name: str, var: str):
+def plot_year(
+    ds_hour: xr.Dataset,
+    ds_day: xr.Dataset,
+    set_name: str,
+    var: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -79,7 +84,12 @@ def plot_year(ds_hour: xr.Dataset, ds_day: xr.Dataset, set_name: str, var: str):
     plt.close()
 
 
-def plot_dayofyear(ds_day, set_name, var, date):
+def plot_dayofyear(
+    ds_day: xr.Dataset,
+    set_name: str,
+    var: str,
+    date: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -123,7 +133,14 @@ def plot_dayofyear(ds_day, set_name, var, date):
 # ======================================================================================================================
 
 
-def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
+def plot_postprocess(
+    p_obs: str,
+    p_fut: str,
+    p_qqmap: str,
+    var: str,
+    p_fig: str,
+    title: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -242,7 +259,15 @@ def plot_postprocess(p_obs, p_fut, p_qqmap, var, p_fig, title):
         utils.save_csv(df, p_csv)
 
 
-def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
+def plot_workflow(
+    var: str,
+    nq: int,
+    up_qmf: float,
+    time_win: int,
+    p_regrid_ref: str,
+    p_regrid_fut: str,
+    p_fig: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -253,11 +278,11 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
     var : str
         Weather var.
     nq : int
-        ...
+        Number of quantiles.
     up_qmf : float
-        ...
+        Upper limit of quantile mapping function.
     time_win : int
-        ...
+        Window.
     p_regrid_ref : str
         Path of the NetCDF file containing data for the reference period.
     p_regrid_fut : str
@@ -367,7 +392,17 @@ def plot_workflow(var, nq, up_qmf, time_win, p_regrid_ref, p_regrid_fut, p_fig):
 # ======================================================================================================================
 
 
-def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_title, p_fig):
+def plot_calib(
+    da_obs: xr.DataArray,
+    da_ref: xr.DataArray,
+    da_fut: xr.DataArray,
+    da_qqmap: xr.DataArray,
+    da_qqmap_ref: xr.DataArray,
+    da_qmf: xr.DataArray,
+    var: str,
+    sup_title: str,
+    p_fig: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -503,7 +538,14 @@ def plot_calib(da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, da_qmf, var, sup_
     plt.close()
 
 
-def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataArray, var: str, title: str, p_fig: str):
+def plot_calib_ts(
+    da_obs: xr.DataArray,
+    da_fut: xr.DataArray,
+    da_qqmap: xr.DataArray,
+    var: str,
+    title: str,
+    p_fig: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -580,8 +622,17 @@ def plot_calib_ts(da_obs: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataA
         utils.save_csv(df, p_csv)
 
 
-def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.DataArray, da_qqmap: xr.DataArray,
-                da_qqmap_ref: xr.DataArray, stat: str, q: float, p_csv: str = ""):
+def draw_curves(
+    var: str,
+    da_obs: xr.DataArray,
+    da_ref: xr.DataArray,
+    da_fut: xr.DataArray,
+    da_qqmap: xr.DataArray,
+    da_qqmap_ref: xr.DataArray,
+    stat: str,
+    q: float,
+    p_csv: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -671,7 +722,11 @@ def draw_curves(var, da_obs: xr.DataArray, da_ref: xr.DataArray, da_fut: xr.Data
         utils.save_csv(df, p_csv)
 
 
-def plot_360_vs_365(ds_360: xr.Dataset, ds_365: xr.Dataset, var: str = ""):
+def plot_360_vs_365(
+    ds_360: xr.Dataset,
+    ds_365: xr.Dataset,
+    var: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -697,7 +752,10 @@ def plot_360_vs_365(ds_360: xr.Dataset, ds_365: xr.Dataset, var: str = ""):
     plt.close()
 
 
-def plot_rsq(rsq: np.array, n_sim: int):
+def plot_rsq(
+    rsq: np.array,
+    n_sim: int
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -729,8 +787,19 @@ def plot_rsq(rsq: np.array, n_sim: int):
 # Scenarios and indices.
 # ======================================================================================================================
 
-def plot_heatmap(da: xr.DataArray, stn: str, varidx_code: str, rcp: str, per: [int, int], stat: str, q: float,
-                 z_min: float, z_max: float, is_delta: bool, p_fig: str):
+def plot_heatmap(
+    da: xr.DataArray,
+    stn: str,
+    varidx_code: str,
+    rcp: str,
+    per: [int, int],
+    stat: str,
+    q: float,
+    z_min: float,
+    z_max: float,
+    is_delta: bool,
+    p_fig: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1021,7 +1090,10 @@ def plot_heatmap(da: xr.DataArray, stn: str, varidx_code: str, rcp: str, per: [i
         plt.close()
 
 
-def adjust_precision(vals: [float], n_dec_max: int = 4):
+def adjust_precision(
+    vals: [float],
+    n_dec_max: int = 4
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1065,7 +1137,9 @@ def adjust_precision(vals: [float], n_dec_max: int = 4):
     return str_vals
 
 
-def draw_region_boundary(ax):
+def draw_region_boundary(
+    ax
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1125,7 +1199,9 @@ def draw_region_boundary(ax):
     plot_feature(coordinates, myplot)
 
 
-def hex_to_rgb(value):
+def hex_to_rgb(
+    value: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1148,7 +1224,9 @@ def hex_to_rgb(value):
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
 
 
-def rgb_to_dec(value):
+def rgb_to_dec(
+    value: [int]
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1168,7 +1246,10 @@ def rgb_to_dec(value):
     return [v/256 for v in value]
 
 
-def build_custom_cmap(hex_l: [str], n_cluster: int, pos_l: [float] = None):
+def build_custom_cmap(
+    hex_l: [str],
+    n_cluster: int,
+    pos_l: [float] = None):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1206,8 +1287,18 @@ def build_custom_cmap(hex_l: [str], n_cluster: int, pos_l: [float] = None):
     return cmp
 
 
-def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset], ds_rcp_85: [xr.Dataset],
-            stn: str, varidx_code: str, rcps: [str], ylim: [int], p_fig: str, mode: int = 1):
+def plot_ts(
+    ds_ref: xr.Dataset,
+    ds_rcp_26: [xr.Dataset],
+    ds_rcp_45: [xr.Dataset],
+    ds_rcp_85: [xr.Dataset],
+    stn: str,
+    varidx_code: str,
+    rcps: [str],
+    ylim: [int],
+    p_fig: str,
+    mode: int = 1
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1370,7 +1461,10 @@ def plot_ts(ds_ref: xr.Dataset, ds_rcp_26: [xr.Dataset], ds_rcp_45: [xr.Dataset]
 # ======================================================================================================================
 
 
-def plot_ts_single(stn: str, var: str):
+def plot_ts_single(
+    stn: str,
+    var: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1445,7 +1539,10 @@ def plot_ts_single(stn: str, var: str):
         plt.close()
 
 
-def plot_ts_mosaic(stn: str, var: str):
+def plot_ts_mosaic(
+    stn: str,
+    var: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1528,7 +1625,14 @@ def plot_ts_mosaic(stn: str, var: str):
     plt.close()
 
 
-def plot_freq(ds_l: List[xr.Dataset], var: str, freq: str, title: str, plt_type: int = 0, p_fig: str = ""):
+def plot_freq(
+    ds_l: List[xr.Dataset],
+    var: str,
+    freq: str,
+    title: str,
+    plt_type: int = 0,
+    p_fig: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1619,7 +1723,12 @@ def plot_freq(ds_l: List[xr.Dataset], var: str, freq: str, title: str, plt_type:
     plt.close()
 
 
-def plot_boxplot(ds: xr.Dataset, var: str, title: str, p_fig: str):
+def plot_boxplot(
+    ds: xr.Dataset,
+    var: str,
+    title: str,
+    p_fig: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------

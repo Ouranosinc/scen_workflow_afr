@@ -16,8 +16,15 @@ import xarray as xr
 from scipy import stats
 
 
-def train(da_x: xr.DataArray, da_y: xr.DataArray, nq: int, group="time.dayofyear", kind=cfg.kind_add, time_win=0,
-          detrend_order=0):
+def train(
+    da_x: xr.DataArray,
+    da_y: xr.DataArray,
+    nq: int,
+    group="time.dayofyear",
+    kind=cfg.kind_add,
+    time_win=0,
+    detrend_order=0
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -105,7 +112,12 @@ def train(da_x: xr.DataArray, da_y: xr.DataArray, nq: int, group="time.dayofyear
     return da_train
 
 
-def predict(da_x: xr.DataArray, da_qmf: xr.DataArray, interp=False, detrend_order=4):
+def predict(
+    da_x: xr.DataArray,
+    da_qmf: xr.DataArray,
+    interp=False,
+    detrend_order=4
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -200,7 +212,10 @@ def predict(da_x: xr.DataArray, da_qmf: xr.DataArray, interp=False, detrend_orde
     return da_predict
 
 
-def add_cyclic(da_qmf: xr.DataArray, att: str):
+def add_cyclic(
+    da_qmf: xr.DataArray,
+    att: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -225,7 +240,9 @@ def add_cyclic(da_qmf: xr.DataArray, att: str):
     return da_qmf
 
 
-def add_q_bounds(da_qmf: xr.DataArray):
+def add_q_bounds(
+    da_qmf: xr.DataArray
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -249,7 +266,10 @@ def add_q_bounds(da_qmf: xr.DataArray):
     return da_qmf
 
 
-def calc_slope(x: [float], y: [float]):
+def calc_slope(
+    x: [float],
+    y: [float]
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -269,7 +289,11 @@ def calc_slope(x: [float], y: [float]):
     return slope
 
 
-def polyfit(da: xr.DataArray, deg=1, dim=cfg.dim_time):
+def polyfit(
+    da: xr.DataArray,
+    deg: int = 1,
+    dim=cfg.dim_time
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -317,7 +341,10 @@ def polyfit(da: xr.DataArray, deg=1, dim=cfg.dim_time):
     return out
 
 
-def polyval(coefs: xr.DataArray, coord: xr.Coordinate):
+def polyval(
+    coefs: xr.DataArray,
+    coord: xr.Coordinate
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -338,14 +365,25 @@ def polyval(coefs: xr.DataArray, coord: xr.Coordinate):
     return y
 
 
-def detrend(obj, dim=cfg.dim_time, deg=1, kind=cfg.kind_add):
+def detrend(
+    obj,
+    dim: str = cfg.dim_time,
+    deg: int = 1,
+    kind: str = cfg.kind_add
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Detrend a series with a polynomial.
     The detrended object should have the same mean as the original.
     obs : ?
-        ?
+        Object.
+    dim: str
+        Name of dimension.
+    deg: int
+        Degree of detrend.
+    kind: str
+        Kind (additive or multiplicative).
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -367,7 +405,9 @@ def detrend(obj, dim=cfg.dim_time, deg=1, kind=cfg.kind_add):
     return detrended, trend, coefs
 
 
-def get_index(coord: xr.Coordinate):
+def get_index(
+    coord: xr.Coordinate
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------

@@ -19,7 +19,13 @@ import os
 import utils
 
 
-def download_from_copernicus(p_base: str, obs_src: str, area: [float], var: str, year: int):
+def download_from_copernicus(
+    p_base: str,
+    obs_src: str,
+    area: [float],
+    var: str,
+    year: int
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -113,7 +119,10 @@ def download_from_copernicus(p_base: str, obs_src: str, area: [float], var: str,
         fn)
 
 
-def download_merra2(p_base: str, set_version: str):
+def download_merra2(
+    p_base: str,
+    set_version: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------

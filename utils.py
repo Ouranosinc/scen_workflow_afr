@@ -30,7 +30,9 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import Union, List, Tuple
 
 
-def natural_sort(values: Union[float, int]):
+def natural_sort(
+    values: Union[float, int]
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -51,7 +53,10 @@ def natural_sort(values: Union[float, int]):
     return sorted(values, key=alphanum_key)
 
 
-def uas_vas_2_sfc(uas: xr.DataArray, vas: xr.DataArray):
+def uas_vas_2_sfc(
+    uas: xr.DataArray,
+    vas: xr.DataArray
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -81,7 +86,12 @@ def uas_vas_2_sfc(uas: xr.DataArray, vas: xr.DataArray):
     return sfcwind, sfcwind_dirmet
 
 
-def sfcwind_2_uas_vas(sfcwind: xr.DataArray, winddir: np.array, resample=None, nb_per_day=None):
+def sfcwind_2_uas_vas(
+    sfcwind: xr.DataArray,
+    winddir: np.array,
+    resample=None,
+    nb_per_day=None
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -126,7 +136,10 @@ def sfcwind_2_uas_vas(sfcwind: xr.DataArray, winddir: np.array, resample=None, n
     return uas, vas
 
 
-def angle_diff(alpha: float, beta: float) -> float:
+def angle_diff(
+    alpha: float,
+    beta: float
+) -> float:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -147,7 +160,10 @@ def angle_diff(alpha: float, beta: float) -> float:
     return distance
 
 
-def list_cordex(p_ds: str, rcps: [str]):
+def list_cordex(
+    p_ds: str,
+    rcps: [str]
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -190,7 +206,9 @@ def list_cordex(p_ds: str, rcps: [str]):
     return list_f
 
 
-def info_cordex(d_ds: str):
+def info_cordex(
+    d_ds: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -245,7 +263,11 @@ def info_cordex(d_ds: str):
     return sets
 
 
-def calendar(x: Union[xr.Dataset, xr.DataArray], n_days_old=360, n_days_new=365):
+def calendar(
+    x: Union[xr.Dataset, xr.DataArray],
+    n_days_old=360,
+    n_days_new=365
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -304,7 +326,9 @@ def calendar(x: Union[xr.Dataset, xr.DataArray], n_days_old=360, n_days_new=365)
     return ref_365
 
 
-def extract_date(val: pd.DatetimeIndex) -> [int]:
+def extract_date(
+    val: pd.DatetimeIndex
+) -> [int]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -329,7 +353,10 @@ def extract_date(val: pd.DatetimeIndex) -> [int]:
     return [year, month, day]
 
 
-def extract_date_field(ds: Union[xr.DataArray, xr.Dataset], field: str = None) -> [int]:
+def extract_date_field(
+    ds: Union[xr.DataArray, xr.Dataset],
+    field: str = None
+) -> [int]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -389,7 +416,12 @@ def extract_date_field(ds: Union[xr.DataArray, xr.Dataset], field: str = None) -
     return res
 
 
-def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, freq=cfg.freq_D) -> pd.DatetimeIndex:
+def reset_calendar(
+    ds: Union[xr.Dataset, xr.DataArray],
+    year_1=-1,
+    year_n=-1,
+    freq=cfg.freq_D
+) -> pd.DatetimeIndex:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -433,7 +465,9 @@ def reset_calendar(ds: Union[xr.Dataset, xr.DataArray], year_1=-1, year_n=-1, fr
     return new_time
 
 
-def reset_calendar_l(years: [int]):
+def reset_calendar_l(
+    years: [int]
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -455,7 +489,9 @@ def reset_calendar_l(years: [int]):
     return new_time
 
 
-def convert_to_365_calender(ds: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dataset, xr.DataArray]:
+def convert_to_365_calender(
+    ds: Union[xr.Dataset, xr.DataArray]
+) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -487,7 +523,9 @@ def convert_to_365_calender(ds: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dat
     return ds_365
 
 
-def list_files(p: str) -> [str]:
+def list_files(
+    p: str
+) -> [str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -514,7 +552,10 @@ def list_files(p: str) -> [str]:
     return p_l
 
 
-def create_multi_dict(n: int, data_type: type) -> dict:
+def create_multi_dict(
+    n: int,
+    data_type: type
+) -> dict:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -535,7 +576,10 @@ def create_multi_dict(n: int, data_type: type) -> dict:
         return defaultdict(lambda: create_multi_dict(n - 1, data_type))
 
 
-def calc_error(da_obs: xr.DataArray, da_pred: xr.DataArray) -> float:
+def calc_error(
+    da_obs: xr.DataArray,
+    da_pred: xr.DataArray
+) -> float:
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -642,7 +686,10 @@ def get_current_time():
     return time.time()
 
 
-def log(msg: str, indent=False):
+def log(
+    msg: str,
+    indent=False
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -693,8 +740,14 @@ def log(msg: str, indent=False):
         f.close()
 
 
-def open_netcdf(p: Union[str, List[str]], drop_variables: [str] = None, chunks: dict = None, combine: str = None,
-                concat_dim: str = None, desc: str = "") -> xr.Dataset:
+def open_netcdf(
+    p: Union[str, List[str]],
+    drop_variables: [str] = None,
+    chunks: dict = None,
+    combine: str = None,
+    concat_dim: str = None,
+    desc: str = ""
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -735,7 +788,10 @@ def open_netcdf(p: Union[str, List[str]], drop_variables: [str] = None, chunks: 
     return ds
 
 
-def save_netcdf(ds: Union[xr.Dataset, xr.DataArray], p, desc=""):
+def save_netcdf(
+    ds: Union[xr.Dataset, xr.DataArray],
+    p: str,
+    desc: str = ""):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -763,6 +819,11 @@ def save_netcdf(ds: Union[xr.Dataset, xr.DataArray], p, desc=""):
     if not (os.path.exists(d)):
         os.makedirs(d)
 
+    # Create an empty file to indicate that writing is in progress.
+    p_tmp = p.replace(cfg.f_ext_nc, ".tmp")
+    if not os.path.exists(p_tmp):
+        open(p_tmp, 'a').close()
+
     # Discard file if it already exists.
     if os.path.exists(p):
         os.remove(p)
@@ -770,11 +831,56 @@ def save_netcdf(ds: Union[xr.Dataset, xr.DataArray], p, desc=""):
     # Save NetCDF file.
     ds.to_netcdf(p, "w")
 
+    # Discard the temporary file.
+    if os.path.exists(p_tmp):
+        os.remove(p_tmp)
+
     if cfg.opt_trace:
         log("Saved NetCDF file", True)
 
 
-def close_netcdf(ds: Union[xr.Dataset, xr.DataArray]):
+def clean_netcdf(
+    d: str
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Clean NetCDF files.
+    A .nc file will be removed if there's a .tmp file with the same name. The .tmp file is removed as well.
+    This is done to avoid having potentially incomplete NetCDF files, which can result in a crash.
+
+    Parameters
+    ----------
+    d : str
+        Base directory to search from.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    log("Cleaning NetCDF file", True)
+
+    # List temporary files.
+    if d[len(d) - 1] != "/":
+        d = d + "/"
+    p_tmp_l = glob.glob(d + "**/*.tmp", recursive=True)
+
+    # Loop through temporary files.
+    for p_tmp in p_tmp_l:
+
+        # Attempt removing an associated NetCDF file.
+        p_nc = p_tmp.replace(".tmp", cfg.f_ext_nc)
+        if os.path.exists(p_nc):
+            log("Removing: " + p_nc)
+            os.remove(p_nc)
+
+        # Remove the temporary file.
+        if os.path.exists(p_tmp):
+            log("Removing: " + p_tmp)
+            os.remove(p_tmp)
+
+
+def close_netcdf(
+    ds: Union[xr.Dataset, xr.DataArray]
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -791,7 +897,11 @@ def close_netcdf(ds: Union[xr.Dataset, xr.DataArray]):
         ds.close()
 
 
-def save_plot(plt: matplotlib.pyplot, p: str, desc=""):
+def save_plot(
+    plt: matplotlib.pyplot,
+    p: str,
+    desc=""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -832,7 +942,11 @@ def save_plot(plt: matplotlib.pyplot, p: str, desc=""):
         log("Saving plot", True)
 
 
-def save_csv(df: pd.DataFrame, p: str, desc=""):
+def save_csv(
+    df: pd.DataFrame,
+    p: str,
+    desc=""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -871,7 +985,10 @@ def save_csv(df: pd.DataFrame, p: str, desc=""):
         log("Saved CSV file", True)
 
 
-def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], varidx_name: str = "") -> Union[xr.Dataset, xr.Dataset]:
+def squeeze_lon_lat(
+    ds: Union[xr.Dataset, xr.Dataset],
+    varidx_name: str = ""
+) -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -905,7 +1022,9 @@ def squeeze_lon_lat(ds: Union[xr.Dataset, xr.Dataset], varidx_name: str = "") ->
     return ds_res
 
 
-def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Dataset]:
+def subset_ctrl_pt(
+    ds: Union[xr.Dataset, xr.Dataset]
+) -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -954,7 +1073,11 @@ def subset_ctrl_pt(ds: Union[xr.Dataset, xr.Dataset]) -> Union[xr.Dataset, xr.Da
     return ds_res
 
 
-def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_min: int, doy_max) -> Union[xr.DataArray, xr.Dataset]:
+def subset_doy(
+    da_or_ds: Union[xr.DataArray, xr.Dataset],
+    doy_min: int,
+    doy_max: int
+) -> Union[xr.DataArray, xr.Dataset]:
 
     """
     Subset based on day of year.
@@ -986,7 +1109,11 @@ def subset_doy(da_or_ds: Union[xr.DataArray, xr.Dataset], doy_min: int, doy_max)
     return da_or_ds_res
 
 
-def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None) -> xr.Dataset:
+def subset_lon_lat(
+    ds: xr.Dataset,
+    lon_bnds=None,
+    lat_bnds=None
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1055,7 +1182,9 @@ def subset_lon_lat(ds: xr.Dataset, lon_bnds=None, lat_bnds=None) -> xr.Dataset:
     return ds_res
 
 
-def remove_feb29(ds: xr.Dataset) -> xr.Dataset:
+def remove_feb29(
+    ds: xr.Dataset
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1075,7 +1204,10 @@ def remove_feb29(ds: xr.Dataset) -> xr.Dataset:
     return ds_res
 
 
-def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
+def sel_period(
+    ds: xr.Dataset,
+    per: [float]
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1097,8 +1229,10 @@ def sel_period(ds: xr.Dataset, per: [float]) -> xr.Dataset:
     return ds_res
 
 
-def get_coordinates(ds: Union[xr.Dataset, xr.DataArray], array_format: bool = False) ->\
-        Tuple[Union[List[float], xr.DataArray], Union[List[float], xr.DataArray]]:
+def get_coordinates(
+    ds: Union[xr.Dataset, xr.DataArray],
+    array_format: bool = False
+) -> Tuple[Union[List[float], xr.DataArray], Union[List[float], xr.DataArray]]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1146,8 +1280,10 @@ def get_coordinates(ds: Union[xr.Dataset, xr.DataArray], array_format: bool = Fa
     return lon_vals, lat_vals
 
 
-def copy_coordinates(ds_from: Union[xr.Dataset, xr.DataArray], ds_to: Union[xr.Dataset, xr.DataArray]) ->\
-        Union[xr.Dataset, xr.DataArray]:
+def copy_coordinates(
+    ds_from: Union[xr.Dataset, xr.DataArray],
+    ds_to: Union[xr.Dataset, xr.DataArray]
+) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1179,8 +1315,10 @@ def copy_coordinates(ds_from: Union[xr.Dataset, xr.DataArray], ds_to: Union[xr.D
     return ds_to
 
 
-def copy_attributes(ds_from: Union[xr.Dataset, xr.Dataset], ds_to: Union[xr.Dataset, xr.Dataset], var: str = "") -> \
-        Union[xr.Dataset, xr.Dataset]:
+def copy_attributes(
+    ds_from: Union[xr.Dataset, xr.Dataset],
+    ds_to: Union[xr.Dataset, xr.Dataset],
+    var: str = "") -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1207,7 +1345,10 @@ def copy_attributes(ds_from: Union[xr.Dataset, xr.Dataset], ds_to: Union[xr.Data
     return ds_to
 
 
-def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
+def subset_shape(
+    ds: xr.Dataset,
+    var: str = ""
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1252,7 +1393,10 @@ def subset_shape(ds: xr.Dataset, var: str = "") -> xr.Dataset:
     return ds_res
 
 
-def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
+def apply_mask(
+    da: xr.DataArray,
+    da_mask: xr.DataArray
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1303,7 +1447,9 @@ def apply_mask(da: xr.DataArray, da_mask: xr.DataArray) -> xr.DataArray:
     return da_res
 
 
-def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> [str]:
+def get_coord_names(
+    ds_or_da: Union[xr.Dataset, xr.DataArray]
+) -> [str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1331,8 +1477,11 @@ def get_coord_names(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> [str]:
     return coord_dict
 
 
-def rename_dimensions(da: xr.DataArray, lat_name: str = cfg.dim_latitude, lon_name: str = cfg.dim_longitude)\
-        -> xr.DataArray:
+def rename_dimensions(
+    da: xr.DataArray,
+    lat_name: str = cfg.dim_latitude,
+    lon_name: str = cfg.dim_longitude
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1367,7 +1516,9 @@ def rename_dimensions(da: xr.DataArray, lat_name: str = cfg.dim_latitude, lon_na
     return da
 
 
-def interpolate_na_fix(ds_or_da: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dataset, xr.DataArray]:
+def interpolate_na_fix(
+    ds_or_da: Union[xr.Dataset, xr.DataArray]
+) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1451,7 +1602,9 @@ def create_mask() -> xr.DataArray:
     return da_mask
 
 
-def doy_str_to_doy(doy_str: str) -> int:
+def doy_str_to_doy(
+    doy_str: str
+) -> int:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1474,7 +1627,10 @@ def doy_str_to_doy(doy_str: str) -> int:
     return doy
 
 
-def doy_to_doy_str(doy: int, n_days: int = 365) -> str:
+def doy_to_doy_str(
+    doy: int,
+    n_days: int = 365
+) -> str:
 
     """
     --------------------------------------------------------------------------------------------------------------------

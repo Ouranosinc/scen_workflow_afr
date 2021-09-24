@@ -19,7 +19,12 @@ import xarray as xr
 import warnings
 
 
-def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
+def aggregate(
+    p_hour: str,
+    p_day: str,
+    set_name: str,
+    var: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -133,7 +138,9 @@ def aggregate(p_hour: str, p_day: str, set_name: str, var: str):
             plot.plot_dayofyear(ds_day, set_name, var, dbg_date)
 
 
-def calc_vapour_pressure(da_tas: xr.DataArray) -> xr.DataArray:
+def calc_vapour_pressure(
+    da_tas: xr.DataArray
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -159,7 +166,10 @@ def calc_vapour_pressure(da_tas: xr.DataArray) -> xr.DataArray:
     return da_vp
 
 
-def calc_spec_humidity(da_tas: xr.DataArray, da_ps: xr.DataArray) -> xr.DataArray:
+def calc_spec_humidity(
+    da_tas: xr.DataArray,
+    da_ps: xr.DataArray
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -188,7 +198,12 @@ def calc_spec_humidity(da_tas: xr.DataArray, da_ps: xr.DataArray) -> xr.DataArra
     return da_sh
 
 
-def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
+def gen_dataset_sh(
+    p_d2m: str,
+    p_sp: str,
+    p_sh: str,
+    n_years: int
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -225,7 +240,12 @@ def gen_dataset_sh(p_d2m: str, p_sp: str, p_sh: str, n_years: int):
     utils.save_netcdf(da_sh, p_sh)
 
 
-def gen_dataset_uv10(p_u10: str, p_v10: str, p_uv10: str, n_years: int):
+def gen_dataset_uv10(
+    p_u10: str,
+    p_v10: str,
+    p_uv10: str,
+    n_years: int
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------

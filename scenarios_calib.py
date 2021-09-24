@@ -21,7 +21,12 @@ import xarray as xr
 import warnings
 
 
-def bias_adj(stn: str, var: str, sim_name: str = "", calc_err: bool = False):
+def bias_adj(
+    stn: str,
+    var: str,
+    sim_name: str = "",
+    calc_err: bool = False
+):
 
     """
     -------------------------------------------------------------------------------------------------------------------
@@ -244,7 +249,9 @@ def init_calib_params():
             utils.log("Calibration file created or updated.", True)
 
 
-def adjust_date_format(ds: xr.Dataset):
+def adjust_date_format(
+    ds: xr.Dataset
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------

@@ -162,7 +162,8 @@ Implemented features:
   modified ini files accordingly;
 - Added information about the climate indices parameters in config.py;
 - Now using a dayofyear string (ex: '04-14' for April 14th) instead of dayofyear (ex: 104 for April 14th) as the input
-  to climate index functions (also applies to .ini files).
+  to climate index functions (also applies to .ini files);
+- Adding function 'utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec directory. 
 
 ## Contributing
 

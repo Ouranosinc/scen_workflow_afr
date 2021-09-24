@@ -25,8 +25,19 @@ from streamlit import caching
 from typing import Union, List
 
 
-def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code: str, rcp: str, hor: [int],
-              per_region: bool, clip: bool, stat: str, q: float = -1) -> Union[xr.Dataset, None]:
+def calc_stat(
+    data_type: str,
+    freq_in: str,
+    freq_out: str,
+    stn: str,
+    varidx_code: str,
+    rcp: str,
+    hor: [int],
+    per_region: bool,
+    clip: bool,
+    stat: str,
+    q: float = -1
+) -> Union[xr.Dataset, None]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -266,7 +277,9 @@ def calc_stat(data_type: str, freq_in: str, freq_out: str, stn: str, varidx_code
     return ds_stat
 
 
-def calc_stats(cat: str):
+def calc_stats(
+    cat: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -411,7 +424,9 @@ def calc_stats(cat: str):
                 utils.save_csv(df, p_csv)
 
 
-def calc_ts(cat: str):
+def calc_ts(
+    cat: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -649,7 +664,10 @@ def calc_ts(cat: str):
                                  varidx_code, rcps, ylim, p_fig_sim, 2)
 
 
-def calc_stat_mean_min_max(ds_l: [xr.Dataset], varidx_name: str):
+def calc_stat_mean_min_max(
+    ds_l: [xr.Dataset],
+    varidx_name: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -714,7 +732,12 @@ def calc_stat_mean_min_max(ds_l: [xr.Dataset], varidx_name: str):
     return ds_mean_min_max
 
 
-def calc_by_freq(ds: xr.Dataset, var: str, per: [int, int], freq: str) -> List[xr.Dataset]:
+def calc_by_freq(
+    ds: xr.Dataset,
+    var: str,
+    per: [int, int],
+    freq: str
+) -> List[xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -807,7 +830,9 @@ def calc_by_freq(ds: xr.Dataset, var: str, per: [int, int], freq: str) -> List[x
     return ds_l
 
 
-def calc_heatmap(varidx_code: str):
+def calc_heatmap(
+    varidx_code: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1000,7 +1025,13 @@ def calc_heatmap(varidx_code: str):
                     utils.save_csv(df, p_csv)
 
 
-def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float) -> xr.Dataset:
+def calc_heatmap_rcp(
+    varidx_code: str,
+    rcp: str,
+    per: [int],
+    stat: str,
+    q: float
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1295,7 +1326,9 @@ def calc_heatmap_rcp(varidx_code: str, rcp: str, per: [int], stat: str, q: float
     return ds_res
 
 
-def conv_nc_csv(cat: str):
+def conv_nc_csv(
+    cat: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1374,7 +1407,11 @@ def conv_nc_csv(cat: str):
                             break
 
 
-def conv_nc_csv_single(p_l: [str], varidx_code: str, i_file: int):
+def conv_nc_csv_single(
+    p_l: [str],
+    varidx_code: str,
+    i_file: int
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------

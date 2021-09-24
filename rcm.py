@@ -17,8 +17,15 @@ import utils
 import clisops.core.subset as subset
 
 
-def extract_variable(d_ref: str, d_fut: str, var: str, lat_bnds: [float], lon_bnds: [float],
-                     priority_timestep: str = None, tmpdir: str = None):
+def extract_variable(
+    d_ref: str,
+    d_fut: str,
+    var: str,
+    lat_bnds: [float],
+    lon_bnds: [float],
+    priority_timestep: str = None,
+    tmpdir: str = None
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------

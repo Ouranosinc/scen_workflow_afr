@@ -28,7 +28,9 @@ from xclim.core.units import convert_units_to
 from xclim.core.utils import DayOfYearStr
 
 
-def generate(idx_code: str):
+def generate(
+    idx_code: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -252,8 +254,16 @@ def generate(idx_code: str):
                         break
 
 
-def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str], stn: str, rcp: str,
-                    da_mask: xr.DataArray, i_sim: int):
+def generate_single(
+    idx_code: str,
+    idx_params,
+    varidx_name_l: [str],
+    p_sim: [str],
+    stn: str,
+    rcp: str,
+    da_mask: xr.DataArray,
+    i_sim: int
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -881,7 +891,11 @@ def generate_single(idx_code: str, idx_params, varidx_name_l: [str], p_sim: [str
                 float(round(da_idx.quantile(param_pr).values.ravel()[0], 2))
 
 
-def precip_accumulation(da_pr: xr.DataArray, doy_min: int, doy_max: int) -> xr.DataArray:
+def precip_accumulation(
+    da_pr: xr.DataArray,
+    doy_min: int,
+    doy_max: int
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -907,7 +921,12 @@ def precip_accumulation(da_pr: xr.DataArray, doy_min: int, doy_max: int) -> xr.D
     return da_idx
 
 
-def tx_days_above(da_tasmax: xr.DataArray, param_tasmax: str, doy_min: int, doy_max: int) -> xr.DataArray:
+def tx_days_above(
+    da_tasmax: xr.DataArray,
+    param_tasmax: str,
+    doy_min: int,
+    doy_max: int
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -937,7 +956,12 @@ def tx_days_above(da_tasmax: xr.DataArray, param_tasmax: str, doy_min: int, doy_
     return da_idx
 
 
-def tn_days_below(da_tasmin: xr.DataArray, param_tasmin: str, doy_min: int, doy_max: int) -> xr.DataArray:
+def tn_days_below(
+    da_tasmin: xr.DataArray,
+    param_tasmin: str,
+    doy_min: int,
+    doy_max: int
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -967,8 +991,14 @@ def tn_days_below(da_tasmin: xr.DataArray, param_tasmin: str, doy_min: int, doy_
     return da_idx
 
 
-def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tasmin: str = "22.0 degC",
-                         param_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+def heat_wave_max_length(
+    tasmin: xr.DataArray,
+    tasmax: xr.DataArray,
+    param_tasmin: str = "22.0 degC",
+    param_tasmax: str = "30 degC",
+    window: int = 3,
+    freq: str = cfg.freq_YS
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1013,8 +1043,14 @@ def heat_wave_max_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tasmi
         return max_l.where(max_l >= window, 0)
 
 
-def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tasmin: str = "22.0 degC",
-                           param_tasmax: str = "30 degC", window: int = 3, freq: str = cfg.freq_YS) -> xr.DataArray:
+def heat_wave_total_length(
+    tasmin: xr.DataArray,
+    tasmax: xr.DataArray,
+    param_tasmin: str = "22.0 degC",
+    param_tasmax: str = "30 degC",
+    window: int = 3,
+    freq: str = cfg.freq_YS
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1058,8 +1094,15 @@ def heat_wave_total_length(tasmin: xr.DataArray, tasmax: xr.DataArray, param_tas
         return group.map(rl.windowed_run_count, args=(window,), dim=cfg.dim_time)
 
 
-def dry_spell_total_length(da_pr: xr.DataArray,  per: str, pr_tot: float, dt_dry: int, pr_dry: float, doy_str_min: str,
-                           doy_str_max: str) -> xr.DataArray:
+def dry_spell_total_length(
+    da_pr: xr.DataArray,
+    per: str,
+    pr_tot: float,
+    dt_dry: int,
+    pr_dry: float,
+    doy_str_min: str,
+    doy_str_max: str
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1132,11 +1175,24 @@ def dry_spell_total_length(da_pr: xr.DataArray,  per: str, pr_tot: float, dt_dry
     return da_idx
 
 
-def rain_season(da_pr: xr.DataArray, da_etp: xr.DataArray, da_start_next: xr.DataArray, start_pr_wet: float,
-                start_dt_wet: int, start_doy_str_min: str, start_doy_str_max: str, start_pr_dry: float,
-                start_dt_dry: int, start_dt_tot: int, end_method: str, end_pr: float, end_etp: float, end_dt: float,
-                end_doy_str_min: str, end_doy_str_max: str)\
-        -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
+def rain_season(
+    da_pr: xr.DataArray,
+    da_etp: xr.DataArray,
+    da_start_next: xr.DataArray,
+    start_pr_wet: float,
+    start_dt_wet: int,
+    start_doy_str_min: str,
+    start_doy_str_max: str,
+    start_pr_dry: float,
+    start_dt_dry: int,
+    start_dt_tot: int,
+    end_method: str,
+    end_pr: float,
+    end_etp: float,
+    end_dt: float,
+    end_doy_str_min: str,
+    end_doy_str_max: str
+) -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1228,8 +1284,16 @@ def rain_season(da_pr: xr.DataArray, da_etp: xr.DataArray, da_start_next: xr.Dat
     return da_start, da_end, da_length, da_prcptot
 
 
-def rain_season_start(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_str_min: str, doy_str_max: str,
-                      pr_dry: float, dt_dry: int, dt_tot: int) -> xr.DataArray:
+def rain_season_start(
+    da_pr: xr.DataArray,
+    pr_wet: float,
+    dt_wet: int,
+    doy_str_min: str,
+    doy_str_max: str,
+    pr_dry: float,
+    dt_dry: int,
+    dt_tot: int
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1319,8 +1383,18 @@ def rain_season_start(da_pr: xr.DataArray, pr_wet: float, dt_wet: int, doy_str_m
     return da_start
 
 
-def rain_season_end(da_pr: xr.DataArray, da_etp: xr.DataArray, da_start: xr.DataArray, da_start_next: xr.DataArray,
-                    method: str, pr: float, etp: float, dt: float, doy_str_min: str, doy_str_max: str) -> xr.DataArray:
+def rain_season_end(
+    da_pr: xr.DataArray,
+    da_etp: xr.DataArray,
+    da_start: xr.DataArray,
+    da_start_next: xr.DataArray,
+    method: str,
+    pr: float,
+    etp: float,
+    dt: float,
+    doy_str_min: str,
+    doy_str_max: str
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1485,7 +1559,11 @@ def rain_season_end(da_pr: xr.DataArray, da_etp: xr.DataArray, da_start: xr.Data
     return da_end
 
 
-def rain_season_prcptot(da_pr: xr.DataArray, da_start: xr.DataArray, da_end: xr.DataArray) -> xr.DataArray:
+def rain_season_prcptot(
+    da_pr: xr.DataArray,
+    da_start: xr.DataArray,
+    da_end: xr.DataArray
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1507,8 +1585,15 @@ def rain_season_prcptot(da_pr: xr.DataArray, da_start: xr.DataArray, da_end: xr.
     return da_prcptot
 
 
-def w_days_above(da_vv: xr.DataArray, da_dd: xr.DataArray, param_vv: float, param_dd: float,
-                 param_dd_tol: float, doy_str_min: str, doy_str_max: str) -> xr.DataArray:
+def w_days_above(
+    da_vv: xr.DataArray,
+    da_dd: xr.DataArray,
+    param_vv: float,
+    param_dd: float,
+    param_dd_tol: float,
+    doy_str_min: str,
+    doy_str_max: str
+) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------

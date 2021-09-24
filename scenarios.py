@@ -30,7 +30,9 @@ from qm import train, predict
 from scipy.interpolate import griddata
 
 
-def load_observations(var: str):
+def load_observations(
+    var: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -185,7 +187,9 @@ def load_observations(var: str):
         utils.save_netcdf(ds, p_stn, desc=desc)
 
 
-def load_reanalysis(var_ra: str):
+def load_reanalysis(
+    var_ra: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -287,7 +291,13 @@ def load_reanalysis(var_ra: str):
         utils.save_netcdf(ds, p_stn, desc=desc)
 
 
-def extract(var: str, ds_stn: xr.Dataset, d_ref: str, d_fut: str, p_raw: str):
+def extract(
+    var: str,
+    ds_stn: xr.Dataset,
+    d_ref: str,
+    d_fut: str,
+    p_raw: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -363,7 +373,12 @@ def extract(var: str, ds_stn: xr.Dataset, d_ref: str, d_fut: str, p_raw: str):
     utils.save_netcdf(ds_raw, p_raw, desc=desc)
 
 
-def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
+def interpolate(
+    var: str,
+    ds_stn: xr.Dataset,
+    p_raw: str,
+    p_regrid: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -445,7 +460,11 @@ def interpolate(var: str, ds_stn: xr.Dataset, p_raw: str, p_regrid: str):
         utils.log(msg + " (not required)", True)
 
 
-def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
+def regrid(
+    ds_data: xr.Dataset,
+    ds_grid: xr.Dataset,
+    var: str
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -522,7 +541,10 @@ def regrid(ds_data: xr.Dataset, ds_grid: xr.Dataset, var: str) -> xr.Dataset:
     return ds_regrid
 
 
-def perturbate(ds: xr.Dataset, var: str) -> xr.Dataset:
+def perturbate(
+    ds: xr.Dataset,
+    var: str
+) -> xr.Dataset:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -564,7 +586,14 @@ def perturbate(ds: xr.Dataset, var: str) -> xr.Dataset:
     return ds
 
 
-def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid_ref: str, p_regrid_fut: str):
+def preprocess(
+    var: str,
+    ds_stn: xr.Dataset,
+    p_obs: str,
+    p_regrid: str,
+    p_regrid_ref: str,
+    p_regrid_fut: str
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -645,8 +674,19 @@ def preprocess(var: str, ds_stn: xr.Dataset, p_obs: str, p_regrid: str, p_regrid
         utils.save_netcdf(ds_regrid_ref, p_regrid_ref, desc=desc)
 
 
-def postprocess(var: str, nq: int, up_qmf: float, time_win: int, ds_stn: xr.Dataset, p_ref: str, p_fut: str,
-                p_qqmap: str, p_qmf: str, title: str = "", p_fig: str = ""):
+def postprocess(
+    var: str,
+    nq: int,
+    up_qmf: float,
+    time_win: int,
+    ds_stn: xr.Dataset,
+    p_ref: str,
+    p_fut: str,
+    p_qqmap: str,
+    p_qmf: str,
+    title: str = "",
+    p_fig: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1017,8 +1057,17 @@ def generate():
                     scenarios_calib.bias_adj(stn, var, sim_name, True)
 
 
-def generate_single(list_cordex_ref: [str], list_cordex_fut: [str], ds_stn: xr.Dataset, d_raw: str, var: str, stn: str,
-                    rcp: str, extract_only: bool, i_sim_proc: int):
+def generate_single(
+    list_cordex_ref: [str],
+    list_cordex_fut: [str],
+    ds_stn: xr.Dataset,
+    d_raw: str,
+    var: str,
+    stn: str,
+    rcp: str,
+    extract_only: bool,
+    i_sim_proc: int
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1347,7 +1396,15 @@ def run():
         utils.log(msg + " (not required)")
 
 
-def gen_plot_freq(ds: xr.Dataset, stn: str, var: str, per: [int, int], freq: str, title: str, i_trial: int = 1):
+def gen_plot_freq(
+    ds: xr.Dataset,
+    stn: str,
+    var: str,
+    per: [int, int],
+    freq: str,
+    title: str,
+    i_trial: int = 1
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
