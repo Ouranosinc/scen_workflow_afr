@@ -466,8 +466,8 @@ def calc_ts(
             utils.log("Processing: " + stn + ", " + idx_desc, True)
 
             # Files to be created.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", varidx_code_grp + "_csv") +\
-                varidx_name + cfg.f_ext_csv
+            p_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "time_series", varidx_code_grp +
+                                   "_csv") + varidx_name + cfg.f_ext_csv
             if not (((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1]))) and\
                     (os.path.exists(p_csv) or cfg.opt_force_overwrite):
                 continue
@@ -653,8 +653,8 @@ def calc_ts(
                 if ((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1])):
 
                     # Time series with simulations grouped by RCP scenario.
-                    p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/time_series", varidx_code_grp) +\
-                                varidx_name + "_rcp" + cfg.f_ext_png
+                    p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "time_series",
+                                               varidx_code_grp) + varidx_name + "_rcp" + cfg.f_ext_png
                     plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(),
                                  varidx_code, rcps, ylim, p_fig_rcp, 1)
 
@@ -977,8 +977,8 @@ def calc_heatmap(
                 # Plots ------------------------------------------------------------------------------------------------
 
                 # Path.
-                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", varidx_code_grp + "/" +
-                                       varidx_code + "/" + per_str)
+                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps", varidx_code_grp + cfg.sep +
+                                       varidx_code + cfg.sep + per_str)
                 if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
                     stat_str = "_" + stat
                 else:
@@ -997,8 +997,8 @@ def calc_heatmap(
                 # CSV files --------------------------------------------------------------------------------------------
 
                 # Path.
-                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat + "/maps", varidx_code_grp + "/" +
-                                       varidx_code + "_csv" + "/" + per_str)
+                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps", varidx_code_grp + cfg.sep +
+                                       varidx_code + "_csv" + cfg.sep + per_str)
                 fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
                 p_csv = d_csv + fn_csv
                 if j == 1:
@@ -1434,8 +1434,8 @@ def conv_nc_csv_single(
     # Paths.
     p = p_l[i_file]
     p_csv = p.replace(cfg.f_ext_nc, cfg.f_ext_csv).\
-        replace("/" + varidx_code_grp + "_", "/" + varidx_name + "_").\
-        replace("/" + varidx_code_grp + "/", "/" + varidx_code_grp + "_" + cfg.f_csv + "/")
+        replace(cfg.sep + varidx_code_grp + "_", cfg.sep + varidx_name + "_").\
+        replace(cfg.sep + varidx_code_grp + cfg.sep, cfg.sep + varidx_code_grp + "_" + cfg.f_csv + cfg.sep)
 
     if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
         return()

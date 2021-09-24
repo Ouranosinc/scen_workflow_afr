@@ -72,15 +72,19 @@ def extract_variable(
     if "cordex" in d_ref.lower():
 
         # Find the data at the requested timestep.
-        p_ref = d_ref.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
-        p_fut = d_fut.replace("/*/", "/" + priority_timestep + "/") + var + "/*" + cfg.f_ext_nc
+        p_ref = d_ref.replace(cfg.sep + "*" + cfg.sep, cfg.sep + priority_timestep + cfg.sep) +\
+            var + cfg.sep + "*" + cfg.f_ext_nc
+        p_fut = d_fut.replace(cfg.sep + "*" + cfg.sep, cfg.sep + priority_timestep + cfg.sep) +\
+            var + cfg.sep + "*" + cfg.f_ext_nc
         p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
         # Since CORDEX-NA (once again) screwed up their directories, we need
         # to check in /raw/ as well.
         if not p_l:
-            p_ref = d_ref.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
-            p_fut = d_fut.replace("/*/", "/" + priority_timestep + "/") + cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
+            p_ref = d_ref.replace(cfg.sep + "*" + cfg.sep, cfg.sep + priority_timestep + cfg.sep) +\
+                cfg.cat_raw + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc
+            p_fut = d_fut.replace(cfg.sep + "*" + cfg.sep, cfg.sep + priority_timestep + cfg.sep) +\
+                cfg.cat_raw + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc
             p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
         # If no data was found, search other time resolutions.
@@ -89,14 +93,16 @@ def extract_variable(
             index_ts       = timestep_order.index(priority_timestep) + 1
 
             while not p_l and index_ts <= len(timestep_order)-1:
-                p_ref = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
-                p_fut = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") + var + "/*" + cfg.f_ext_nc
+                p_ref = d_ref.replace(cfg.sep + "*" + cfg.sep, cfg.sep + timestep_order[index_ts] + cfg.sep) +\
+                    var + cfg.sep + "*" + cfg.f_ext_nc
+                p_fut = d_fut.replace(cfg.sep + "*" + cfg.sep, cfg.sep + timestep_order[index_ts] + cfg.sep) +\
+                    var + cfg.sep + "*" + cfg.f_ext_nc
                 p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
                 if not p_l:
-                    p_ref  = d_ref.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
-                        cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
-                    p_fut  = d_fut.replace("/*/", "/" + timestep_order[index_ts] + "/") +\
-                        cfg.cat_raw + "/" + var + "/*" + cfg.f_ext_nc
+                    p_ref  = d_ref.replace(cfg.sep + "*" + cfg.sep, cfg.sep + timestep_order[index_ts] + cfg.sep) +\
+                        cfg.cat_raw + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc
+                    p_fut  = d_fut.replace(cfg.sep + "*" + cfg.sep, cfg.sep + timestep_order[index_ts] + cfg.sep) +\
+                        cfg.cat_raw + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc
                     p_l = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
                 index_ts = index_ts + 1
 
@@ -116,7 +122,7 @@ def extract_variable(
 
     elif len(d_ref) == 3:
 
-        suffix = "/series/" + ("[0-9]"*6) + "/" + var + "_*" + cfg.f_ext_nc
+        suffix = cfg.sep + "series" + cfg.sep + ("[0-9]"*6) + cfg.sep + var + "_*" + cfg.f_ext_nc
 
         # List files for the reference and future periods.
         p_ref_l = glob.glob(cfg.d_proj + d_ref + suffix)
@@ -126,16 +132,16 @@ def extract_variable(
         # Because there is so much data, we only keep the files for the years we actually want.
         p_l = []
         for x in range(len(all_yr)):
-            p_l.extend([s for s in p_all_l if "/" + str(all_yr[x]) in s])
+            p_l.extend([s for s in p_all_l if cfg.sep + str(all_yr[x]) in s])
         p_l = sorted(p_l)
 
         # This takes a while, but allows us to use the code without overloading the server. Basically, for each year
         # (12 files), we extract the data and save it to a NetCDF.
         for y in np.arange(all_yr[0], all_yr[len(all_yr)-1], 10):
 
-            p_l_sub = [f for f in p_l if "/" + str(y) in f]
+            p_l_sub = [f for f in p_l if cfg.sep + str(y) in f]
             for yy in range(y + 1, y + 10):
-                p_l_sub.extend([f for f in p_l if "/" + str(yy) in f])
+                p_l_sub.extend([f for f in p_l if cfg.sep + str(yy) in f])
 
             ds_tmp = utils.open_netcdf(p_l_sub, chunks={cfg.dim_time: 31},
                                        drop_variables=["time_vectors", "ts", "time_bnds"])

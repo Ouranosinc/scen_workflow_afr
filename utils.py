@@ -191,7 +191,7 @@ def list_cordex(
 
         # Remove timestep information.
         for i in range(0, len(d_l)):
-            tokens = d_l[i].split("/")
+            tokens = d_l[i].split(cfg.sep)
             d_l[i] = d_l[i].replace(tokens[len(tokens) - 4], "*")
 
         # Keep only the unique simulation folders (with a * as the timestep).
@@ -237,12 +237,13 @@ def info_cordex(
     sets = []
 
     # List directories containing simulation sets.
-    d_format = d_ds + "*/*/AFR-*/day/atmos/*/"
-    n_token = len(d_ds.split("/")) - 2
+    d_format =\
+        d_ds + "*" + cfg.sep + "*" + cfg.sep + "AFR-*" + cfg.sep + "day" + cfg.sep + "atmos" + cfg.sep + "*" + cfg.sep
+    n_token = len(d_ds.split(cfg.sep)) - 2
 
     # Loop through simulations sets.
     for i in glob.glob(d_format):
-        tokens_i = i.split("/")
+        tokens_i = i.split(cfg.sep)
 
         # Extract institute, RGM, CGM and emission scenario.
         inst = tokens_i[n_token + 1]
@@ -252,10 +253,10 @@ def info_cordex(
 
         # Extract variables and ensure that there is at least one NetCDF file available for each  one.
         vars_i = []
-        for j in glob.glob(i + "*/"):
+        for j in glob.glob(i + "*" + cfg.sep):
             n_netcdf = len(glob.glob(j + "*" + cfg.f_ext_nc))
             if n_netcdf > 0:
-                tokens_j = j.split("/")
+                tokens_j = j.split(cfg.sep)
                 var      = tokens_j[len(tokens_j) - 2]
                 vars_i.append(var)
 
@@ -860,9 +861,9 @@ def clean_netcdf(
     log("Cleaning NetCDF file", True)
 
     # List temporary files.
-    if d[len(d) - 1] != "/":
-        d = d + "/"
-    p_inc_l = glob.glob(d + "**/*.incomplete", recursive=True)
+    if d[len(d) - 1] != cfg.sep:
+        d = d + cfg.sep
+    p_inc_l = glob.glob(d + "**" + cfg.sep + "*.incomplete", recursive=True)
 
     # Loop through temporary files.
     for p_inc in p_inc_l:

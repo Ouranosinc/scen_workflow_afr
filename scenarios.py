@@ -183,7 +183,7 @@ def load_observations(
 
         # Save data.
         p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + cfg.f_ext_nc
-        desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
+        desc = cfg.sep + cfg.cat_obs + cfg.sep + os.path.basename(p_stn)
         utils.save_netcdf(ds, p_stn, desc=desc)
 
 
@@ -207,8 +207,8 @@ def load_reanalysis(
     var = cfg.convert_var_name(var_ra)
 
     # Paths.
-    p_stn_l = list(glob.glob(cfg.d_ra_day + var_ra + "/*" + cfg.f_ext_nc))
-    p_stn = cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + cfg.f_ext_nc
+    p_stn_l = list(glob.glob(cfg.d_ra_day + var_ra + cfg.sep + "*" + cfg.f_ext_nc))
+    p_stn = cfg.d_stn + var + cfg.sep + var + "_" + cfg.obs_src + cfg.f_ext_nc
     d_stn = os.path.dirname(p_stn)
     if not (os.path.isdir(d_stn)):
         os.makedirs(d_stn)
@@ -287,7 +287,7 @@ def load_reanalysis(
             ds[var] = -ds[var]
 
         # Save data.
-        desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_stn)
+        desc = cfg.sep + cfg.cat_obs + cfg.sep + os.path.basename(p_stn)
         utils.save_netcdf(ds, p_stn, desc=desc)
 
 
@@ -341,7 +341,7 @@ def extract(
 
         # Projections.
         # Must use xr.open_dataset here, otherwise there is a problem in parallel mode.
-        p_proj = list(glob.glob(d_ref + var + "/*" + cfg.f_ext_nc))[0]
+        p_proj = list(glob.glob(d_ref + var + cfg.sep + "*" + cfg.f_ext_nc))[0]
         try:
             ds_proj = xr.open_dataset(p_proj)
         except xcv.MissingDimensionsError:
@@ -369,7 +369,7 @@ def extract(
                                   tmpdir=d_raw)
 
     # Save NetCDF file (raw).
-    desc = "/" + cfg.cat_raw + "/" + os.path.basename(p_raw)
+    desc = cfg.sep + cfg.cat_raw + cfg.sep + os.path.basename(p_raw)
     utils.save_netcdf(ds_raw, p_raw, desc=desc)
 
 
@@ -422,7 +422,7 @@ def interpolate(
             ds_raw = ds_raw.resample(time="1D").mean(dim=cfg.dim_time, keep_attrs=True)
 
         # Save NetCDF file (raw).
-        desc = "/" + cfg.cat_raw + "/" + os.path.basename(p_raw)
+        desc = cfg.sep + cfg.cat_raw + cfg.sep + os.path.basename(p_raw)
         utils.save_netcdf(ds_raw, p_raw, desc=desc)
         ds_raw = utils.open_netcdf(p_raw)
     else:
@@ -452,7 +452,7 @@ def interpolate(
             ds_regrid = ds_raw.sel(rlat=lat_stn, rlon=lon_stn, method="nearest", tolerance=1)
 
         # Save NetCDF file (regrid).
-        desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid)
+        desc = cfg.sep + cfg.cat_regrid + cfg.sep + os.path.basename(p_regrid)
         utils.save_netcdf(ds_regrid, p_regrid, desc=desc)
 
     else:
@@ -627,7 +627,7 @@ def preprocess(
         ds_obs = utils.sel_period(ds_obs, cfg.per_ref)
 
         # Save NetCDF file.
-        desc = "/" + cfg.cat_obs + "/" + os.path.basename(p_obs)
+        desc = cfg.sep + cfg.cat_obs + cfg.sep + os.path.basename(p_obs)
         utils.save_netcdf(ds_obs, p_obs, desc=desc)
 
     # Simulated climate (future period) --------------------------------------------------------------------------------
@@ -655,7 +655,7 @@ def preprocess(
         ds_regrid_fut = utils.convert_to_365_calender(ds_regrid_fut)
 
         # Save dataset.
-        desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid_fut)
+        desc = cfg.sep + cfg.cat_regrid + cfg.sep + os.path.basename(p_regrid_fut)
         utils.save_netcdf(ds_regrid_fut, p_regrid_fut, desc=desc)
 
     # Simulated climate (reference period) -----------------------------------------------------------------------------
@@ -670,7 +670,7 @@ def preprocess(
             ds_regrid_ref[var][pos] = 1e-12
 
         # Save dataset.
-        desc = "/" + cfg.cat_regrid + "/" + os.path.basename(p_regrid_ref)
+        desc = cfg.sep + cfg.cat_regrid + cfg.sep + os.path.basename(p_regrid_ref)
         utils.save_netcdf(ds_regrid_ref, p_regrid_ref, desc=desc)
 
 
@@ -779,7 +779,7 @@ def postprocess(
         ds_qmf[var].attrs[cfg.attrs_kind] = da_qmf.attrs[cfg.attrs_kind]
         ds_qmf[var].attrs[cfg.attrs_units] = da_ref.attrs[cfg.attrs_units]
         if p_qmf != "":
-            desc = "/" + cfg.cat_qmf + "/" + os.path.basename(p_qmf)
+            desc = cfg.sep + cfg.cat_qmf + cfg.sep + os.path.basename(p_qmf)
             utils.save_netcdf(ds_qmf, p_qmf, desc=desc)
             ds_qmf = utils.open_netcdf(p_qmf)
 
@@ -803,7 +803,7 @@ def postprocess(
             if cfg.attrs_gmap in da_stn.attrs:
                 ds_qqmap[var].attrs[cfg.attrs_gmap]  = da_stn.attrs[cfg.attrs_gmap]
             if p_qqmap != "":
-                desc = "/" + cfg.cat_qqmap + "/" + os.path.basename(p_qqmap)
+                desc = cfg.sep + cfg.cat_qqmap + cfg.sep + os.path.basename(p_qqmap)
                 utils.save_netcdf(ds_qqmap, p_qqmap, desc=desc)
                 ds_qqmap = utils.open_netcdf(p_qqmap)
 
@@ -936,7 +936,7 @@ def generate():
             p_stn_l = glob.glob(d_stn + "*" + cfg.f_ext_nc)
             p_stn_l.sort()
         else:
-            p_stn_l = [cfg.d_stn + var + "/" + var + "_" + cfg.obs_src + cfg.f_ext_nc]
+            p_stn_l = [cfg.d_stn + var + cfg.sep + var + "_" + cfg.obs_src + cfg.f_ext_nc]
 
         # Loop through stations.
         for i_stn in range(0, len(p_stn_l)):
@@ -953,13 +953,13 @@ def generate():
             # Directories.
             d_stn    = cfg.get_d_stn(var)
             d_obs    = cfg.get_d_scen(stn, cfg.cat_obs, var)
-            d_raw    = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_raw, var)
-            d_regrid = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_regrid, var)
-            d_qqmap  = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_qqmap, var)
-            d_qmf    = cfg.get_d_scen(stn, cfg.cat_scen + "/" + cfg.cat_qmf, var)
-            d_fig_calibration = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_calibration, var)
-            d_fig_postprocess = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var)
-            d_fig_workflow    = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var)
+            d_raw    = cfg.get_d_scen(stn, cfg.cat_scen + cfg.sep + cfg.cat_raw, var)
+            d_regrid = cfg.get_d_scen(stn, cfg.cat_scen + cfg.sep + cfg.cat_regrid, var)
+            d_qqmap  = cfg.get_d_scen(stn, cfg.cat_scen + cfg.sep + cfg.cat_qqmap, var)
+            d_qmf    = cfg.get_d_scen(stn, cfg.cat_scen + cfg.sep + cfg.cat_qmf, var)
+            d_fig_calibration = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_calibration, var)
+            d_fig_postprocess = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_postprocess, var)
+            d_fig_workflow    = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_workflow, var)
 
             # Load station data, drop February 29th and select reference period.
             ds_stn = utils.open_netcdf(p_stn)
@@ -1052,7 +1052,7 @@ def generate():
 
                 # Calculate bias adjustment errors.
                 for i_sim in range(n_sim):
-                    tokens = list_cordex_fut[i_sim].split("/")
+                    tokens = list_cordex_fut[i_sim].split(cfg.sep)
                     sim_name = tokens[cfg.get_rank_inst()] + "_" + tokens[cfg.get_rank_gcm()]
                     scenarios_calib.bias_adj(stn, var, sim_name, True)
 
@@ -1103,7 +1103,7 @@ def generate_single(
     d_sim_fut = list_cordex_fut[i_sim_proc]
 
     # Get simulation name.
-    tokens = d_sim_fut.split("/")
+    tokens = d_sim_fut.split(cfg.sep)
     sim_name = tokens[cfg.get_rank_inst()] + "_" + tokens[cfg.get_rank_gcm()]
 
     utils.log("=")
@@ -1114,8 +1114,8 @@ def generate_single(
     utils.log("=")
 
     # Skip iteration if the variable 'var' is not available in the current directory.
-    p_sim_ref_l = list(glob.glob(d_sim_ref + "/" + var + "/*" + cfg.f_ext_nc))
-    p_sim_fut_l = list(glob.glob(d_sim_fut + "/" + var + "/*" + cfg.f_ext_nc))
+    p_sim_ref_l = list(glob.glob(d_sim_ref + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc))
+    p_sim_fut_l = list(glob.glob(d_sim_fut + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc))
 
     if (len(p_sim_ref_l) == 0) or (len(p_sim_fut_l) == 0):
         utils.log("Skipping iteration: data not available for simulation-variable.", True)
@@ -1303,7 +1303,7 @@ def run():
                 utils.log("Processing: " + var + ", " + stn, True)
 
                 # Path ofo NetCDF file containing station data.
-                # p_stn = cfg.d_stn + var + "/" + var + "_" + stn + cfg.f_ext_nc
+                # p_stn = cfg.d_stn + var + cfg.sep + var + "_" + stn + cfg.f_ext_nc
                 p_obs = cfg.get_p_obs(stn, var)
 
                 # Loop through raw NetCDF files.
@@ -1329,16 +1329,16 @@ def run():
                     time_win = float(df_sel["time_win"])
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/.
-                    fn_fig = p_regrid_fut.split("/")[-1].\
+                    fn_fig = p_regrid_fut.split(cfg.sep)[-1].\
                         replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
                     title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_postprocess, var) + fn_fig
+                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_postprocess, var) + fn_fig
                     plot.plot_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                     # This creates one .png file in ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/.
-                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cfg.cat_fig_workflow, var) + \
-                        p_regrid_fut.split("/")[-1].replace("4qqmap" + cfg.f_ext_nc,
-                                                            cfg.cat_fig_workflow + cfg.f_ext_png)
+                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_workflow, var) + \
+                        p_regrid_fut.split(cfg.sep)[-1].replace("4qqmap" + cfg.f_ext_nc,
+                                                                cfg.cat_fig_workflow + cfg.f_ext_png)
                     plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
                     # Generate monthly and daily plots.
@@ -1461,8 +1461,9 @@ def gen_plot_freq(
 
     # Files.
     cat_fig = cfg.cat_fig_monthly if freq == cfg.freq_MS else cfg.cat_fig_daily
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/" + cat_fig, var) + title + cfg.f_ext_png
-    p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").replace(cfg.f_ext_png, cfg.f_ext_csv)
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat_fig, var) + title + cfg.f_ext_png
+    p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
+        replace(cfg.f_ext_png, cfg.f_ext_csv)
 
     error = False
 

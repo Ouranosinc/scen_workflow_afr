@@ -436,7 +436,8 @@ def plot_calib(
     var_unit = cfg.get_unit(var)
 
     # Files.
-    p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").replace(cfg.f_ext_png, cfg.f_ext_csv)
+    p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
+        replace(cfg.f_ext_png, cfg.f_ext_csv)
 
     # Quantile ---------------------------------------------------------------------------------------------------------
 
@@ -610,7 +611,7 @@ def plot_calib_ts(
 
     # Save to CSV.
     if cfg.opt_save_csv[0]:
-        p_csv = p_fig.replace("/" + var + "/", "/" + var + "_" + cfg.f_csv + "/").\
+        p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
             replace(cfg.f_ext_png, cfg.f_ext_csv)
         n_obs = len(list(da_obs.values))
         n_qqmap = len(list(da_qqmap.values))
@@ -876,7 +877,7 @@ def plot_heatmap(
             da_tif.values[da_tif.values == -9999] = np.nan
             da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
 
-        p_fig_tif = p_fig.replace(varidx_code + "/", varidx_code + "_" + cfg.f_tif + "/").\
+        p_fig_tif = p_fig.replace(varidx_code + cfg.sep, varidx_code + "_" + cfg.f_tif + cfg.sep).\
             replace(cfg.f_ext_png, cfg.f_ext_tif)
         d = os.path.dirname(p_fig_tif)
         if not (os.path.isdir(d)):
@@ -1532,7 +1533,8 @@ def plot_ts_single(
         plt.tick_params(axis="y", labelsize=fs_axes)
 
         # Save plot.
-        p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_single", var) + title + cfg.f_ext_png
+        p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + "verif" + cfg.sep + "ts_single", var) +\
+            title + cfg.f_ext_png
         utils.save_plot(plt, p_fig)
 
         # Close plot.
@@ -1618,7 +1620,7 @@ def plot_ts_mosaic(
             plt.suptitle(sup_title, fontsize=fs_title)
 
     # Save plot.
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + "/verif/ts_mosaic", var) + title + cfg.f_ext_png
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + "verif" + cfg.sep + "ts_mosaic", var) + title + cfg.f_ext_png
     utils.save_plot(plt, p_fig)
 
     # Close plot.

@@ -220,7 +220,7 @@ def init_calib_params():
         sim_l = list_cordex[rcp]
         sim_l.sort()
         for i_sim in range(0, len(sim_l)):
-            list_i = list_cordex[rcp][i_sim].split("/")
+            list_i = list_cordex[rcp][i_sim].split(cfg.sep)
             sim_name = list_i[cfg.get_rank_inst()] + "_" + list_i[cfg.get_rank_inst() + 1]
             for stn in stns:
                 for var in cfg.variables_cordex:

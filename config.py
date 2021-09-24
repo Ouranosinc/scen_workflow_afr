@@ -696,7 +696,7 @@ def get_rank_inst():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    return len(d_proj.split("/"))
+    return len(d_proj.split(sep))
 
 
 def get_rank_gcm():
@@ -893,7 +893,7 @@ def get_desc(
         elif varidx_name == idx_rain_season_end:
             if idx_params_loc[0] == "depletion":
                 desc = "Fin saison pluie (Σ(P-ETP)<" + str(idx_params_loc[1]) + unit_mm + " en ≥" +\
-                       str(idx_params_loc[1]) + "/" + str(idx_params_loc[2]) + "j)"
+                       str(idx_params_loc[1]) + sep + str(idx_params_loc[2]) + "j)"
             else:
                 desc = "Fin saison pluie (P<" + str(idx_params_loc[1]) + unit_mm + "/j pendant " +\
                        str(idx_params_loc[3]) + "j)"
@@ -1214,7 +1214,7 @@ def get_d_stn(
 
     d = ""
     if var != "":
-        d = d_stn + var + "/"
+        d = d_stn + var + cfg.sep
 
     return d
 
@@ -1237,7 +1237,7 @@ def get_p_stn(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    p = d_stn + var + "/" + var + "_" + stn + f_ext_nc
+    p = d_stn + var + sep + var + "_" + stn + f_ext_nc
 
     return p
 
@@ -1265,14 +1265,14 @@ def get_d_scen(
 
     d = d_res
     if stn != "":
-        d = d + cat_stn + "/" + stn + ("_" + region if region != "" else "") + "/"
+        d = d + cat_stn + sep + stn + ("_" + region if region != "" else "") + sep
     if cat != "":
         d = d
         if (cat == cat_obs) or (cat == cat_raw) or (cat == cat_regrid) or (cat == cat_qqmap) or (cat == cat_qmf):
-            d = d + cat_scen + "/"
-        d = d + cat + "/"
+            d = d + cat_scen + sep
+        d = d + cat + sep
     if var != "":
-        d = d + var + "/"
+        d = d + var + sep
 
     return d
 
@@ -1297,10 +1297,10 @@ def get_d_idx(
 
     d = d_res
     if stn != "":
-        d = d + cat_stn + "/" + stn + ("_" + region if region != "" else "") + "/"
-    d = d + cat_idx + "/"
+        d = d + cat_stn + sep + stn + ("_" + region if region != "" else "") + sep
+    d = d + cat_idx + sep
     if idx_name != "":
-        d = d + idx_name + "/"
+        d = d + idx_name + sep
 
     return d
 
@@ -1352,7 +1352,7 @@ def get_p_obs(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    p = get_d_scen(stn_name, cat_obs) + var + "/" + var + "_" + stn_name
+    p = get_d_scen(stn_name, cat_obs) + var + sep + var + "_" + stn_name
     if cat != "":
         p = p + "_4qqmap"
     p = p + f_ext_nc

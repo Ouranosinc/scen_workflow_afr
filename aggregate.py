@@ -57,7 +57,7 @@ def aggregate(
     ds_hour = utils.open_netcdf(p_hour)[var]
 
     # Daily data.
-    dir_day = os.path.dirname(p_day) + "/"
+    dir_day = os.path.dirname(p_day) + cfg.sep
     fn_day  = os.path.basename(p_day)
 
     # Loop through statistics.
@@ -67,9 +67,9 @@ def aggregate(
         var_stat = var + stat
         if (var in [cfg.var_era5_t2m, cfg.var_era5_u10, cfg.var_era5_v10, cfg.var_era5_uv10]) and\
            (stat in [cfg.stat_min, cfg.stat_max]):
-            p_day_stat = dir_day + var_stat + "/" + fn_day.replace(var + "_", var_stat + "_")
+            p_day_stat = dir_day + var_stat + cfg.sep + fn_day.replace(var + "_", var_stat + "_")
         else:
-            p_day_stat = dir_day + var + "/" + fn_day
+            p_day_stat = dir_day + var + cfg.sep + fn_day
 
         # Aggregate only if output file does not exist.
         if (not os.path.exists(p_day_stat)) or cfg.opt_force_overwrite:
@@ -311,7 +311,7 @@ def run():
     for var in vars:
 
         # Loop through files.
-        p_raw_lst = glob.glob(cfg.d_ra_raw + var + "/*" + cfg.f_ext_nc)
+        p_raw_lst = glob.glob(cfg.d_ra_raw + var + cfg.sep + "*" + cfg.f_ext_nc)
         p_raw_lst.sort()
         n_years = len(p_raw_lst)
         for i_raw in range(len(p_raw_lst)):

@@ -297,18 +297,19 @@ def main():
     cfg.priority_timestep = ["day"] * len(cfg.variables_cordex)
 
     # The following variables are determined automatically.
-    d_base = cfg.d_exec + cfg.country + "/" + cfg.project + "/"
+    d_base = cfg.d_exec + cfg.country + cfg.sep + cfg.project + cfg.sep
     obs_src_region = cfg.obs_src + ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "")
-    cfg.d_stn = d_base + cfg.cat_stn + "/" + obs_src_region + "/"
-    cfg.d_res = cfg.d_exec + "sim_climat/" + cfg.country + "/" + cfg.project + "/"
+    cfg.d_stn = d_base + cfg.cat_stn + cfg.sep + obs_src_region + cfg.sep
+    cfg.d_res = cfg.d_exec + "sim_climat" + cfg.sep + cfg.country + cfg.sep + cfg.project + cfg.sep
     if cfg.d_bounds != "":
-        cfg.d_bounds = d_base + "gis/" + cfg.d_bounds
+        cfg.d_bounds = d_base + "gis" + cfg.sep + cfg.d_bounds
 
     # Log file.
-    cfg.p_log = cfg.d_res + "stn/" + obs_src_region + "/log/" + utils.get_datetime_str() + ".log"
+    cfg.p_log = cfg.d_res + "stn" + cfg.sep + obs_src_region + cfg.sep + "log" + cfg.sep +\
+        utils.get_datetime_str() + ".log"
 
     # Calibration file.
-    cfg.p_calib = cfg.d_res + "stn/" + obs_src_region + "/" + cfg.p_calib
+    cfg.p_calib = cfg.d_res + "stn" + cfg.sep + obs_src_region + cfg.sep + cfg.p_calib
     d = os.path.dirname(cfg.p_calib)
     if not (os.path.isdir(d)):
         os.makedirs(d)

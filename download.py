@@ -180,7 +180,7 @@ def download_merra2(
                 url  = url_template.replace("<year>", year_str).replace("<month>", month_str).replace("<day>", day_str)
 
                 # Form local path and file name.
-                d = p_base + year_str + "/"
+                d = p_base + year_str + cfg.sep
                 if not (os.path.isdir(d)):
                     os.makedirs(d)
                 p = d + "merra2_day_" + year_str + month_str + day_str + cfg.f_ext_nc4
@@ -204,7 +204,7 @@ def run():
     area = [cfg.lat_bnds_download[1], cfg.lon_bnds_download[1], cfg.lat_bnds_download[0], cfg.lon_bnds_download[0], ]
 
     # Path of input data.
-    d_prefix = os.path.dirname(cfg.d_ra_raw) + "/"
+    d_prefix = os.path.dirname(cfg.d_ra_raw) + cfg.sep
 
     # ERA5 or ERA5_LAND.
     if (cfg.obs_src == cfg.obs_src_era5_land) or (cfg.obs_src == cfg.obs_src_era5):
@@ -244,7 +244,7 @@ def run():
                         pass
 
                 # Verify if treatment is done. Files are sometimes forgotten.
-                years_processed = glob.glob(d_prefix + var + "/*" + cfg.f_ext_nc)
+                years_processed = glob.glob(d_prefix + var + cfg.sep + "*" + cfg.f_ext_nc)
                 years_processed.sort()
                 for i in range(len(years_processed)):
                     years_processed[i] = int(years_processed[i].replace(cfg.f_ext_nc, "")[-4:])

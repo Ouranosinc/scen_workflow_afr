@@ -877,7 +877,7 @@ def generate_single(
         ds_idx[cfg.dim_time] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
 
         # Save result to NetCDF file.
-        desc = "/" + idx_name + "/" + os.path.basename(p_idx)
+        desc = cfg.sep + idx_name + cfg.sep + os.path.basename(p_idx)
         utils.save_netcdf(ds_idx, p_idx, desc=desc)
 
     # Convert percentile threshold values for climate indices. This is sometimes required in time series.
