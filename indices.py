@@ -311,7 +311,9 @@ def generate_single(
             # Open dataset.
             p_sim_j =\
                 cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
+            # TODO: Testing with dask.
             ds = utils.open_netcdf(p_sim_j)
+            # ds = utils.open_netcdf(p_sim_j, chunks={cfg.dim_time: 10}).load()
 
             # Remove February 29th and select reference period.
             if (rcp == cfg.rcp_ref) and (varidx_name in cfg.variables_cordex):
@@ -680,15 +682,15 @@ def generate_single(
             da_start_next = None
             if ds_varidx_l[3] is not None:
                 da_start_next = ds_varidx_l[3][cfg.idx_rain_season_start]
-            meth        = idx_params_str[0]
+            method      = idx_params_str[0]
             pr          = float(idx_params_str[1])
             etp         = -1.0 if str(idx_params_str[2]) == "nan" else float(idx_params_str[2])
-            dt          = -1.0 if str(idx_params_str[3]) == "nan" else float(idx_params_str[3])
+            dt          = -1 if str(idx_params_str[3]) == "nan" else int(idx_params_str[3])
             doy_str_min = str(idx_params_str[4])
             doy_str_max = str(idx_params_str[5])
 
             # Calculate index.
-            da_idx = xr.DataArray(rain_season_end(da_pr, da_etp, da_start, da_start_next, meth, pr, etp, dt,
+            da_idx = xr.DataArray(rain_season_end(da_pr, da_etp, da_start, da_start_next, method, pr, etp, dt,
                                                   doy_str_min, doy_str_max))
 
             # Add to list.
@@ -702,8 +704,7 @@ def generate_single(
             da_end   = ds_varidx_l[1][cfg.idx_rain_season_end]
 
             # Calculate index.
-            da_idx = da_end - da_start + 1
-            da_idx.values[da_idx.values < 0] = 0
+            da_idx = rain_season_length(da_start, da_end)
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -745,18 +746,18 @@ def generate_single(
             da_start_next = None
             if ds_varidx_l[3] is not None:
                 da_start_next = ds_varidx_l[3][cfg.idx_rain_season_start]
-            end_meth        = idx_params_str[7]
+            end_method      = idx_params_str[7]
             end_pr          = float(idx_params_str[8])
             end_etp         = -1.0 if str(idx_params_str[9]) == "nan" else float(idx_params_str[9])
-            end_dt          = -1.0 if str(idx_params_str[10]) == "nan" else float(idx_params_str[10])
+            end_dt          = -1 if str(idx_params_str[10]) == "nan" else int(idx_params_str[10])
             end_doy_str_min = str(idx_params_str[11])
             end_doy_str_max = str(idx_params_str[12])
 
             # Calculate indices.
             da_start, da_end, da_length, da_prcptot =\
                 rain_season(da_pr, da_etp, da_start_next, start_pr_wet, start_dt_wet, start_doy_str_min,
-                            start_doy_str_max, start_pr_dry, start_dt_dry, start_dt_tot, end_meth, end_pr, end_etp, end_dt,
-                            end_doy_str_min, end_doy_str_max)
+                            start_doy_str_max, start_pr_dry, start_dt_dry, start_dt_tot, end_method, end_pr, end_etp,
+                            end_dt, end_doy_str_min, end_doy_str_max)
 
             # Add to list.
             da_idx_l = [da_start, da_end, da_length, da_prcptot]
@@ -768,19 +769,17 @@ def generate_single(
 
             # Collect required datasets and parameters.
             da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
-            per = idx_params_str[0]
-            p_tot = idx_params_str[1]
-            p_tot = 1.0 if (str(p_tot) == "nan") else float(p_tot)
-            d_dry = int(idx_params_str[2])
-            p_dry = idx_params_str[3]
-            p_dry = 1.0 if (str(p_dry) == "nan") else float(p_dry)
-            doy_str_min = doy_str_max = "nan"
+            method = idx_params_str[0]
+            thresh = float(idx_params_str[1])
+            window = int(idx_params_str[2])
+            dry_fill = bool(idx_params_str[3])
+            start_date = end_date = ""
             if len(idx_params_str) == 6:
-                doy_str_min = str(idx_params_str[4])
-                doy_str_max = str(idx_params_str[5])
+                start_date = str(idx_params_str[4])
+                end_date = str(idx_params_str[5])
 
             # Calculate index.
-            da_idx = xr.DataArray(dry_spell_total_length(da_pr, per, p_tot, d_dry, p_dry, doy_str_min, doy_str_max))
+            da_idx = xr.DataArray(dry_spell_total_length(da_pr, method, thresh, window, dry_fill, start_date, end_date))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -1095,82 +1094,88 @@ def heat_wave_total_length(
 
 
 def dry_spell_total_length(
-    da_pr: xr.DataArray,
-    per: str,
-    pr_tot: float,
-    dt_dry: int,
-    pr_dry: float,
-    doy_str_min: str,
-    doy_str_max: str
+    pr: xr.DataArray,
+    method: str,
+    thresh: float,
+    window: int,
+    dry_fill: bool = True,
+    start_date: str = "",
+    end_date: str = "",
+
 ) -> xr.DataArray:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Determine the total duration of dry periods. A dry period occurs if precipitation amount is less than 'pr_dry'
-    during 'dt_dry' consecutive days.
+    Calculate the total length of dry periods.
+
+    A dry period occurs if:
+    - the daily precipitation amount is less than {thresh} during a period of {window} consecutive days
+      (with option {method}="1d";
+    - the total precipitation amount over a period of {window} consecutive days is less than {thresh}
+      (with option {method}="tot").
 
     Parameters
     ----------
-    da_pr : xr.DataArray:
-        Precipitation data.
-    per: str
-        Period over which to combine data {"1d" = one day, "tot" = total}.
-    pr_tot: float
-        Sum of daily precipitation amounts under which the period is considered dry (only if per="tot).
-    dt_dry: int
-        Number of days to have a dry period.
-    pr_dry: float
-        Daily precipitation amount under which precipitation is considered negligible.
-    doy_str_min: str
-        Minimum day of year to consider ("mm-dd").
-    doy_str_max: str
-        Maximum day of year to consider ("mm-dd").
+    pr : xr.DataArray:
+        Daily precipitation.
+    method : str
+        Method linked to the period over which to combine data {"1d" = one day, "cumul" = cumulative}.
+    thresh : float
+        If {method} == "1d": daily precipitation amount under which precipitation is considered negligible.
+        If {method} == "tot": sum of daily precipitation amounts under which the period is considered dry.
+    window : int
+        Minimum number of days in a dry period.
+    dry_fill : bool, optional
+        If True, missing values near the end of dataset are assumed to be dry (default value).
+        If False, missing values near the end of dataset are assumed to be wet.
+        The file value is used to compensate for the fact that we are missing the last days of the year before dataset
+        and the first days of the year after dataset.
+    start_date : str, optional
+        First day of year to consider ("mm-dd").
+    end_date : str, optional
+        Last day of year to consider ("mm-dd").
+
+    Returns
+    -------
+    xarray.DataArray
+        Dry spell total length (days/year).
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Eliminate negative values.
-    da_pr.values[da_pr.values < 0] = 0
-
     # Unit conversion.
-    pr_dry = convert_units_to(str(pr_dry) + " mm/day", da_pr)
-    pr_tot = convert_units_to(str(pr_tot) + " mm/day", da_pr)
+    thresh = convert_units_to(str(thresh) + " mm/day", pr)
 
-    # Condition #1: Days that belong to a dry period.
-    da_cond1 = da_pr.copy()
-    da_cond1 = da_cond1.astype(bool)
-    da_cond1[:, :, :] = False
-    n_t = len(da_pr[cfg.dim_time])
-    for t in range(n_t - dt_dry):
-        if per == "1d":
-            da_t = xr.DataArray(da_pr[t:(t + dt_dry), :, :] < pr_dry).sum(dim=cfg.dim_time) == dt_dry
-        else:
-            da_t = da_pr[t:(t + dt_dry), :, :]
-            if pr_dry >= 0:
-                da_t = xr.DataArray(da_t >= pr_dry).astype(float) * da_t
-            da_t = xr.DataArray(da_t.sum(dim=cfg.dim_time)) < pr_tot
-        da_cond1[t:(t + dt_dry), :, :] = da_cond1[t:(t + dt_dry), :, :] | da_t
+    # Eliminate negative values.
+    pr = xr.where(pr < (thresh if method == "1d" else 0), 0, pr)
 
-    # Condition #2 : Days that are between 'doy_min' and 'doy_max'.
-    da_cond2 = da_pr.copy()
-    da_cond2 = da_cond2.astype(bool)
-    da_cond2[:, :, :] = True
-    if (doy_str_min != "nan") or (doy_str_max != "nan"):
-        doy_min = 1 if doy_str_min == "nan" else utils.doy_str_to_doy(doy_str_min)
-        doy_max = 365 if doy_str_max == "nan" else utils.doy_str_to_doy(doy_str_max)
-        if doy_max >= doy_min:
-            cond2 = (da_pr.time.dt.dayofyear >= doy_min) & (da_pr.time.dt.dayofyear <= doy_max)
-        else:
-            cond2 = (da_pr.time.dt.dayofyear <= doy_max) | (da_pr.time.dt.dayofyear >= doy_min)
-        for t in range(n_t):
-            da_cond2[t, :, :] = cond2[t]
+    # Identify dry days.
+    if method == "1d":
+        da_dry_last = pr.rolling(time=window).max() < thresh
+        da_dry = da_dry_last.copy()
+        for i in range(1, window):
+            da_i = da_dry_last.shift(time=-i, fill_value=(dry_fill is False))
+            da_dry = da_dry | da_i
+    else:
+        da_wet_last = pr.rolling(time=window).sum()
+        da_wet = da_wet_last.copy()
+        for i in range(1, window):
+            da_i = da_wet_last.shift(time=-i, fill_value=(thresh if dry_fill is False else 0))
+            da_wet = xr.ufuncs.maximum(da_wet, da_i)
+        da_dry = (da_wet < thresh) | (pr == 0)
+
+    # Identify days that are between 'start_date' and 'start_date'.
+    doy_start = 1 if start_date == "" else datetime.datetime.strptime(start_date, "%m-%d").timetuple().tm_yday
+    doy_end = 365 if end_date == "" else datetime.datetime.strptime(end_date, "%m-%d").timetuple().tm_yday
+    if doy_end >= doy_start:
+        da_doy = (pr.time.dt.dayofyear >= doy_start) & (pr.time.dt.dayofyear <= doy_end)
+    else:
+        da_doy = (pr.time.dt.dayofyear <= doy_end) | (pr.time.dt.dayofyear >= doy_start)
 
     # Combine conditions.
-    da_conds = da_cond1 & da_cond2
+    da_conds = da_dry & da_doy
 
     # Calculate the number of dry days per year.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=Warning)
-        da_idx = da_conds.astype(float).resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+    da_idx = da_conds.astype(float).resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
 
     return da_idx
 
@@ -1189,7 +1194,7 @@ def rain_season(
     end_method: str,
     end_pr: float,
     end_etp: float,
-    end_dt: float,
+    end_dt: int,
     end_doy_str_min: str,
     end_doy_str_max: str
 ) -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
@@ -1234,7 +1239,7 @@ def rain_season(
         If re_method == "Event": last non-negligible precipitation event of the rain season (mm).
     end_etp: float
         If re_method == "Depletion": Evapotranspiration rate (mm/day).
-    end_dt: float
+    end_dt: int
         If re_method == "Event": period (number of days) during which there must not be a day with 'end_pr'
         precipitation.
     end_doy_str_min: str
@@ -1273,10 +1278,8 @@ def rain_season(
                                           end_doy_str_min, end_doy_str_max))
 
     # Calculate rain season length.
-    # TODO: A more sophisticated function is required to calculate season length even if the season extends from one
-    #       year to the following one.
-    da_length = da_end - da_start + 1
-    da_length.values[da_length.values < 0] = 0
+    da_length = xr.where(da_end >= da_start, da_end - da_start + 1, da_end + 365 - da_start + 1)
+    da_length = xr.where(da_length < 0, 0, da_length)
 
     # Calculate rain quantity.
     da_prcptot = indices_gen.aggregate_between_dates(da_pr, da_start, da_end, "sum") * 86400
@@ -1320,23 +1323,16 @@ def rain_season_start(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Eliminate negative values.
-    da_pr.values[da_pr.values < 0] = 0
-
     # Unit conversion.
     pr_wet = convert_units_to(str(pr_wet) + " mm/day", da_pr)
     pr_dry = convert_units_to(str(pr_dry) + " mm/day", da_pr)
 
-    # Length of dimensions.
-    n_t = len(da_pr[cfg.dim_time])
+    # Eliminate negative values.
+    da_pr = xr.where(da_pr < 0, 0, da_pr)
 
     # Assign search boundaries.
-    doy_min = 1
-    doy_max = 365
-    if doy_str_min != "nan":
-        doy_min = datetime.datetime.strptime(doy_str_min, "%m-%d").timetuple().tm_yday
-    if doy_str_max != "nan":
-        doy_max = datetime.datetime.strptime(doy_str_max, "%m-%d").timetuple().tm_yday
+    doy_min = 1 if doy_str_min == "nan" else datetime.datetime.strptime(doy_str_min, "%m-%d").timetuple().tm_yday
+    doy_max = 365 if doy_str_max == "nan" else datetime.datetime.strptime(doy_str_max, "%m-%d").timetuple().tm_yday
     if (doy_str_min == "nan") and (doy_str_max != "nan"):
         doy_min = 1 if doy_max == 365 else doy_max + 1
     elif (doy_str_min != "nan") and (doy_str_max == "nan"):
@@ -1345,31 +1341,25 @@ def rain_season_start(
     # Flag the first day of each sequence of 'dt_wet' days with a total of 'pr_wet' in precipitation
     # (assign True).
     da_onset = xr.DataArray(da_pr.rolling(time=dt_wet).sum() >= pr_wet)
-    da_onset[0:(n_t-dt_wet)] = da_onset[dt_wet:n_t].values
-    da_onset[(n_t-dt_wet):n_t] = False
+    da_onset = da_onset.shift(time=-dt_wet, fill_value=False)
 
     # Determine if it rains (assign 1) or not (assign 0).
-    da_rainy_day = da_pr.copy()
-    da_rainy_day.values[da_rainy_day.values < pr_dry] = 0
-    da_rainy_day.values[da_rainy_day.values > 0] = 1
+    da_rainy_day = xr.where(da_pr < pr_dry, 0, 1)
 
     # Flag the first day of each sequence of 'dt_dry' consecutive dry days (assign 1)
     da_dry_seq = xr.DataArray(da_rainy_day.rolling(time=dt_dry).sum() == 0)
-    da_dry_seq[0:(n_t-dt_dry)] = da_dry_seq[dt_dry:n_t].values
-    da_dry_seq[(n_t-dt_dry):n_t] = False
+    da_dry_seq = da_dry_seq.shift(time=-dt_dry, fill_value=False)
     da_dry_seq = da_dry_seq.astype(int)
 
     # Flag the first day of each sequence of fewer than 'dt_dry' consecutive dry days (assign True).
     da_no_dry_seq = xr.DataArray(da_dry_seq.rolling(time=dt_tot).sum() < dt_dry)
-    da_no_dry_seq[0:(n_t-dt_dry)] = da_no_dry_seq[dt_dry:n_t].values
-    da_no_dry_seq[(n_t-dt_dry):n_t] = False
+    da_no_dry_seq = da_no_dry_seq.shift(time=-dt_dry, fill_value=False)
 
     # Flag days between 'doy_min' and 'doy_max' (or the opposite).
-    da_doy = xr.ones_like(da_pr).astype(bool)
     if doy_max >= doy_min:
-        da_doy.values[(da_pr.time.dt.dayofyear < doy_min) | (da_pr.time.dt.dayofyear > doy_max)] = False
+        da_doy = (da_pr.time.dt.dayofyear >= doy_min) & (da_pr.time.dt.dayofyear <= doy_max)
     else:
-        da_doy.values[(da_pr.time.dt.dayofyear > doy_max) & (da_pr.time.dt.dayofyear < doy_min)] = False
+        da_doy = (da_pr.time.dt.dayofyear <= doy_max) | (da_pr.time.dt.dayofyear >= doy_min)
 
     # Combine conditions.
     da_conds = da_onset & da_no_dry_seq & da_doy
@@ -1378,7 +1368,7 @@ def rain_season_start(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
         da_start = da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
-    da_start.values[(da_start.values < 0) | (da_start.values > 365)] = np.nan
+    da_start = xr.where((da_start < 1) | (da_start > 365), np.nan, da_start)
 
     return da_start
 
@@ -1391,7 +1381,7 @@ def rain_season_end(
     method: str,
     pr: float,
     etp: float,
-    dt: float,
+    dt: int,
     doy_str_min: str,
     doy_str_max: str
 ) -> xr.DataArray:
@@ -1426,7 +1416,7 @@ def rain_season_end(
     etp: float
         If method == "depletion": evapotranspiration rate (mm/day).
         Otherwise: not used.
-    dt: float
+    dt: int
         If method in ["event", "total"]: length of period (number of days) used to verify if the rain season is ending.
         Otherwise: not used.
     doy_str_min: str
@@ -1436,44 +1426,34 @@ def rain_season_end(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Eliminate negative values.
-    da_pr.values[da_pr.values < 0] = 0
-    if da_etp is not None:
-        da_etp.values[da_etp.values < 0] = 0
-
     # Unit conversion.
     pr  = convert_units_to(str(pr) + " mm/day", da_pr)
     etp = convert_units_to(str(etp) + " mm/day", da_pr)
 
-    # Length of dimensions.
-    n_t = len(da_pr[cfg.dim_time])
+    # Eliminate negative values.
+    da_pr = xr.where(da_pr < 0, 0, da_pr)
+    if da_etp is not None:
+        da_etp = xr.where(da_etp < 0, 0, da_etp)
 
     # Assign search boundaries.
-    doy_min = 1
-    doy_max = 365
-    if doy_str_min != "nan":
-        doy_min = datetime.datetime.strptime(doy_str_min, "%m-%d").timetuple().tm_yday
-    if doy_str_max != "nan":
-        doy_max = datetime.datetime.strptime(doy_str_max, "%m-%d").timetuple().tm_yday
+    doy_min = 1 if doy_str_min == "nan" else datetime.datetime.strptime(doy_str_min, "%m-%d").timetuple().tm_yday
+    doy_max = 365 if doy_str_max == "nan" else datetime.datetime.strptime(doy_str_max, "%m-%d").timetuple().tm_yday
     if (doy_str_min == "nan") and (doy_str_max != "nan"):
         doy_min = 1 if doy_max == 365 else doy_max + 1
     elif (doy_str_min != "nan") and (doy_str_max == "nan"):
         doy_max = 365 if doy_min == 1 else doy_min - 1
 
     # Flag days between 'doy_min' and 'doy_max' (or the opposite).
-    da_doy = xr.ones_like(da_pr).astype(bool)
     if doy_max >= doy_min:
-        da_doy.values[(da_pr.time.dt.dayofyear < doy_min) |
-                      (da_pr.time.dt.dayofyear > doy_max)] = False
+        da_doy = (da_pr.time.dt.dayofyear >= doy_min) & (da_pr.time.dt.dayofyear <= doy_max)
     else:
-        da_doy.values[(da_pr.time.dt.dayofyear > doy_max) &
-                      (da_pr.time.dt.dayofyear < doy_min)] = False
+        da_doy = (da_pr.time.dt.dayofyear <= doy_max) | (da_pr.time.dt.dayofyear >= doy_min)
 
     # Depletion method -------------------------------------------------------------------------------------------------
 
-    if method == "depletion":
+    da_end = None
 
-        da_end = None
+    if method == "depletion":
 
         # Calculate the minimum length of the period.
         dt_min = math.ceil(pr / etp)
@@ -1484,11 +1464,10 @@ def rain_season_end(
             # Flag the day before each sequence of 'dt' days that results in evaporating a water column, considering
             # precipitation falling during this period (assign 1).
             if da_etp is None:
-                da_dry_seq = xr.DataArray((da_pr.rolling(time=int(dt)).sum() + pr) < (dt * etp))
+                da_dry_seq = xr.DataArray((da_pr.rolling(time=dt).sum() + pr) < (dt * etp))
             else:
-                da_dry_seq = xr.DataArray((da_pr.rolling(time=int(dt)).sum() + pr) < da_etp.rolling(time=int(dt)).sum())
-            da_dry_seq[0:(n_t - int(dt) - 1)] = da_dry_seq[(int(dt) + 1):n_t].values
-            da_dry_seq[(n_t - int(dt) - 1):n_t] = False
+                da_dry_seq = xr.DataArray((da_pr.rolling(time=dt).sum() + pr) < da_etp.rolling(time=dt).sum())
+            da_dry_seq = da_dry_seq.shift(time=-dt, fill_value=False)
 
             # Combine conditions.
             da_conds = da_dry_seq & da_doy
@@ -1503,12 +1482,11 @@ def rain_season_end(
             if da_end is None:
                 da_end = da_end_i.copy()
             else:
-                sel = (np.isnan(da_end.values)) &\
-                      ((np.isnan(da_end_i.values).astype(int) == 0) | (da_end_i.values < da_end.values))
-                da_end.values[sel] = da_end_i.values[sel]
+                sel = xr.ufuncs.isnan(da_end) & ((xr.ufuncs.isnan(da_end_i).astype(int) == 0) | (da_end_i < da_end))
+                da_end = xr.where(sel, da_end_i, da_end)
 
             # Exit loop if all cells were assigned a value.
-            if np.isnan(da_end).astype(int).sum() == 0:
+            if xr.ufuncs.isnan(da_end).astype(int).sum() == 0:
                 break
 
     # Event method -----------------------------------------------------------------------------------------------------
@@ -1516,20 +1494,16 @@ def rain_season_end(
     elif method in ["event", "total"]:
 
         # Determine if it rains heavily (assign 1) or not (assign 0).
-        da_heavy_rain = da_pr.copy()
-        da_heavy_rain.values[da_heavy_rain.values < pr] = 0
-        da_heavy_rain.values[da_heavy_rain.values > 0] = 1
+        da_heavy_rain = xr.where(da_pr < pr, 0, 1)
 
         # Flag the day (assign 1) before each sequence of:
         # 'dt' days with no amount reaching 'pr':
         if method == "event":
-            da_dry_seq = xr.DataArray(da_heavy_rain.rolling(time=int(dt)).sum() == 0)
+            da_dry_seq = xr.DataArray(da_heavy_rain.rolling(time=dt).sum() == 0)
         # 'dt' days with a total amount reaching 'pr':
         else:
-            da_dry_seq = xr.DataArray(da_pr.rolling(time=int(dt)).sum() < pr)
-
-        da_dry_seq[0:(n_t - int(dt) - 1)] = da_dry_seq[(int(dt) + 1):n_t].values
-        da_dry_seq[(n_t - int(dt) - 1):n_t] = False
+            da_dry_seq = xr.DataArray(da_pr.rolling(time=dt).sum() < pr)
+        da_dry_seq = da_dry_seq.shift(time=-(dt + 1), fill_value=False)
 
         # Combine conditions.
         da_conds = da_dry_seq & da_doy
@@ -1543,20 +1517,50 @@ def rain_season_end(
     # Adjust or discard rain end values that are not compatible with the current or next season start values.
     # If the season ends before or on start day, discard rain end.
     if da_start is not None:
-        sel = (np.isnan(da_start.values).astype(int) == 0) &\
-              (np.isnan(da_end.values).astype(int) == 0) & \
-              (da_end.values <= da_start.values)
-        da_end.values[sel] = np.nan
+        sel = (xr.ufuncs.isnan(da_start).astype(int) == 0) &\
+              (xr.ufuncs.isnan(da_end).astype(int) == 0) &\
+              (da_end <= da_start)
+        da_end = xr.where(sel, np.nan, da_end)
+
     # If the season ends after or on start day of the next season, the end day of the current season becomes the day
     # before the next season.
     if da_start_next is not None:
-        sel = (np.isnan(da_start_next.values).astype(int) == 0) &\
-              (np.isnan(da_end.values).astype(int) == 0) & \
-              (da_end.values >= da_start_next.values)
-        da_end.values[sel] = da_start_next.values[sel] - 1
-        da_end.values[da_end.values < 1] = 365
+        sel = (xr.ufuncs.isnan(da_start_next).astype(int) == 0) &\
+              (xr.ufuncs.isnan(da_end).astype(int) == 0) &\
+              (da_end >= da_start_next)
+        da_end = xr.where(sel, da_start_next - 1, da_end)
+        da_end = xr.where(da_end < 1, 365, da_end)
 
     return da_end
+
+
+def rain_season_length(
+    da_start: xr.DataArray,
+    da_end: xr.DataArray
+) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine the length of the rain season.
+
+    Parameters
+    ----------
+    da_start : xr.DataArray
+        Rain season start (first day of year).
+    da_end: xr.DataArray
+        Rain season end (last day of year).
+
+    Returns
+    -------
+    xr.DataArray
+        Rain season length (days/year).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    da_length = xr.where(da_end >= da_start, da_end - da_start + 1, da_end + 365 - da_start + 1)
+    da_length = xr.where(da_length < 0, 0, da_length)
+
+    return da_length
 
 
 def rain_season_prcptot(
@@ -1567,7 +1571,7 @@ def rain_season_prcptot(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Determine the last day of the rain season.
+    Determine precipitation amount during rain season.
 
     Parameters
     ----------
@@ -1576,7 +1580,12 @@ def rain_season_prcptot(
     da_start : xr.DataArray
         Rain season start (first day of year).
     da_end: xr.DataArray
-        Rain saison end (last day of year).
+        Rain season end (last day of year).
+
+    Returns
+    -------
+    xr.DataArray
+        Rain season precipitation amount.
     --------------------------------------------------------------------------------------------------------------------
     """
 

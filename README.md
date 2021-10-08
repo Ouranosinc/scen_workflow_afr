@@ -144,7 +144,7 @@ Implemented features:
 - standardized variable names (within the code).
 
 Bugs fixed:
-- reordering dimensions after calculating climate indices (required for drought code, or "dc");
+- reordering dimensions after calculating climate indices (required for drought code, or 'dc');
 - the function utils.get_coord_names was returning a set (rather than an array), and the fact that the order was not
   always the same from one run to another had consequences on the subsequent analyses,
 - added options 'opt_stat_clip' and 'opt_map_clip' to clip according to a polygon (default is False) when calculating 
@@ -165,7 +165,9 @@ Implemented features:
   to climate index functions (also applies to .ini files);
 - adding function 'utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec directory
   (issue #9);
-- adjusting file separator automatically according to d_exec parameter to ensure compatibility with Windows (#5).
+- adjusting file separator automatically according to d_exec parameter to ensure compatibility with Windows (issue #5);
+- created a unit testing module that can be enabled using 'opt_unit_tests';
+- increased the performance of 'rain_season*' and 'dry_spell_total_length' indices.
 
 ## Contributing
 

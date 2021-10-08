@@ -745,7 +745,7 @@ def log(
 def open_netcdf(
     p: Union[str, List[str]],
     drop_variables: [str] = None,
-    chunks: dict = None,
+    chunks: Union[int, dict] = None,
     combine: str = None,
     concat_dim: str = None,
     desc: str = ""
@@ -761,7 +761,7 @@ def open_netcdf(
         Path of file to be created.
     drop_variables : [str]
         Drop-variables parameter.
-    chunks : dict
+    chunks : Union[int,dict]
         Chunks parameter
     combine : str
         Combine parameter.
@@ -896,7 +896,10 @@ def close_netcdf(
     """
 
     if ds is not None:
-        ds.close()
+        try:
+            ds.close()
+        except:
+            pass
 
 
 def save_plot(

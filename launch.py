@@ -16,6 +16,7 @@ import indices
 import os
 import scenarios
 import scenarios_calib as scen_calib
+import unit_tests
 import utils
 
 
@@ -276,6 +277,10 @@ def load_params(
             elif key == "opt_force_overwrite":
                 cfg.opt_force_overwrite = ast.literal_eval(value)
 
+            # ALGORITHM:
+            elif key == "opt_unit_tests":
+                cfg.opt_unit_tests = ast.literal_eval(value)
+
 
 def main():
 
@@ -425,6 +430,10 @@ def main():
 
     # Initialization.
     scen_calib.init_calib_params()
+
+    # Launch units tests.
+    if cfg.opt_unit_tests:
+        unit_tests.run()
 
     # Steps #2-5,8: Production of scenarios, plots and statistics.
     scenarios.run()

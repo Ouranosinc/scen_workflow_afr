@@ -371,14 +371,14 @@ idx_rain_season_start = "rain_season_start"
 # Requirements: pr (mandatory), rain_season_start_next (optional), evspsbl* (optional)
 #               will search for evspsblpot, then for evspsbl
 # Parameters:   [meth: str, pr: float, etp: float, dt: int, doy_min: int, doy_max: int]
-#               meth: calculation method
-#                   if method == "depletion": based on the period required for an amount of water to evaporate,
+#               method: calculation method
+#                   if "depletion", based on the period required for an amount of water to evaporate,
 #                       considering that any amount of precipitation received during that period must also evaporate. If
 #                       the evspsbl* dataset is not available, the daily evapotranspiration rate is assumed to be 'etp'.
-#                   if method == "event": based on the occurrence (or not) of an event during the last days of a rain
+#                   if "event", based on the occurrence (or not) of an event during the last days of a rain
 #                       season. The rain season stops when no daily precipitation greater than 'pr' have occurred over a
 #                       period of 'dt' days.
-#                   if method == "total": based on a total amount of precipitation received during the last days of the
+#                   if "total", based on a total amount of precipitation received during the last days of the
 #                       rain season. The rain season stops when the total amount of precipitation is less than 'pr' over
 #                       a period of 'dt' days.
 #               pr: precipitation threshold
@@ -408,13 +408,16 @@ idx_rain_season_prcptot = "rain_season_prcptot"
 
 # Total length of dry period.
 # Requirements: pr
-# Parameters:   [per: str, pr_tot: float, dt_dry: int, pr_dry: float, doy_min: int, doy_max: int]
-#               per: period over which to combine data {"1d" = one day, "tot" = total}.
-#               pr_tot: sum of daily precipitation amounts under which the period is considered dry (only if per="tot).
-#               dt_dry: number of days to have a dry period.
-#               pr_dry: daily precipitation amount under which precipitation is considered negligible.
-#               doy_min: minimum day of year to consider.
-#               doy_max: maximum day of year to consider.
+# Parameters:   [method: str, thresh: float, window: int, dry_fill: bool, start_date: str, end_date: str]
+#               method: period over which to combine data {"1d" = one day, "cumul" = cumulative}.
+#                   if {method} == "1d": daily precipitation amount under which precipitation is considered negligible.
+#                   if {method} == "tot", sum of daily precipitation amounts under which the period is considered dry.
+#               window: minimum number of days required in a dry period.
+#               dry_fill:
+#                   if True, missing values near the end of dataset are assumed to be dry (default value).
+#                   if False, missing values near the end of dataset are assumed to be wet.
+#               start_date: first day of year to consider.
+#               end_date: last day of year to consider.
 idx_dry_spell_total_length = "dry_spell_total_length"
 
 # Wind indices ---------------------------------------------------------------------------------------------------------
@@ -548,6 +551,9 @@ p_calib             = "calib.csv"   # Calibration file (bias adjustment paramete
 n_proc              = 1             # Number of processes (for multiprocessing).
 pid                 = -1            # Process identifier (primary process)
 
+# Algorithms.
+opt_unit_tests      = False         # If True, launch unit tests.
+
 # Step 2 - Download and aggregation ------------------------------------------------------------------------------------
 
 # Download.
@@ -572,12 +578,12 @@ detrend_order           = None      # TODO.MAB: Seems to be not working.
 # Simulation excluded from the analysis.
 # Ex1: "RCA4_AFR-44_ICHEC-EC-EARTH_rcp85",
 # Ex2: "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
-# Ex3: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45.nc",
-# Ex4: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85.nc"
+# Ex3: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45",
+# Ex4: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85"
 sim_excepts = []
 # Simulation-variable combinations excluded from the analysis.
-# Ex1: "pr_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85.nc",
-# Ex2: "tasmin_REMO2009_AFR-44_MIROC-MIROC5_rcp26.nc
+# Ex1: "pr_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85",
+# Ex2: "tasmin_REMO2009_AFR-44_MIROC-MIROC5_rcp26"
 var_sim_excepts = []
 
 # Step 5 - Bias adjustment and statistical downscaling -----------------------------------------------------------------
@@ -623,17 +629,17 @@ idx_params          = []            # Index parameters.
 
 # Step 7 - Statistics --------------------------------------------------------------------------------------------------
 
-opt_stat            = [True, True]    # If True, calculate statistics [for scenarios, for indices].
+opt_stat            = [True] * 2        # If True, calculate statistics [for scenarios, for indices].
 opt_stat_quantiles  = [1.00, 0.90, 0.50, 0.10, 0.00]  # Quantiles.
-opt_stat_clip       = False           # If True, clip according to 'd_bounds'.
-opt_save_csv        = [False, False]  # If True, save results to CSV files [for scenarios, for indices].
+opt_stat_clip       = False             # If True, clip according to 'd_bounds'.
+opt_save_csv        = [False] * 2       # If True, save results to CSV files [for scenarios, for indices].
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
 # Plots.
-opt_plot              = [True, True]    # If True, actives plot generation [for scenarios, for indices].
-opt_map               = [False, False]  # If True, generate heat maps [for scenarios, for indices].
-opt_map_delta         = [False, False]  # If True, generate delta heat maps [for scenarios, for indices].
+opt_plot              = [True] * 2      # If True, actives plot generation [for scenarios, for indices].
+opt_map               = [False] * 2     # If True, generate heat maps [for scenarios, for indices].
+opt_map_delta         = [False] * 2     # If True, generate delta heat maps [for scenarios, for indices].
 opt_map_clip          = False           # If True, clip according to 'd_bounds'.
 opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
@@ -1214,7 +1220,7 @@ def get_d_stn(
 
     d = ""
     if var != "":
-        d = d_stn + var + cfg.sep
+        d = d_stn + var + sep
 
     return d
 
