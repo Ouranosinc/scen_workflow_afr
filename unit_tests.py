@@ -548,7 +548,7 @@ def rain_season_start() -> bool:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    TODO: Test indices.rain_season_start.
+    Test indices.rain_season_start.
 
     Returns
     -------
