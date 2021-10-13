@@ -149,9 +149,8 @@ def res_is_valid(res, res_expected) -> bool:
         for i in range(len(res)):
             res_i = float(res[i])
             res_expected_i = float(res_expected[i])
-            if (np.isnan(res_i) and (np.isnan(res_expected_i) == False)) or \
-               ((np.isnan(res_i) == False) and np.isnan(res_expected_i)) or \
-               ((np.isnan(res_i) == False) and (np.isnan(res_expected_i) == False) and (res_i != res_expected_i)):
+            if not ((np.isnan(res_i) and np.isnan(res_expected_i)) or
+                    ((np.isnan(res_i) == False) and (np.isnan(res_expected_i) == False) and (res_i == res_expected_i))):
                 valid = False
                 break
 
@@ -578,7 +577,7 @@ def rain_season_start() -> bool:
         # Cases --------------------------------------------------------------------------------------------------------
 
         # Case #1: sequence of 3/3 wet days + sequence of 0/10 dry days.
-        # | . A . 3X 30w . B . | . |
+        # | . A . 3X 30w . B | . |
         if i == 1:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -589,7 +588,7 @@ def rain_season_start() -> bool:
             res_expected = [91, np.nan]
 
         # Case #2: sequence of 3/3 wet days + sequence of 9/10 dry days.
-        # | . A . 3X 10w 9d 11w . B . | . |
+        # | . A . 3X 10w 9d 11w . B | . |
         elif i == 2:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -601,7 +600,7 @@ def rain_season_start() -> bool:
             res_expected = [91, np.nan]
 
         # Case #3: sequence of 3/3 wet days + sequence of 10/10 dry days.
-        # | . A . 3X 10w 10d 10w . B . | . |
+        # | . A . 3X 10w 10d 10w . B | . |
         elif i == 3:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -613,7 +612,7 @@ def rain_season_start() -> bool:
             res_expected = [np.nan, np.nan]
 
         # Case #4: sequence of 2/3 wet days + sequence of 9/10 dry days.
-        # | . A . 2X D 10w 9d 11w . B . | . |
+        # | . A . 2X D 10w 9d 11w . B | . |
         elif i == 4:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -625,7 +624,7 @@ def rain_season_start() -> bool:
             res_expected = [np.nan, np.nan]
 
         # Case #5: sequence of 3/3 wet days + sequence of 5/10 dry days (at the end of {window_tot).
-        # | . A . 3X 25w 5d . B . | . |
+        # | . A . 3X 25w 5d . B | . |
         elif i == 5:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -636,7 +635,7 @@ def rain_season_start() -> bool:
             res_expected = [91.0, np.nan]
 
         # Case #6: sequence of 3/3 wet days + 2 sequences of 5/10 dry days.
-        # | . A . 3X 5w 5d 10w 5d 5w . B . | . |
+        # | . A . 3X 5w 5d 10w 5d 5w . B | . |
         elif i == 6:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -648,9 +647,9 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 29)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [91.0, np.nan]
 
-        # Case #7: sequence of 2/3 wet days + sequence of 0/10 dry days (false start)
+        # Case #7: sequence of 2/3 wet days + sequence of 0/10 dry days (false start);
         #          sequence of 3/3 wet days + sequence of 0/10 dry days (real start).
-        # | . A . 2X D 30w . 3X 30w . B . | . |
+        # | . A . 2X D 30w . 3X 30w . B | . |
         elif i == 7:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -664,7 +663,7 @@ def rain_season_start() -> bool:
             res_expected = [152.0, np.nan]
 
         # Case #8: sequence of 3/3 wet days + sequence of 0/10 dry days, not entirely between start/end dates.
-        # | . 3X A+30w . B . | . |
+        # | . 3X A+30w . B | . |
         elif i == 8:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "04-04", "end_date": "12-31", }
@@ -727,7 +726,7 @@ def rain_season_end() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 1
+    n_cases = 5
     for i in range(1, n_cases + 1):
 
         # Initialization.
@@ -735,11 +734,54 @@ def rain_season_end() -> bool:
         params = None
         res_expected = [0] * n_years
 
-        da_idx = [0, 0]
-
         # Cases (method = "depletion") ---------------------------------------------------------------------------------
 
-        # TODO: Insert cases.
+        # Case #1: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=5.
+        # | . A+30W 92d+B | . |
+        if i == 1:
+            params = {"method": "depletion", "thresh": 70.0, "etp": 5.0, "window": -1,
+                      "start_date": "09-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
+            res_expected = [287.0, np.nan]
+
+        # Case #2: 30 wet days + 92 half-dry days (year #1); 0 wet days (year #2); etp=2.5.
+        # | . A+30W 92hd+B | . |
+        elif i == 2:
+            params = {"method": "depletion", "thresh": 70.0, "etp": 5.0, "window": -1,
+                      "start_date": "09-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), 2.5)
+            res_expected = [301.0, np.nan]
+
+        # Case #3: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=0.
+        # | . A+30W 92d+B | . |
+        elif i == 3:
+            params = {"method": "depletion", "thresh": 70.0, "etp": 0.0, "window": -1,
+                      "start_date": "09-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
+            res_expected = [np.nan, np.nan]
+
+        # Case #4: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=10.
+        # | . A+30W 92d+B | . |
+        elif i == 4:
+            params = {"method": "depletion", "thresh": 70.0, "etp": 10.0, "window": -1,
+                      "start_date": "09-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
+            res_expected = [280.0, np.nan]
+
+        # Case #5: 30 wet days + 2 dry days + 2 wet days + 88 dry days (year #1); 0 wet days (year #2); etp=5.
+        # | . A+30W 2d 2w 88d B | . |
+        elif i == 5:
+            params = {"method": "depletion", "thresh": 70.0, "etp": 10.0, "window": -1,
+                      "start_date": "09-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 10.0)
+            res_expected = [284.0, np.nan]
 
         # Cases (method = "event") -------------------------------------------------------------------------------------
 
@@ -751,13 +793,16 @@ def rain_season_end() -> bool:
 
         # Calculation and interpretation -------------------------------------------------------------------------------
 
+        da_idx = indices.rain_season_end(da_pr, None, None, None, params["method"], params["thresh"],
+                                         params["etp"], params["window"], params["start_date"], params["end_date"])
+
         # Extract results.
-        res = [int(da_idx[0])]
+        res = [float(da_idx[0])]
         if len(da_idx) > 1:
-            res.append(int(da_idx[1]))
+            res.append(float(da_idx[1]))
 
         #  Raise error flag.
-        if res != res_expected:
+        if not res_is_valid(res, res_expected):
             error = True
 
     return error
@@ -803,12 +848,12 @@ def rain_season_length() -> bool:
         # Calculation and interpretation -------------------------------------------------------------------------------
 
         # Extract results.
-        res = [int(da_idx[0])]
+        res = [float(da_idx[0])]
         if len(da_idx) > 1:
-            res.append(int(da_idx[1]))
+            res.append(float(da_idx[1]))
 
         #  Raise error flag.
-        if res != res_expected:
+        if not res_is_valid(res, res_expected):
             error = True
 
     return error
@@ -854,12 +899,12 @@ def rain_season_prcptot() -> bool:
         # Calculation and interpretation -------------------------------------------------------------------------------
 
         # Extract results.
-        res = [int(da_idx[0])]
+        res = [float(da_idx[0])]
         if len(da_idx) > 1:
-            res.append(int(da_idx[1]))
+            res.append(float(da_idx[1]))
 
         #  Raise error flag.
-        if res != res_expected:
+        if not res_is_valid(res, res_expected):
             error = True
 
     return error
@@ -880,7 +925,7 @@ def run():
     # dry_spell_total_length()
 
     utils.log("Step #0b  rain_season_start")
-    rain_season_start()
+    # rain_season_start()
 
     utils.log("Step #0c  rain_season_end")
     rain_season_end()
