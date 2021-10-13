@@ -567,7 +567,7 @@ def rain_season_start() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 5
+    n_cases = 7
     for i in range(1, n_cases + 1):
 
         # Initialization.
@@ -577,44 +577,34 @@ def rain_season_start() -> bool:
 
         # Cases --------------------------------------------------------------------------------------------------------
 
-        # Case #1: sequence of 3/3 days >= {thresh_wet}, sequence of 29/30 days >= {thresh_dry}.
-        # | . 3X 29+ . | . |
+        # Case #1: sequence of 3/3 wet days + sequence of 0/10 dry days.
+        # | . 3X 30+ . | . |
         if i == 1:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
-                      "start_date": "04-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
-                                  params["thresh_wet"] / params["window_wet"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 2)), params["thresh_dry"])
-            res_expected = [91, np.nan]
-
-        # Case #2: sequence of 3/3 days >= {thresh_wet}, sequence of 30/30 days >= {thresh_dry}.
-        # | . 3X 30+ . | . |
-        elif i == 2:
-            params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
-                      "start_date": "04-01", "end_date": "12-31", }
+                      "start_date": "03-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [91, np.nan]
 
-        # Case #3: sequence of 3/3 days >= {thresh_wet}, sequence of 31/30 days >= {thresh_dry}.
-        # | . 3X 31+ . | . |
-        elif i == 3:
+        # Case #2: sequence of 3/3 wet days + sequence of 9/10 dry days.
+        # | . 3X 10+ 9- 11+ . | . |
+        elif i == 2:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
-                      "start_date": "04-01", "end_date": "12-31", }
+                      "start_date": "03-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 4)), params["thresh_dry"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), params["thresh_dry"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [91, np.nan]
 
-        # Case #4: sequence of 3/3 days >= {thresh_wet}, sequence of 10 days < {thresh_dry}.
+        # Case #3: sequence of 3/3 wet days + sequence of 10/10 dry days.
         # | . 3X 10+ 10- 10+ . | . |
-        elif i == 4:
+        elif i == 3:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
-                      "start_date": "04-01", "end_date": "12-31", }
+                      "start_date": "03-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
@@ -622,17 +612,56 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 24)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [np.nan, np.nan]
 
-        # Case #5: sequence of 3/3 days >= {thresh_wet}, sequence of 9 days < {thresh_dry}.
-        # | . 3X 10+ 9- 11+ . | . |
-        elif i == 5:
+        # Case #4: sequence of 2/3 wet days + sequence of 9/10 dry days.
+        # | . 2X x 10+ 9- 11+ . | . |
+        elif i == 4:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
-                      "start_date": "04-01", "end_date": "12-31", }
+                      "start_date": "03-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), params["thresh_dry"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), params["thresh_dry"])
-            res_expected = [91, np.nan]
+            res_expected = [np.nan, np.nan]
+
+        # Case #5: sequence of 3/3 wet days + sequence of 5/10 dry days (at the end of {window_tot).
+        # | . 3X 25+ 5- . | . |
+        elif i == 5:
+            params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
+                      "start_date": "03-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
+                                  params["thresh_wet"] / params["window_wet"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 28)), params["thresh_dry"])
+            res_expected = [91.0, np.nan]
+
+        # Case #6: sequence of 3/3 wet days + 2 sequences of 5/10 dry days.
+        # | . 3X 5+ 5- 10+ 5- 5+ . | . |
+        elif i == 6:
+            params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
+                      "start_date": "03-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
+                                  params["thresh_wet"] / params["window_wet"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 8)), params["thresh_dry"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 14)), str(dstr(y1, 4, 23)), params["thresh_dry"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 29)), str(dstr(y1, 5, 3)), params["thresh_dry"])
+            res_expected = [91.0, np.nan]
+
+        # Case #7: sequence of 2/3 wet days + sequence of 0/10 dry days (false start)
+        #          sequence of 3/3 wet days + sequence of 0/10 dry days (real start).
+        # | . 2X x 30+ . 3X 30+ . | . |
+        elif i == 7:
+            params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
+                      "start_date": "03-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)),
+                                  params["thresh_wet"] / params["window_wet"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), params["thresh_dry"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 3)),
+                                  params["thresh_wet"] / params["window_wet"])
+            da_pr = assign_values(da_pr, str(dstr(y1, 6, 4)), str(dstr(y1, 7, 3)), params["thresh_dry"])
+            res_expected = [152.0, np.nan]
 
         # Calculation and interpretation -------------------------------------------------------------------------------
 
