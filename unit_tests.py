@@ -632,7 +632,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 28)), params["thresh_dry"])
-            res_expected = [91.0, np.nan]
+            res_expected = [91, np.nan]
 
         # Case #6: sequence of 3/3 wet days + 2 sequences of 5/10 dry days.
         # | . A . 3X 5w 5d 10w 5d 5w . B | . |
@@ -645,7 +645,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 8)), params["thresh_dry"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 14)), str(dstr(y1, 4, 23)), params["thresh_dry"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 29)), str(dstr(y1, 5, 3)), params["thresh_dry"])
-            res_expected = [91.0, np.nan]
+            res_expected = [91, np.nan]
 
         # Case #7: sequence of 2/3 wet days + sequence of 0/10 dry days (false start);
         #          sequence of 3/3 wet days + sequence of 0/10 dry days (real start).
@@ -660,7 +660,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 6, 4)), str(dstr(y1, 7, 3)), params["thresh_dry"])
-            res_expected = [152.0, np.nan]
+            res_expected = [152, np.nan]
 
         # Case #8: sequence of 3/3 wet days + sequence of 0/10 dry days, not entirely between start/end dates.
         # | . 3X A+30w . B | . |
@@ -726,7 +726,7 @@ def rain_season_end() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 5
+    n_cases = 8
     for i in range(1, n_cases + 1):
 
         # Initialization.
@@ -736,58 +736,86 @@ def rain_season_end() -> bool:
 
         # Cases (method = "depletion") ---------------------------------------------------------------------------------
 
-        # Case #1: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=5.
-        # | . A+30W 92d+B | . |
+        etp = 5.0
+
+        # Case #1: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=normal.
+        # | . A 30W 92d B | . |
         if i == 1:
-            params = {"method": "depletion", "thresh": 70.0, "etp": 5.0, "window": -1,
+            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
                       "start_date": "09-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
-            res_expected = [287.0, np.nan]
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+            res_expected = [287, np.nan]
 
-        # Case #2: 30 wet days + 92 half-dry days (year #1); 0 wet days (year #2); etp=2.5.
-        # | . A+30W 92hd+B | . |
+        # Case #2: 30 wet days + 92 half-dry days (year #1); 0 wet days (year #2); etp=normal.
+        # | . A 30W 92hd B | . |
         elif i == 2:
-            params = {"method": "depletion", "thresh": 70.0, "etp": 5.0, "window": -1,
+            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
                       "start_date": "09-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), 2.5)
-            res_expected = [301.0, np.nan]
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+            da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), etp / 2)
+            res_expected = [301, np.nan]
 
-        # Case #3: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=0.
-        # | . A+30W 92d+B | . |
+        # Case #3: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=none.
+        # | . A 30W 92d B | . |
         elif i == 3:
             params = {"method": "depletion", "thresh": 70.0, "etp": 0.0, "window": -1,
                       "start_date": "09-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
             res_expected = [np.nan, np.nan]
 
-        # Case #4: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=10.
-        # | . A+30W 92d+B | . |
+        # Case #4: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=doubled.
+        # | . A 30W 92d B | . |
         elif i == 4:
-            params = {"method": "depletion", "thresh": 70.0, "etp": 10.0, "window": -1,
+            params = {"method": "depletion", "thresh": 70.0, "etp": 2 * etp, "window": -1,
                       "start_date": "09-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
-            res_expected = [280.0, np.nan]
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+            res_expected = [280, np.nan]
 
-        # Case #5: 30 wet days + 2 dry days + 2 wet days + 88 dry days (year #1); 0 wet days (year #2); etp=5.
-        # | . A+30W 2d 2w 88d B | . |
+        # Case #5: 30 wet days + 2 dry days + 2 wet days + 88 dry days (year #1); 0 wet days (year #2); etp=doubled.
+        # | . A 30W 2d 2w 88d B | . |
         elif i == 5:
-            params = {"method": "depletion", "thresh": 70.0, "etp": 10.0, "window": -1,
+            params = {"method": "depletion", "thresh": 70.0, "etp": 2 * etp, "window": -1,
                       "start_date": "09-01", "end_date": "12-31", }
             da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), 5.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 10.0)
-            res_expected = [284.0, np.nan]
+            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+            da_pr = assign_values(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * etp)
+            res_expected = [284, np.nan]
+
+        # Case #6: 15 wet days (year #1); 15 wet days (year #2); etp=normal.
+        # | . A 15W | 15W . B . |
+        elif i == 6:
+            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
+                      "start_date": "06-01", "end_date": "03-31", }
+            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), etp)
+            da_pr = assign_values(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), etp)
+            res_expected = [np.nan, 29]
+
+        # Case #7: 0 wet days (year #1); 0 wet days (year #2); etp=normal.
+        # | . A . | . B . |
+        elif i == 7:
+            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
+                      "start_date": "09-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, 0.9)
+            res_expected = [np.nan, np.nan]
+
+        # Case #8: only wet days (year #1); only wet days (year #2); etp=normal.
+        # | o A o | o B o |
+        elif i == 8:
+            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
+                      "start_date": "09-01", "end_date": "12-31", }
+            da_pr = create_da(var, y1, n_years, etp)
+            res_expected = [np.nan, np.nan]
 
         # Cases (method = "event") -------------------------------------------------------------------------------------
 
         # TODO: Insert cases.
 
-        # Cases (method = "total") -------------------------------------------------------------------------------------
+        # Cases (method = "cumul") -------------------------------------------------------------------------------------
 
         # TODO: Insert cases.
 
@@ -864,6 +892,57 @@ def rain_season_prcptot() -> bool:
     """
     --------------------------------------------------------------------------------------------------------------------
     TODO: Test indices.rain_season_prcptot.
+
+    Returns
+    -------
+    bool
+        True if all tests are successful.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Variable.
+    var = cfg.var_cordex_pr
+
+    # Years.
+    n_years = 2
+    y1 = 1981
+    y2 = y1 + 1
+
+    # Loop through cases.
+    error = False
+    n_cases = 0
+    for i in range(1, n_cases + 1):
+
+        # Initialization.
+        da_pr = None
+        params = None
+        res_expected = [0] * n_years
+
+        da_idx = [0, 0]
+
+        # Cases --------------------------------------------------------------------------------------------------------
+
+        # TODO: Insert cases.
+
+        # Calculation and interpretation -------------------------------------------------------------------------------
+
+        # Extract results.
+        res = [float(da_idx[0])]
+        if len(da_idx) > 1:
+            res.append(float(da_idx[1]))
+
+        #  Raise error flag.
+        if not res_is_valid(res, res_expected):
+            error = True
+
+    return error
+
+
+def rain_season() -> bool:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    TODO: Test indices.rain_season.
 
     Returns
     -------

@@ -1477,22 +1477,21 @@ def rain_season_end(
     if method == "depletion":
 
         # Calculate the minimum length of the period.
-        dt_min = math.ceil(thresh / etp) if (etp > 0) else 0
-        dt_max = (end_doy - start_doy + 1 if (end_doy >= start_doy) else (365 - start_doy + 1 + end_doy)) - dt_min
+        window_min = math.ceil(thresh / etp) if (etp > 0) else 0
+        window_max =\
+            (end_doy - start_doy + 1 if (end_doy >= start_doy) else (365 - start_doy + 1 + end_doy)) - window_min
         if etp == 0:
-            dt_min = dt_max
+            window_min = window_max
 
-        for win_i in list(range(dt_min, dt_max + 1)):
+        for window_i in list(range(window_min, window_max + 1)):
 
             # Flag the day before each sequence of {dt} days that results in evaporating a water column, considering
             # precipitation falling during this period (assign 1).
             if da_etp is None:
-                da_dry_seq = xr.DataArray((da_pr.rolling(time=win_i).sum() + thresh) <= (win_i * etp))
+                da_dry_seq = xr.DataArray((da_pr.rolling(time=window_i).sum() + thresh) <= (window_i * etp))
             else:
                 da_dry_seq =\
-                    xr.DataArray((da_pr.rolling(time=win_i).sum() + thresh) <= da_etp.rolling(time=win_i).sum())
-
-            # Determine if there was rain
+                    xr.DataArray((da_pr.rolling(time=window_i).sum() + thresh) <= da_etp.rolling(time=window_i).sum())
 
             # Combine conditions.
             da_conds = da_dry_seq & da_doy
@@ -1513,6 +1512,10 @@ def rain_season_end(
             # Exit loop if all cells were assigned a value.
             if xr.ufuncs.isnan(da_end).astype(int).sum() == 0:
                 break
+
+        # The season can't end at the beginning of the dataset; there was no rain yet, so no season.
+        if da_end[0] <= window_min:
+            da_end[0] = np.nan
 
     # Event method -----------------------------------------------------------------------------------------------------
 
@@ -1547,7 +1550,7 @@ def rain_season_end(
               (da_end <= da_start)
         da_end = xr.where(sel, np.nan, da_end)
 
-    # The season can't start on the first potential day if the start days of rain seasons are unknown.
+    # The season can't end on {start_date} if the start days of rain seasons are unknown.
     else:
         da_end = xr.where(da_end == start_doy, np.nan, da_end)
 
