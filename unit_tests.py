@@ -5,6 +5,16 @@
 # Contributors:
 # 1. rousseau.yannick@ouranos.ca
 # (C) 2021 Ouranos Inc., Canada
+#
+# Legend (case description):
+#   |  = Year separator
+#   A  = start_date
+#   B  = end_date
+#   O  = wet day(s)
+#   .  = dry day(s)
+#   T  = threshold
+#   Tw = wet threshold
+#   Td = dry threshold
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
@@ -210,6 +220,10 @@ def dry_spell_total_length() -> bool:
     # Variable.
     var = cfg.var_cordex_pr
 
+    # Methods:
+    method_1d = "1d"
+    method_cumul = "cumul"
+
     # Years.
     n_years = 2
     y1 = 1981
@@ -220,326 +234,298 @@ def dry_spell_total_length() -> bool:
     n_cases = 30
     for i in range(1, n_cases + 1):
 
-        # Initialization.
-        da_pr = None
-        params = None
-        res_expected = [0] * n_years
+        for method in [method_1d, method_cumul]:
 
-        # Method "1d" --------------------------------------------------------------------------------------------------
+            # {method} = "1d" ------------------------------------------------------------------------------------------
 
-        # Case #1: sequence of 14/14 rainy days, completely between start/end dates.
-        # | . A+14x . B . | . |
-        if i == 1:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-            res_expected = [14, 0]
+            # Case #1: | T A 14x. T B T | T |
+            if (i == 1) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                res_expected = [14, 0]
 
-        # Case #2: sequence of 13/14 rainy days, completely between start/end dates.
-        # | . A+13x . B . | . |
-        elif i == 2:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
-            res_expected = [0, 0]
+            # Case #2: | T A 13x. T B T | T |
+            elif (i == 2) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
+                res_expected = [0, 0]
 
-        # Case #3: 2 sequences of 7/14 rainy days, completely between start/end dates.
-        # | . A+7x . 7x . B . | . |
-        elif i == 3:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
-            res_expected = [0, 0]
+            # Case #3: | T A 7x. T 7x. T B T | T |
+            elif (i == 3) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
+                res_expected = [0, 0]
 
-        # Case #4: sequence of 14/14 rainy days, starting one day before start date, partially between start/end dates.
-        # | . x A+13x . B . | . |
-        elif i == 4:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
-            res_expected = [13, 0]
+            # Case #4: | T . A 13x. T B T | T |
+            elif (i == 4) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
+                res_expected = [13, 0]
 
-        # Case #5: sequence of 14/14 rainy days, ending one day after end date, partially between start/end dates.
-        # | . A . 13x B x . | . |
-        elif i == 5:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
-            res_expected = [13, 0]
+            # Case #5: | T A T 13x. B . T | T |
+            elif (i == 5) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
+                res_expected = [13, 0]
 
-        # Case #6: 2 sequences of 14/14 rainy days, between start/end dates, completely between start/end dates.
-        # | . A+14x . 14x B . | . |
-        elif i == 6:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
-            res_expected = [28, 0]
+            # Case #6: | T A 14x. T 14x. B T | T |
+            elif (i == 6) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
+                res_expected = [28, 0]
 
-        # Case #7: sequence of 14/14 rainy days, not between start/end dates.
-        # | . B 14x . A . | . |
-        elif i == 7:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-            res_expected = [0, 0]
+            # Case #7: | T B 14x. T A T | T |
+            elif (i == 7) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                res_expected = [0, 0]
 
-        # Case #8: sequence of 13/14 rainy days, not between start/end dates.
-        # | . B 13x . A . | . |
-        elif i == 8:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
-            res_expected = [0, 0]
+            # Case #8: | T B 13x. T A T | T |
+            elif (i == 8) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
+                res_expected = [0, 0]
 
-        # Case #9: 2 sequences of 7/14 rainy days, not between start/end dates.
-        # | . B . 7x . 7x . A . | . |
-        elif i == 9:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
-            res_expected = [0, 0]
+            # Case #9: | T B T 7x. T 7x. T A T | T |
+            elif (i == 9) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
+                res_expected = [0, 0]
 
-        # Case #10: sequence of 14/14 rainy days, starting on end date, partially between start/end dates.
-        # | . B+14x . A . | . |
-        elif i == 10:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
-            res_expected = [1, 0]
+            # Case #10: | T B 14x. T A T | T |
+            elif (i == 10) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
+                res_expected = [1, 0]
 
-        # Case 11: sequence of 14/14 rainy days, ending on start date, partially between start/end dates.
-        # | . B . 14x+A . | . |
-        elif i == 11:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
-            res_expected = [1, 0]
+            # Case 11: | T B T 14x. A T | T |
+            elif (i == 11) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
+                res_expected = [1, 0]
 
-        # Case #12: 2 sequences of 14/14 rainy days, not between start/end dates.
-        # | . B . 14x . 14x . A . | . |
-        elif i == 12:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
-            res_expected = [0, 0]
+            # Case #12: | T B T 14x. T 14x. T A T | T |
+            elif (i == 12) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
+                res_expected = [0, 0]
 
-        # Case #13: sequence of 14/14 rainy days, unspecified start/end dates.
-        # | . 14x . | . |
-        elif i == 13:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-            res_expected = [14, 0]
+            # Case #13: | T 14x. T | T |
+            elif (i == 13) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                res_expected = [14, 0]
 
-        # Case #14: sequence of 14/14 rainy days, unspecified end date.
-        # | . A+14x . | . |
-        elif i == 14:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-            res_expected = [14, 0]
+            # Case #14: | T A 14x. T | T |
+            elif (i == 14) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                res_expected = [14, 0]
 
-        # Case #15: sequence of 14/14 rainy days, unspecified start date.
-        # | . 14x . B . | . |
-        elif i == 15:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-            res_expected = [14, 0]
+            # Case #15: | T 14x. T B T | T |
+            elif (i == 15) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                res_expected = [14, 0]
 
-        # Case #16: sequence of 14/14 rainy days, unspecified end date, partially between start/end dates.
-        # | . 7x A+x 6x . | . |
-        elif i == 16:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 2, 22)), str(dstr(y1, 3, 7)), 0)
-            res_expected = [7, 0]
+            # Case #16: | T 7x. A 7x. T | T |
+            elif (i == 16) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 2, 22)), str(dstr(y1, 3, 7)), 0)
+                res_expected = [7, 0]
 
-        # Case #17: sequence of 14/14 rainy days, unspecified start date, partially between start/end dates.
-        # | . 7x . B+x 6x . | . |
-        elif i == 17:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 11, 24)), str(dstr(y1, 12, 7)), 0)
-            res_expected = [8, 0]
+            # Case #17: | T 7x. T B 7x. T | T |
+            elif (i == 17) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 11, 24)), str(dstr(y1, 12, 7)), 0)
+                res_expected = [8, 0]
 
-        # Case #18: sequence of 14/14 rainy days, overlapping between 2 years, between start/end dates.
-        # | . B . 7x | A+x 6x . B . |
-        elif i == 18:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y1 + 1, 1, 7)), 0)
-            res_expected = [7, 7]
+            # Case #18: | T B T 7x. | 7x. T B T |
+            elif (i == 18) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y1 + 1, 1, 7)), 0)
+                res_expected = [7, 7]
 
-        # Case #19: sequence of 14/14 rainy days, at the beginning of year 1, between start/end dates.
-        # | 14x . B . A . | . |
-        elif i == 19:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 14)), 0)
-            res_expected = [14, 0]
+            # Case #19: | 14x. T B T A T | T |
+            elif (i == 19) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 14)), 0)
+                res_expected = [14, 0]
 
-        # Case #20: sequence of 14/14 days, at the end of year 2, between start/end dates.
-        # | . | . B . A . 14x |
-        elif i == 20:
-            params = {"method": "1d", "thresh": 1.0, "window": 14,
-                      "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1 + 1, 12, 18)), str(dstr(y1 + 1, 12, 31)), 0)
-            res_expected = [0, 14]
+            # Case #20: | T | T B T A T 14x. |
+            elif (i == 20) and (method == method_1d):
+                params = {"method": method, "thresh": 1.0, "window": 14,
+                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1 + 1, 12, 18)), str(dstr(y1 + 1, 12, 31)), 0)
+                res_expected = [0, 14]
 
-        # Case #21: 2 sequences of 3/3 rainy days, 1 sequence of 2/3 days, per year, unspecified start/end dates.
-        # | . 3x . 2x . 3x . | . 3x . 2x . 3x . |
-        elif i == 21:
-            params = {"method": "1d", "thresh": 3.0, "window": 3,
-                      "dry_fill": True, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, params["thresh"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 3)), params["thresh"] / params["window"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 2)), params["thresh"] / params["window"])
-            da_pr = assign_values(da_pr, str(dstr(y1, 9, 1)), str(dstr(y1, 9, 3)), params["thresh"] / params["window"])
-            da_pr = assign_values(da_pr, str(dstr(y2, 3, 1)), str(dstr(y2, 3, 3)), params["thresh"] / params["window"])
-            da_pr = assign_values(da_pr, str(dstr(y2, 6, 1)), str(dstr(y2, 6, 2)), params["thresh"] / params["window"])
-            da_pr = assign_values(da_pr, str(dstr(y2, 9, 1)), str(dstr(y2, 9, 3)), params["thresh"] / params["window"])
-            res_expected = [6, 6]
+            # Case #21: | T 3x<T T 2x<T T 3x<T T | T 3x<T T 2x<T T 3x<T T |
+            elif (i == 21) and (method == method_1d):
+                params = {"method": method, "thresh": 3.0, "window": 3,
+                          "dry_fill": True, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, params["thresh"])
+                pr = params["thresh"] / params["window"]
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 3)), pr)
+                da_pr = assign_values(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 2)), pr)
+                da_pr = assign_values(da_pr, str(dstr(y1, 9, 1)), str(dstr(y1, 9, 3)), pr)
+                da_pr = assign_values(da_pr, str(dstr(y2, 3, 1)), str(dstr(y2, 3, 3)), pr)
+                da_pr = assign_values(da_pr, str(dstr(y2, 6, 1)), str(dstr(y2, 6, 2)), pr)
+                da_pr = assign_values(da_pr, str(dstr(y2, 9, 1)), str(dstr(y2, 9, 3)), pr)
+                res_expected = [6, 6]
 
-        # Method "cumul" -----------------------------------------------------------------------------------------------
+            # {method} = "cumul" ---------------------------------------------------------------------------------------
 
-        # Case #22: no rain, unspecified start/end dates.
-        # | . | . |
-        elif i == 22:
-            params = {"method": "cumul", "thresh": 14.0, "window": 14,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), 0.0)
-            res_expected = [365, 365]
+            # Case #22: | . | . |
+            elif (i == 22) and (method == method_cumul):
+                params = {"method": method, "thresh": 14.0, "window": 14,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                res_expected = [365, 365]
 
-        # Case #23: 1 dry day, below threshold, unspecified start/end dates.
-        # | . 13 . | . |
-        elif i == 23:
-            params = {"method": "cumul", "thresh": 14.0, "window": 14,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"] - 1.0)
-            res_expected = [365, 365]
+            # Case #23: | . T*13/14 . | . |
+            elif (i == 23) and (method == method_cumul):
+                params = {"method": method, "thresh": 14.0, "window": 14,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"] - 1.0)
+                res_expected = [365, 365]
 
-        # Case #24: 1 dry day, reaching threshold, unspecified start/end dates.
-        # | . 14 . | . |
-        elif i == 24:
-            params = {"method": "cumul", "thresh": 14.0, "window": 14,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"])
-            res_expected = [364, 365]
+            # Case #24: | . T . | . |
+            elif (i == 24) and (method == method_cumul):
+                params = {"method": method, "thresh": 14.0, "window": 14,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"])
+                res_expected = [364, 365]
 
-        # Case #25: 2 dry days, reaching threshold, unspecified start/end dates.
-        # | . 7x2 . | . |
-        elif i == 25:
-            params = {"method": "cumul", "thresh": 14.0, "window": 14,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 2)), params["thresh"] / 2.0)
-            res_expected = [363, 365]
+            # Case #25: | . T/2 T/2 . | . |
+            elif (i == 25) and (method == method_cumul):
+                params = {"method": method, "thresh": 14.0, "window": 14,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 2)), params["thresh"] / 2.0)
+                res_expected = [363, 365]
 
-        # Case #26: sequence of 14 dry days, reaching threshold, unspecified start/end dates.
-        # | . 14x1 . | . |
-        elif i == 26:
-            params = {"method": "cumul", "thresh": 14, "window": 14,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), params["thresh"] / params["window"])
-            res_expected = [351, 365]
+            # Case #26: | . 14xT/14 . | . |
+            elif (i == 26) and (method == method_cumul):
+                params = {"method": method, "thresh": 14, "window": 14,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)),
+                                      params["thresh"] / params["window"])
+                res_expected = [351, 365]
 
-        # Case #27: sequence of 14 dry days, reaching threshold, overlapping 2 years, unspecified start/end dates.
-        # | . 1x7 | 1x7 . |
-        elif i == 27:
-            params = {"method": "cumul", "thresh": 14, "window": 14,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)),
-                                  params["thresh"] / params["window"])
-            res_expected = [358, 358]
+            # Case #27: | . 7xT/14 | 7xT/14 . |
+            elif (i == 27) and (method == method_cumul):
+                params = {"method": method, "thresh": 14, "window": 14,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)),
+                                      params["thresh"] / params["window"])
+                res_expected = [358, 358]
 
-        # Case #28: sequence of 14 dry days, reaching threshold, overlapping 2 years, unspecified start/end dates.
-        # dates.
-        # | . 14x7 | 14x7 . |
-        elif i == 28:
-            params = {"method": "cumul", "thresh": 14.0, "window": 14,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), params["thresh"])
-            res_expected = [358, 358]
+            # Case #28: | . 7xT | 7xT . |
+            elif (i == 28) and (method == method_cumul):
+                params = {"method": method, "thresh": 14.0, "window": 14,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), params["thresh"])
+                res_expected = [358, 358]
 
-        # Case #29: sequence of 15 dry rainy days, reaching threshold, unspecified start/end dates.
-        # | . 1x15 . | . |
-        elif i == 29:
-            params = {"method": "cumul", "thresh": 15.0, "window": 15,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 15)), params["thresh"] / params["window"])
-            res_expected = [350, 365]
+            # Case #29: | . 15xT/14 . | . |
+            elif (i == 29) and (method == method_cumul):
+                params = {"method": method, "thresh": 15.0, "window": 15,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 15)),
+                                      params["thresh"] / params["window"])
+                res_expected = [350, 365]
 
-        # Case #30: sequence of 9/3 dry days, unspecified start/end dates.
-        # | . 9x . | . |
-        elif i == 30:
-            params = {"method": "cumul", "thresh": 3.0, "window": 3,
-                      "dry_fill": False, "start_date": "", "end_date": ""}
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 9)), params["thresh"] / params["window"])
-            res_expected = [356, 365]
+            # Case #30: | . 9xT/14 . | . |
+            elif (i == 30) and (method == method_cumul):
+                params = {"method": method, "thresh": 3.0, "window": 3,
+                          "dry_fill": False, "start_date": "", "end_date": ""}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 9)),
+                                      params["thresh"] / params["window"])
+                res_expected = [356, 365]
 
-        # Calculation and interpretation -------------------------------------------------------------------------------
+            else:
+                continue
 
-        # Exit if case does not apply.
-        if (algo == 1) and ((params["start_date"] != "") or (params["end_date"] != "")):
-            continue
+            # Calculation and interpretation ---------------------------------------------------------------------------
 
-        # Calculate indices using old algorithm.
-        # This algorithm is not working properly:
-        # - the 'rolling' function creates 'nan' values near boundaries; the <window size-1>/2 days from the beginning
-        #   and end of the dataset are indirectly assumed to be wet (because they are not dry); it would be better to
-        #   let the user specify if cells are wet or dry near boundaries;
-        # - results are wrong if an even windows size is specified;
-        # - dry days are not affected to the right year when a period overlaps two years.
-        if algo == 1:
-            da_idx = xindices.dry_spell_total_length(da_pr, str(params["thresh"]) + " mm", params["window"],
-                                                     cfg.freq_YS)
+            # Exit if case does not apply.
+            if (algo == 1) and ((params["start_date"] != "") or (params["end_date"] != "")):
+                continue
 
-        # Calculate indices using new algorithm.
-        else:
-            da_idx = indices.dry_spell_total_length(da_pr, params["method"], params["thresh"], params["window"],
-                                                    params["dry_fill"], params["start_date"], params["end_date"])
+            # Calculate indices using old algorithm.
+            # This algorithm is not working properly:
+            # - the 'rolling' function creates 'nan' values near boundaries; the <window size-1>/2 days from the
+            #   beginning and end of the dataset are indirectly assumed to be wet (because they are not dry); it would
+            #   be better to let the user specify if cells are wet or dry near boundaries;
+            # - results are wrong if an even windows size is specified;
+            # - dry days are not affected to the right year when a period overlaps two years.
+            if algo == 1:
+                da_idx = xindices.dry_spell_total_length(da_pr, str(params["thresh"]) + " mm", params["window"],
+                                                         cfg.freq_YS)
 
-        # Extract results.
-        res = [int(da_idx[0])]
-        if len(da_idx) > 1:
-            res.append(int(da_idx[1]))
+            # Calculate indices using new algorithm.
+            else:
+                da_idx = indices.dry_spell_total_length(da_pr, params["method"], params["thresh"], params["window"],
+                                                        params["dry_fill"], params["start_date"], params["end_date"])
 
-        #  Raise error flag.
-        if not res_is_valid(res, res_expected):
-            error = True
+            # Extract results.
+            res = [int(da_idx[0])]
+            if len(da_idx) > 1:
+                res.append(int(da_idx[1]))
+
+            #  Raise error flag.
+            if not res_is_valid(res, res_expected):
+                error = True
 
     return error
 
@@ -569,15 +555,9 @@ def rain_season_start() -> bool:
     n_cases = 9
     for i in range(1, n_cases + 1):
 
-        # Initialization.
-        da_pr = None
-        params = None
-        res_expected = [0] * n_years
-
         # Cases --------------------------------------------------------------------------------------------------------
 
-        # Case #1: sequence of 3/3 wet days + sequence of 0/10 dry days.
-        # | . A . 3X 30w . B | . |
+        # Case #1: | . A . 3xTw/3 30xTd . B | . |
         if i == 1:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -587,8 +567,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [91, np.nan]
 
-        # Case #2: sequence of 3/3 wet days + sequence of 9/10 dry days.
-        # | . A . 3X 10w 9d 11w . B | . |
+        # Case #2: | . A . 3xTw/3 10xTd 9x. 11xTd . B | . |
         elif i == 2:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -599,8 +578,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [91, np.nan]
 
-        # Case #3: sequence of 3/3 wet days + sequence of 10/10 dry days.
-        # | . A . 3X 10w 10d 10w . B | . |
+        # Case #3: | . A . 3xTw/3 10xTd 10x. 10xTd . B | . |
         elif i == 3:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -611,8 +589,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 24)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [np.nan, np.nan]
 
-        # Case #4: sequence of 2/3 wet days + sequence of 9/10 dry days.
-        # | . A . 2X D 10w 9d 11w . B | . |
+        # Case #4: | . A . 2xTw*2/3 . 10xTd 9x. 11xTd . B | . |
         elif i == 4:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -623,8 +600,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [np.nan, np.nan]
 
-        # Case #5: sequence of 3/3 wet days + sequence of 5/10 dry days (at the end of {window_tot).
-        # | . A . 3X 25w 5d . B | . |
+        # Case #5: | . A . 3xTw/3 25xTd . B | . |
         elif i == 5:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -634,8 +610,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 28)), params["thresh_dry"])
             res_expected = [91, np.nan]
 
-        # Case #6: sequence of 3/3 wet days + 2 sequences of 5/10 dry days.
-        # | . A . 3X 5w 5d 10w 5d 5w . B | . |
+        # Case #6: | . A . 3xTw/3 5xTd 5x. 10xTd 5x. 5xTd . B | . |
         elif i == 6:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -647,9 +622,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 29)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [91, np.nan]
 
-        # Case #7: sequence of 2/3 wet days + sequence of 0/10 dry days (false start);
-        #          sequence of 3/3 wet days + sequence of 0/10 dry days (real start).
-        # | . A . 2X D 30w . 3X 30w . B | . |
+        # Case #7: | . A . 2xTw/3 . 30xTd . 3xTw/3 30xTd . B | . |
         elif i == 7:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
@@ -662,8 +635,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 6, 4)), str(dstr(y1, 7, 3)), params["thresh_dry"])
             res_expected = [152, np.nan]
 
-        # Case #8: sequence of 3/3 wet days + sequence of 0/10 dry days, not entirely between start/end dates.
-        # | . 3X A+30w . B | . |
+        # Case #8: | . 3xTw/3 A 30xTd . B | . |
         elif i == 8:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "04-04", "end_date": "12-31", }
@@ -673,8 +645,7 @@ def rain_season_start() -> bool:
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), params["thresh_dry"])
             res_expected = [np.nan, np.nan]
 
-        # Case #9: sequence of 3/3 wet days + sequence of 0/10 dry days ({start_date} > {end_date})
-        # | . A . 3X 30 w . | . B . |
+        # Case #9: | . A . 3xTw/3 30xTd . | . B . |
         elif i == 9:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "09-01", "end_date": "06-30", }
@@ -683,6 +654,9 @@ def rain_season_start() -> bool:
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 10, 4)), str(dstr(y1, 11, 2)), params["thresh_dry"])
             res_expected = [274, np.nan]
+
+        else:
+            continue
 
         # Calculation and interpretation -------------------------------------------------------------------------------
 
@@ -719,6 +693,11 @@ def rain_season_end() -> bool:
     # Variable.
     var = cfg.var_cordex_pr
 
+    # Methods.
+    method_depletion = "depletion"
+    method_event = "event"
+    method_cumul = "cumul"
+
     # Years.
     n_years = 2
     y1 = 1981
@@ -726,112 +705,147 @@ def rain_season_end() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 8
+    n_cases = 13
     for i in range(1, n_cases + 1):
 
-        # Initialization.
-        da_pr = None
-        params = None
-        res_expected = [0] * n_years
+        for method in [method_depletion, method_event, method_cumul]:
 
-        # Cases (method = "depletion") ---------------------------------------------------------------------------------
+            # Parameters.
+            etp = 5.0
+            window = 14
 
-        etp = 5.0
+            # {method} = any -------------------------------------------------------------------------------------------
 
-        # Case #1: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=normal.
-        # | . A 30W 92d B | . |
-        if i == 1:
-            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
-                      "start_date": "09-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-            res_expected = [287, np.nan]
+            # Case #1: | . A . | . B . |
+            if i == 1:
+                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                res_expected = [np.nan, np.nan]
 
-        # Case #2: 30 wet days + 92 half-dry days (year #1); 0 wet days (year #2); etp=normal.
-        # | . A 30W 92hd B | . |
-        elif i == 2:
-            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
-                      "start_date": "09-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-            da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), etp / 2)
-            res_expected = [301, np.nan]
+            # Case #2: | O A O | O B O |
+            elif i == 2:
+                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, etp)
+                res_expected = [np.nan, np.nan]
 
-        # Case #3: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=none.
-        # | . A 30W 92d B | . |
-        elif i == 3:
-            params = {"method": "depletion", "thresh": 70.0, "etp": 0.0, "window": -1,
-                      "start_date": "09-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-            res_expected = [np.nan, np.nan]
+            # {method} = "depletion" -----------------------------------------------------------------------------------
 
-        # Case #4: 30 wet days + 92 dry days (year #1); 0 wet days (year #2); etp=doubled.
-        # | . A 30W 92d B | . |
-        elif i == 4:
-            params = {"method": "depletion", "thresh": 70.0, "etp": 2 * etp, "window": -1,
-                      "start_date": "09-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-            res_expected = [280, np.nan]
+            # Case #3: | . A 30xO . B | . |
+            elif (i == 3) and (method == method_depletion):
+                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+                res_expected = [287, np.nan]
 
-        # Case #5: 30 wet days + 2 dry days + 2 wet days + 88 dry days (year #1); 0 wet days (year #2); etp=doubled.
-        # | . A 30W 2d 2w 88d B | . |
-        elif i == 5:
-            params = {"method": "depletion", "thresh": 70.0, "etp": 2 * etp, "window": -1,
-                      "start_date": "09-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-            da_pr = assign_values(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * etp)
-            res_expected = [284, np.nan]
+            # Case #4: | . A 30xO O/2 B | . |
+            elif (i == 4) and (method == method_depletion):
+                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), etp / 2)
+                res_expected = [301, np.nan]
 
-        # Case #6: 15 wet days (year #1); 15 wet days (year #2); etp=normal.
-        # | . A 15W | 15W . B . |
-        elif i == 6:
-            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
-                      "start_date": "06-01", "end_date": "03-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), etp)
-            da_pr = assign_values(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), etp)
-            res_expected = [np.nan, 29]
+            # Case #5: | . A 30xO . B | . | (no etp)
+            elif (i == 5) and (method == method_depletion):
+                params = {"method": method, "thresh": 70.0, "etp": 0.0, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+                res_expected = [np.nan, np.nan]
 
-        # Case #7: 0 wet days (year #1); 0 wet days (year #2); etp=normal.
-        # | . A . | . B . |
-        elif i == 7:
-            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
-                      "start_date": "09-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.9)
-            res_expected = [np.nan, np.nan]
+            # Case #6: # | . A 30xO . B | . | (2 x etp)
+            elif (i == 6) and (method == method_depletion):
+                params = {"method": method, "thresh": 70.0, "etp": 2 * etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+                res_expected = [280, np.nan]
 
-        # Case #8: only wet days (year #1); only wet days (year #2); etp=normal.
-        # | o A o | o B o |
-        elif i == 8:
-            params = {"method": "depletion", "thresh": 70.0, "etp": etp, "window": -1,
-                      "start_date": "09-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, etp)
-            res_expected = [np.nan, np.nan]
+            # Case #7: | . A 30xO 2x. 2xO . B | . | (2 x etp)
+            elif (i == 7) and (method == method_depletion):
+                params = {"method": method, "thresh": 70.0, "etp": 2 * etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * etp)
+                res_expected = [284, np.nan]
 
-        # Cases (method = "event") -------------------------------------------------------------------------------------
+            # Case #8: | . A 15xO | 15xO . B . |
+            elif (i == 8) and (method == method_depletion):
+                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                          "start_date": "06-01", "end_date": "03-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), etp)
+                da_pr = assign_values(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), etp)
+                res_expected = [np.nan, 29]
 
-        # TODO: Insert cases.
+            # {method} = "event" ---------------------------------------------------------------------------------------
 
-        # Cases (method = "cumul") -------------------------------------------------------------------------------------
+            # Case #9: | . O A 30xO . B | . |
+            elif (i == 9) and (method == method_event):
+                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+                res_expected = [273, np.nan]
 
-        # TODO: Insert cases.
+            # Case #10: | . O A . B | . |
+            elif (i == 10) and (method == method_event):
+                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), etp)
+                res_expected = [np.nan, np.nan]
 
-        # Calculation and interpretation -------------------------------------------------------------------------------
+            # Case #11: | . O/2 A 30xO/2 . B | . |
+            elif (i == 11) and (method == method_event):
+                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp / 2)
+                res_expected = [np.nan, np.nan]
 
-        da_idx = indices.rain_season_end(da_pr, None, None, None, params["method"], params["thresh"],
-                                         params["etp"], params["window"], params["start_date"], params["end_date"])
+            # Case #12: | . O A 15xO . B | . |
+            elif (i == 12) and (method == method_event):
+                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 10, 15)), etp)
+                res_expected = [288, np.nan]
 
-        # Extract results.
-        res = [float(da_idx[0])]
-        if len(da_idx) > 1:
-            res.append(float(da_idx[1]))
+            # Case #13: | . O A . B 15xO | . |
+            elif (i == 13) and (method == method_event):
+                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-16"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), etp)
+                da_pr = assign_values(da_pr, str(dstr(y1, 12, 17)), str(dstr(y1, 12, 31)), etp)
+                res_expected = [np.nan, np.nan]
 
-        #  Raise error flag.
-        if not res_is_valid(res, res_expected):
-            error = True
+            # {method} = "cumul" ---------------------------------------------------------------------------------------
+
+            # TODO: Insert cases.
+
+            else:
+                continue
+
+            # Calculation and interpretation ---------------------------------------------------------------------------
+
+            da_idx = indices.rain_season_end(da_pr, None, None, None, params["method"], params["thresh"],
+                                             params["etp"], params["window"], params["start_date"], params["end_date"])
+
+            # Extract results.
+            res = [float(da_idx[0])]
+            if len(da_idx) > 1:
+                res.append(float(da_idx[1]))
+
+            #  Raise error flag.
+            if not res_is_valid(res, res_expected):
+                error = True
 
     return error
 

@@ -1531,7 +1531,7 @@ def rain_season_end(
         # {window} days with a total amount reaching {thresh}:
         else:
             da_dry_seq = xr.DataArray(da_pr.rolling(time=window).sum() < thresh)
-        da_dry_seq = da_dry_seq.shift(time=-(window + 1), fill_value=False)
+        da_dry_seq = da_dry_seq.shift(time=-window, fill_value=False)
 
         # Combine conditions.
         da_conds = da_dry_seq & da_doy
