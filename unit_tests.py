@@ -712,19 +712,20 @@ def rain_season_end() -> bool:
             # Parameters.
             etp = 5.0
             window = 14
+            thresh = etp * window if method == method_depletion else etp
 
             # {method} = any -------------------------------------------------------------------------------------------
 
             # Case #1: | . A . | . B . |
             if i == 1:
-                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 res_expected = [np.nan, np.nan]
 
             # Case #2: | T/14 A T/14 | T/14 B T/14 |
             elif i == 2:
-                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, etp)
                 res_expected = [np.nan, np.nan]
@@ -733,7 +734,7 @@ def rain_season_end() -> bool:
 
             # Case #3: | . A 30xT/14 . B | . |
             elif (i == 3) and (method == method_depletion):
-                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
@@ -741,7 +742,7 @@ def rain_season_end() -> bool:
 
             # Case #4: | . A 30xT/14 T/28 B | . |
             elif (i == 4) and (method == method_depletion):
-                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
@@ -750,7 +751,7 @@ def rain_season_end() -> bool:
 
             # Case #5: | . A 30xT/14 . B | . | (no etp)
             elif (i == 5) and (method == method_depletion):
-                params = {"method": method, "thresh": 70.0, "etp": 0.0, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": 0.0, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
@@ -758,7 +759,7 @@ def rain_season_end() -> bool:
 
             # Case #6: # | . A 30xT/14 . B | . | (2 x etp)
             elif (i == 6) and (method == method_depletion):
-                params = {"method": method, "thresh": 70.0, "etp": 2 * etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": 2 * etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
@@ -766,7 +767,7 @@ def rain_season_end() -> bool:
 
             # Case #7: | . A 30xT/14 2x. 2xT/14 . B | . | (2 x etp)
             elif (i == 7) and (method == method_depletion):
-                params = {"method": method, "thresh": 70.0, "etp": 2 * etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": 2 * etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
@@ -775,7 +776,7 @@ def rain_season_end() -> bool:
 
             # Case #8: | . A 15xT/14 | 15xT/14 . B . |
             elif (i == 8) and (method == method_depletion):
-                params = {"method": method, "thresh": 70.0, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "06-01", "end_date": "03-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), etp)
@@ -784,41 +785,41 @@ def rain_season_end() -> bool:
 
             # {method} = "event" ---------------------------------------------------------------------------------------
 
-            # Case #9: | . T/14 A 30xT/14 . B | . |
+            # Case #9: | . T A 30xT . B | . |
             elif (i == 9) and (method == method_event):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 res_expected = [273, np.nan]
 
-            # Case #10: | . T/14 A . B | . |
+            # Case #10: | . T A . B | . |
             elif (i == 10) and (method == method_event):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), etp)
                 res_expected = [np.nan, np.nan]
 
-            # Case #11: | . T/28 A 30xT/28 . B | . |
+            # Case #11: | . T/2 A 30xT/2 . B | . |
             elif (i == 11) and (method == method_event):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp / 2)
                 res_expected = [np.nan, np.nan]
 
-            # Case #12: | . T/14 A 15xT/14 . B | . |
+            # Case #12: | . T A 15xT . B | . |
             elif (i == 12) and (method == method_event):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 10, 15)), etp)
                 res_expected = [288, np.nan]
 
-            # Case #13: | . O A . B 15xO | . |
+            # Case #13: | . T A . B 15xT | . |
             elif (i == 13) and (method == method_event):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-16"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), etp)
@@ -827,30 +828,30 @@ def rain_season_end() -> bool:
 
             # {method} = "cumul" ---------------------------------------------------------------------------------------
 
-            # Case #14: | . A 30xT/14 . B | . |
+            # Case #14: | . A 30xT . B | . |
             elif (i == 14) and (method == method_cumul):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 res_expected = [273, np.nan]
 
-            # Case #15: | . A 30xT/14 T . B | . |
+            # Case #15: | . A 30xT T . B | . |
             elif (i == 15) and (method == method_cumul):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), etp)
                 res_expected = [274, np.nan]
 
-            # Case #16: | . A 30xT/14 7x. T . B | . |
+            # Case #16: | . A 30xT 7x. T . B | . |
             elif (i == 16) and (method == method_cumul):
-                params = {"method": method, "thresh": etp, "etp": etp, "window": window,
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), params["thresh"])
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), thresh)
                 res_expected = [281, np.nan]
 
             else:
