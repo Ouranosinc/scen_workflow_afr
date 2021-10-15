@@ -1163,7 +1163,7 @@ def dry_spell_total_length(
 
     # Identify dry days.
     if method == "1d":
-        da_dry_last = pr.rolling(time=window).max() < thresh
+        da_dry_last = xr.DataArray(pr.rolling(time=window).max() < thresh)
         da_dry = da_dry_last.copy()
         for i in range(1, window):
             da_i = da_dry_last.shift(time=-i, fill_value=(dry_fill is False))
