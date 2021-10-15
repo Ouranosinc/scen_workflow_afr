@@ -1493,14 +1493,9 @@ def rain_season_end(
                 da_dry_seq =\
                     xr.DataArray((da_pr.rolling(time=window_i).sum() + thresh) <= da_etp.rolling(time=window_i).sum())
 
-            # Combine conditions.
-            da_conds = da_dry_seq & da_doy
-
             # Obtain the first day of each year where conditions apply.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=Warning)
-                da_end_i = \
-                    da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+            da_conds = da_dry_seq & da_doy
+            da_end_i = da_conds.resample(time="YS").map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
 
             # Update the cells that were not assigned yet.
             if da_end is None:
@@ -1521,26 +1516,46 @@ def rain_season_end(
 
     elif method in ["event", "cumul"]:
 
-        # Determine if it rains heavily (assign 1) or not (assign 0).
-        da_heavy_rain = xr.where(da_pr < thresh, 0, 1)
+        # Shift datasets to the left.
+        dt = start_doy - 1
+        da_pr = da_pr.shift(time=-dt, fill_value=False)
+        da_doy = da_doy.shift(time=-dt, fill_value=False)
 
-        # Flag the day (assign 1) before each sequence of:
+        # Determine if it rains (assign 1) or not (assign 0).
+        da_wet = xr.where(da_pr < thresh, 0, 1) if method == "event" else xr.where(da_pr == 0, 0, 1)
+
+        # Flag each day (assign 1) before a sequence of:
         # {window} days with no amount reaching {thresh}:
         if method == "event":
-            da_dry_seq = xr.DataArray(da_heavy_rain.rolling(time=window).sum() == 0)
+            da_dry_seq = xr.DataArray(da_wet.rolling(time=window).sum() == 0)
         # {window} days with a total amount reaching {thresh}:
         else:
             da_dry_seq = xr.DataArray(da_pr.rolling(time=window).sum() < thresh)
         da_dry_seq = da_dry_seq.shift(time=-window, fill_value=False)
 
-        # Combine conditions.
-        da_conds = da_dry_seq & da_doy
+        # Flag all days before the first rain of each year (assign True).
+        # Rain season can't end if there was no rain since {start_date}.
+        doy_first_rain_ys =\
+            da_wet.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+        doy_first_rain_d = []
+        for i in range(len(doy_first_rain_ys)):
+            doy_first_rain_d += [float(doy_first_rain_ys[i])] * 365
+        da_after_first_rain = da_pr.time.dt.dayofyear >= doy_first_rain_d
 
         # Obtain the first day of each year where conditions apply.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=Warning)
-            da_end =\
-                da_conds.resample(time=cfg.freq_YS).map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+        da_conds = da_dry_seq & da_after_first_rain & da_doy
+        da_end = da_conds.resample(time="YS").map(rl.first_run, window=1, dim=cfg.dim_time, coord="dayofyear")
+
+        # Shift result to the right.
+        da_end += dt
+        if da_end.max() > 365:
+            da_transfer = xr.ufuncs.maximum(da_end - 365, 0).shift(time=1, fill_value=np.nan)
+            da_end = xr.where(da_end > 365, np.nan, da_end)
+            da_end = xr.where(xr.ufuncs.isnan(da_end), da_transfer, da_end)
+
+        # Rain season can't end on (or after) the first day of the last moving {window}, because we ignore the weather
+        # past the end of the dataset.
+        da_end = xr.where((da_end > 365 - window) & (da_end.time == da_end.time[len(da_end) - 1]), np.nan, da_end)
 
     # Adjust or discard rain end values that are not compatible with the current or next season start values.
     # If the season ends before or on start day, discard rain end.

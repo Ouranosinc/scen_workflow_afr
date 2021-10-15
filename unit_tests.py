@@ -704,7 +704,7 @@ def rain_season_end() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 16
+    n_cases = 19
     for i in range(1, n_cases + 1):
 
         for method in [method_depletion, method_event, method_cumul]:
@@ -712,7 +712,7 @@ def rain_season_end() -> bool:
             # Parameters.
             etp = 5.0
             window = 14
-            thresh = etp * window if method == method_depletion else etp
+            thresh = etp * (1 if method == method_event else window)
 
             # {method} = any -------------------------------------------------------------------------------------------
 
@@ -826,33 +826,59 @@ def rain_season_end() -> bool:
                 da_pr = assign_values(da_pr, str(dstr(y1, 12, 17)), str(dstr(y1, 12, 31)), etp)
                 res_expected = [np.nan, np.nan]
 
+            # Case #14: | . T A 24xT/14 7x. | 6x. T . B . |
+            elif (i == 14) and (method == method_event):
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
+                          "start_date": "06-01", "end_date": "03-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), thresh)
+                da_pr = assign_values(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), thresh)
+                res_expected = [np.nan, 7]
+
             # {method} = "cumul" ---------------------------------------------------------------------------------------
 
-            # Case #14: | . A 30xT . B | . |
-            elif (i == 14) and (method == method_cumul):
-                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
-                          "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-                res_expected = [273, np.nan]
-
-            # Case #15: | . A 30xT T . B | . |
+            # Case #15: | . T A 30xT . B | . |
             elif (i == 15) and (method == method_cumul):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), etp)
-                res_expected = [274, np.nan]
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), thresh)
+                res_expected = [273, np.nan]
 
-            # Case #16: | . A 30xT 7x. T . B | . |
+            # Case #16: | . T A 30xT T . B | . |
             elif (i == 16) and (method == method_cumul):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
                 da_pr = create_da(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), thresh)
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), thresh)
+                res_expected = [274, np.nan]
+
+            # Case #17: | . T A 30xT 7x. T . B | . |
+            elif (i == 17) and (method == method_cumul):
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
+                          "start_date": "09-01", "end_date": "12-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), thresh)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), thresh)
                 res_expected = [281, np.nan]
+
+            # Case #18: | . T A 24xT 7x. | . B . |
+            elif (i == 18) and (method == method_cumul):
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
+                          "start_date": "06-01", "end_date": "03-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), thresh)
+                res_expected = [358, np.nan]
+
+            # Case #19: | . T A 24xT/14 7x. | 6x. T . B . |
+            elif (i == 19) and (method == method_cumul):
+                params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
+                          "start_date": "06-01", "end_date": "03-31"}
+                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), thresh)
+                da_pr = assign_values(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), thresh)
+                res_expected = [np.nan, 7]
 
             else:
                 continue
