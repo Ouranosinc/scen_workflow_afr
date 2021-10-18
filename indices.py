@@ -1604,7 +1604,15 @@ def rain_season_length(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    da_length = xr.where(da_end >= da_start, da_end - da_start + 1, da_end + 365 - da_start + 1)
+    # Start and end dates in the same calendar year.
+    if da_start.mean() <= da_end.mean():
+        da_length = da_end - da_start + 1
+
+    # Start and end dates not in the same year.
+    else:
+        da_length = 365 - da_start + da_end.shift(time=-1, fill_value=np.nan) + 1
+
+    # Eliminate negative values. This is a safety measure as this should not happen.
     da_length = xr.where(da_length < 0, 0, da_length)
 
     return da_length

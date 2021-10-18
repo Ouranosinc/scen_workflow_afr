@@ -26,7 +26,7 @@ import xarray as xr
 import xclim.indices as xindices
 
 
-def create_da(
+def gen_scen(
     var: str,
     start_year: int = 1981,
     n_years: int = 1,
@@ -35,7 +35,7 @@ def create_da(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Create an empty data array.
+    Generate a scenario.
 
     Parameters
     ----------
@@ -50,11 +50,10 @@ def create_da(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    pr = [[[0] * 365 * n_years]]
+    arr = [[[0] * 365 * n_years]]
     longitude = [0]
     latitude = [0]
     time = pd.date_range(str(start_year) + "-01-01", periods=365 * n_years)
-    reference_time = pd.Timestamp("2021-09-28")
 
     # Variable.
     description = units = ""
@@ -64,13 +63,69 @@ def create_da(
 
     # Create data array.
     da = xr.DataArray(
-        data=pr,
+        data=arr,
         dims=[cfg.dim_longitude, cfg.dim_latitude, cfg.dim_time],
         coords=dict(
             longitude=([cfg.dim_longitude], longitude),
             latitude=([cfg.dim_latitude], latitude),
-            time=time,
-            reference_time=reference_time,
+            time=time
+        ),
+        attrs=dict(
+            description=description,
+            units=units,
+        )
+    )
+
+    # Reorder dimensions.
+    da = da.transpose(cfg.dim_time, cfg.dim_latitude, cfg.dim_longitude)
+
+    # Assign values.
+    da = xr.ones_like(da).astype(bool) * val
+    da.attrs[cfg.attrs_units] = units
+
+    return da
+
+
+def gen_idx(
+        idx_name: str,
+        start_year: int = 1981,
+        n_years: int = 1,
+        val: float = 0
+):
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate an index.
+
+    Parameters
+    ----------
+    idx_name : str
+        Index.
+    start_year : int, optional
+        First year.
+    n_years : int, optional
+        Number of years
+    val : float, optional
+        Value to assign to all cells.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    arr = [[[0] * n_years]]
+    longitude = [0]
+    latitude = [0]
+    time = pd.date_range(str(start_year) + "-01-01", periods=n_years, freq=cfg.freq_YS)
+
+    # Variable.
+    description = idx_name
+    units = cfg.get_unit(idx_name)
+
+    # Create data array.
+    da = xr.DataArray(
+        data=arr,
+        dims=[cfg.dim_longitude, cfg.dim_latitude, cfg.dim_time],
+        coords=dict(
+            longitude=([cfg.dim_longitude], longitude),
+            latitude=([cfg.dim_latitude], latitude),
+            time=time
         ),
         attrs=dict(
             description=description,
@@ -92,7 +147,8 @@ def assign_values(
     da: xr.DataArray,
     date_start: str,
     date_end: str,
-    val: float
+    val: float,
+    freq: str = cfg.freq_D
 ):
 
     """
@@ -109,6 +165,8 @@ def assign_values(
         End date, as a string.
     val: float
         Value to assign.
+    freq: str
+        Frequency {cfg.freq_D, cfg.freq_YS}
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -122,8 +180,9 @@ def assign_values(
     year_n, doy_n = extract_year_doy(date_end)
 
     da_t = da[cfg.dim_time]
-    t1 = (year_1 - int(da["time"].dt.year.min())) * 365 + (doy_1 - 1)
-    tn = (year_n - int(da["time"].dt.year.min())) * 365 + (doy_n - 1)
+    n = 365 if freq == cfg.freq_D else 1
+    t1 = (year_1 - int(da["time"].dt.year.min())) * n + (doy_1 - 1)
+    tn = (year_n - int(da["time"].dt.year.min())) * n + (doy_n - 1)
     da.loc[slice(da_t[t1], da_t[tn])] = val
 
     return da
@@ -241,7 +300,7 @@ def dry_spell_total_length() -> bool:
             if (i == 1) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
@@ -249,7 +308,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 2) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [0, 0]
 
@@ -257,7 +316,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 3) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
                 res_expected = [0, 0]
@@ -266,7 +325,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 4) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [13, 0]
 
@@ -274,7 +333,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 5) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
                 res_expected = [13, 0]
 
@@ -282,7 +341,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 6) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
                 res_expected = [28, 0]
@@ -291,7 +350,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 7) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [0, 0]
 
@@ -299,7 +358,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 8) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [0, 0]
 
@@ -307,7 +366,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 9) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
                 res_expected = [0, 0]
@@ -316,7 +375,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 10) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [1, 0]
 
@@ -324,7 +383,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 11) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
                 res_expected = [1, 0]
 
@@ -332,7 +391,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 12) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
                 res_expected = [0, 0]
@@ -341,7 +400,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 13) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
@@ -349,7 +408,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 14) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
@@ -357,7 +416,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 15) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
@@ -365,7 +424,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 16) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 2, 22)), str(dstr(y1, 3, 7)), 0)
                 res_expected = [7, 0]
 
@@ -373,7 +432,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 17) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 11, 24)), str(dstr(y1, 12, 7)), 0)
                 res_expected = [8, 0]
 
@@ -381,7 +440,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 18) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y1 + 1, 1, 7)), 0)
                 res_expected = [7, 7]
 
@@ -389,7 +448,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 19) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 14)), 0)
                 res_expected = [14, 0]
 
@@ -397,7 +456,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 20) and (method == method_1d):
                 params = {"method": method, "thresh": 1.0, "window": 14,
                           "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 da_pr = assign_values(da_pr, str(dstr(y1 + 1, 12, 18)), str(dstr(y1 + 1, 12, 31)), 0)
                 res_expected = [0, 14]
 
@@ -405,7 +464,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 21) and (method == method_1d):
                 params = {"method": method, "thresh": 3.0, "window": 3,
                           "dry_fill": True, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, params["thresh"])
+                da_pr = gen_scen(var, y1, n_years, params["thresh"])
                 pr = params["thresh"] / params["window"]
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 3)), pr)
                 da_pr = assign_values(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 2)), pr)
@@ -421,14 +480,14 @@ def dry_spell_total_length() -> bool:
             elif (i == 22) and (method == method_cumul):
                 params = {"method": method, "thresh": 14.0, "window": 14,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 res_expected = [365, 365]
 
             # Case #23: | . T*13/14 . | . |
             elif (i == 23) and (method == method_cumul):
                 params = {"method": method, "thresh": 14.0, "window": 14,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"] - 1.0)
                 res_expected = [365, 365]
 
@@ -436,7 +495,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 24) and (method == method_cumul):
                 params = {"method": method, "thresh": 14.0, "window": 14,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"])
                 res_expected = [364, 365]
 
@@ -444,7 +503,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 25) and (method == method_cumul):
                 params = {"method": method, "thresh": 14.0, "window": 14,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 2)), params["thresh"] / 2.0)
                 res_expected = [363, 365]
 
@@ -452,7 +511,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 26) and (method == method_cumul):
                 params = {"method": method, "thresh": 14, "window": 14,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)),
                                       params["thresh"] / params["window"])
                 res_expected = [351, 365]
@@ -461,7 +520,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 27) and (method == method_cumul):
                 params = {"method": method, "thresh": 14, "window": 14,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)),
                                       params["thresh"] / params["window"])
                 res_expected = [358, 358]
@@ -470,7 +529,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 28) and (method == method_cumul):
                 params = {"method": method, "thresh": 14.0, "window": 14,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), params["thresh"])
                 res_expected = [358, 358]
 
@@ -478,7 +537,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 29) and (method == method_cumul):
                 params = {"method": method, "thresh": 15.0, "window": 15,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 15)),
                                       params["thresh"] / params["window"])
                 res_expected = [350, 365]
@@ -487,7 +546,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 30) and (method == method_cumul):
                 params = {"method": method, "thresh": 3.0, "window": 3,
                           "dry_fill": False, "start_date": "", "end_date": ""}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 9)),
                                       params["thresh"] / params["window"])
                 res_expected = [356, 365]
@@ -560,7 +619,7 @@ def rain_season_start() -> bool:
         if i == 1:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), params["thresh_dry"])
@@ -570,7 +629,7 @@ def rain_season_start() -> bool:
         elif i == 2:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), params["thresh_dry"])
@@ -581,7 +640,7 @@ def rain_season_start() -> bool:
         elif i == 3:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), params["thresh_dry"])
@@ -592,7 +651,7 @@ def rain_season_start() -> bool:
         elif i == 4:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), params["thresh_dry"])
@@ -603,7 +662,7 @@ def rain_season_start() -> bool:
         elif i == 5:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 28)), params["thresh_dry"])
@@ -613,7 +672,7 @@ def rain_season_start() -> bool:
         elif i == 6:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 8)), params["thresh_dry"])
@@ -625,7 +684,7 @@ def rain_season_start() -> bool:
         elif i == 7:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "03-01", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), params["thresh_dry"])
@@ -638,7 +697,7 @@ def rain_season_start() -> bool:
         elif i == 8:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "04-04", "end_date": "12-31", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), params["thresh_dry"])
@@ -648,7 +707,7 @@ def rain_season_start() -> bool:
         elif i == 9:
             params = {"thresh_wet": 20, "window_wet": 3, "thresh_dry": 1, "window_dry": 10, "window_tot": 30,
                       "start_date": "09-01", "end_date": "06-30", }
-            da_pr = create_da(var, y1, n_years, 0.0)
+            da_pr = gen_scen(var, y1, n_years, 0.0)
             da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 3)),
                                   params["thresh_wet"] / params["window_wet"])
             da_pr = assign_values(da_pr, str(dstr(y1, 10, 4)), str(dstr(y1, 11, 2)), params["thresh_dry"])
@@ -720,14 +779,14 @@ def rain_season_end() -> bool:
             if i == 1:
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 res_expected = [np.nan, np.nan]
 
             # Case #2: | T/14 A T/14 | T/14 B T/14 |
             elif i == 2:
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, etp)
+                da_pr = gen_scen(var, y1, n_years, etp)
                 res_expected = [np.nan, np.nan]
 
             # {method} = "depletion" -----------------------------------------------------------------------------------
@@ -736,7 +795,7 @@ def rain_season_end() -> bool:
             elif (i == 3) and (method == method_depletion):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 res_expected = [287, np.nan]
 
@@ -744,7 +803,7 @@ def rain_season_end() -> bool:
             elif (i == 4) and (method == method_depletion):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), etp / 2)
                 res_expected = [301, np.nan]
@@ -753,7 +812,7 @@ def rain_season_end() -> bool:
             elif (i == 5) and (method == method_depletion):
                 params = {"method": method, "thresh": thresh, "etp": 0.0, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 res_expected = [np.nan, np.nan]
 
@@ -761,7 +820,7 @@ def rain_season_end() -> bool:
             elif (i == 6) and (method == method_depletion):
                 params = {"method": method, "thresh": thresh, "etp": 2 * etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 res_expected = [280, np.nan]
 
@@ -769,7 +828,7 @@ def rain_season_end() -> bool:
             elif (i == 7) and (method == method_depletion):
                 params = {"method": method, "thresh": thresh, "etp": 2 * etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * etp)
                 res_expected = [284, np.nan]
@@ -778,7 +837,7 @@ def rain_season_end() -> bool:
             elif (i == 8) and (method == method_depletion):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "06-01", "end_date": "03-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), etp)
                 da_pr = assign_values(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), etp)
                 res_expected = [np.nan, 29]
@@ -789,7 +848,7 @@ def rain_season_end() -> bool:
             elif (i == 9) and (method == method_event):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp)
                 res_expected = [273, np.nan]
 
@@ -797,7 +856,7 @@ def rain_season_end() -> bool:
             elif (i == 10) and (method == method_event):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), etp)
                 res_expected = [np.nan, np.nan]
 
@@ -805,7 +864,7 @@ def rain_season_end() -> bool:
             elif (i == 11) and (method == method_event):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), etp / 2)
                 res_expected = [np.nan, np.nan]
 
@@ -813,7 +872,7 @@ def rain_season_end() -> bool:
             elif (i == 12) and (method == method_event):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 10, 15)), etp)
                 res_expected = [288, np.nan]
 
@@ -821,7 +880,7 @@ def rain_season_end() -> bool:
             elif (i == 13) and (method == method_event):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-16"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), etp)
                 da_pr = assign_values(da_pr, str(dstr(y1, 12, 17)), str(dstr(y1, 12, 31)), etp)
                 res_expected = [np.nan, np.nan]
@@ -830,7 +889,7 @@ def rain_season_end() -> bool:
             elif (i == 14) and (method == method_event):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "06-01", "end_date": "03-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), thresh)
                 da_pr = assign_values(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), thresh)
                 res_expected = [np.nan, 7]
@@ -841,7 +900,7 @@ def rain_season_end() -> bool:
             elif (i == 15) and (method == method_cumul):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), thresh)
                 res_expected = [273, np.nan]
 
@@ -849,7 +908,7 @@ def rain_season_end() -> bool:
             elif (i == 16) and (method == method_cumul):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), thresh)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), thresh)
                 res_expected = [274, np.nan]
@@ -858,7 +917,7 @@ def rain_season_end() -> bool:
             elif (i == 17) and (method == method_cumul):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "09-01", "end_date": "12-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), thresh)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), thresh)
                 res_expected = [281, np.nan]
@@ -867,7 +926,7 @@ def rain_season_end() -> bool:
             elif (i == 18) and (method == method_cumul):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "06-01", "end_date": "03-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), thresh)
                 res_expected = [358, np.nan]
 
@@ -875,7 +934,7 @@ def rain_season_end() -> bool:
             elif (i == 19) and (method == method_cumul):
                 params = {"method": method, "thresh": thresh, "etp": etp, "window": window,
                           "start_date": "06-01", "end_date": "03-31"}
-                da_pr = create_da(var, y1, n_years, 0.0)
+                da_pr = gen_scen(var, y1, n_years, 0.0)
                 da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), thresh)
                 da_pr = assign_values(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), thresh)
                 res_expected = [np.nan, 7]
@@ -904,7 +963,7 @@ def rain_season_length() -> bool:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    TODO: Test indices.rain_season_length.
+    Test indices.rain_season_length.
 
     Returns
     -------
@@ -913,9 +972,6 @@ def rain_season_length() -> bool:
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Variable.
-    var = cfg.var_cordex_pr
-
     # Years.
     n_years = 2
     y1 = 1981
@@ -923,21 +979,53 @@ def rain_season_length() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 0
+    n_cases = 4
     for i in range(1, n_cases + 1):
 
         # Initialization.
-        da_pr = None
-        params = None
+        da_rainseason_start = None
+        da_rainseason_end = None
         res_expected = [0] * n_years
-
-        da_idx = [0, 0]
 
         # Cases --------------------------------------------------------------------------------------------------------
 
-        # TODO: Insert cases.
+        # Case #1: | . A . B . | . |
+        if i == 1:
+            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            assign_values(da_rainseason_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 91, cfg.freq_YS)
+            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            assign_values(da_rainseason_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
+            res_expected = [273 - 91 + 1, np.nan]
+
+        # Case #2: | . A . | . B . |
+        elif i == 2:
+            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            assign_values(da_rainseason_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
+            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            assign_values(da_rainseason_end, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
+            res_expected = [365 - 273 + 1 + 91, np.nan]
+
+        # Case #3: | . B . A . | . B . A . |
+        elif i == 3:
+            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            for y in [y1, y2]:
+                assign_values(da_rainseason_start, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 273, cfg.freq_YS)
+            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            for y in [y1, y2]:
+                assign_values(da_rainseason_end, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 91, cfg.freq_YS)
+            res_expected = [365 - 273 + 1 + 91, np.nan]
+
+        # Case #4: | . B . | . A . |
+        elif i == 4:
+            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            assign_values(da_rainseason_start, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
+            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            assign_values(da_rainseason_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
+            res_expected = [np.nan, np.nan]
 
         # Calculation and interpretation -------------------------------------------------------------------------------
+
+        da_idx = indices.rain_season_length(da_rainseason_start, da_rainseason_end)
 
         # Extract results.
         res = [float(da_idx[0])]
@@ -1071,7 +1159,7 @@ def run():
     # rain_season_start()
 
     utils.log("Step #0c  rain_season_end")
-    rain_season_end()
+    # rain_season_end()
 
     utils.log("Step #0d  rain_season_length")
     rain_season_length()
