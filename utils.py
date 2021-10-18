@@ -1655,7 +1655,7 @@ def doy_to_doy_str(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    dt = datetime.datetime(1971 if n_days == 365 else 1970, 1, 1) + datetime.timedelta(doy - 1)
-    doy_str = str(dt.month).zfill(2) + "-" + str(dt.day).zfill(2)
+    tt = datetime.datetime.strptime(str.zfill(str(int(doy)), 3), "%j").timetuple()
+    doy_str = str(tt.tm_mon).zfill(2) + "-" + str(tt.tm_mday).zfill(2)
 
     return doy_str

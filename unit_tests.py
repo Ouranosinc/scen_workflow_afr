@@ -719,14 +719,12 @@ def rain_season_start() -> bool:
         # Calculation and interpretation -------------------------------------------------------------------------------
 
         # Calculate indices.
-        da_idx = indices.rain_season_start(da_pr, params["thresh_wet"], params["window_wet"],
-                                           params["thresh_dry"], params["window_dry"], params["window_tot"],
-                                           params["start_date"], params["end_date"])
-
-        # Extract results.
-        res = [float(da_idx[0])]
-        if len(da_idx) > 1:
-            res.append(float(da_idx[1]))
+        da_start = indices.rain_season_start(da_pr, params["thresh_wet"], params["window_wet"],
+                                             params["thresh_dry"], params["window_dry"], params["window_tot"],
+                                             params["start_date"], params["end_date"])
+        res = [float(da_start[0])]
+        if len(da_start) > 1:
+            res.append(float(da_start[1]))
 
         #  Raise error flag.
         if not res_is_valid(res, res_expected):
@@ -944,13 +942,11 @@ def rain_season_end() -> bool:
 
             # Calculation and interpretation ---------------------------------------------------------------------------
 
-            da_idx = indices.rain_season_end(da_pr, None, None, None, params["method"], params["thresh"],
+            da_end = indices.rain_season_end(da_pr, None, None, None, params["method"], params["thresh"],
                                              params["etp"], params["window"], params["start_date"], params["end_date"])
-
-            # Extract results.
-            res = [float(da_idx[0])]
-            if len(da_idx) > 1:
-                res.append(float(da_idx[1]))
+            res = [float(da_end[0])]
+            if len(da_end) > 1:
+                res.append(float(da_end[1]))
 
             #  Raise error flag.
             if not res_is_valid(res, res_expected):
@@ -959,91 +955,11 @@ def rain_season_end() -> bool:
     return error
 
 
-def rain_season_length() -> bool:
+def rain_season_length_prcptot() -> bool:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Test indices.rain_season_length.
-
-    Returns
-    -------
-    bool
-        True if all tests are successful.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Years.
-    n_years = 2
-    y1 = 1981
-    y2 = y1 + 1
-
-    # Loop through cases.
-    error = False
-    n_cases = 4
-    for i in range(1, n_cases + 1):
-
-        # Initialization.
-        da_rainseason_start = None
-        da_rainseason_end = None
-        res_expected = [0] * n_years
-
-        # Cases --------------------------------------------------------------------------------------------------------
-
-        # Case #1: | . A . B . | . |
-        if i == 1:
-            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
-            assign_values(da_rainseason_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 91, cfg.freq_YS)
-            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
-            assign_values(da_rainseason_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
-            res_expected = [273 - 91 + 1, np.nan]
-
-        # Case #2: | . A . | . B . |
-        elif i == 2:
-            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
-            assign_values(da_rainseason_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
-            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
-            assign_values(da_rainseason_end, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
-            res_expected = [365 - 273 + 1 + 91, np.nan]
-
-        # Case #3: | . B . A . | . B . A . |
-        elif i == 3:
-            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
-            for y in [y1, y2]:
-                assign_values(da_rainseason_start, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 273, cfg.freq_YS)
-            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
-            for y in [y1, y2]:
-                assign_values(da_rainseason_end, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 91, cfg.freq_YS)
-            res_expected = [365 - 273 + 1 + 91, np.nan]
-
-        # Case #4: | . B . | . A . |
-        elif i == 4:
-            da_rainseason_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
-            assign_values(da_rainseason_start, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
-            da_rainseason_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
-            assign_values(da_rainseason_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
-            res_expected = [np.nan, np.nan]
-
-        # Calculation and interpretation -------------------------------------------------------------------------------
-
-        da_idx = indices.rain_season_length(da_rainseason_start, da_rainseason_end)
-
-        # Extract results.
-        res = [float(da_idx[0])]
-        if len(da_idx) > 1:
-            res.append(float(da_idx[1]))
-
-        #  Raise error flag.
-        if not res_is_valid(res, res_expected):
-            error = True
-
-    return error
-
-
-def rain_season_prcptot() -> bool:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    TODO: Test indices.rain_season_prcptot.
+    Test indices.rain_season_length and indices.rain_season_prcptot.
 
     Returns
     -------
@@ -1060,31 +976,81 @@ def rain_season_prcptot() -> bool:
     y1 = 1981
     y2 = y1 + 1
 
+    # Precipitation dataset.
+    da_pr = gen_scen(var, y1, n_years, 1.0)
+
     # Loop through cases.
     error = False
-    n_cases = 0
+    n_cases = 5
     for i in range(1, n_cases + 1):
 
         # Initialization.
-        da_pr = None
-        params = None
+        da_start = None
+        da_end = None
         res_expected = [0] * n_years
-
-        da_idx = [0, 0]
 
         # Cases --------------------------------------------------------------------------------------------------------
 
-        # TODO: Insert cases.
+        # Case #1: | . A1 . B1 . | . A2 . B2 . |
+        if i == 1:
+            da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            for j in range(n_years):
+                assign_values(da_start, str(dstr(y1 + j, 1, 1)), str(dstr(y1 + j, 1, 1)), 91 + j, cfg.freq_YS)
+            da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            for j in range(n_years):
+                assign_values(da_end, str(dstr(y1 + j, 1, 1)), str(dstr(y1 + j, 1, 1)), 273 - j, cfg.freq_YS)
+            res_expected = [273 - 91 + 1, 272 - 92 + 1]
+
+        # Case #2: | . A1 . | . B1 . |
+        elif i == 2:
+            da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            assign_values(da_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
+            da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            assign_values(da_end, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
+            res_expected = [365 - 273 + 1 + 91, np.nan]
+
+        # Case #3: | . B0 . A1 . | . B1 . A2 . |
+        elif i == 3:
+            da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            for y in [y1, y2]:
+                assign_values(da_start, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 273, cfg.freq_YS)
+            da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            for y in [y1, y2]:
+                assign_values(da_end, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 91, cfg.freq_YS)
+            res_expected = [365 - 273 + 1 + 91, np.nan]
+
+        # Case #4: | . B1 . | . A2 . |
+        elif i == 4:
+            da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            assign_values(da_start, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
+            da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            assign_values(da_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
+            res_expected = [np.nan, np.nan]
+
+        # Case #5: | . B1 A1 . | . |
+        elif i == 5:
+            da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+            assign_values(da_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 91, cfg.freq_YS)
+            da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
+            assign_values(da_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 90, cfg.freq_YS)
+            res_expected = [np.nan, np.nan]
 
         # Calculation and interpretation -------------------------------------------------------------------------------
 
-        # Extract results.
-        res = [float(da_idx[0])]
-        if len(da_idx) > 1:
-            res.append(float(da_idx[1]))
+        # Calculate length.
+        da_length = indices.rain_season_length(da_start, da_end)
+        res_length = [float(da_length[0])]
+        if len(da_length) > 1:
+            res_length.append(float(da_length[1]))
+
+        # Calculate total precipitation.
+        da_prcptot = indices.rain_season_prcptot(da_pr, da_start, da_end)
+        res_prcptot = [float(da_prcptot[0])]
+        if len(da_prcptot) > 1:
+            res_prcptot.append(float(da_prcptot[1]))
 
         #  Raise error flag.
-        if not res_is_valid(res, res_expected):
+        if (not res_is_valid(res_length, res_expected)) or (not res_is_valid(res_prcptot, res_expected)):
             error = True
 
     return error
@@ -1153,16 +1119,16 @@ def run():
     utils.log("Step #0   Testing indices")
 
     utils.log("Step #0a  dry_spell_total_length")
-    # dry_spell_total_length()
+    dry_spell_total_length()
 
     utils.log("Step #0b  rain_season_start")
-    # rain_season_start()
+    rain_season_start()
 
     utils.log("Step #0c  rain_season_end")
-    # rain_season_end()
+    rain_season_end()
 
-    utils.log("Step #0d  rain_season_length")
-    rain_season_length()
+    utils.log("Step #0d  rain_season_length/prcptot")
+    rain_season_length_prcptot()
 
-    utils.log("Step #0e  rain_season_prcptot")
-    rain_season_prcptot()
+    utils.log("Step #0f  rain_season")
+    rain_season()

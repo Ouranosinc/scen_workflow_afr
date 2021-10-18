@@ -1293,11 +1293,10 @@ def rain_season(
                                           e_start_date, e_end_date))
 
     # Calculate rain season length.
-    da_length = xr.where(da_end >= da_start, da_end - da_start + 1, da_end + 365 - da_start + 1)
-    da_length = xr.where(da_length < 0, 0, da_length)
+    da_length = xr.DataArray(rain_season_length(da_start, da_end))
 
     # Calculate rain quantity.
-    da_prcptot = indices_gen.aggregate_between_dates(da_pr, da_start, da_end, "sum") * 86400
+    da_prcptot = xr.DataArray(rain_season_prcptot(da_pr, da_start, da_end))
 
     return da_start, da_end, da_length, da_prcptot
 
@@ -1608,7 +1607,7 @@ def rain_season_length(
     if da_start.mean() <= da_end.mean():
         da_length = da_end - da_start + 1
 
-    # Start and end dates not in the same year.
+    # Start and end dates not in the same year (left shift required).
     else:
         da_length = 365 - da_start + da_end.shift(time=-1, fill_value=np.nan) + 1
 
@@ -1644,7 +1643,28 @@ def rain_season_prcptot(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    da_prcptot = indices_gen.aggregate_between_dates(da_pr, da_start, da_end, "sum") * cfg.spd
+    # Initialize the array that will contain results.
+    da_prcptot = xr.zeros_like(da_start) * np.nan
+
+    # Calculate the sum between two dates for a given year.
+    def calc_sum(year: int, start_doy: int, end_doy: int):
+        sel = (da_pr.time.dt.year == year) & \
+              (da_pr.time.dt.dayofyear >= start_doy) & (da_pr.time.dt.dayofyear <= end_doy)
+        return xr.where(sel, da_pr, 0).sum()
+
+    for i in range(len(da_start.time.dt.year)):
+        year_i = int(da_start.time.dt.year[i])
+
+        # Start and end dates in the same calendar year.
+        if da_start.mean() <= da_end.mean():
+            if (np.isnan(da_start[i]) == False) and (np.isnan(da_end[i]) == False):
+                da_prcptot[i] = calc_sum(year_i, int(da_start[i]), int(da_end[i]))
+
+        # Start and end dates not in the same year (left shift required).
+        else:
+            da_end_shift = da_end.shift(time=-1, fill_value=np.nan) if i == 0 else da_end_shift
+            if (np.isnan(da_start[i]) == False) and (np.isnan(da_end_shift[i]) == False):
+                da_prcptot[i] = calc_sum(year_i, int(da_start[i]), 365) + calc_sum(year_i, 1, int(da_end_shift[i]))
 
     return da_prcptot
 
