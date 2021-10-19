@@ -1282,7 +1282,8 @@ def rain_season(
                     da = da.expand_dims(longitude=1)
         return da
     da_pr = rename_dimensions(da_pr)
-    da_etp = rename_dimensions(da_etp)
+    if da_etp is not None:
+        da_etp = rename_dimensions(da_etp)
 
     # Calculate rain season start.
     da_start = xr.DataArray(rain_season_start(da_pr, s_thresh_wet, s_window_wet, s_thresh_dry, s_window_dry,
