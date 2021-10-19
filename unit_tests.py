@@ -17,6 +17,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
+import copy
 import datetime
 import indices
 import numpy as np
@@ -143,17 +144,16 @@ def gen_idx(
     return da
 
 
-def assign_values(
+def assign(
     da: xr.DataArray,
     date_start: str,
     date_end: str,
-    val: float,
-    freq: str = cfg.freq_D
+    val: float
 ):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Generate rain.
+    Assign values.
 
     Parameters
     ----------
@@ -165,8 +165,6 @@ def assign_values(
         End date, as a string.
     val: float
         Value to assign.
-    freq: str
-        Frequency {cfg.freq_D, cfg.freq_YS}
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -176,16 +174,19 @@ def assign_values(
         doy = date.tm_yday
         return year, doy
 
+    if len(date_start) == 4:
+        n = 1
+        date_start += "-01-01"
+        date_end += "-01-01"
+    else:
+        n = 365
+
     year_1, doy_1 = extract_year_doy(date_start)
     year_n, doy_n = extract_year_doy(date_end)
 
-    da_t = da[cfg.dim_time]
-    n = 365 if freq == cfg.freq_D else 1
     t1 = (year_1 - int(da["time"].dt.year.min())) * n + (doy_1 - 1)
     tn = (year_n - int(da["time"].dt.year.min())) * n + (doy_n - 1)
-    da.loc[slice(da_t[t1], da_t[tn])] = val
-
-    return da
+    da.loc[slice(da[cfg.dim_time][t1], da[cfg.dim_time][tn])] = val
 
 
 def res_is_valid(res, res_expected) -> bool:
@@ -294,261 +295,251 @@ def dry_spell_total_length() -> bool:
 
         for method in [method_1d, method_cumul]:
 
+            # Parameters.
+            dry_fill = (method == method_1d)
+            start_date = ""
+            end_date = ""
+
             # {method} = "1d" ------------------------------------------------------------------------------------------
 
             # Case #1: | T A 14x. T B T | T |
             if (i == 1) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
             # Case #2: | T A 13x. T B T | T |
             elif (i == 2) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
+                start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [0, 0]
 
             # Case #3: | T A 7x. T 7x. T B T | T |
             elif (i == 3) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
+                start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
+                assign(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
                 res_expected = [0, 0]
 
             # Case #4: | T . A 13x. T B T | T |
             elif (i == 4) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
+                start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [13, 0]
 
             # Case #5: | T A T 13x. B . T | T |
             elif (i == 5) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
+                start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
                 res_expected = [13, 0]
 
             # Case #6: | T A 14x. T 14x. B T | T |
             elif (i == 6) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": dstr(-1, 11, 30)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
+                start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                assign(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
                 res_expected = [28, 0]
 
             # Case #7: | T B 14x. T A T | T |
             elif (i == 7) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [0, 0]
 
             # Case #8: | T B 13x. T A T | T |
             elif (i == 8) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [0, 0]
 
             # Case #9: | T B T 7x. T 7x. T A T | T |
             elif (i == 9) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 7)), 0)
+                assign(da_pr, str(dstr(y1, 3, 9)), str(dstr(y1, 3, 15)), 0)
                 res_expected = [0, 0]
 
             # Case #10: | T B 14x. T A T | T |
             elif (i == 10) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 2, 28)), str(dstr(y1, 3, 13)), 0)
                 res_expected = [1, 0]
 
             # Case 11: | T B T 14x. A T | T |
             elif (i == 11) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 11, 18)), str(dstr(y1, 12, 1)), 0)
                 res_expected = [1, 0]
 
             # Case #12: | T B T 14x. T 14x. T A T | T |
             elif (i == 12) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 2, 28)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                assign(da_pr, str(dstr(y1, 8, 1)), str(dstr(y1, 8, 14)), 0)
                 res_expected = [0, 0]
 
             # Case #13: | T 14x. T | T |
             elif (i == 13) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": "", "end_date": ""}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
             # Case #14: | T A 14x. T | T |
             elif (i == 14) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                start_date = dstr(-1, 3, 1)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
             # Case #15: | T 14x. T B T | T |
             elif (i == 15) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
+                end_date = dstr(-1, 12, 1)
+                thresh, window   = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
             # Case #16: | T 7x. A 7x. T | T |
             elif (i == 16) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 3, 1), "end_date": ""}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 2, 22)), str(dstr(y1, 3, 7)), 0)
+                start_date = dstr(-1, 3, 1)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 2, 22)), str(dstr(y1, 3, 7)), 0)
                 res_expected = [7, 0]
 
             # Case #17: | T 7x. T B 7x. T | T |
             elif (i == 17) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": "", "end_date": dstr(-1, 12, 1)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 11, 24)), str(dstr(y1, 12, 7)), 0)
+                end_date = dstr(-1, 12, 1)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 11, 24)), str(dstr(y1, 12, 7)), 0)
                 res_expected = [8, 0]
 
             # Case #18: | T B T 7x. | 7x. T B T |
             elif (i == 18) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y1 + 1, 1, 7)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 1, 31)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 12, 25)), str(dstr(y1 + 1, 1, 7)), 0)
                 res_expected = [7, 7]
 
             # Case #19: | 14x. T B T A T | T |
             elif (i == 19) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 14)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 1, 31)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 14)), 0)
                 res_expected = [14, 0]
 
             # Case #20: | T | T B T A T 14x. |
             elif (i == 20) and (method == method_1d):
-                params = {"method": method, "thresh": 1.0, "window": 14,
-                          "dry_fill": True, "start_date": dstr(-1, 12, 1), "end_date": dstr(-1, 1, 31)}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                da_pr = assign_values(da_pr, str(dstr(y1 + 1, 12, 18)), str(dstr(y1 + 1, 12, 31)), 0)
+                start_date, end_date = dstr(-1, 12, 1), dstr(-1, 1, 31)
+                thresh, window = 1, 14
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                assign(da_pr, str(dstr(y1 + 1, 12, 18)), str(dstr(y1 + 1, 12, 31)), 0)
                 res_expected = [0, 14]
 
             # Case #21: | T 3x<T T 2x<T T 3x<T T | T 3x<T T 2x<T T 3x<T T |
             elif (i == 21) and (method == method_1d):
-                params = {"method": method, "thresh": 3.0, "window": 3,
-                          "dry_fill": True, "start_date": "", "end_date": ""}
-                da_pr = gen_scen(var, y1, n_years, params["thresh"])
-                pr = params["thresh"] / params["window"]
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 3)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 2)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y1, 9, 1)), str(dstr(y1, 9, 3)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y2, 3, 1)), str(dstr(y2, 3, 3)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y2, 6, 1)), str(dstr(y2, 6, 2)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y2, 9, 1)), str(dstr(y2, 9, 3)), pr)
+                thresh, window = 3, 3
+                da_pr = gen_scen(var, y1, n_years, thresh)
+                pr = thresh / window
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 3)), pr)
+                assign(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 2)), pr)
+                assign(da_pr, str(dstr(y1, 9, 1)), str(dstr(y1, 9, 3)), pr)
+                assign(da_pr, str(dstr(y2, 3, 1)), str(dstr(y2, 3, 3)), pr)
+                assign(da_pr, str(dstr(y2, 6, 1)), str(dstr(y2, 6, 2)), pr)
+                assign(da_pr, str(dstr(y2, 9, 1)), str(dstr(y2, 9, 3)), pr)
                 res_expected = [6, 6]
 
             # {method} = "cumul" ---------------------------------------------------------------------------------------
 
             # Case #22: | . | . |
             elif (i == 22) and (method == method_cumul):
-                params = {"method": method, "thresh": 14.0, "window": 14,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 res_expected = [365, 365]
 
             # Case #23: | . T*13/14 . | . |
             elif (i == 23) and (method == method_cumul):
-                params = {"method": method, "thresh": 14.0, "window": 14,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"] - 1.0)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), thresh - 1.0)
                 res_expected = [365, 365]
 
             # Case #24: | . T . | . |
             elif (i == 24) and (method == method_cumul):
-                params = {"method": method, "thresh": 14.0, "window": 14,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), params["thresh"])
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), thresh)
                 res_expected = [364, 365]
 
             # Case #25: | . T/2 T/2 . | . |
             elif (i == 25) and (method == method_cumul):
-                params = {"method": method, "thresh": 14.0, "window": 14,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 2)), params["thresh"] / 2.0)
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 2)), thresh / 2.0)
                 res_expected = [363, 365]
 
             # Case #26: | . 14xT/14 . | . |
             elif (i == 26) and (method == method_cumul):
-                params = {"method": method, "thresh": 14, "window": 14,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)),
-                                      params["thresh"] / params["window"])
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), thresh / window)
                 res_expected = [351, 365]
 
             # Case #27: | . 7xT/14 | 7xT/14 . |
             elif (i == 27) and (method == method_cumul):
-                params = {"method": method, "thresh": 14, "window": 14,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)),
-                                      params["thresh"] / params["window"])
+                assign(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), thresh / window)
                 res_expected = [358, 358]
 
             # Case #28: | . 7xT | 7xT . |
             elif (i == 28) and (method == method_cumul):
-                params = {"method": method, "thresh": 14.0, "window": 14,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), params["thresh"])
+                assign(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), thresh)
                 res_expected = [358, 358]
 
             # Case #29: | . 15xT/14 . | . |
             elif (i == 29) and (method == method_cumul):
-                params = {"method": method, "thresh": 15.0, "window": 15,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 15, 15
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 15)),
-                                      params["thresh"] / params["window"])
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 15)), thresh / window)
                 res_expected = [350, 365]
 
             # Case #30: | . 9xT/14 . | . |
             elif (i == 30) and (method == method_cumul):
-                params = {"method": method, "thresh": 3.0, "window": 3,
-                          "dry_fill": False, "start_date": "", "end_date": ""}
+                thresh, window = 3, 3
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 9)),
-                                      params["thresh"] / params["window"])
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 9)), thresh / window)
                 res_expected = [356, 365]
 
             else:
@@ -557,7 +548,7 @@ def dry_spell_total_length() -> bool:
             # Calculation and interpretation ---------------------------------------------------------------------------
 
             # Exit if case does not apply.
-            if (algo == 1) and ((params["start_date"] != "") or (params["end_date"] != "")):
+            if (algo == 1) and ((start_date != "") or (end_date != "")):
                 continue
 
             # Calculate indices using old algorithm.
@@ -568,13 +559,11 @@ def dry_spell_total_length() -> bool:
             # - results are wrong if an even windows size is specified;
             # - dry days are not affected to the right year when a period overlaps two years.
             if algo == 1:
-                da_idx = xindices.dry_spell_total_length(da_pr, str(params["thresh"]) + " mm", params["window"],
-                                                         cfg.freq_YS)
+                da_idx = xindices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, cfg.freq_YS)
 
             # Calculate indices using new algorithm.
             else:
-                da_idx = indices.dry_spell_total_length(da_pr, params["method"], params["thresh"], params["window"],
-                                                        params["dry_fill"], params["start_date"], params["end_date"])
+                da_idx = indices.dry_spell_total_length(da_pr, method, thresh, window, dry_fill, start_date, end_date)
 
             # Extract results.
             res = [int(da_idx[0])]
@@ -609,7 +598,7 @@ def rain_season_start() -> bool:
     y1 = 1981
 
     # Parameters.
-    thresh_wet = 20  # Tw
+    thresh_wet = 15  # Tw
     window_wet = 3
     thresh_dry = 1   # Td
     window_dry = 10
@@ -624,90 +613,81 @@ def rain_season_start() -> bool:
 
         # Case #1: | . A . 3xTw/3 30xTd . B | . |
         if i == 1:
-            start_date = "03-01"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "03-01", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), thresh_dry)
             res_expected = [91, np.nan]
 
         # Case #2: | . A . 3xTw/3 10xTd 9x. 11xTd . B | . |
         elif i == 2:
-            start_date = "03-01"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "03-01", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), thresh_dry)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), thresh_dry)
             res_expected = [91, np.nan]
 
         # Case #3: | . A . 3xTw/3 10xTd 10x. 10xTd . B | . |
         elif i == 3:
-            start_date = "03-01"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "03-01", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), thresh_dry)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 24)), str(dstr(y1, 5, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 24)), str(dstr(y1, 5, 3)), thresh_dry)
             res_expected = [np.nan, np.nan]
 
         # Case #4: | . A . 2xTw*2/3 . 10xTd 9x. 11xTd . B | . |
         elif i == 4:
-            start_date = "03-01"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "03-01", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), thresh_dry)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 13)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 23)), str(dstr(y1, 5, 3)), thresh_dry)
             res_expected = [np.nan, np.nan]
 
         # Case #5: | . A . 3xTw/3 25xTd . B | . |
         elif i == 5:
-            start_date = "03-01"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "03-01", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 28)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 28)), thresh_dry)
             res_expected = [91, np.nan]
 
         # Case #6: | . A . 3xTw/3 5xTd 5x. 10xTd 5x. 5xTd . B | . |
         elif i == 6:
-            start_date = "03-01"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "03-01", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 8)), thresh_dry)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 14)), str(dstr(y1, 4, 23)), thresh_dry)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 29)), str(dstr(y1, 5, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 4, 8)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 14)), str(dstr(y1, 4, 23)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 29)), str(dstr(y1, 5, 3)), thresh_dry)
             res_expected = [91, np.nan]
 
         # Case #7: | . A . 2xTw/3 . 30xTd . 3xTw/3 30xTd . B | . |
         elif i == 7:
-            start_date = "03-01"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "03-01", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), thresh_dry)
-            da_pr = assign_values(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 6, 4)), str(dstr(y1, 7, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 2)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 6, 1)), str(dstr(y1, 6, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 6, 4)), str(dstr(y1, 7, 3)), thresh_dry)
             res_expected = [152, np.nan]
 
         # Case #8: | . 3xTw/3 A 30xTd . B | . |
         elif i == 8:
-            start_date = "04-04"  # A
-            end_date   = "12-31"  # B
+            start_date, end_date = "04-04", "12-31"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), thresh_dry)
             res_expected = [np.nan, np.nan]
 
         # Case #9: | . A . 3xTw/3 30xTd . | . B . |
         elif i == 9:
-            start_date = "09-01"  # A
-            end_date   = "06-30"  # B
+            start_date, end_date = "09-01", "06-30"  # A, B
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 3)), thresh_wet / window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 10, 4)), str(dstr(y1, 11, 2)), thresh_dry)
+            assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 3)), thresh_wet / window_wet)
+            assign(da_pr, str(dstr(y1, 10, 4)), str(dstr(y1, 11, 2)), thresh_dry)
             res_expected = [274, np.nan]
 
         else:
@@ -746,8 +726,8 @@ def rain_season_end() -> bool:
 
     # Methods.
     method_depletion = "depletion"
-    method_event = "event"
-    method_cumul = "cumul"
+    method_event     = "event"
+    method_cumul     = "cumul"
 
     # Years.
     n_years = 2
@@ -762,26 +742,28 @@ def rain_season_end() -> bool:
         for method in [method_depletion, method_event, method_cumul]:
 
             # Parameters.
-            etp        = 5.0
+            etp        = 5
+            etp_i      = etp
             pr         = etp
             window     = 14
-            thresh     = etp * (1 if method == method_event else window)  # T
+            if method == method_event:
+                thresh = pr               # T
+            elif method == method_cumul:
+                thresh = pr * window      # T
+            else:
+                thresh = etp * window     # T
 
             # {method} = any -------------------------------------------------------------------------------------------
 
             # Case #1: | . A . | . B . |
             if i == 1:
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 res_expected = [np.nan, np.nan]
 
             # Case #2: | T/14 A T/14 | T/14 B T/14 |
             elif i == 2:
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, pr)
                 res_expected = [np.nan, np.nan]
 
@@ -789,167 +771,137 @@ def rain_season_end() -> bool:
 
             # Case #3: | . A 30xT/14 . B | . |
             elif (i == 3) and (method == method_depletion):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
                 res_expected = [287, np.nan]
 
             # Case #4: | . A 30xT/14 T/28 B | . |
             elif (i == 4) and (method == method_depletion):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), pr / 2)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), pr / 2)
                 res_expected = [301, np.nan]
 
             # Case #5: | . A 30xT/14 . B | . | (no etp)
             elif (i == 5) and (method == method_depletion):
-                etp_i      = 0.0
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                etp_i = 0.0
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
                 res_expected = [np.nan, np.nan]
 
             # Case #6: # | . A 30xT/14 . B | . | (2 x etp)
             elif (i == 6) and (method == method_depletion):
-                etp_i      = 2 * etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                etp_i = 2 * etp
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
                 res_expected = [280, np.nan]
 
             # Case #7: | . A 30xT/14 2x. 2xT/14 . B | . | (2 x etp)
             elif (i == 7) and (method == method_depletion):
-                etp_i      = 2 * etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                etp_i = 2 * etp
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * pr)
                 res_expected = [284, np.nan]
 
             # Case #8: | . A 15xT/14 | 15xT/14 . B . |
             elif (i == 8) and (method == method_depletion):
-                etp_i      = etp
-                start_date = "06-01"  # A
-                end_date   = "03-31"  # B
+                start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), pr)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), pr)
+                assign(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), pr)
                 res_expected = [np.nan, 29]
 
             # {method} = "event" ---------------------------------------------------------------------------------------
 
             # Case #9: | . T A 30xT . B | . |
             elif (i == 9) and (method == method_event):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
                 res_expected = [273, np.nan]
 
             # Case #10: | . T A . B | . |
             elif (i == 10) and (method == method_event):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr)
                 res_expected = [np.nan, np.nan]
 
             # Case #11: | . T/2 A 30xT/2 . B | . |
             elif (i == 11) and (method == method_event):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr / 2)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr / 2)
                 res_expected = [np.nan, np.nan]
 
             # Case #12: | . T A 15xT . B | . |
             elif (i == 12) and (method == method_event):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 10, 15)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 10, 15)), pr)
                 res_expected = [288, np.nan]
 
             # Case #13: | . T A . B 15xT | . |
             elif (i == 13) and (method == method_event):
                 etp_i = etp
-                start_date = "09-01"  # A
-                end_date   = "12-16"  # B
+                start_date, end_date = "09-01", "12-16"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y1, 12, 17)), str(dstr(y1, 12, 31)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr)
+                assign(da_pr, str(dstr(y1, 12, 17)), str(dstr(y1, 12, 31)), pr)
                 res_expected = [np.nan, np.nan]
 
             # Case #14: | . T A 24xT/14 7x. | 6x. T . B . |
             elif (i == 14) and (method == method_event):
-                etp_i      = etp
-                start_date = "06-01"  # A
-                end_date   = "03-31"  # B
+                start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr)
-                da_pr = assign_values(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr)
+                assign(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr)
                 res_expected = [np.nan, 7]
 
             # {method} = "cumul" ---------------------------------------------------------------------------------------
 
             # Case #15: | . T A 30xT . B | . |
             elif (i == 15) and (method == method_cumul):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
                 res_expected = [273, np.nan]
 
             # Case #16: | . T A 30xT T . B | . |
             elif (i == 16) and (method == method_cumul):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), pr * window)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), pr * window)
                 res_expected = [274, np.nan]
 
             # Case #17: | . T A 30xT 7x. T . B | . |
             elif (i == 17) and (method == method_cumul):
-                etp_i      = etp
-                start_date = "09-01"  # A
-                end_date   = "12-31"  # B
+                start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), pr * window)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
+                assign(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), pr * window)
                 res_expected = [281, np.nan]
 
             # Case #18: | . T A 24xT 7x. | . B . |
             elif (i == 18) and (method == method_cumul):
-                etp_i      = etp
-                start_date = "06-01"  # A
-                end_date   = "03-31"  # B
+                start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr * window)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr * window)
                 res_expected = [358, np.nan]
 
             # Case #19: | . T A 24xT/14 7x. | 6x. T . B . |
             elif (i == 19) and (method == method_cumul):
-                etp_i      = etp
-                start_date = "06-01"  # A
-                end_date   = "03-31"  # B
+                start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                da_pr = assign_values(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr * window)
-                da_pr = assign_values(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr * window)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr * window)
+                assign(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr * window)
                 res_expected = [np.nan, 7]
 
             else:
@@ -1011,44 +963,44 @@ def rain_season_length_prcptot() -> bool:
         if i == 1:
             da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
             for j in range(n_years):
-                assign_values(da_start, str(dstr(y1 + j, 1, 1)), str(dstr(y1 + j, 1, 1)), 91 + j, cfg.freq_YS)
+                assign(da_start, str(y1 + j), str(y1 + j), 91 + j)
             da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
             for j in range(n_years):
-                assign_values(da_end, str(dstr(y1 + j, 1, 1)), str(dstr(y1 + j, 1, 1)), 273 - j, cfg.freq_YS)
+                assign(da_end, str(y1 + j), str(y1 + j), 273 - j)
             res_expected = [273 - 91 + 1, 272 - 92 + 1]
 
         # Case #2: | . A1 . | . B1 . |
         elif i == 2:
             da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
-            assign_values(da_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
+            assign(da_start, str(y1), str(y1), 273)
             da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
-            assign_values(da_end, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
+            assign(da_end, str(y2), str(y2), 91)
             res_expected = [365 - 273 + 1 + 91, np.nan]
 
         # Case #3: | . B0 . A1 . | . B1 . A2 . |
         elif i == 3:
             da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
             for y in [y1, y2]:
-                assign_values(da_start, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 273, cfg.freq_YS)
+                assign(da_start, str(y), str(y), 273)
             da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
             for y in [y1, y2]:
-                assign_values(da_end, str(dstr(y, 1, 1)), str(dstr(y, 1, 1)), 91, cfg.freq_YS)
+                assign(da_end, str(y), str(y), 91)
             res_expected = [365 - 273 + 1 + 91, np.nan]
 
         # Case #4: | . B1 . | . A2 . |
         elif i == 4:
             da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
-            assign_values(da_start, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 1)), 91, cfg.freq_YS)
+            assign(da_start, str(y2), str(y2), 91)
             da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
-            assign_values(da_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 273, cfg.freq_YS)
+            assign(da_end, str(y1), str(y1), 273)
             res_expected = [np.nan, np.nan]
 
         # Case #5: | . B1 A1 . | . |
         elif i == 5:
             da_start = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
-            assign_values(da_start, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 91, cfg.freq_YS)
+            assign(da_start, str(y1), str(y1), 91)
             da_end = gen_idx(cfg.idx_rain_season_end, y1, n_years, np.nan)
-            assign_values(da_end, str(dstr(y1, 1, 1)), str(dstr(y1, 1, 1)), 90, cfg.freq_YS)
+            assign(da_end, str(y1), str(y1), 90)
             res_expected = [np.nan, np.nan]
 
         # Calculation and interpretation -------------------------------------------------------------------------------
@@ -1073,7 +1025,7 @@ def rain_season() -> bool:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    TODO: Test indices.rain_season.
+    Test indices.rain_season.
 
     Returns
     -------
@@ -1085,6 +1037,11 @@ def rain_season() -> bool:
     # Variable.
     var = cfg.var_cordex_pr
 
+    # Methods.
+    method_depletion = "depletion"
+    method_event     = "event"
+    method_cumul     = "cumul"
+
     # Years.
     n_years = 2
     y1 = 1981
@@ -1092,7 +1049,7 @@ def rain_season() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 1
+    n_cases = 2
     for i in range(1, n_cases + 1):
 
         # Initialization.
@@ -1100,7 +1057,7 @@ def rain_season() -> bool:
         da_start_next = None
 
         # Parameters: rain season start.
-        s_thresh_wet = 20  # Tw
+        s_thresh_wet = 15  # Tw
         s_window_wet = 3
         s_thresh_dry = 1   # Td
         s_window_dry = 10
@@ -1108,32 +1065,40 @@ def rain_season() -> bool:
 
         # Parameters: rain season end.
         e_method = "cumul"
-        e_etp    = 5.0
-        e_pr     = e_etp
+        e_etp    = 5
+        e_pr     = s_thresh_dry
         e_window = 14
-        e_thresh = e_etp * (1 if e_method == "event" else e_window)
+        if e_method == method_event:
+            e_thresh = e_pr              # T
+        elif e_method == method_cumul:
+            e_thresh = e_pr * e_window   # T
+        else:
+            e_thresh = e_etp * e_window  # T
 
         # Cases --------------------------------------------------------------------------------------------------------
 
-        # Case #1: start = | . A . 3xTw/3 30xTd .           B | . |
-        #          end   = | .                  T . C . T . D | . |
-        if i == 1:
-            # Start (same as case #1 in rain_season_start):
-            s_start_date = "03-01"  # A
-            s_end_date   = "12-31"  # B
+        # Case #1-2: start      = | . A . 3xTw/3 30xTd .             B | . |
+        #            end        = | .                  T/14 C T/14 . D | . |
+        #            start_next = | .                       .      E . | . | (i == 2)
+        if i in [1, 2]:
+            # Parameters and data.
+            s_start_date, s_end_date = "03-01", "12-31"  # A, B
+            e_start_date, e_end_date = "09-01", "12-31"  # C, D
             da_pr = gen_scen(var, y1, n_years, 0.0)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), s_thresh_wet / s_window_wet)
-            da_pr = assign_values(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 5, 3)), s_thresh_dry)
-            # End (similar to case #15 in rain_season_end).
-            e_etp_i      = e_etp
-            e_start_date = "09-01"  # C
-            e_end_date   = "12-31"  # D
-            da_pr = assign_values(da_pr, str(dstr(y1, 5, 4)), str(dstr(y1, 9, 30)), e_pr * e_window)
+            assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 4, 3)), s_thresh_wet / s_window_wet)
+            assign(da_pr, str(dstr(y1, 4, 4)), str(dstr(y1, 9, 30)), s_thresh_dry)
+            if i == 2:
+                da_start_next = gen_idx(cfg.idx_rain_season_start, y1, n_years, np.nan)
+                assign(da_start_next, str(y1), str(y1), utils.doy_str_to_doy("09-05"))
             # Expected results.
             res_start_expected = [91, np.nan]
-            res_end_expected = [273, np.nan]
-            res_length_expected = [273 - 91 + 1, np.nan]
-            res_prcptot_expected = res_length_expected
+            if i == 1:
+                res_end_expected = [260, np.nan]
+            else:
+                res_end_expected = [da_start_next[0] - 1, np.nan]
+            res_length_expected = [res_end_expected[0] - res_start_expected[0] + 1, np.nan]
+            res_prcptot_expected = copy.deepcopy(res_length_expected)
+            res_prcptot_expected[0] += s_thresh_wet - s_window_wet
 
         else:
             continue
@@ -1143,7 +1108,7 @@ def rain_season() -> bool:
         # Calculate indices.
         da_start, da_end, da_length, da_prcptot =\
             indices.rain_season(da_pr, da_etp, da_start_next, s_thresh_wet, s_window_wet, s_thresh_dry, s_window_dry,
-                                s_window_tot, s_start_date, s_end_date, e_method, e_thresh, e_etp_i, e_window,
+                                s_window_tot, s_start_date, s_end_date, e_method, e_thresh, e_etp, e_window,
                                 e_start_date, e_end_date)
 
         #  Verify results.
@@ -1183,7 +1148,7 @@ def run():
     # rain_season_start()
 
     utils.log("Step #0c  rain_season_end")
-    # rain_season_end()
+    rain_season_end()
 
     utils.log("Step #0d  rain_season_length/prcptot")
     # rain_season_length_prcptot()
