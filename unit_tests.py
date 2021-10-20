@@ -274,14 +274,14 @@ def dry_spell_total_length() -> bool:
     """
 
     # Algorithm (1= old/current; 2= new/proposed).
-    algo = 2
+    algo = 1
 
     # Variable.
     var = cfg.var_cordex_pr
 
-    # Methods:
-    method_1d = "1d"
-    method_cumul = "cumul"
+    # Operators.
+    op_max = "max"
+    op_sum = "sum"
 
     # Years.
     n_years = 2
@@ -293,17 +293,17 @@ def dry_spell_total_length() -> bool:
     n_cases = 30
     for i in range(1, n_cases + 1):
 
-        for method in [method_1d, method_cumul]:
+        for op in [op_max, op_sum]:
 
             # Parameters.
-            dry_fill = (method == method_1d)
+            dry_fill = (op == op_sum)
             start_date = ""
             end_date = ""
 
-            # {method} = "1d" ------------------------------------------------------------------------------------------
+            # {op} = "max" ---------------------------------------------------------------------------------------------
 
             # Case #1: | T A 14x. T B T | T |
-            if (i == 1) and (method == method_1d):
+            if (i == 1) and (op == op_max):
                 start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -311,7 +311,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [14, 0]
 
             # Case #2: | T A 13x. T B T | T |
-            elif (i == 2) and (method == method_1d):
+            elif (i == 2) and (op == op_max):
                 start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -319,7 +319,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [0, 0]
 
             # Case #3: | T A 7x. T 7x. T B T | T |
-            elif (i == 3) and (method == method_1d):
+            elif (i == 3) and (op == op_max):
                 start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -328,7 +328,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [0, 0]
 
             # Case #4: | T . A 13x. T B T | T |
-            elif (i == 4) and (method == method_1d):
+            elif (i == 4) and (op == op_max):
                 start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -336,7 +336,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [13, 0]
 
             # Case #5: | T A T 13x. B . T | T |
-            elif (i == 5) and (method == method_1d):
+            elif (i == 5) and (op == op_max):
                 start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -344,7 +344,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [13, 0]
 
             # Case #6: | T A 14x. T 14x. B T | T |
-            elif (i == 6) and (method == method_1d):
+            elif (i == 6) and (op == op_max):
                 start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -353,7 +353,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [28, 0]
 
             # Case #7: | T B 14x. T A T | T |
-            elif (i == 7) and (method == method_1d):
+            elif (i == 7) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -361,7 +361,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [0, 0]
 
             # Case #8: | T B 13x. T A T | T |
-            elif (i == 8) and (method == method_1d):
+            elif (i == 8) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -369,7 +369,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [0, 0]
 
             # Case #9: | T B T 7x. T 7x. T A T | T |
-            elif (i == 9) and (method == method_1d):
+            elif (i == 9) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -378,7 +378,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [0, 0]
 
             # Case #10: | T B 14x. T A T | T |
-            elif (i == 10) and (method == method_1d):
+            elif (i == 10) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -386,7 +386,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [1, 0]
 
             # Case 11: | T B T 14x. A T | T |
-            elif (i == 11) and (method == method_1d):
+            elif (i == 11) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -394,7 +394,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [1, 0]
 
             # Case #12: | T B T 14x. T 14x. T A T | T |
-            elif (i == 12) and (method == method_1d):
+            elif (i == 12) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 2, 28)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -403,14 +403,14 @@ def dry_spell_total_length() -> bool:
                 res_expected = [0, 0]
 
             # Case #13: | T 14x. T | T |
-            elif (i == 13) and (method == method_1d):
+            elif (i == 13) and (op == op_max):
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
                 assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
             # Case #14: | T A 14x. T | T |
-            elif (i == 14) and (method == method_1d):
+            elif (i == 14) and (op == op_max):
                 start_date = dstr(-1, 3, 1)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -418,15 +418,15 @@ def dry_spell_total_length() -> bool:
                 res_expected = [14, 0]
 
             # Case #15: | T 14x. T B T | T |
-            elif (i == 15) and (method == method_1d):
-                end_date = dstr(-1, 12, 1)
+            elif (i == 15) and (op == op_max):
+                end_date = dstr(-1, 11, 30)
                 thresh, window   = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
                 assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), 0)
                 res_expected = [14, 0]
 
             # Case #16: | T 7x. A 7x. T | T |
-            elif (i == 16) and (method == method_1d):
+            elif (i == 16) and (op == op_max):
                 start_date = dstr(-1, 3, 1)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -434,15 +434,15 @@ def dry_spell_total_length() -> bool:
                 res_expected = [7, 0]
 
             # Case #17: | T 7x. T B 7x. T | T |
-            elif (i == 17) and (method == method_1d):
-                end_date = dstr(-1, 12, 1)
+            elif (i == 17) and (op == op_max):
+                end_date = dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
                 assign(da_pr, str(dstr(y1, 11, 24)), str(dstr(y1, 12, 7)), 0)
-                res_expected = [8, 0]
+                res_expected = [7, 0]
 
             # Case #18: | T B T 7x. | 7x. T B T |
-            elif (i == 18) and (method == method_1d):
+            elif (i == 18) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 1, 31)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -450,7 +450,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [7, 7]
 
             # Case #19: | 14x. T B T A T | T |
-            elif (i == 19) and (method == method_1d):
+            elif (i == 19) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 1, 31)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -458,7 +458,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [14, 0]
 
             # Case #20: | T | T B T A T 14x. |
-            elif (i == 20) and (method == method_1d):
+            elif (i == 20) and (op == op_max):
                 start_date, end_date = dstr(-1, 12, 1), dstr(-1, 1, 31)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)
@@ -466,7 +466,7 @@ def dry_spell_total_length() -> bool:
                 res_expected = [0, 14]
 
             # Case #21: | T 3x<T T 2x<T T 3x<T T | T 3x<T T 2x<T T 3x<T T |
-            elif (i == 21) and (method == method_1d):
+            elif (i == 21) and (op == op_max):
                 thresh, window = 3, 3
                 da_pr = gen_scen(var, y1, n_years, thresh)
                 pr = thresh / window
@@ -478,69 +478,69 @@ def dry_spell_total_length() -> bool:
                 assign(da_pr, str(dstr(y2, 9, 1)), str(dstr(y2, 9, 3)), pr)
                 res_expected = [6, 6]
 
-            # {method} = "cumul" ---------------------------------------------------------------------------------------
+            # {op} = "sum" ---------------------------------------------------------------------------------------------
 
             # Case #22: | . | . |
-            elif (i == 22) and (method == method_cumul):
+            elif (i == 22) and (op == op_sum):
                 thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 res_expected = [365, 365]
 
             # Case #23: | . T*13/14 . | . |
-            elif (i == 23) and (method == method_cumul):
+            elif (i == 23) and (op == op_sum):
                 thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), thresh - 1.0)
                 res_expected = [365, 365]
 
             # Case #24: | . T . | . |
-            elif (i == 24) and (method == method_cumul):
+            elif (i == 24) and (op == op_sum):
                 thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 1)), thresh)
                 res_expected = [364, 365]
 
-            # Case #25: | . T/2 T/2 . | . |
-            elif (i == 25) and (method == method_cumul):
+            # Case #25: | . T/2x3 . | . |
+            elif (i == 25) and (op == op_sum):
                 thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 2)), thresh / 2.0)
-                res_expected = [363, 365]
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 3)), thresh / 2.0)
+                res_expected = [364, 365]
 
             # Case #26: | . 14xT/14 . | . |
-            elif (i == 26) and (method == method_cumul):
+            elif (i == 26) and (op == op_sum):
                 thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 14)), thresh / window)
-                res_expected = [351, 365]
+                res_expected = [365, 365]
 
             # Case #27: | . 7xT/14 | 7xT/14 . |
-            elif (i == 27) and (method == method_cumul):
+            elif (i == 27) and (op == op_sum):
                 thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 assign(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), thresh / window)
-                res_expected = [358, 358]
+                res_expected = [365, 365]
 
             # Case #28: | . 7xT | 7xT . |
-            elif (i == 28) and (method == method_cumul):
+            elif (i == 28) and (op == op_sum):
                 thresh, window = 14, 14
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 assign(da_pr, str(dstr(y1, 12, 25)), str(dstr(y2, 1, 7)), thresh)
                 res_expected = [358, 358]
 
             # Case #29: | . 15xT/14 . | . |
-            elif (i == 29) and (method == method_cumul):
+            elif (i == 29) and (op == op_sum):
                 thresh, window = 15, 15
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 15)), thresh / window)
-                res_expected = [350, 365]
+                assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 15)), thresh / window * 3)
+                res_expected = [358, 365]
 
-            # Case #30: | . 9xT/14 . | . |
-            elif (i == 30) and (method == method_cumul):
+            # Case #30: | . 9xT/3 . | . |
+            elif (i == 30) and (op == op_sum):
                 thresh, window = 3, 3
                 da_pr = gen_scen(var, y1, n_years, 0.0)
                 assign(da_pr, str(dstr(y1, 3, 1)), str(dstr(y1, 3, 9)), thresh / window)
-                res_expected = [356, 365]
+                res_expected = [360, 365]
 
             else:
                 continue
@@ -548,10 +548,11 @@ def dry_spell_total_length() -> bool:
             # Calculation and interpretation ---------------------------------------------------------------------------
 
             # Exit if case does not apply.
-            if (algo == 1) and ((start_date != "") or (end_date != "")):
+            if (algo == 1) and ((start_date != "") or (end_date != "")) and\
+               (i not in [1, 2, 3, 6, 13, 14, 15, 18, 19, 20, 21]):
                 continue
 
-            # Calculate indices using old algorithm.
+            # Calculate indices using the old algorithm.
             # This algorithm is not working properly:
             # - the 'rolling' function creates 'nan' values near boundaries; (<window> - 1) / 2 days from the
             #   beginning and end of the dataset are indirectly assumed to be wet (because they are not dry), which is
@@ -560,11 +561,15 @@ def dry_spell_total_length() -> bool:
             # - results are incorrect if an even windows size is specified (only works with odd number);
             # - dry days are not affected to the right year when a dry period overlaps two years.
             if algo == 1:
-                da_idx = xindices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, cfg.freq_YS)
+                if op == op_max:
+                    mask = da_pr.rolling(time=window, center=True).max() < thresh
+                else:
+                    mask = da_pr.rolling(time=window, center=True).sum() < thresh
+                da_idx = (mask.rolling(time=window, center=True).sum() >= 1).resample(time="YS").sum()
 
-            # Calculate indices using new algorithm.
+            # Calculate indices using the new algorithm.
             else:
-                da_idx = indices.dry_spell_total_length(da_pr, method, thresh, window, dry_fill, start_date, end_date)
+                da_idx = indices.dry_spell_total_length(da_pr, thresh, window, op, dry_fill, start_date, end_date)
 
             # Extract results.
             res = [int(da_idx[0])]
@@ -1143,16 +1148,16 @@ def run():
     utils.log("Step #0   Testing indices")
 
     utils.log("Step #0a  dry_spell_total_length")
-    # dry_spell_total_length()
+    dry_spell_total_length()
 
     utils.log("Step #0b  rain_season_start")
     # rain_season_start()
 
     utils.log("Step #0c  rain_season_end")
-    rain_season_end()
+    # rain_season_end()
 
     utils.log("Step #0d  rain_season_length/prcptot")
     # rain_season_length_prcptot()
 
     utils.log("Step #0f  rain_season")
-    rain_season()
+    # rain_season()

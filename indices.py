@@ -770,9 +770,9 @@ def generate_single(
 
             # Collect required datasets and parameters.
             da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
-            method = idx_params_str[0]
-            thresh = float(idx_params_str[1])
-            window = int(idx_params_str[2])
+            thresh = float(idx_params_str[0])
+            window = int(idx_params_str[1])
+            op = idx_params_str[2]
             dry_fill = bool(idx_params_str[3])
             start_date = end_date = ""
             if len(idx_params_str) == 6:
@@ -780,7 +780,7 @@ def generate_single(
                 end_date = str(idx_params_str[5])
 
             # Calculate index.
-            da_idx = xr.DataArray(dry_spell_total_length(da_pr, method, thresh, window, dry_fill, start_date, end_date))
+            da_idx = xr.DataArray(dry_spell_total_length(da_pr, thresh, window, op, dry_fill, start_date, end_date))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -1108,9 +1108,9 @@ def heat_wave_total_length(
 
 def dry_spell_total_length(
     pr: xr.DataArray,
-    method: str,
     thresh: float,
     window: int,
+    op: str,
     dry_fill: bool = True,
     start_date: str = "",
     end_date: str = "",
@@ -1123,21 +1123,22 @@ def dry_spell_total_length(
 
     A dry period occurs if:
     - the daily precipitation amount is less than {thresh} during a period of {window} consecutive days
-      (with option {method}="1d";
+      (with option {op}="max";
     - the total precipitation amount over a period of {window} consecutive days is less than {thresh}
-      (with option {method}="tot").
+      (with option {op}="sum").
 
     Parameters
     ----------
     pr : xr.DataArray:
         Daily precipitation.
-    method : str
-        Method linked to the period over which to combine data {"1d" = one day, "cumul" = cumulative}.
     thresh : float
-        If {method} == "1d": daily precipitation amount under which precipitation is considered negligible.
-        If {method} == "tot": sum of daily precipitation amounts under which the period is considered dry.
+        If {op} == "max": daily precipitation amount under which precipitation is considered negligible.
+        If {op} == "sum": sum of daily precipitation amounts over {window} days under which the period is considered
+        dry.
     window : int
         Minimum number of days in a dry period.
+    op : {"max", "sum"}
+        Operator linked to the period over which to combine data {"max" = one day, "sum" = cumulative}.
     dry_fill : bool, optional
         If True, missing values near the end of dataset are assumed to be dry (default value).
         If False, missing values near the end of dataset are assumed to be wet.
@@ -1159,21 +1160,21 @@ def dry_spell_total_length(
     thresh = convert_units_to(str(thresh) + " mm/day", pr)
 
     # Eliminate negative values.
-    pr = xr.where(pr < (thresh if method == "1d" else 0), 0, pr)
+    pr = xr.where(pr < (thresh if op == "max" else 0), 0, pr)
 
     # Identify dry days.
-    if method == "1d":
+    if op == "max":
         da_dry_last = xr.DataArray(pr.rolling(time=window).max() < thresh)
         da_dry = da_dry_last.copy()
         for i in range(1, window):
-            da_i = da_dry_last.shift(time=-i, fill_value=(dry_fill is False))
+            da_i = da_dry_last.shift(time=-i, fill_value=(dry_fill is True))
             da_dry = da_dry | da_i
     else:
         da_wet_last = pr.rolling(time=window).sum()
         da_wet = da_wet_last.copy()
         for i in range(1, window):
-            da_i = da_wet_last.shift(time=-i, fill_value=(thresh if dry_fill is False else 0))
-            da_wet = xr.ufuncs.maximum(da_wet, da_i)
+            da_i = da_wet_last.shift(time=-i, fill_value=(thresh if dry_fill is True else 0))
+            da_wet = xr.ufuncs.minimum(da_wet, da_i)
         da_dry = (da_wet < thresh) | (pr == 0)
 
     # Identify days that are between 'start_date' and 'start_date'.

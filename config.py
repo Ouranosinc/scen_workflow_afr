@@ -409,10 +409,11 @@ idx_rain_season_prcptot = "rain_season_prcptot"
 
 # Total length of dry period.
 # Requirements: pr
-# Parameters:   [method: str, thresh: float, window: int, dry_fill: bool, start_date: str, end_date: str]
-#               method: period over which to combine data {"1d" = one day, "cumul" = cumulative}.
-#                   if {method} == "1d": daily precipitation amount under which precipitation is considered negligible.
-#                   if {method} == "cumul", sum of daily precipitation amounts under which the period is considered dry.
+# Parameters:   [thresh: float, window: int, op: str, dry_fill: bool, start_date: str, end_date: str]
+#               thresh: precipitation threshold
+#               op: period over which to combine data: "max" = one day, "sum" = cumulative over {window} days.
+#                   if {op} == "max": daily precipitation amount under which precipitation is considered negligible.
+#                   if {op} == "sum": sum of daily precipitation amounts under which the period is considered dry.
 #               window: minimum number of days required in a dry period.
 #               dry_fill:
 #                   if True, missing values near the end of dataset are assumed to be dry (default value).
