@@ -553,11 +553,12 @@ def dry_spell_total_length() -> bool:
 
             # Calculate indices using old algorithm.
             # This algorithm is not working properly:
-            # - the 'rolling' function creates 'nan' values near boundaries; the <window size-1>/2 days from the
-            #   beginning and end of the dataset are indirectly assumed to be wet (because they are not dry); it would
-            #   be better to let the user specify if cells are wet or dry near boundaries;
-            # - results are wrong if an even windows size is specified;
-            # - dry days are not affected to the right year when a period overlaps two years.
+            # - the 'rolling' function creates 'nan' values near boundaries; (<window> - 1) / 2 days from the
+            #   beginning and end of the dataset are indirectly assumed to be wet (because they are not dry), which is
+            #   problematic in the context of West African countries; it would be better to let the user specify if
+            #   cells are wet or dry near boundaries;
+            # - results are incorrect if an even windows size is specified (only works with odd number);
+            # - dry days are not affected to the right year when a dry period overlaps two years.
             if algo == 1:
                 da_idx = xindices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, cfg.freq_YS)
 
