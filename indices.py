@@ -1112,9 +1112,9 @@ def dry_spell_total_length(
     window: int,
     op: str,
     dry_fill: bool = True,
+    freq: str = "YS",
     start_date: str = "",
-    end_date: str = "",
-
+    end_date: str = ""
 ) -> xr.DataArray:
 
     """
@@ -1144,6 +1144,8 @@ def dry_spell_total_length(
         If False, missing values near the end of dataset are assumed to be wet.
         The file value is used to compensate for the fact that we are missing the last days of the year before dataset
         and the first days of the year after dataset.
+    freq : str
+      Resampling frequency.
     start_date : str, optional
         First day of year to consider ("mm-dd").
     end_date : str, optional
@@ -1189,7 +1191,7 @@ def dry_spell_total_length(
     da_conds = da_dry & da_doy
 
     # Calculate the number of dry days per year.
-    da_idx = da_conds.astype(float).resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+    da_idx = da_conds.astype(float).resample(time=freq).sum(dim=cfg.dim_time)
 
     return da_idx
 

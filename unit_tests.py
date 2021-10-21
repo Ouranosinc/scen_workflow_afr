@@ -297,6 +297,7 @@ def dry_spell_total_length() -> bool:
 
             # Parameters.
             dry_fill = (op == op_sum)
+            freq = "YS"
             start_date = ""
             end_date = ""
 
@@ -565,11 +566,11 @@ def dry_spell_total_length() -> bool:
                     mask = da_pr.rolling(time=window, center=True).max() < thresh
                 else:
                     mask = da_pr.rolling(time=window, center=True).sum() < thresh
-                da_idx = (mask.rolling(time=window, center=True).sum() >= 1).resample(time="YS").sum()
+                da_idx = (mask.rolling(time=window, center=True).sum() >= 1).resample(time=freq).sum()
 
             # Calculate indices using the new algorithm.
             else:
-                da_idx = indices.dry_spell_total_length(da_pr, thresh, window, op, dry_fill, start_date, end_date)
+                da_idx = indices.dry_spell_total_length(da_pr, thresh, window, op, dry_fill, freq, start_date, end_date)
 
             # Extract results.
             res = [int(da_idx[0])]
