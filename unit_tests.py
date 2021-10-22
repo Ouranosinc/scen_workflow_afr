@@ -24,8 +24,7 @@ import numpy as np
 import pandas as pd
 import utils
 import xarray as xr
-import xclim.indices as xindices
-
+from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 def gen_scen(
     var: str,
@@ -60,7 +59,7 @@ def gen_scen(
     description = units = ""
     if var == cfg.var_cordex_pr:
         description = "Precipitation"
-        units = cfg.unit_mm_d
+        units = "mm"
 
     # Create data array.
     da = xr.DataArray(
@@ -274,7 +273,7 @@ def dry_spell_total_length() -> bool:
     """
 
     # Algorithm (1= old/current; 2= new/proposed).
-    algo = 1
+    algo = 2
 
     # Variable.
     var = cfg.var_cordex_pr
@@ -296,7 +295,7 @@ def dry_spell_total_length() -> bool:
         for op in [op_max, op_sum]:
 
             # Parameters.
-            dry_fill = (op == op_sum)
+            fill_value = (op == op_sum)
             freq = "YS"
             start_date = ""
             end_date = ""
@@ -548,29 +547,29 @@ def dry_spell_total_length() -> bool:
 
             # Calculation and interpretation ---------------------------------------------------------------------------
 
+            # Convert from precipitation amount to rate.
+            da_pr = da_pr / cfg.spd
+            da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+
             # Exit if case does not apply.
             if (algo == 1) and ((start_date != "") or (end_date != "")) and\
                (i not in [1, 2, 3, 6, 13, 14, 15, 18, 19, 20, 21]):
                 continue
 
             # Calculate indices using the old algorithm.
-            # This algorithm is not working properly:
-            # - the 'rolling' function creates 'nan' values near boundaries; (<window> - 1) / 2 days from the
-            #   beginning and end of the dataset are indirectly assumed to be wet (because they are not dry), which is
-            #   problematic in the context of West African countries; it would be better to let the user specify if
-            #   cells are wet or dry near boundaries;
-            # - results are incorrect if an even windows size is specified (only works with odd number);
-            # - dry days are not affected to the right year when a dry period overlaps two years.
             if algo == 1:
+                pram = rate2amount(da_pr, out_units="mm")
+                thresh = convert_units_to(str(thresh) + " mm", pram)
                 if op == op_max:
                     mask = da_pr.rolling(time=window, center=True).max() < thresh
                 else:
                     mask = da_pr.rolling(time=window, center=True).sum() < thresh
-                da_idx = (mask.rolling(time=window, center=True).sum() >= 1).resample(time=freq).sum()
-
+                out = (mask.rolling(time=window, center=True).sum() >= 1).resample(time=freq).sum()
+                da_idx = to_agg_units(out, pram, "count")
             # Calculate indices using the new algorithm.
             else:
-                da_idx = indices.dry_spell_total_length(da_pr, thresh, window, op, dry_fill, freq, start_date, end_date)
+                da_idx = indices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, fill_value, freq,
+                                                        start_date, end_date)
 
             # Extract results.
             res = [int(da_idx[0])]
