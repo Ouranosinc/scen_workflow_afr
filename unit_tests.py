@@ -297,7 +297,7 @@ def dry_spell_total_length() -> bool:
     """
 
     # Algorithm (1= old/current; 2= new/proposed).
-    algo = 2
+    algo = 1
 
     # Variable.
     var = cfg.var_cordex_pr
@@ -595,9 +595,9 @@ def dry_spell_total_length() -> bool:
                 pram = rate2amount(da_pr, out_units="mm")
                 thresh = convert_units_to(str(thresh) + " mm", pram)
                 if op == op_max:
-                    mask = xr.DataArray(da_pr.rolling(time=window, center=True).max() < thresh)
+                    mask = xr.DataArray(pram.rolling(time=window, center=True).max() < thresh)
                 else:
-                    mask = xr.DataArray(da_pr.rolling(time=window, center=True).sum() < thresh)
+                    mask = xr.DataArray(pram.rolling(time=window, center=True).sum() < thresh)
                 out = (mask.rolling(time=window, center=True).sum() >= 1).resample(time=freq).sum()
                 da_idx = to_agg_units(out, pram, "count")
             # Calculate indices using the new algorithm.
