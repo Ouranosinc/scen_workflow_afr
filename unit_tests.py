@@ -261,6 +261,28 @@ def dstr(
     return date_str
 
 
+def pr_series(values, start="7/1/2000", units="kg m-2 s-1"):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    This is the same as the fixture in xclim.testing.tests.conftests.py.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    coords = pd.date_range(start, periods=len(values), freq=pd.DateOffset(days=1))
+    return xr.DataArray(
+        values,
+        coords=[coords],
+        dims="time",
+        name="pr",
+        attrs={
+            "standard_name": "precipitation_flux",
+            "cell_methods": "time: mean within days",
+            "units": units
+        }
+    )
+
+
 def dry_spell_total_length() -> bool:
 
     """
@@ -292,7 +314,7 @@ def dry_spell_total_length() -> bool:
     # Loop through cases.
     error = False
     n_cases = 30
-    for i in range(1, n_cases + 1):
+    for i in range(0, n_cases + 1):
 
         for op in [op_max, op_sum]:
 
@@ -302,10 +324,20 @@ def dry_spell_total_length() -> bool:
             start_date = ""
             end_date = ""
 
+            # {op} in ["max", "sum"] -----------------------------------------------------------------------------------
+
+            # Case #0: Default xclim testing function.
+            if i == 0:
+                thresh, window = 3, 7
+                da_pr = pr_series(np.array([1.01, 1.01, 1.01, 1.01, 1.01, 1.01, 0.01, 0.01, 0.01, 0.51,
+                                            0.51, 0.75, 0.75, 0.51, 0.01, 0.01, 0.01, 1.01, 1.01, 1.01]))
+                da_pr.attrs["units"] = "mm/day"
+                res_expected = [12] if op == op_sum else [20]
+
             # {op} = "max" ---------------------------------------------------------------------------------------------
 
             # Case #1: | T A 14x. T B T | T |
-            if (i == 1) and (op == op_max):
+            elif (i == 1) and (op == op_max):
                 start_date, end_date = dstr(-1, 3, 1), dstr(-1, 11, 30)
                 thresh, window = 1, 14
                 da_pr = gen_scen(var, y1, n_years, thresh)

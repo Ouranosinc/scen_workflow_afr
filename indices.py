@@ -307,10 +307,9 @@ def generate_single(
         varidx_name = varidx_name_l[i_varidx]
 
         try:
-            # Open dataset.
+            # Open dataset (without or with dask for testing).
             p_sim_j =\
                 cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
-            # TODO: Testing with dask.
             ds = utils.open_netcdf(p_sim_j)
             # ds = utils.open_netcdf(p_sim_j, chunks={cfg.dim_time: 10}).load()
 
@@ -1164,21 +1163,30 @@ def dry_spell_total_length(
         dry_last = xr.DataArray(pram.rolling(time=window).max() < thresh)
         dry = dry_last.copy()
         for i in range(1, window):
-            dry = dry | dry_last.shift(time=-i, fill_value=(fill_value is True))
+            dry_i = dry_last.shift(time=-i, fill_value=(fill_value is True))
+            dry = dry | dry_i
     else:
+        fill_value = (thresh if fill_value is True else 0)
         wet_last = pram.rolling(time=window).sum()
         wet = wet_last.copy()
         for i in range(1, window):
-            wet = xr.ufuncs.minimum(wet, wet_last.shift(time=-i, fill_value=(thresh if fill_value is True else 0)))
+            wet_i = wet_last.shift(time=-i, fill_value=fill_value)
+            wet = xr.where(np.isnan(wet), wet_i, xr.ufuncs.minimum(wet, wet_i))
         dry = (wet < thresh) | (pram == 0)
 
     # Identify days that are between 'start_date' and 'start_date'.
-    doy_start = 1 if start_date == "" else datetime.datetime.strptime(start_date, "%m-%d").timetuple().tm_yday
-    doy_end = 365 if end_date == "" else datetime.datetime.strptime(end_date, "%m-%d").timetuple().tm_yday
+    doy_start = 1
+    if start_date != "":
+        doy_start = datetime.datetime.strptime(start_date, "%m-%d").timetuple().tm_yday
+    doy_end = 365
+    if end_date != "":
+        doy_end = datetime.datetime.strptime(end_date, "%m-%d").timetuple().tm_yday
     if doy_end >= doy_start:
-        doy = (pram.time.dt.dayofyear >= doy_start) & (pram.time.dt.dayofyear <= doy_end)
+        doy = (pram.time.dt.dayofyear >= doy_start) &\
+              (pram.time.dt.dayofyear <= doy_end)
     else:
-        doy = (pram.time.dt.dayofyear <= doy_end) | (pram.time.dt.dayofyear >= doy_start)
+        doy = (pram.time.dt.dayofyear <= doy_end) |\
+              (pram.time.dt.dayofyear >= doy_start)
 
     # Calculate the number of dry days per year.
     out = (dry & doy).astype(float).resample(time=freq).sum("time")
