@@ -24,7 +24,9 @@ import numpy as np
 import pandas as pd
 import utils
 import xarray as xr
+import xclim.indices as xindices
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
+
 
 def gen_scen(
     var: str,
@@ -561,15 +563,15 @@ def dry_spell_total_length() -> bool:
                 pram = rate2amount(da_pr, out_units="mm")
                 thresh = convert_units_to(str(thresh) + " mm", pram)
                 if op == op_max:
-                    mask = da_pr.rolling(time=window, center=True).max() < thresh
+                    mask = xr.DataArray(da_pr.rolling(time=window, center=True).max() < thresh)
                 else:
-                    mask = da_pr.rolling(time=window, center=True).sum() < thresh
+                    mask = xr.DataArray(da_pr.rolling(time=window, center=True).sum() < thresh)
                 out = (mask.rolling(time=window, center=True).sum() >= 1).resample(time=freq).sum()
                 da_idx = to_agg_units(out, pram, "count")
             # Calculate indices using the new algorithm.
             else:
-                da_idx = indices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, fill_value, freq,
-                                                        start_date, end_date)
+                da_idx = xindices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, fill_value, freq,
+                                                         start_date, end_date)
 
             # Extract results.
             res = [int(da_idx[0])]

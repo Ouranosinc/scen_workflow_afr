@@ -1119,8 +1119,8 @@ def dry_spell_total_length(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Calculate the total number of days in dry periods of at least {window} days during which the maximum (with option
-    {op}="max") or accumulated (with option {op}="sum") precipitation is under {thresh}.
+    Return the total number of days in dry periods of n days and more, during which the maximum or accumulated
+    precipitation on a window of n days is under the threshold.
 
     Parameters
     ----------
@@ -1147,7 +1147,7 @@ def dry_spell_total_length(
     Returns
     -------
     xarray.DataArray
-        Dry spell total length (days/year).
+      The {freq} total number of days in dry periods of minimum {window} days.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1161,31 +1161,29 @@ def dry_spell_total_length(
 
     # Identify dry days.
     if op == "max":
-        da_dry_last = xr.DataArray(pram.rolling(time=window).max() < thresh)
-        da_dry = da_dry_last.copy()
+        dry_last = xr.DataArray(pram.rolling(time=window).max() < thresh)
+        dry = dry_last.copy()
         for i in range(1, window):
-            da_i = da_dry_last.shift(time=-i, fill_value=(fill_value is True))
-            da_dry = da_dry | da_i
+            dry = dry | dry_last.shift(time=-i, fill_value=(fill_value is True))
     else:
-        da_wet_last = pram.rolling(time=window).sum()
-        da_wet = da_wet_last.copy()
+        wet_last = pram.rolling(time=window).sum()
+        wet = wet_last.copy()
         for i in range(1, window):
-            da_i = da_wet_last.shift(time=-i, fill_value=(thresh if fill_value is True else 0))
-            da_wet = xr.ufuncs.minimum(da_wet, da_i)
-        da_dry = (da_wet < thresh) | (pram == 0)
+            wet = xr.ufuncs.minimum(wet, wet_last.shift(time=-i, fill_value=(thresh if fill_value is True else 0)))
+        dry = (wet < thresh) | (pram == 0)
 
     # Identify days that are between 'start_date' and 'start_date'.
     doy_start = 1 if start_date == "" else datetime.datetime.strptime(start_date, "%m-%d").timetuple().tm_yday
     doy_end = 365 if end_date == "" else datetime.datetime.strptime(end_date, "%m-%d").timetuple().tm_yday
     if doy_end >= doy_start:
-        da_doy = (pram.time.dt.dayofyear >= doy_start) & (pram.time.dt.dayofyear <= doy_end)
+        doy = (pram.time.dt.dayofyear >= doy_start) & (pram.time.dt.dayofyear <= doy_end)
     else:
-        da_doy = (pram.time.dt.dayofyear <= doy_end) | (pram.time.dt.dayofyear >= doy_start)
+        doy = (pram.time.dt.dayofyear <= doy_end) | (pram.time.dt.dayofyear >= doy_start)
 
     # Calculate the number of dry days per year.
-    da_idx = (da_dry & da_doy).astype(float).resample(time=freq).sum(dim=cfg.dim_time)
+    out = (dry & doy).astype(float).resample(time=freq).sum("time")
 
-    return to_agg_units(da_idx, pram, "count")
+    return to_agg_units(out, pram, "count")
 
 
 def rain_season(
