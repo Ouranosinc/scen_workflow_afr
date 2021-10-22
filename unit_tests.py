@@ -297,7 +297,7 @@ def dry_spell_total_length() -> bool:
     """
 
     # Algorithm (1= old/current; 2= new/proposed).
-    algo = 1
+    algo = 2
 
     # Variable.
     var = cfg.var_cordex_pr
