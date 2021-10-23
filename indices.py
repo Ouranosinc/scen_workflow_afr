@@ -771,14 +771,13 @@ def generate_single(
             thresh = float(idx_params_str[0])
             window = int(idx_params_str[1])
             op = idx_params_str[2]
-            fill_value = bool(idx_params_str[3])
             start_date = end_date = ""
-            if len(idx_params_str) == 6:
-                start_date = str(idx_params_str[4])
-                end_date = str(idx_params_str[5])
+            if len(idx_params_str) == 5:
+                start_date = str(idx_params_str[3])
+                end_date = str(idx_params_str[4])
 
             # Calculate index.
-            da_idx = xr.DataArray(dry_spell_total_length(da_pr, thresh, window, op, fill_value, start_date, end_date))
+            da_idx = xr.DataArray(dry_spell_total_length(da_pr, thresh, window, op, start_date, end_date))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -1110,7 +1109,6 @@ def dry_spell_total_length(
     thresh: str = "1.0 mm",
     window: int = 3,
     op: str = "sum",
-    fill_value: bool = True,
     freq: str = "YS",
     start_date: str = "",
     end_date: str = ""
@@ -1130,12 +1128,7 @@ def dry_spell_total_length(
     window : int
         Number of days where the maximum or accumulated precipitation is under threshold.
     op : {"max", "sum"}
-        Reduce operation.
-    fill_value : bool
-        The fill value is used to compensate for the fact that precipitation in the day before and after the dataset
-        is unknown.
-        If True, missing values near the end of dataset are assumed to be dry.
-        If False, missing values near the end of dataset are assumed to be wet.
+        Reduce operation..
     freq : str
       Resampling frequency.
     start_date : str
@@ -1159,20 +1152,20 @@ def dry_spell_total_length(
     pram.attrs["units"] = "mm"
 
     # Identify dry days.
-    if op == "max":
-        dry_last = xr.DataArray(pram.rolling(time=window).max() < thresh)
-        dry = dry_last.copy()
-        for i in range(1, window):
-            dry_i = dry_last.shift(time=-i, fill_value=(fill_value is True))
-            dry = dry | dry_i
-    else:
-        fill_value = (thresh if fill_value is True else 0)
-        wet_last = pram.rolling(time=window).sum()
-        wet = wet_last.copy()
-        for i in range(1, window):
-            wet_i = wet_last.shift(time=-i, fill_value=fill_value)
-            wet = xr.where(np.isnan(wet), wet_i, xr.ufuncs.minimum(wet, wet_i))
-        dry = (wet < thresh) | (pram == 0)
+    dry = None
+    for i in range(2):
+        pram_i = pram if dry is None else pram.sortby("time", ascending=False)
+        if op == "max":
+            mask_i = xr.DataArray(pram_i.rolling(time=window).max() < thresh)
+        else:
+            mask_i = xr.DataArray(pram_i.rolling(time=window).sum() < thresh)
+        dry_i = xr.DataArray(mask_i.rolling(time=window).sum() >= 1).shift(time=-(window - 1))
+        if dry is None:
+            dry = dry_i
+        else:
+            dry_i = dry_i.sortby("time", ascending=True)
+            dt = (dry.time - dry.time[0]).dt.days
+            dry = xr.where(dt > len(dry.time) - window - 1, dry_i, dry)
 
     # Identify days that are between 'start_date' and 'start_date'.
     doy_start = 1

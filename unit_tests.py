@@ -25,6 +25,7 @@ import pandas as pd
 import utils
 import xarray as xr
 import xclim.indices as xindices
+import xclim.testing._utils as xutils
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 
@@ -193,38 +194,27 @@ def assign(
 def res_is_valid(res, res_expected) -> bool:
 
     """
-        --------------------------------------------------------------------------------------------------------------------
-        Determine if a result is valid.
+    --------------------------------------------------------------------------------------------------------------------
+    Determine if a result is valid.
 
-        res : [Union[int, float]]
-            Actual result (to be verified).
-        res_expected : [Union[int, float]]
-            Expected result.
+    res : [Union[int, float]]
+        Actual result (to be verified).
+    res_expected : [Union[int, float]]
+        Expected result.
 
-        Returns
-        -------
-        bool
-            True if the actual and expected results are equivalent.
-        --------------------------------------------------------------------------------------------------------------------
-        """
+    Returns
+    -------
+    bool
+        True if the actual and expected results are equivalent.
+    --------------------------------------------------------------------------------------------------------------------
+    """
 
-    valid = True
+    try:
+        np.testing.assert_equal(res, res_expected)
+    except AssertionError:
+        return False
 
-    # Arrays of different lengths.
-    if len(res) != len(res_expected):
-        valid = False
-
-    # Loop through results.
-    else:
-        for i in range(len(res)):
-            res_i = float(res[i])
-            res_expected_i = float(res_expected[i])
-            if not ((np.isnan(res_i) and np.isnan(res_expected_i)) or
-                    ((np.isnan(res_i) == False) and (np.isnan(res_expected_i) == False) and (res_i == res_expected_i))):
-                valid = False
-                break
-
-    return valid
+    return True
 
 
 def dstr(
@@ -305,6 +295,8 @@ def dry_spell_total_length() -> bool:
     # Operators.
     op_max = "max"
     op_sum = "sum"
+    op_max_data = "max_data"
+    op_sum_data = "sum_data"
 
     # Years.
     n_years = 2
@@ -316,23 +308,35 @@ def dry_spell_total_length() -> bool:
     n_cases = 30
     for i in range(0, n_cases + 1):
 
-        for op in [op_max, op_sum]:
+        for op in [op_max, op_sum, op_max_data, op_sum_data]:
 
             # Parameters.
-            fill_value = (op == op_sum)
             freq = "YS"
             start_date = ""
             end_date = ""
 
-            # {op} in ["max", "sum"] -----------------------------------------------------------------------------------
+            # Real data ------------------------------------------------------------------------------------------------
 
             # Case #0: Default xclim testing function.
             if i == 0:
                 thresh, window = 3, 7
-                da_pr = pr_series(np.array([1.01, 1.01, 1.01, 1.01, 1.01, 1.01, 0.01, 0.01, 0.01, 0.51,
-                                            0.51, 0.75, 0.75, 0.51, 0.01, 0.01, 0.01, 1.01, 1.01, 1.01]))
-                da_pr.attrs["units"] = "mm/day"
-                res_expected = [12] if op == op_sum else [20]
+                if op in [op_max, op_sum]:
+                    da_pr = pr_series(np.array([1.01, 1.01, 1.01, 1.01, 1.01, 1.01, 0.01, 0.01, 0.01, 0.51,
+                                                0.51, 0.75, 0.75, 0.51, 0.01, 0.01, 0.01, 1.01, 1.01, 1.01]))
+                    da_pr.attrs["units"] = "mm/day"
+                    res_expected = [12] if op == op_sum else [20]
+                else:
+                    da_pr = xutils.open_dataset("ERA5/daily_surface_cancities_1990-1993.nc").pr
+                    if op == op_sum_data:
+                        res_expected = [[50, 67, 142, 227, 145],
+                                        [60, 118, 160, 223, 164],
+                                        [73, 87, 166, 203, 202],
+                                        [65, 93, 172, 234, 222]]
+                    else:
+                        res_expected = [[76, 90, 244, 298, 160],
+                                        [97, 144, 250, 266, 208],
+                                        [90, 144, 277, 256, 210],
+                                        [85, 133, 267, 282, 250]]
 
             # {op} = "max" ---------------------------------------------------------------------------------------------
 
@@ -582,8 +586,11 @@ def dry_spell_total_length() -> bool:
             # Calculation and interpretation ---------------------------------------------------------------------------
 
             # Convert from precipitation amount to rate.
-            da_pr = da_pr / cfg.spd
-            da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+            if op in [op_max, op_sum]:
+                da_pr = da_pr / cfg.spd
+                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+            else:
+                op = op_sum if op == op_sum_data else op_max
 
             # Exit if case does not apply.
             if (algo == 1) and ((start_date != "") or (end_date != "")) and\
@@ -600,15 +607,17 @@ def dry_spell_total_length() -> bool:
                     mask = xr.DataArray(pram.rolling(time=window, center=True).sum() < thresh)
                 out = (mask.rolling(time=window, center=True).sum() >= 1).resample(time=freq).sum()
                 da_idx = to_agg_units(out, pram, "count")
+
             # Calculate indices using the new algorithm.
             else:
-                da_idx = xindices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, fill_value, freq,
-                                                         start_date, end_date)
+                da_idx =\
+                    xindices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, freq, start_date, end_date)
 
             # Extract results.
-            res = [int(da_idx[0])]
-            if len(da_idx) > 1:
-                res.append(int(da_idx[1]))
+            res = list(da_idx.values)
+            if cfg.dim_location in da_idx.dims:
+                for j in range(len(res)):
+                    res[j] = list(res[j])
 
             #  Raise error flag.
             if not res_is_valid(res, res_expected):
