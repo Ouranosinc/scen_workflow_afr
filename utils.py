@@ -1659,3 +1659,47 @@ def doy_to_doy_str(
     doy_str = str(tt.tm_mon).zfill(2) + "-" + str(tt.tm_mday).zfill(2)
 
     return doy_str
+
+
+def reorder_dims(da_idx: xr.DataArray, ds_or_da_src: Union[xr.DataArray, xr.Dataset]) -> xr.DataArray:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    # Reorder dimensions to fit input data.
+    # There is not guarantee that the dimensions of a DataArray of indices will be the same at each run.
+
+    Parameters
+    ----------
+    da_idx : xr.DataArray
+        DataArray whose dimensions need to be reordered.
+    ds_or_da_src : Union[xr.DataArray, xr.Dataset]
+        DataArray serving as template.
+
+    Returns
+    -------
+    xr.DataArray :
+        DataArray with a potentially altered order of dimensions.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Extract dimensions.
+    if isinstance(ds_or_da_src, xr.Dataset):
+        dims = list(ds_or_da_src[list(ds_or_da_src.data_vars.variables.mapping)[0]].dims)
+    else:
+        dims = list(ds_or_da_src.dims)
+
+    # Rename dimensions.
+    for i in range(len(dims)):
+        dims[i] = dims[i].replace(cfg.dim_rlat, cfg.dim_latitude).replace(cfg.dim_rlon, cfg.dim_longitude)
+        if dims[i] == cfg.dim_lat:
+            dims[i] = cfg.dim_latitude
+        if dims[i] == cfg.dim_lon:
+            dims[i] = cfg.dim_longitude
+
+    # Reorder dimensions.
+    if cfg.dim_location in dims:
+        da_idx_new = da_idx.transpose(dims[0], dims[1]).copy()
+    else:
+        da_idx_new = da_idx.transpose(dims[0], dims[1], dims[2]).copy()
+
+    return da_idx_new

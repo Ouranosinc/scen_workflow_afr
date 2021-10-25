@@ -839,14 +839,7 @@ def generate_single(
                 da_idx = utils.interpolate_na_fix(da_idx)
 
             # Reorder dimensions to fit input data.
-            dims = list(ds_varidx_l[0][list(ds_varidx_l[0].data_vars.variables.mapping)[0]].dims)
-            for j in range(len(dims)):
-                dims[j] = dims[j].replace(cfg.dim_rlat, cfg.dim_latitude).replace(cfg.dim_rlon, cfg.dim_longitude)
-                if dims[j] == cfg.dim_lat:
-                    dims[j] = cfg.dim_latitude
-                if dims[j] == cfg.dim_lon:
-                    dims[j] = cfg.dim_longitude
-            da_idx = da_idx.transpose(dims[0], dims[1], dims[2])
+            utils.reorder_dims(da_idx, ds_varidx_l[0])
 
             # Apply mask.
             if da_mask is not None:

@@ -328,15 +328,17 @@ def dry_spell_total_length() -> bool:
                 else:
                     da_pr = xutils.open_dataset("ERA5/daily_surface_cancities_1990-1993.nc").pr
                     if op == op_sum_data:
-                        res_expected = [[50, 67, 142, 227, 145],
-                                        [60, 118, 160, 223, 164],
-                                        [73, 87, 166, 203, 202],
-                                        [65, 93, 172, 234, 222]]
+                        res_expected = [[50, 60, 73, 65],
+                                        [67, 118, 87, 93],
+                                        [142, 160, 166, 172],
+                                        [227, 223, 203, 234],
+                                        [145, 164, 202, 222]]
                     else:
-                        res_expected = [[76, 90, 244, 298, 160],
-                                        [97, 144, 250, 266, 208],
-                                        [90, 144, 277, 256, 210],
-                                        [85, 133, 267, 282, 250]]
+                        res_expected = [[76, 97, 90, 85],
+                                        [90, 144, 144, 133],
+                                        [244, 250, 277, 267],
+                                        [298, 266, 256, 282],
+                                        [160, 208, 210, 250]]
 
             # {op} = "max" ---------------------------------------------------------------------------------------------
 
@@ -613,6 +615,10 @@ def dry_spell_total_length() -> bool:
                 da_idx =\
                     xindices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, freq, start_date, end_date)
 
+            # Reorder dimensions.
+            if len(list(da_idx.dims)) > 1:
+                da_idx = utils.reorder_dims(da_idx, da_pr)
+
             # Extract results.
             res = list(da_idx.values)
             if cfg.dim_location in da_idx.dims:
@@ -747,6 +753,11 @@ def rain_season_start() -> bool:
         # Calculate index.
         da_start = indices.rain_season_start(da_pr, thresh_wet, window_wet, thresh_dry, window_dry, window_tot,
                                              start_date, end_date)
+
+        # Reorder dimensions.
+        if len(list(da_start.dims)) > 1:
+            da_start = utils.reorder_dims(da_start, da_pr)
+
         # Verify results.
         res = [float(da_start[0])]
         if len(da_start) > 1:
@@ -761,7 +772,7 @@ def rain_season_end() -> bool:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    TODO: Test indices.rain_season_end.
+    Test indices.rain_season_end.
 
     Returns
     -------
@@ -962,6 +973,10 @@ def rain_season_end() -> bool:
             da_end =\
                 indices.rain_season_end(da_pr, None, None, None, method, thresh, etp_i, window, start_date, end_date)
 
+            # Reorder dimensions.
+            if len(list(da_end.dims)) > 1:
+                da_end = utils.reorder_dims(da_end, da_pr)
+
             # Verify results.
             res = [float(da_end[0])]
             if len(da_end) > 1:
@@ -1055,8 +1070,14 @@ def rain_season_length_prcptot() -> bool:
         # Calculation and interpretation -------------------------------------------------------------------------------
 
         # Calculate indices.
-        da_length = indices.rain_season_length(da_start, da_end)
-        da_prcptot = indices.rain_season_prcptot(da_pr, da_start, da_end)
+        da_length = xr.DataArray(indices.rain_season_length(da_start, da_end))
+        da_prcptot = xr.DataArray(indices.rain_season_prcptot(da_pr, da_start, da_end))
+
+        # Reorder dimensions.
+        if len(list(da_length.dims)) > 1:
+            da_length = utils.reorder_dims(da_length, da_pr)
+        if len(list(da_prcptot.dims)) > 1:
+            da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
 
         # Verify results.
         res_length = [float(da_length[0])]
@@ -1159,6 +1180,16 @@ def rain_season() -> bool:
             indices.rain_season(da_pr, da_etp, da_start_next, s_thresh_wet, s_window_wet, s_thresh_dry, s_window_dry,
                                 s_window_tot, s_start_date, s_end_date, e_method, e_thresh, e_etp, e_window,
                                 e_start_date, e_end_date)
+
+        # Reorder dimensions.
+        if len(list(da_start.dims)) > 1:
+            da_start = utils.reorder_dims(da_start, da_pr)
+        if len(list(da_end.dims)) > 1:
+            da_end = utils.reorder_dims(da_end, da_pr)
+        if len(list(da_length.dims)) > 1:
+            da_length = utils.reorder_dims(da_length, da_pr)
+        if len(list(da_prcptot.dims)) > 1:
+            da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
 
         #  Verify results.
         res_start = [float(da_start[0])]
