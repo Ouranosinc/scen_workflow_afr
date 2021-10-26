@@ -209,6 +209,15 @@ def res_is_valid(res, res_expected) -> bool:
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Convert both arrays to float.
+    try:
+        for i in range(len(res)):
+            res[i] = float(res[i])
+            res_expected[i] = float(res_expected[i])
+    except TypeError:
+        pass
+
+    # Compare arrays.
     try:
         np.testing.assert_equal(res, res_expected)
     except AssertionError:
@@ -314,6 +323,7 @@ def dry_spell_total_length() -> bool:
             freq = "YS"
             start_date = ""
             end_date = ""
+            is_synthetic = True
 
             # Real data ------------------------------------------------------------------------------------------------
 
@@ -327,6 +337,7 @@ def dry_spell_total_length() -> bool:
                     res_expected = [12] if op == op_sum else [20]
                 else:
                     da_pr = xutils.open_dataset("ERA5/daily_surface_cancities_1990-1993.nc").pr
+                    is_synthetic = False
                     if op == op_sum_data:
                         res_expected = [[50, 60, 73, 65],
                                         [67, 118, 87, 93],
@@ -588,7 +599,7 @@ def dry_spell_total_length() -> bool:
             # Calculation and interpretation ---------------------------------------------------------------------------
 
             # Convert from precipitation amount to rate.
-            if op in [op_max, op_sum]:
+            if is_synthetic:
                 da_pr = da_pr / cfg.spd
                 da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
             else:
@@ -620,12 +631,7 @@ def dry_spell_total_length() -> bool:
                 da_idx = utils.reorder_dims(da_idx, da_pr)
 
             # Extract results.
-            res = list(da_idx.values)
-            if cfg.dim_location in da_idx.dims:
-                for j in range(len(res)):
-                    res[j] = list(res[j])
-
-            #  Raise error flag.
+            res = np.array(da_idx.squeeze())
             if not res_is_valid(res, res_expected):
                 error = True
 
@@ -653,11 +659,12 @@ def rain_season_start() -> bool:
     y1 = 1981
 
     # Parameters.
-    thresh_wet = 15  # Tw
-    window_wet = 3
-    thresh_dry = 1   # Td
-    window_dry = 10
-    window_tot = 30
+    thresh_wet   = 15  # Tw
+    window_wet   = 3
+    thresh_dry   = 1   # Td
+    dry_days     = 10
+    window_dry   = 30
+    is_synthetic = True
 
     # Loop through cases.
     error = False
@@ -750,18 +757,23 @@ def rain_season_start() -> bool:
 
         # Calculation and interpretation -------------------------------------------------------------------------------
 
+        # Convert from precipitation amount to rate.
+        if is_synthetic:
+            da_pr = da_pr / cfg.spd
+            da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+
         # Calculate index.
-        da_start = indices.rain_season_start(da_pr, thresh_wet, window_wet, thresh_dry, window_dry, window_tot,
-                                             start_date, end_date)
+        da_start = xr.DataArray(
+            indices.rain_season_start(da_pr, str(thresh_wet) + " mm", window_wet,
+                                      str(thresh_dry) + " mm", dry_days, window_dry, start_date, end_date)
+        )
 
         # Reorder dimensions.
         if len(list(da_start.dims)) > 1:
             da_start = utils.reorder_dims(da_start, da_pr)
 
         # Verify results.
-        res = [float(da_start[0])]
-        if len(da_start) > 1:
-            res.append(float(da_start[1]))
+        res = np.array(da_start.squeeze())
         if not res_is_valid(res, res_expected):
             error = True
 
@@ -785,35 +797,41 @@ def rain_season_end() -> bool:
     var = cfg.var_cordex_pr
 
     # Methods.
-    method_depletion = "depletion"
-    method_event     = "event"
-    method_cumul     = "cumul"
+    op_max     = "max"
+    op_sum     = "sum"
+    op_sum_etp = "sum_etp"
 
     # Years.
     n_years = 2
     y1 = 1981
     y2 = y1 + 1
 
+    # Parameters:
+    da_etp        = None
+    da_start      = None
+    da_start_next = None
+    is_synthetic  = True
+
     # Loop through cases.
     error = False
     n_cases = 19
     for i in range(1, n_cases + 1):
 
-        for method in [method_depletion, method_event, method_cumul]:
+        for op in [op_max, op_sum, op_sum_etp]:
 
             # Parameters.
-            etp        = 5
-            etp_i      = etp
-            pr         = etp
+            etp_rate   = 5
+            etp_rate_i = etp_rate
+            pr_rate    = etp_rate
             window     = 14
-            if method == method_event:
-                thresh = pr               # T
-            elif method == method_cumul:
-                thresh = pr * window      # T
+            if op == op_max:
+                thresh = pr_rate            # T
+            elif op == op_sum:
+                thresh = pr_rate * window   # T
             else:
-                thresh = etp * window     # T
+                thresh = etp_rate * window  # T
 
-            # {method} = any -------------------------------------------------------------------------------------------
+            # {op} = any -----------------------------------------------------------------------------------------------
 
             # Case #1: | . A . | . B . |
             if i == 1:
@@ -824,144 +842,144 @@ def rain_season_end() -> bool:
             # Case #2: | T/14 A T/14 | T/14 B T/14 |
             elif i == 2:
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = gen_scen(var, y1, n_years, pr)
+                da_pr = gen_scen(var, y1, n_years, pr_rate)
                 res_expected = [np.nan, np.nan]
 
-            # {method} = "depletion" -----------------------------------------------------------------------------------
+            # {op} = "sum_etp" -----------------------------------------------------------------------------------------
 
             # Case #3: | . A 30xT/14 . B | . |
-            elif (i == 3) and (method == method_depletion):
+            elif (i == 3) and (op == op_sum_etp):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate)
                 res_expected = [287, np.nan]
 
             # Case #4: | . A 30xT/14 T/28 B | . |
-            elif (i == 4) and (method == method_depletion):
+            elif (i == 4) and (op == op_sum_etp):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
-                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), pr / 2)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 31)), pr_rate / 2)
                 res_expected = [301, np.nan]
 
             # Case #5: | . A 30xT/14 . B | . | (no etp)
-            elif (i == 5) and (method == method_depletion):
-                etp_i = 0.0
+            elif (i == 5) and (op == op_sum_etp):
+                etp_rate_i = 0.0
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate)
                 res_expected = [np.nan, np.nan]
 
             # Case #6: # | . A 30xT/14 . B | . | (2 x etp)
-            elif (i == 6) and (method == method_depletion):
-                etp_i = 2 * etp
+            elif (i == 6) and (op == op_sum_etp):
+                etp_rate_i = 2 * etp_rate
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate)
                 res_expected = [280, np.nan]
 
             # Case #7: | . A 30xT/14 2x. 2xT/14 . B | . | (2 x etp)
-            elif (i == 7) and (method == method_depletion):
-                etp_i = 2 * etp
+            elif (i == 7) and (op == op_sum_etp):
+                etp_rate_i = 2 * etp_rate
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
-                assign(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate)
+                assign(da_pr, str(dstr(y1, 10, 3)), str(dstr(y1, 10, 4)), 2 * pr_rate)
                 res_expected = [284, np.nan]
 
             # Case #8: | . A 15xT/14 | 15xT/14 . B . |
-            elif (i == 8) and (method == method_depletion):
+            elif (i == 8) and (op == op_sum_etp):
                 start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), pr)
-                assign(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), pr)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 16)), pr_rate)
+                assign(da_pr, str(dstr(y2, 1, 1)), str(dstr(y2, 1, 15)), pr_rate)
                 res_expected = [np.nan, 29]
 
-            # {method} = "event" ---------------------------------------------------------------------------------------
+            # {op} = "max" ---------------------------------------------------------------------------------------------
 
             # Case #9: | . T A 30xT . B | . |
-            elif (i == 9) and (method == method_event):
+            elif (i == 9) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate)
                 res_expected = [273, np.nan]
 
             # Case #10: | . T A . B | . |
-            elif (i == 10) and (method == method_event):
+            elif (i == 10) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr_rate)
                 res_expected = [np.nan, np.nan]
 
             # Case #11: | . T/2 A 30xT/2 . B | . |
-            elif (i == 11) and (method == method_event):
+            elif (i == 11) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr / 2)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate / 2)
                 res_expected = [np.nan, np.nan]
 
             # Case #12: | . T A 15xT . B | . |
-            elif (i == 12) and (method == method_event):
+            elif (i == 12) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 10, 15)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 10, 15)), pr_rate)
                 res_expected = [288, np.nan]
 
             # Case #13: | . T A . B 15xT | . |
-            elif (i == 13) and (method == method_event):
-                etp_i = etp
+            elif (i == 13) and (op == op_max):
+                etp_rate_i = etp_rate
                 start_date, end_date = "09-01", "12-16"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr)
-                assign(da_pr, str(dstr(y1, 12, 17)), str(dstr(y1, 12, 31)), pr)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 8, 31)), pr_rate)
+                assign(da_pr, str(dstr(y1, 12, 17)), str(dstr(y1, 12, 31)), pr_rate)
                 res_expected = [np.nan, np.nan]
 
             # Case #14: | . T A 24xT/14 7x. | 6x. T . B . |
-            elif (i == 14) and (method == method_event):
+            elif (i == 14) and (op == op_max):
                 start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr)
-                assign(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr_rate)
+                assign(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr_rate)
                 res_expected = [np.nan, 7]
 
             # {method} = "cumul" ---------------------------------------------------------------------------------------
 
             # Case #15: | . T A 30xT . B | . |
-            elif (i == 15) and (method == method_cumul):
+            elif (i == 15) and (op == op_sum):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate * window)
                 res_expected = [273, np.nan]
 
             # Case #16: | . T A 30xT T . B | . |
-            elif (i == 16) and (method == method_cumul):
+            elif (i == 16) and (op == op_sum):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
-                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), pr * window)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate * window)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 10, 1)), pr_rate * window)
                 res_expected = [274, np.nan]
 
             # Case #17: | . T A 30xT 7x. T . B | . |
-            elif (i == 17) and (method == method_cumul):
+            elif (i == 17) and (op == op_sum):
                 start_date, end_date = "09-01", "12-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr * window)
-                assign(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), pr * window)
+                assign(da_pr, str(dstr(y1, 4, 1)), str(dstr(y1, 9, 30)), pr_rate * window)
+                assign(da_pr, str(dstr(y1, 10, 8)), str(dstr(y1, 10, 8)), pr_rate * window)
                 res_expected = [281, np.nan]
 
             # Case #18: | . T A 24xT 7x. | . B . |
-            elif (i == 18) and (method == method_cumul):
+            elif (i == 18) and (op == op_sum):
                 start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr * window)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr_rate * window)
                 res_expected = [358, np.nan]
 
             # Case #19: | . T A 24xT/14 7x. | 6x. T . B . |
-            elif (i == 19) and (method == method_cumul):
+            elif (i == 19) and (op == op_sum):
                 start_date, end_date = "06-01", "03-31"  # A, B
                 da_pr = gen_scen(var, y1, n_years, 0.0)
-                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr * window)
-                assign(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr * window)
+                assign(da_pr, str(dstr(y1, 10, 1)), str(dstr(y1, 12, 24)), pr_rate * window)
+                assign(da_pr, str(dstr(y2, 1, 7)), str(dstr(y2, 1, 7)), pr_rate * window)
                 res_expected = [np.nan, 7]
 
             else:
@@ -969,18 +987,26 @@ def rain_season_end() -> bool:
 
             # Calculation and interpretation ---------------------------------------------------------------------------
 
+            # Convert from precipitation amount to rate.
+            if is_synthetic:
+                da_pr = da_pr / cfg.spd
+                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                if da_etp is not None:
+                    da_etp = da_etp / cfg.spd
+                    da_etp.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+
             # Calculate index.
-            da_end =\
-                indices.rain_season_end(da_pr, None, None, None, method, thresh, etp_i, window, start_date, end_date)
+            da_end = xr.DataArray(
+                indices.rain_season_end(da_pr, da_etp, da_start, da_start_next, op, str(thresh) + " mm", window,
+                                        (str(etp_rate_i) if op == op_sum_etp else "0") + " mm", start_date, end_date)
+            )
 
             # Reorder dimensions.
             if len(list(da_end.dims)) > 1:
                 da_end = utils.reorder_dims(da_end, da_pr)
 
             # Verify results.
-            res = [float(da_end[0])]
-            if len(da_end) > 1:
-                res.append(float(da_end[1]))
+            res = np.array(da_end.squeeze())
             if not res_is_valid(res, res_expected):
                 error = True
 
@@ -1008,18 +1034,14 @@ def rain_season_length_prcptot() -> bool:
     y1 = 1981
     y2 = y1 + 1
 
-    # Precipitation dataset.
-    da_pr = gen_scen(var, y1, n_years, 1.0)
-
     # Loop through cases.
     error = False
     n_cases = 5
     for i in range(1, n_cases + 1):
 
-        # Initialization.
-        da_start = None
-        da_end = None
-        res_expected = [0] * n_years
+        # Parameters.
+        da_pr = gen_scen(var, y1, n_years, 1.0)
+        is_synthetic = True
 
         # Cases --------------------------------------------------------------------------------------------------------
 
@@ -1067,7 +1089,15 @@ def rain_season_length_prcptot() -> bool:
             assign(da_end, str(y1), str(y1), 90)
             res_expected = [np.nan, np.nan]
 
+        else:
+            continue
+
         # Calculation and interpretation -------------------------------------------------------------------------------
+
+        # Convert from precipitation amount to rate.
+        if is_synthetic:
+            da_pr = da_pr / cfg.spd
+            da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
 
         # Calculate indices.
         da_length = xr.DataArray(indices.rain_season_length(da_start, da_end))
@@ -1080,11 +1110,8 @@ def rain_season_length_prcptot() -> bool:
             da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
 
         # Verify results.
-        res_length = [float(da_length[0])]
-        res_prcptot = [float(da_prcptot[0])]
-        if len(da_length) > 1:
-            res_length.append(float(da_length[1]))
-            res_prcptot.append(float(da_prcptot[1]))
+        res_length = np.array(da_length.squeeze())
+        res_prcptot = np.array(da_prcptot.squeeze())
         if (not res_is_valid(res_length, res_expected)) or (not res_is_valid(res_prcptot, res_expected)):
             error = True
 
@@ -1108,14 +1135,13 @@ def rain_season() -> bool:
     var = cfg.var_cordex_pr
 
     # Methods.
-    method_depletion = "depletion"
-    method_event     = "event"
-    method_cumul     = "cumul"
+    e_op_max     = "max"
+    e_op_sum     = "sum"
+    e_op_sum_etp = "sum_etp"
 
     # Years.
     n_years = 2
     y1 = 1981
-    y2 = y1 + 1
 
     # Loop through cases.
     error = False
@@ -1130,20 +1156,21 @@ def rain_season() -> bool:
         s_thresh_wet = 15  # Tw
         s_window_wet = 3
         s_thresh_dry = 1   # Td
-        s_window_dry = 10
-        s_window_tot = 30
+        s_dry_days   = 10
+        s_window_dry = 30
+        is_synthetic = True
 
         # Parameters: rain season end.
-        e_method = "cumul"
-        e_etp    = 5
-        e_pr     = s_thresh_dry
-        e_window = 14
-        if e_method == method_event:
-            e_thresh = e_pr              # T
-        elif e_method == method_cumul:
-            e_thresh = e_pr * e_window   # T
+        e_op       = e_op_sum
+        e_etp_rate = 5
+        e_pr_rate  = s_thresh_dry
+        e_window   = 14
+        if e_op == e_op_max:
+            e_thresh = e_pr_rate              # T
+        elif e_op == e_op_sum:
+            e_thresh = e_pr_rate * e_window   # T
         else:
-            e_thresh = e_etp * e_window  # T
+            e_thresh = e_etp_rate * e_window  # T
 
         # Cases --------------------------------------------------------------------------------------------------------
 
@@ -1175,11 +1202,20 @@ def rain_season() -> bool:
 
         # Calculation and interpretation -------------------------------------------------------------------------------
 
+        # Convert from precipitation amount to rate.
+        if is_synthetic:
+            da_pr = da_pr / cfg.spd
+            da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+            if da_etp is not None:
+                da_etp = da_etp / cfg.spd
+                da_etp.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+
         # Calculate indices.
         da_start, da_end, da_length, da_prcptot =\
-            indices.rain_season(da_pr, da_etp, da_start_next, s_thresh_wet, s_window_wet, s_thresh_dry, s_window_dry,
-                                s_window_tot, s_start_date, s_end_date, e_method, e_thresh, e_etp, e_window,
-                                e_start_date, e_end_date)
+            indices.rain_season(da_pr, da_etp, da_start_next, str(s_thresh_wet) + " mm", s_window_wet,
+                                str(s_thresh_dry) + " mm", s_dry_days, s_window_dry, s_start_date, s_end_date,
+                                e_op, str(e_thresh) + " mm", e_window,
+                                (str(e_etp_rate) if e_op == e_op_sum_etp else "0") + " mm", e_start_date, e_end_date)
 
         # Reorder dimensions.
         if len(list(da_start.dims)) > 1:
@@ -1192,15 +1228,10 @@ def rain_season() -> bool:
             da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
 
         #  Verify results.
-        res_start = [float(da_start[0])]
-        res_end = [float(da_end[0])]
-        res_length = [float(da_length[0])]
-        res_prcptot = [float(da_prcptot[0])]
-        if len(da_start) > 1:
-            res_start.append(float(da_start[1]))
-            res_end.append(float(da_end[1]))
-            res_length.append(float(da_length[1]))
-            res_prcptot.append(float(da_prcptot[1]))
+        res_start = np.array(da_start.squeeze())
+        res_end = np.array(da_end.squeeze())
+        res_length = np.array(da_length.squeeze())
+        res_prcptot = np.array(da_prcptot.squeeze())
         if (not res_is_valid(res_start, res_start_expected)) or \
            (not res_is_valid(res_end, res_end_expected)) or \
            (not res_is_valid(res_length, res_length_expected)) or \
@@ -1225,13 +1256,13 @@ def run():
     dry_spell_total_length()
 
     utils.log("Step #0b  rain_season_start")
-    # rain_season_start()
+    rain_season_start()
 
     utils.log("Step #0c  rain_season_end")
-    # rain_season_end()
+    rain_season_end()
 
     utils.log("Step #0d  rain_season_length/prcptot")
-    # rain_season_length_prcptot()
+    rain_season_length_prcptot()
 
     utils.log("Step #0f  rain_season")
-    # rain_season()
+    rain_season()

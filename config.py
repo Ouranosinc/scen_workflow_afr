@@ -358,44 +358,45 @@ idx_rain_season = "rain_season"
 
 # Day of year where rain season starts.
 # Requirements: pr
-# Parameters:   [thresh_wet: float, window_wet: int, thresh_dry: float, window_dry: int, window_tot: int,
-#                start_date: int, end_date: int]
-#               thresh_wet: daily precipitation amount required in first {window_wet} days.
-#               window_wet: number of days with precipitation at season start (related to {thresh_wet}).
-#               thresh_dry: daily precipitation amount under which precipitation is considered negligible.
-#               window_dry: maximum number of days in a dry period embedded into the period of {window_tot} days.
-#               window_tot: number of days (after the first {window_wet} days) after which a dry season is searched for.
-#               start_date: first day of year where season can start.
-#               end_date: last day of year where season can start.
+# Parameters: [thresh_wet: str, window_wet: int, thresh_dry: str, dry_days_max: int, window_dry: int,
+#     start_date: str, end_date: str, freq: str]
+#     thresh_wet: Accumulated precipitation threshold associated with {window_wet}.
+#     window_wet: Number of days where accumulated precipitation is above {thresh_wet}.
+#     thresh_dry: Daily precipitation threshold associated with {window_dry}.
+#     dry_days:   Maximum number of dry days in {window_dry}.
+#     window_dry: Number of days, after {window_wet}, during which daily precipitation is not greater than or equal to
+#                 {thresh_dry} for {dry_days} consecutive days.
+#     start_date: First day of year where season can start ("mm-dd").
+#     end_date:   Last day of year where season can start ("mm-dd").
+#     freq:       Resampling frequency.
 idx_rain_season_start = "rain_season_start"
 
 # Day of year where rain season ends.
 # Requirements: pr (mandatory), rain_season_start_next (optional), evspsbl* (optional)
 #               will search for evspsblpot, then for evspsbl
-# Parameters:   [method: str, thresh: float, etp: float, window: int, start_date: int, end_date: int]
-#               method: calculation method
-#                   if "depletion": based on the period required for an amount of water to evaporate,
-#                       considering that any amount of precipitation received during that period must also evaporate. If
-#                       the evspsbl* dataset is not available, the daily evapotranspiration rate is assumed to be {etp}.
-#                   if "event": based on the occurrence (or not) of an event during the last days of a rain
-#                       season. The rain season stops when no daily precipitation greater than {thresh} have occurred
-#                       over a period of {window} days.
-#                   if "cumul": based on a total amount of precipitation received during the last days of the
-#                       rain season. The rain season stops when the total amount of precipitation is less than {thresh}
-#                       over a period of {window} days.
-#               thresh: precipitation threshold
-#                   if method == "depletion": precipitation amount that must evaporate.
-#                   if method == "event": threshold daily precipitation amount during a period.
-#                   if method == "cumul": threshold total precipitation amount over a period.
-#               etp: evapotranspiration rate
-#                   if method == "depletion": evapotranspiration rate.
-#                   otherwise: not used.
-#               window: period length
-#                   if method in ["event", "cumul"]: length of period (number of days) used to verify if the rain season
-#                       is ending.
-#                   otherwise: not used.
-#               start_date: first day of year where season can end.
-#               end_date: last day of year where season can end.
+# Parameters: [method: str, thresh: str, window: int, etp_rate: str, start_date: str, end_date: str, freq: str]
+#     op: Resampling operator = {"max", "sum", "sum_etp}
+#         If "max": based on the occurrence (or not) of an event during the last days of a rain season.
+#             The rain season stops when no daily precipitation greater than {thresh} have occurred over a period of
+#             {window} days.
+#         If "sum": based on a total amount of precipitation received during the last days of the rain season.
+#             The rain season stops when the total amount of precipitation is less than {thresh} over a period of
+#             {window} days.
+#         If "sum_etp": calculation is based on the period required for a water column of height {thresh] to
+#             evaporate, considering that any amount of precipitation received during that period must evaporate as
+#             well. If {etp} is not available, the evapotranspiration rate is assumed to be {etp_rate}.
+#     thresh: maximum or accumulated precipitation threshold associated with {window}.
+#         If {op} == "max": maximum daily precipitation  during a period of {window} days.
+#         If {op} == "sum": accumulated precipitation over {window} days.
+#         If {op} == "sum_etp": height of water column that must evaporate
+#     window: int
+#         If {op} in ["max", "sum"]: number of days used to verify if the rain season is ending.
+#     etp_rate:
+#         If {op} == "sum_etp": evapotranspiration rate.
+#         Otherwise: not used.
+#     start_date: First day of year where season can end ("mm-dd").
+#     end_date: Last day of year where season can end ("mm-dd").
+#     freq: Resampling frequency.
 idx_rain_season_end = "rain_season_end"
 
 # Duration of the rain season.
@@ -410,14 +411,14 @@ idx_rain_season_prcptot = "rain_season_prcptot"
 
 # Total length of dry period.
 # Requirements: pr
-# Parameters:   [thresh: float, window: int, op: str, start_date: str, end_date: str]
-#               thresh: precipitation threshold
-#               op: period over which to combine data: "max" = one day, "sum" = cumulative over {window} days.
-#                   if {op} == "max": daily precipitation amount under which precipitation is considered negligible.
-#                   if {op} == "sum": sum of daily precipitation amounts under which the period is considered dry.
-#               window: minimum number of days required in a dry period.
-#               start_date: first day of year to consider.
-#               end_date: last day of year to consider.
+# Parameters:   [thresh: str, window: int, op: str, start_date: str, end_date: str]
+#     thresh: precipitation threshold
+#     op: period over which to combine data: "max" = one day, "sum" = cumulative over {window} days.
+#         If {op} == "max": daily precipitation amount under which precipitation is considered negligible.
+#         If {op} == "sum": sum of daily precipitation amounts under which the period is considered dry.
+#     window: minimum number of days required in a dry period.
+#     start_date: first day of year to consider ("mm-dd").
+#     end_date: last day of year to consider ("mm-dd").
 idx_dry_spell_total_length = "dry_spell_total_length"
 
 # Wind indices ---------------------------------------------------------------------------------------------------------

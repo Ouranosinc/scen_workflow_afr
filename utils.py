@@ -1633,8 +1633,7 @@ def doy_str_to_doy(
 
 
 def doy_to_doy_str(
-    doy: int,
-    n_days: int = 365
+    doy: int
 ) -> str:
 
     """
@@ -1645,8 +1644,6 @@ def doy_to_doy_str(
     ----------
     doy: int
         Day of year, as an integer (value between 1 and 366).
-    n_days: int, optional
-        Number of days in year {365, 366}.
 
     Returns
     -------
