@@ -375,24 +375,24 @@ idx_rain_season_start = "rain_season_start"
 # Requirements: pr (mandatory), rain_season_start_next (optional), evspsbl* (optional)
 #               will search for evspsblpot, then for evspsbl
 # Parameters: [method: str, thresh: str, window: int, etp_rate: str, start_date: str, end_date: str, freq: str]
-#     op: Resampling operator = {"max", "sum", "sum_etp}
+#     op: Resampling operator = {"max", "sum", "etp}
 #         If "max": based on the occurrence (or not) of an event during the last days of a rain season.
-#             The rain season stops when no daily precipitation greater than {thresh} have occurred over a period of
+#             The rain season ends when no daily precipitation greater than {thresh} have occurred over a period of
 #             {window} days.
 #         If "sum": based on a total amount of precipitation received during the last days of the rain season.
-#             The rain season stops when the total amount of precipitation is less than {thresh} over a period of
+#             The rain season ends when the total amount of precipitation is less than {thresh} over a period of
 #             {window} days.
-#         If "sum_etp": calculation is based on the period required for a water column of height {thresh] to
+#         If "etp": calculation is based on the period required for a water column of height {thresh] to
 #             evaporate, considering that any amount of precipitation received during that period must evaporate as
 #             well. If {etp} is not available, the evapotranspiration rate is assumed to be {etp_rate}.
 #     thresh: maximum or accumulated precipitation threshold associated with {window}.
 #         If {op} == "max": maximum daily precipitation  during a period of {window} days.
 #         If {op} == "sum": accumulated precipitation over {window} days.
-#         If {op} == "sum_etp": height of water column that must evaporate
+#         If {op} == "etp": height of water column that must evaporate
 #     window: int
 #         If {op} in ["max", "sum"]: number of days used to verify if the rain season is ending.
 #     etp_rate:
-#         If {op} == "sum_etp": evapotranspiration rate.
+#         If {op} == "etp": evapotranspiration rate.
 #         Otherwise: not used.
 #     start_date: First day of year where season can end ("mm-dd").
 #     end_date: Last day of year where season can end ("mm-dd").

@@ -1206,8 +1206,7 @@ def rain_season(
     e_window: int = 20,
     e_etp_rate: str = "",
     e_start_date: str = "",
-    e_end_date: str = "",
-    freq: str = "YS"
+    e_end_date: str = ""
 ) -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
 
     """
@@ -1238,32 +1237,30 @@ def rain_season(
     s_end_date: str
         Last day of year where season can start ("mm-dd").
     e_op : str
-        Resampling operator = {"max", "sum", "sum_etp}
+        Resampling operator = {"max", "sum", "etp}
         If "max": based on the occurrence (or not) of an event during the last days of a rain season.
-            The rain season stops when no daily precipitation greater than {e_thresh} have occurred over a period of
+            The rain season ends when no daily precipitation greater than {e_thresh} have occurred over a period of
             {e_window} days.
         If "sum": based on a total amount of precipitation received during the last days of the rain season.
-            The rain season stops when the total amount of precipitation is less than {e_thresh} over a period of
+            The rain season ends when the total amount of precipitation is less than {e_thresh} over a period of
             {e_window} days.
-        If "sum_etp": calculation is based on the period required for a water column of height {e_thresh] to evaporate,
+        If "etp": calculation is based on the period required for a water column of height {e_thresh] to evaporate,
             considering that any amount of precipitation received during that period must evaporate as well. If {etp} is
             not available, the evapotranspiration rate is assumed to be {e_etp_rate}.
     e_thresh : str
         Maximum or accumulated precipitation threshold associated with {e_window}.
         If {e_op} == "max": maximum daily precipitation  during a period of {e_window} days.
         If {e_op} == "sum": accumulated precipitation over {e_window} days.
-        If {e_op} == "sum_etp": height of water column that must evaporate.
+        If {e_op} == "etp": height of water column that must evaporate.
     e_window: int
         If {e_op} in ["max", "sum"]: number of days used to verify if the rain season is ending.
     e_etp_rate: str
-        If {e_op} == "sum_etp": evapotranspiration rate.
+        If {e_op} == "etp": evapotranspiration rate.
         Otherwise: not used.
     e_start_date: str
         First day of year at or after which the season can end ("mm-dd").
     e_end_date: str
         Last day of year at or before which the season can end ("mm-dd").
-    freq : str
-      Resampling frequency.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1289,11 +1286,11 @@ def rain_season(
 
     # Calculate rain season start.
     start = xr.DataArray(rain_season_start(pr, s_thresh_wet, s_window_wet, s_thresh_dry, s_dry_days, s_window_dry,
-                                           s_start_date, s_end_date, freq))
+                                           s_start_date, s_end_date))
 
     # Calculate rain season end.
     end = xr.DataArray(rain_season_end(pr, etp, start, start_next, e_op, e_thresh, e_window, e_etp_rate,
-                                       e_start_date, e_end_date, freq))
+                                       e_start_date, e_end_date))
 
     # Calculate rain season length.
     length = xr.DataArray(rain_season_length(start, end))
@@ -1317,8 +1314,7 @@ def rain_season_start(
     dry_days: int = 7,
     window_dry: int = 30,
     start_date: str = "",
-    end_date: str = "",
-    freq: str = "YS"
+    end_date: str = ""
 ) -> xr.DataArray:
 
     """
@@ -1344,8 +1340,6 @@ def rain_season_start(
         First day of year where season can start ("mm-dd").
     end_date: str
         Last day of year where season can start ("mm-dd").
-    freq : str
-      Resampling frequency.
 
     Returns
     -------
@@ -1407,7 +1401,7 @@ def rain_season_start(
         )
 
     # Obtain the first day of each year where conditions apply.
-    start = (wet & no_dry_seq & doy).resample(time=freq).\
+    start = (wet & no_dry_seq & doy).resample(time="YS").\
         map(rl.first_run, window=1, dim="time", coord="dayofyear")
     start = xr.where((start < 1) | (start > 365), np.nan, start)
     start.attrs["units"] = "1"
@@ -1431,8 +1425,7 @@ def rain_season_end(
     window: int = 20,
     etp_rate: str = "0.0 mm",
     start_date: str = "",
-    end_date: str = "",
-    freq: str = "YS"
+    end_date: str = ""
 ) -> xr.DataArray:
 
     """
@@ -1450,32 +1443,30 @@ def rain_season_end(
     start_next : xr.DataArray
         First day of the next rain season.
     op : str
-        Resampling operator = {"max", "sum", "sum_etp}
+        Resampling operator = {"max", "sum", "etp}
         If "max": based on the occurrence (or not) of an event during the last days of a rain season.
-            The rain season stops when no daily precipitation greater than {thresh} have occurred over a period of
+            The rain season ends when no daily precipitation greater than {thresh} have occurred over a period of
             {window} days.
         If "sum": based on a total amount of precipitation received during the last days of the rain season.
-            The rain season stops when the total amount of precipitation is less than {thresh} over a period of
+            The rain season ends when the total amount of precipitation is less than {thresh} over a period of
             {window} days.
-        If "sum_etp": calculation is based on the period required for a water column of height {thresh] to evaporate,
+        If "etp": calculation is based on the period required for a water column of height {thresh] to evaporate,
             considering that any amount of precipitation received during that period must evaporate as well. If {etp} is
             not available, the evapotranspiration rate is assumed to be {etp_rate}.
     thresh : str
         Maximum or accumulated precipitation threshold associated with {window}.
         If {op} == "max": maximum daily precipitation  during a period of {window} days.
         If {op} == "sum": accumulated precipitation over {window} days.
-        If {op} == "sum_etp": height of water column that must evaporate.
+        If {op} == "etp": height of water column that must evaporate.
     window: int
         If {op} in ["max", "sum"]: number of days used to verify if the rain season is ending.
     etp_rate: str
-        If {op} == "sum_etp": evapotranspiration rate.
+        If {op} == "etp": evapotranspiration rate.
         Otherwise: not used.
     start_date: str
         First day of year at or after which the season can end ("mm-dd").
     end_date: str
         Last day of year at or before which the season can end ("mm-dd").
-    freq : str
-      Resampling frequency.
 
     Returns
     -------
@@ -1512,18 +1503,15 @@ def rain_season_end(
         end_doy = 365 if start_doy == 1 else start_doy - 1
 
     # Flag days between {start_date} and {end_date} (or the opposite).
+    dayofyear = pram.time.dt.dayofyear.astype(float)
     if end_doy >= start_doy:
-        doy = (pram.time.dt.dayofyear >= start_doy) & (
-            pram.time.dt.dayofyear <= end_doy
-        )
+        doy = (dayofyear >= start_doy) & (dayofyear <= end_doy)
     else:
-        doy = (pram.time.dt.dayofyear <= end_doy) | (
-            pram.time.dt.dayofyear >= start_doy
-        )
+        doy = (dayofyear <= end_doy) | (dayofyear >= start_doy)
 
     end = None
 
-    if op == "sum_etp":
+    if op == "etp":
 
         # Calculate the minimum length of the period.
         window_min = math.ceil(thresh / etp_rate) if (etp_rate > 0) else 0
@@ -1532,19 +1520,22 @@ def rain_season_end(
         if etp_rate == 0:
             window_min = window_max
 
+        # Window must be varied until it's size allows for complete evaporation.
         for window_i in list(range(window_min, window_max + 1)):
 
             # Flag the day before each sequence of {dt} days that results in evaporating a water column, considering
             # precipitation falling during this period (assign 1).
             if etpam is None:
-                dry_seq = xr.DataArray((pram.rolling(time=window_i).sum() + thresh) <=
-                                       (window_i * etp_rate))
+                dry_seq = xr.DataArray(
+                    (pram.rolling(time=window_i).sum() + thresh) <= (window_i * etp_rate)
+                )
             else:
-                dry_seq = xr.DataArray((pram.rolling(time=window_i).sum() + thresh) <=
-                                       etpam.rolling(time=window_i).sum())
+                dry_seq = xr.DataArray(
+                    (pram.rolling(time=window_i).sum() + thresh) <= etpam.rolling(time=window_i).sum()
+                )
 
             # Obtain the first day of each year where conditions apply.
-            end_i = (dry_seq & doy).resample(time=freq).\
+            end_i = (dry_seq & doy).resample(time="YS").\
                 map(rl.first_run, window=1, dim="time", coord="dayofyear")
 
             # Update the cells that were not assigned yet.
@@ -1555,22 +1546,19 @@ def rain_season_end(
                 end = xr.where(sel, end_i, end)
 
             # Exit loop if all cells were assigned a value.
+            window = window_i
             if xr.ufuncs.isnan(end).astype(int).sum() == 0:
                 break
 
-        # The season can't end at the beginning of the dataset; there was no rain yet, so no season.
-        if end[0] <= window_min:
-            end[0] = np.nan
-
     else:
 
-        # Shift datasets to the left.
-        dt = start_doy - 1
-        pram = pram.shift(time=-dt, fill_value=False)
+        # Shift datasets to simplify the analysis.
+        dt = 0 if end_doy >= start_doy else start_doy - 1
+        pram_shift = pram.copy().shift(time=-dt, fill_value=False)
         doy = doy.shift(time=-dt, fill_value=False)
 
         # Determine if it rains (assign 1) or not (assign 0).
-        wet = xr.where(pram < thresh, 0, 1) if op == "max" else xr.where(pram == 0, 0, 1)
+        wet = xr.where(pram_shift < thresh, 0, 1) if op == "max" else xr.where(pram_shift == 0, 0, 1)
 
         # Flag each day (assign 1) before a sequence of:
         # {window} days with no amount reaching {thresh}:
@@ -1578,21 +1566,11 @@ def rain_season_end(
             dry_seq = xr.DataArray(wet.rolling(time=window).sum() == 0)
         # {window} days with a total amount reaching {thresh}:
         else:
-            dry_seq = xr.DataArray(pram.rolling(time=window).sum() < thresh)
+            dry_seq = xr.DataArray(pram_shift.rolling(time=window).sum() < thresh)
         dry_seq = dry_seq.shift(time=-window, fill_value=False)
 
-        # Flag all days before the first rain of each year (assign True).
-        # Rain season can't end if there was no rain since {start_date}.
-        doy_first_rain_ys =\
-            wet.resample(time=freq).map(rl.first_run, window=1, dim="time", coord="dayofyear")
-        doy_first_rain_d = []
-        for i in range(len(doy_first_rain_ys)):
-            doy_first_rain_d += [float(doy_first_rain_ys[i])] * 365
-        after_first_rain = pram.time.dt.dayofyear >= doy_first_rain_d
-
         # Obtain the first day of each year where conditions apply.
-        end = (dry_seq & after_first_rain & doy).\
-            resample(time=freq).\
+        end = (dry_seq & doy).resample(time="YS").\
             map(rl.first_run, window=1, dim="time", coord="dayofyear")
 
         # Shift result to the right.
@@ -1600,11 +1578,41 @@ def rain_season_end(
         if end.max() > 365:
             transfer = xr.ufuncs.maximum(end - 365, 0).shift(time=1, fill_value=np.nan)
             end = xr.where(end > 365, np.nan, end)
-            end = xr.where(xr.ufuncs.isnan(end), transfer, end)
+            end = xr.where(xr.ufuncs.isnan(transfer) == False, transfer, end)
 
         # Rain season can't end on (or after) the first day of the last moving {window}, because we ignore the weather
         # past the end of the dataset.
-        end = xr.where((end > 365 - window) & (end.time == end.time[len(end) - 1]), np.nan, end)
+        end = xr.where((end > 365 - window) & (end == end[len(end.time) - 1]), np.nan, end)
+
+    # Rain season can't end unless the last day is rainy or the window comprises rainy days.
+    def rain_near_end(loc: str = "") -> xr.DataArray:
+        if loc == "":
+            end_loc = end
+            pram_loc = pram
+        else:
+            end_loc = end[end.location == loc].squeeze()
+            pram_loc = pram[pram.location == loc].squeeze()
+        n_days = 0
+        for t in range(len(end_loc.time)):
+            n_days_t = int(xr.DataArray(pram_loc.time.dt.year == end_loc[t].time.dt.year).astype(int).sum())
+            if not np.isnan(end_loc[t]):
+                pos_end = int(end_loc[t]) + n_days - 1
+                if op in ["max", "sum"]:
+                    pos_win_1 = pos_end + 1
+                    pos_win_2 = min(pos_win_1 + window, n_days_t + n_days)
+                else:
+                    pos_win_2 = pos_end + 1
+                    pos_win_1 = max(0, pos_end - window)
+                if not ((pram_loc[pos_win_1:pos_win_2].sum(dim="time") > 0) or (pram_loc[pos_end] > 0)):
+                    end_loc[t] = np.nan
+            n_days += n_days_t
+        return end_loc
+    if "location" not in pram.dims:
+        end = rain_near_end()
+    else:
+        locations = list(pram.location.values)
+        for i in range(len(locations)):
+            end[end.location == locations[i]] = rain_near_end(locations[i])
 
     # Adjust or discard rain end values that are not compatible with the current or next season start values.
     # If the season ends before or on start day, discard rain end.
@@ -1613,10 +1621,6 @@ def rain_season_end(
               (xr.ufuncs.isnan(end).astype(int) == 0) &\
               (end <= start)
         end = xr.where(sel, np.nan, end)
-
-    # The season can't end on {start_date} if the start days of rain seasons are unknown.
-    else:
-        end = xr.where(end == start_doy, np.nan, end)
 
     # If the season ends after or on start day of the next season, the end day of the current season becomes the day
     # before the next season.
@@ -1711,22 +1715,33 @@ def rain_season_prcptot(
               (pram.time.dt.dayofyear <= end_doy)
         return xr.where(sel, pram, 0).sum()
 
-    for i in range(len(start.time.dt.year)):
-        year_i = int(start.time.dt.year[i])
-
-        # Start and end dates in the same calendar year.
-        if start.mean() <= end.mean():
-            if (np.isnan(start[i]) == False) and (np.isnan(end[i]) == False):
-                prcptot[i] = calc_sum(year_i, int(start[i]), int(end[i]))
-
-        # Start and end dates not in the same year (left shift required).
+    # Calculate the index.
+    def calc_idx(loc: str = ""):
+        if loc == "":
+            prcptot_loc = prcptot
+            start_loc = start
+            end_loc = end
         else:
-            end_shift = end.shift(time=-1, fill_value=np.nan) if i == 0 else end_shift
-            if (np.isnan(start[i]) == False) and (np.isnan(end_shift[i]) == False):
-                prcptot[i] = calc_sum(year_i, int(start[i]), 365) + calc_sum(year_i, 1, int(end_shift[i]))
-    prcptot.attrs["units"] = "mm"
+            prcptot_loc = prcptot[prcptot.location == loc].squeeze()
+            start_loc = start[start.location == loc].squeeze()
+            end_loc = end[end.location == loc].squeeze()
 
-    return prcptot
+        end_shift = None
+        for t in range(len(start.time.dt.year)):
+            year = int(start.time.dt.year[t])
+
+            # Start and end dates in the same calendar year.
+            if start_loc.mean() <= end_loc.mean():
+                if (np.isnan(start_loc[t]) == False) and (np.isnan(end_loc[t]) == False):
+                    prcptot_loc[t] = calc_sum(year, int(start_loc[t]), int(end_loc[t]))
+
+            # Start and end dates not in the same year (left shift required).
+            else:
+                end_shift = end_loc.shift(time=-1, fill_value=np.nan) if t == 0 else end_shift
+                if (np.isnan(start_loc[t]) == False) and (np.isnan(end_shift[t]) == False):
+                    prcptot_loc[t] = calc_sum(year, int(start_loc[t]), 365) + calc_sum(year, 1, int(end_shift[t]))
+
+        return prcptot_loc
 
 
 def w_days_above(
