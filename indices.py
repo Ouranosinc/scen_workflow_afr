@@ -1321,7 +1321,12 @@ def rain_season_start(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Determine the first day of the rain season.
+    Detect the first day of the rain season.
+
+    Rain season starts on the first day of a sequence of {window_wet} days with accumulated precipitation greater than
+    or equal to {thresh_wet} that is followed by a period of {window_dry} days with fewer than {dry_days} consecutive
+    days with less than {thresh_dry} daily precipitation. The search is constrained by {start_date} and {end_date}."
+
 
     Parameters
     ----------
@@ -1347,6 +1352,33 @@ def rain_season_start(
     -------
     xr.DataArray, [dimensionless]
         Rain season start (day of year).
+
+    Examples
+    --------
+    Successful season start:
+        . . . . 10 10 10 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
+             ^
+    False start:
+        . . . . 10 10 10 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
+    Not even a start:
+        . . . .  8  8  8 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
+    given the numbers correspond to daily precipitation, based on default parameter values.
+
+    References
+    ----------
+    This index was suggested by:
+    Sivakumar, M.V.K. (1988). Predicting rainy season potential from the onset of rains in Southern Sahelian and
+    Sudanian climatic zones of West Africa. Agricultural and Forest Meteorology, 42(4): 295-305.
+    https://doi.org/10.1016/0168-1923(88)90039-1
+    and by:
+    Dodd, D.E.S. & Jolliffe, I.T. (2001) Early detection of the start of the wet season in semiarid tropical climates of
+    Western Africa. Int. J. Climatol., 21, 1251‑1262. https://doi.org/10.1002/joc.640
+    This correspond to definition no. 2, which is a simplification of an index mentioned in:
+    Jolliffe, I.T. & Sarria-Dodd, D.E. (1994) Early detection of the start of the wet season in tropical climates. Int.
+    J. Climatol., 14: 71-76. https://doi.org/10.1002/joc.3370140106
+    which is based on:
+    Stern, R.D., Dennett, M.D., & Garbutt, D.J. (1981) The start of the rains in West Africa. J. Climatol., 1: 59-68.
+    https://doi.org/10.1002/joc.3370010107
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1432,7 +1464,14 @@ def rain_season_end(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Determine the last day of the rain season.
+    Detect the last day of the rain season.
+
+    Three methods are available:
+    - If {op}=="max", season ends when no daily precipitation is greater than {thresh} over a period of {window} days.
+    - If {op}=="sum", season ends when cumulated precipitation over a period of {window} days is smaller than {thresh}.
+    - If {op}=="etp", season ends after a water column of height {thresh} has evaporated at daily rate specified in
+      {etp} or {etp_rate}, considering that the cumulated precipitation during this period must also evaporate.
+    Search is constrained by {start_date} and {end_date}.
 
     Parameters
     ----------
@@ -1474,6 +1513,32 @@ def rain_season_end(
     -------
     xr.DataArray, [dimensionless]
         Rain season end (day of year).
+
+    Examples
+    --------
+    Successful season end with {op} == "max":
+        . . . . 5 0 1 0 1 0 1 0 1 0 1 0 1 0 4 0 1 0 1 0 1 . . . (pr)
+                ^
+    Successful season end with {op} == "sum":
+        . 5 5 5 5 0 1 0 2 0 3 0 4 0 3 0 2 0 1 0 1 0 1 0 1 . . . (pr)
+                ^
+    Successful season end with {op} == "etp":
+        . 5 5 5 5 3 3 3 3 5 0 0 1 1 0 5 . . (pr)
+        . 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 . . (etp_rate)
+                                  ^
+    given the numbers correspond to daily precipitation or evapotranspiration, based on default parameter values.
+
+    References
+    ----------
+    The algorithm corresponding to {op} = "max", referred to as the agronomic criterion, is suggested by:
+    Somé, L. & Sivakumar, M.V.k. (1994). Analyse de la longueur de la saison culturale en fonction de la date de début
+    des pluies au Burkina Faso. Compte rendu des travaux no 1: Division du sol et Agroclimatologie. INERA, Burkina Faso,
+    43 pp.
+    It can be applied to a country such as Ivory Coast, which has a bimodal regime near its coast.
+    The algorithm corresponding to {op} = "etp" is applicable to Sahelian countries with a monomodal regime, as
+    mentioned by Food Security Cluster (May 23rd, 2016):
+    https://fscluster.org/mali/document/les-previsions-climatiques-de-2016-du
+    This includes countries such as Burkina Faso, Senegal, Mauritania, Gambia, Guinea and Bissau.
     --------------------------------------------------------------------------------------------------------------------
     """
 
