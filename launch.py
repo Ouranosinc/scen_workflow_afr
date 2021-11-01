@@ -262,6 +262,8 @@ def load_params(
             # ENVIRONMENT:
             elif key == "n_proc":
                 cfg.n_proc = int(value)
+            elif key == "use_chunks":
+                cfg.use_chunks = ast.literal_eval(value)
             elif key == "d_exec":
                 cfg.d_exec = ast.literal_eval(value)
                 if "\\" in cfg.d_exec:

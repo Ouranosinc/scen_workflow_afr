@@ -550,6 +550,7 @@ p_calib             = "calib.csv"   # Calibration file (bias adjustment paramete
 
 # Performance.
 n_proc              = 1             # Number of processes (for multiprocessing).
+use_chunks          = False         # If True, use chunks.
 pid                 = -1            # Process identifier (primary process)
 
 # Algorithms.

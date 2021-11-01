@@ -21,7 +21,7 @@ import xarray as xr
 import xclim.indices as indices
 import xclim.indices.generic as indices_gen
 import warnings
-from typing import Tuple
+from typing import Tuple, List
 from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to, declare_units, rate2amount, to_agg_units
@@ -302,16 +302,18 @@ def generate_single(
         return
 
     # Load datasets (one per variable or index).
-    ds_varidx_l = []
+    ds_varidx_l: List[xr.Dataset] = []
     for i_varidx in range(0, len(varidx_name_l)):
         varidx_name = varidx_name_l[i_varidx]
 
         try:
-            # Open dataset (without or with dask for testing).
+            # Open dataset.
             p_sim_j =\
                 cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
-            ds = utils.open_netcdf(p_sim_j)
-            # ds = utils.open_netcdf(p_sim_j, chunks={cfg.dim_time: 10}).load()
+            if not cfg.use_chunks:
+                ds = utils.open_netcdf(p_sim_j)
+            else:
+                ds = utils.open_netcdf(p_sim_j, chunks={cfg.dim_time: len(cfg.dim_time)}).load()
 
             # Remove February 29th and select reference period.
             if (rcp == cfg.rcp_ref) and (varidx_name in cfg.variables_cordex):
@@ -1388,7 +1390,7 @@ def rain_season_start(
             dry_seq = dry_seq_i.copy()
         else:
             dry_seq = dry_seq | dry_seq_i
-    no_dry_seq = (dry_seq == False)
+    no_dry_seq = (dry_seq.astype(bool) == 0)
 
     # Flag days between {start_date} and {end_date} (or the opposite).
     if end_doy >= start_doy:
@@ -1578,7 +1580,7 @@ def rain_season_end(
         if end.max() > 365:
             transfer = xr.ufuncs.maximum(end - 365, 0).shift(time=1, fill_value=np.nan)
             end = xr.where(end > 365, np.nan, end)
-            end = xr.where(xr.ufuncs.isnan(transfer) == False, transfer, end)
+            end = xr.where(xr.ufuncs.isnan(transfer).astype(bool) == 0, transfer, end)
 
         # Rain season can't end on (or after) the first day of the last moving {window}, because we ignore the weather
         # past the end of the dataset.
@@ -1664,7 +1666,7 @@ def rain_season_length(
 
     # Start and end dates not in the same year (left shift required).
     else:
-        length = 365 - start + end.shift(time=-1, fill_value=np.nan) + 1
+        length = xr.DataArray(xr.ones_like(start) * 365) - start + end.shift(time=-1, fill_value=np.nan) + 1
 
     # Eliminate negative values. This is a safety measure as this should not happen.
     length = xr.where(length < 0, 0, length)
@@ -1732,16 +1734,28 @@ def rain_season_prcptot(
 
             # Start and end dates in the same calendar year.
             if start_loc.mean() <= end_loc.mean():
-                if (np.isnan(start_loc[t]) == False) and (np.isnan(end_loc[t]) == False):
+                if (np.isnan(start_loc[t]).astype(bool) == 0) and (np.isnan(end_loc[t]).astype(bool) == 0):
                     prcptot_loc[t] = calc_sum(year, int(start_loc[t]), int(end_loc[t]))
 
             # Start and end dates not in the same year (left shift required).
             else:
                 end_shift = end_loc.shift(time=-1, fill_value=np.nan) if t == 0 else end_shift
-                if (np.isnan(start_loc[t]) == False) and (np.isnan(end_shift[t]) == False):
+                if (np.isnan(start_loc[t]).astype(bool) == 0) and (np.isnan(end_shift[t]).astype(bool) == 0):
                     prcptot_loc[t] = calc_sum(year, int(start_loc[t]), 365) + calc_sum(year, 1, int(end_shift[t]))
 
         return prcptot_loc
+
+    if "location" not in pram.dims:
+        prcptot = calc_idx()
+    else:
+        locations = list(pram.location.values)
+        for i in range(len(locations)):
+            prcptot[prcptot.location == locations[i]] = calc_idx(locations[i])
+
+    prcptot = prcptot // 1
+    prcptot.attrs["units"] = "mm"
+
+    return prcptot
 
 
 def w_days_above(
