@@ -1268,7 +1268,7 @@ def rain_season(
 
     # Rename dimensions to have latitude and longitude dimensions.
     def rename_dimensions(da: xr.DataArray, lat_name: str = "latitude", lon_name: str = "longitude") -> xr.DataArray:
-        if (lat_name not in da.dims) or (lon_name not in da.dims):
+        if ("location" not in da.dims) and ((lat_name not in da.dims) or (lon_name not in da.dims)):
             if "dim_0" in list(da.dims):
                 da = da.rename({"dim_0": "time"})
                 da = da.rename({"dim_1": lat_name, "dim_2": lon_name})

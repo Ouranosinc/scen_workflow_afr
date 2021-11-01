@@ -31,6 +31,34 @@ from typing import List, Union
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 
+def get_sample_data(var: str) -> Union[xr.DataArray, None]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get sample dataset.
+
+    Parameters
+    ----------
+    var : str
+        Variable.
+
+    Returns
+    -------
+    Union[xr.DataArray, None]
+        Sample dataset for a given variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    path = ""
+    if var == cfg.var_cordex_pr:
+        path = "ERA5/daily_surface_cancities_1990-1993.nc"
+
+    if path != "":
+        return xutils.open_dataset(path).pr
+    else:
+        return None
+
+
 def generate(
     var_or_idx: str,
     start_year: int,
@@ -47,7 +75,7 @@ def generate(
     Parameters
     ----------
     var_or_idx : str
-        Variable.
+        Variable or index
     start_year : int
         First year.
     n_years : int
@@ -331,7 +359,7 @@ def dry_spell_total_length() -> bool:
                     da_pr.attrs["units"] = "mm/day"
                     res_expected = [12] if op == op_sum else [20]
                 else:
-                    da_pr = xutils.open_dataset("ERA5/daily_surface_cancities_1990-1993.nc").pr
+                    da_pr = get_sample_data(cfg.var_cordex_pr)
                     if op == op_sum_data:
                         res_expected = [[50, 60, 73, 65],
                                         [67, 118, 87, 93],
@@ -674,9 +702,9 @@ def rain_season_start() -> bool:
 
             # xclim ----------------------------------------------------------------------------------------------------
 
-            # Case #0: | . A . 3xTw/3 10xTd 9x. 11xTd . B | . |
             if i == 0:
 
+                # Case #0: | . A . 3xTw/3 10xTd 9x. 11xTd . B | . |
                 if op == op_synthetic:
                     start_date, end_date = "03-01", "12-31"  # A, B
                     da_pr = generate(var, y1, n_years, 0.0)
@@ -686,10 +714,12 @@ def rain_season_start() -> bool:
                     assign(da_pr, [y1, 4, 14], [y1, 4, 22], 0.99)
                     assign(da_pr, [y1, 4, 23], [y1, 5, 3], 1.01)
                     res_expected = [91, np.nan]
+
+                # Case #0: real dataset.
                 else:
                     start_date, end_date = "03-01", "05-31"  # A, B
                     thresh_wet = 25  # Tw
-                    da_pr = xutils.open_dataset("ERA5/daily_surface_cancities_1990-1993.nc").pr
+                    da_pr = get_sample_data(cfg.var_cordex_pr)
                     res_expected = [[89, 61, 66, 63],
                                     [92, 97, 70, 90],
                                     [np.nan, np.nan, np.nan, np.nan],
@@ -861,8 +891,9 @@ def rain_season_end() -> bool:
 
             # xclim ----------------------------------------------------------------------------------------------------
 
-            # Case #0: | . T A T 4T/5 3T/5 2T/5 1T/5 . B . | . |
             if i == 0:
+
+                # Case #0: | . T A T 4T/5 3T/5 2T/5 1T/5 . B . | . |
                 if op in [op_max, op_sum, op_etp]:
                     start_date, end_date = "09-01", "12-31"  # A, B
                     da_pr = generate(var, y1, n_years, 0.0)
@@ -877,6 +908,8 @@ def rain_season_end() -> bool:
                         res_expected = [275, np.nan]
                     else:
                         res_expected = [306, np.nan]
+
+                # Case #0: real dataset.
                 else:
                     start_date, end_date = "06-01", "09-30"  # A, B
                     if op == op_max_data:
@@ -886,7 +919,7 @@ def rain_season_end() -> bool:
                     else:
                         thresh = 20.0  # T
                     window = 10
-                    da_pr = xutils.open_dataset("ERA5/daily_surface_cancities_1990-1993.nc").pr
+                    da_pr = get_sample_data(cfg.var_cordex_pr)
                     if op == op_max_data:
                         res_expected = [[190, 152, 256, 217],
                                         [204, 152, 202, 179],
@@ -1128,8 +1161,9 @@ def rain_season_length_prcptot() -> bool:
 
             # xclim ----------------------------------------------------------------------------------------------------
 
-            # Case #0: | . A1 . 3xTw/3 10xTd 9x. 11xTd . T A2 T 4T/5 3T/5 2T/5 1T/5 . B1=B2 | . |
             if i == 0:
+
+                # Case #0: | . A1 . 3xTw/3 10xTd 9x. 11xTd . T A2 T 4T/5 3T/5 2T/5 1T/5 . B1=B2 | . |
                 if is_synthetic:
                     da_pr = generate(var, y1, n_years, 0.0)
                     assign(da_pr, [y1, 1, 1], [y1, 3, 31], 1.01)
@@ -1148,8 +1182,10 @@ def rain_season_length_prcptot() -> bool:
                     assign(da_end, y1, y1, 288)
                     res_expected_length = [198, np.nan]
                     res_expected_prcptot = [870, np.nan]
+
+                # Case #0: real dataset.
                 else:
-                    da_pr = xutils.open_dataset("ERA5/daily_surface_cancities_1990-1993.nc").pr
+                    da_pr = get_sample_data(cfg.var_cordex_pr)
                     locations = list(da_pr.location.values)
                     da_start = generate(cfg.idx_rain_season_start, 1990, 4, np.nan, "YS", locations)
                     assign(da_start, [], [], [89, 61, 66, 63], locations[0])
@@ -1269,6 +1305,7 @@ def rain_season() -> bool:
     e_op_max = "max"
     e_op_sum = "sum"
     e_op_etp = "etp"
+    e_op_max_data = "max_data"
 
     # Years.
     n_years = 2
@@ -1277,97 +1314,164 @@ def rain_season() -> bool:
     # Loop through cases.
     error = False
     n_cases = 2
-    for i in range(1, n_cases + 1):
+    for i in range(0, n_cases + 1):
 
-        # Initialization.
-        da_etp = None
-        da_start_next = None
+        for e_op in [e_op_max, e_op_sum, e_op_max_data]:
+            is_synthetic = e_op in [e_op_max, e_op_sum, e_op_etp]
 
-        # Parameters: rain season start.
-        s_thresh_wet = 15  # Tw
-        s_window_wet = 3
-        s_thresh_dry = 1   # Td
-        s_dry_days   = 10
-        s_window_dry = 30
-        is_synthetic = True
-
-        # Parameters: rain season end.
-        e_op       = e_op_sum
-        e_etp_rate = 5
-        e_pr_rate  = s_thresh_dry
-        e_window   = 14
-        if e_op == e_op_max:
-            e_thresh = e_pr_rate              # T
-        elif e_op == e_op_sum:
-            e_thresh = e_pr_rate * e_window   # T
-        else:
-            e_thresh = e_etp_rate * e_window  # T
-
-        # Cases --------------------------------------------------------------------------------------------------------
-
-        # Case #1-2: start      = | . A . 3xTw/3 30xTd .             B | . |
-        #            end        = | .                  T/14 C T/14 . D | . |
-        #            start_next = | .                       .      E . | . | (i == 2)
-        if i in [1, 2]:
-            # Parameters and data.
-            s_start_date, s_end_date = "03-01", "12-31"  # A, B
-            e_start_date, e_end_date = "09-01", "12-31"  # C, D
-            da_pr = generate(var, y1, n_years, 0.0)
-            assign(da_pr, [y1, 4, 1], [y1, 4, 3], s_thresh_wet / s_window_wet)
-            assign(da_pr, [y1, 4, 4], [y1, 9, 30], s_thresh_dry)
-            if i == 2:
-                da_start_next = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
-                assign(da_start_next, y1, y1, utils.doy_str_to_doy("09-05"))
-            # Expected results.
-            res_start_expected = [91, np.nan]
-            if i == 1:
-                res_end_expected = [260, np.nan]
+            # Default parameters.
+            da_etp        = None
+            da_start_next = None
+            s_thresh_wet  = 15  # Tw
+            s_window_wet  = 3
+            s_thresh_dry  = 1  # Td
+            s_dry_days    = 10
+            s_window_dry  = 30
+            e_etp_rate    = 5
+            e_pr_rate     = s_thresh_dry
+            e_window      = 14
+            if e_op == e_op_max:
+                e_thresh = e_pr_rate  # T
+            elif e_op == e_op_sum:
+                e_thresh = e_pr_rate * e_window  # T
             else:
-                res_end_expected = [da_start_next[0] - 1, np.nan]
-            res_length_expected = [res_end_expected[0] - res_start_expected[0] + 1, np.nan]
-            res_prcptot_expected = copy.deepcopy(res_length_expected)
-            res_prcptot_expected[0] += s_thresh_wet - s_window_wet
+                e_thresh = e_etp_rate * e_window  # T
 
-        else:
-            continue
+            # xclim ----------------------------------------------------------------------------------------------------
 
-        # Calculation and interpretation -------------------------------------------------------------------------------
+            # Case #0: start = | . A . 3xTw/3 10xTd 9x. 11xTd .                           B | . |
+            #          end   = | .                            T C T 4T/5 3T/5 2T/5 1T/5 . D | . |
+            if (i == 0) and (e_op in [e_op_max, e_op_max_data]):
 
-        # Convert from precipitation amount to rate.
-        if is_synthetic:
-            da_pr = da_pr / cfg.spd
-            da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
-            if da_etp is not None:
-                da_etp = da_etp / cfg.spd
-                da_etp.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                if e_op == e_op_max:
+                    s_thresh_wet = 15
+                    s_window_wet = 3
+                    s_thresh_dry = 1
+                    s_dry_days   = 10
+                    s_window_dry = 30
+                    s_start_date = "03-01"
+                    s_end_date   = "12-31"
+                    e_thresh     = 5
+                    e_window     = 14
+                    e_etp_rate   = 5
+                    e_start_date = "09-01"
+                    e_end_date   = "12-31"
+                    da_pr = generate(var, y1, n_years, 0.0)
+                    assign(da_pr, [y1, 1, 1], [y1, 3, 31], 1.01)
+                    assign(da_pr, [y1, 4, 1], [y1, 4, 3], 5.01)
+                    assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
+                    assign(da_pr, [y1, 4, 14], [y1, 4, 22], 0.99)
+                    assign(da_pr, [y1, 4, 23], [y1, 5, 3], 1.01)
+                    assign(da_pr, [y1, 5, 4], [y1, 10, 15], 5.0)
+                    assign(da_pr, [y1, 10, 16], [y1, 10, 16], 4.0)
+                    assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.0)
+                    assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.0)
+                    assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.0)
+                    res_expected_start   = [91, np.nan]
+                    res_expected_end     = [288, np.nan]
+                    res_expected_length  = [198, np.nan]
+                    res_expected_prcptot = [870, np.nan]
 
-        # Calculate indices.
-        da_start, da_end, da_length, da_prcptot =\
-            xindices.rain_season(da_pr, da_etp, da_start_next, str(s_thresh_wet) + " mm", s_window_wet,
-                                 str(s_thresh_dry) + " mm", s_dry_days, s_window_dry, s_start_date, s_end_date,
-                                 e_op, str(e_thresh) + " mm", e_window,
-                                 (str(e_etp_rate) if e_op == e_op_etp else "0") + " mm", e_start_date, e_end_date)
+                else:
+                    s_thresh_wet = 25
+                    s_window_wet = 3
+                    s_thresh_dry = 1
+                    s_dry_days   = 10
+                    s_window_dry = 30
+                    s_start_date = "03-01"
+                    s_end_date   = "12-31"
+                    e_thresh     = 5
+                    e_window     = 10
+                    e_etp_rate   = 5
+                    e_start_date = "06-01"
+                    e_end_date   = "09-30"
+                    da_pr = get_sample_data(cfg.var_cordex_pr)
+                    res_expected_start = [[89, 61, 66, 63],
+                                          [92, 97, 70, 90],
+                                          [213, 230, 190, 187],
+                                          [182, 115, 130, 162],
+                                          [275, 60, 106, 62]]
+                    res_expected_end = [[190, 152, 273, 219],
+                                        [205, 152, 224, 179],
+                                        [np.nan, np.nan, np.nan, 195],
+                                        [213, 196, 157, np.nan],
+                                        [np.nan, 172, 152, 165]]
+                    res_expected_length = [[102, 92, 208, 157],
+                                           [114, 56, 155, 90],
+                                           [np.nan, np.nan, np.nan, 9],
+                                           [32, 82, 28, np.nan],
+                                           [np.nan, 113, 47, 104]]
+                    res_expected_prcptot = [[1402, 1143, 2183, 2073],
+                                            [1486, 660, 1494, 1121],
+                                            [np.nan, np.nan, 4214, np.nan],
+                                            [448, 834, 246, np.nan],
+                                            [np.nan, 1335, 402, 1278]]
 
-        # Reorder dimensions.
-        if len(list(da_start.dims)) > 1:
-            da_start = utils.reorder_dims(da_start, da_pr)
-        if len(list(da_end.dims)) > 1:
-            da_end = utils.reorder_dims(da_end, da_pr)
-        if len(list(da_length.dims)) > 1:
-            da_length = utils.reorder_dims(da_length, da_pr)
-        if len(list(da_prcptot.dims)) > 1:
-            da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
+            # workflow -------------------------------------------------------------------------------------------------
 
-        #  Verify results.
-        res_start = np.array(da_start.squeeze())
-        res_end = np.array(da_end.squeeze())
-        res_length = np.array(da_length.squeeze())
-        res_prcptot = np.array(da_prcptot.squeeze())
-        if (not res_is_valid(res_start, res_start_expected)) or \
-           (not res_is_valid(res_end, res_end_expected)) or \
-           (not res_is_valid(res_length, res_length_expected)) or \
-           (not res_is_valid(res_prcptot, res_prcptot_expected)):
-            error = True
+            else:
+
+                # Case #1-2: start      = | . A . 3xTw/3 30xTd .             B | . |
+                #            end        = | .                  T/14 C T/14 . D | . |
+                #            start_next = | .                       .      E . | . | (i == 2)
+                if (i in [1, 2]) and (e_op == e_op_sum):
+                    s_start_date, s_end_date = "03-01", "12-31"  # A, B
+                    e_start_date, e_end_date = "09-01", "12-31"  # C, D
+                    da_pr = generate(var, y1, n_years, 0.0)
+                    assign(da_pr, [y1, 4, 1], [y1, 4, 3], s_thresh_wet / s_window_wet)
+                    assign(da_pr, [y1, 4, 4], [y1, 9, 30], s_thresh_dry)
+                    if i == 2:
+                        da_start_next = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                        assign(da_start_next, y1, y1, utils.doy_str_to_doy("09-05"))
+                    res_expected_start = [91, np.nan]
+                    if i == 1:
+                        res_expected_end = [260, np.nan]
+                    else:
+                        res_expected_end = [da_start_next[0] - 1, np.nan]
+                    res_expected_length = [res_expected_end[0] - res_expected_start[0] + 1, np.nan]
+                    res_expected_prcptot = copy.deepcopy(res_expected_length)
+                    res_expected_prcptot[0] += s_thresh_wet - s_window_wet
+
+                else:
+                    continue
+
+            # Calculation and interpretation ---------------------------------------------------------------------------
+
+            # Convert from precipitation amount to rate.
+            if is_synthetic:
+                da_pr = da_pr / cfg.spd
+                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                if da_etp is not None:
+                    da_etp = da_etp / cfg.spd
+                    da_etp.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+
+            # Calculate indices.
+            da_start, da_end, da_length, da_prcptot =\
+                xindices.rain_season(da_pr, da_etp, da_start_next, str(s_thresh_wet) + " mm", s_window_wet,
+                                     str(s_thresh_dry) + " mm", s_dry_days, s_window_dry, s_start_date, s_end_date,
+                                     e_op, str(e_thresh) + " mm", e_window,
+                                     (str(e_etp_rate) if e_op == e_op_etp else "0") + " mm", e_start_date, e_end_date)
+
+            # Reorder dimensions.
+            if len(list(da_start.dims)) > 1:
+                da_start = utils.reorder_dims(da_start, da_pr)
+            if len(list(da_end.dims)) > 1:
+                da_end = utils.reorder_dims(da_end, da_pr)
+            if len(list(da_length.dims)) > 1:
+                da_length = utils.reorder_dims(da_length, da_pr)
+            if len(list(da_prcptot.dims)) > 1:
+                da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
+
+            #  Verify results.
+            res_start = np.array(da_start.squeeze())
+            res_end = np.array(da_end.squeeze())
+            res_length = np.array(da_length.squeeze())
+            res_prcptot = np.array(da_prcptot.squeeze())
+            if (not res_is_valid(res_start, res_expected_start)) or \
+               (not res_is_valid(res_end, res_expected_end)) or \
+               (not res_is_valid(res_length, res_expected_length)) or \
+               (not res_is_valid(res_prcptot, res_expected_prcptot)):
+                error = True
 
     return error
 
