@@ -29,7 +29,7 @@ import xclim.indices as xindices
 import xclim.testing._utils as xutils
 from typing import List, Union
 
-from xclim.testing.tests import test_indices, test_precip
+from xclim.testing.tests import test_indices, test_precip, test_locales
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 
@@ -1488,6 +1488,15 @@ def rain_season() -> bool:
     return error
 
 
+def official_indicators():
+    import xclim.core.indicator
+    registry_cp = xclim.core.indicator.registry.copy()
+    for cls in xclim.core.indicator.registry.values():
+        if cls.identifier.upper() != cls._registry_id:
+            registry_cp.pop(cls._registry_id)
+    return registry_cp
+
+
 def run():
 
     """
@@ -1499,16 +1508,19 @@ def run():
     utils.log("=")
     utils.log("Step #0   Testing indices")
 
-    utils.log("Step #0a  dry_spell_total_length")
+    utils.log("Step #0a  translations")
+    test_locales.test_xclim_translations("fr", official_indicators())
+
+    utils.log("Step #0b  dry_spell_total_length")
     dry_spell_total_length()
 
-    utils.log("Step #0b  rain_season_start")
+    utils.log("Step #0c  rain_season_start")
     rain_season_start()
 
-    utils.log("Step #0c  rain_season_end")
+    utils.log("Step #0d  rain_season_end")
     rain_season_end()
 
-    utils.log("Step #0d  rain_season_length/prcptot")
+    utils.log("Step #0e  rain_season_length/prcptot")
     rain_season_length_prcptot()
 
     utils.log("Step #0f  rain_season")

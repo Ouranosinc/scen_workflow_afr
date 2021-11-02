@@ -1617,12 +1617,12 @@ def rain_season_end(
             if end is None:
                 end = end_i.copy()
             else:
-                sel = xr.ufuncs.isnan(end) & ((xr.ufuncs.isnan(end_i).astype(int) == 0) | (end_i < end))
+                sel = np.isnan(end) & ((np.isnan(end_i).astype(int) == 0) | (end_i < end))
                 end = xr.where(sel, end_i, end)
 
             # Exit loop if all cells were assigned a value.
             window = window_i
-            if xr.ufuncs.isnan(end).astype(int).sum() == 0:
+            if np.isnan(end).astype(int).sum() == 0:
                 break
 
     else:
@@ -1653,7 +1653,7 @@ def rain_season_end(
         if end.max() > 365:
             transfer = xr.ufuncs.maximum(end - 365, 0).shift(time=1, fill_value=np.nan)
             end = xr.where(end > 365, np.nan, end)
-            end = xr.where(xr.ufuncs.isnan(transfer).astype(bool) == 0, transfer, end)
+            end = xr.where(np.isnan(transfer).astype(bool) == 0, transfer, end)
 
         # Rain season can't end on (or after) the first day of the last moving {window}, because we ignore the weather
         # past the end of the dataset.
@@ -1694,16 +1694,16 @@ def rain_season_end(
     # Adjust or discard rain end values that are not compatible with the current or next season start values.
     # If the season ends before or on start day, discard rain end.
     if start is not None:
-        sel = (xr.ufuncs.isnan(start).astype(int) == 0) &\
-              (xr.ufuncs.isnan(end).astype(int) == 0) &\
+        sel = (np.isnan(start).astype(int) == 0) &\
+              (np.isnan(end).astype(int) == 0) &\
               (end <= start)
         end = xr.where(sel, np.nan, end)
 
     # If the season ends after or on start day of the next season, the end day of the current season becomes the day
     # before the next season.
     if start_next is not None:
-        sel = (xr.ufuncs.isnan(start_next).astype(int) == 0) &\
-              (xr.ufuncs.isnan(end).astype(int) == 0) &\
+        sel = (np.isnan(start_next).astype(int) == 0) &\
+              (np.isnan(end).astype(int) == 0) &\
               (end >= start_next)
         end = xr.where(sel, start_next - 1, end)
         end = xr.where(end < 1, 365, end)
