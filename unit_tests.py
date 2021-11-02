@@ -28,6 +28,8 @@ import xarray as xr
 import xclim.indices as xindices
 import xclim.testing._utils as xutils
 from typing import List, Union
+
+from xclim.testing.tests import test_indices, test_precip
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 
@@ -713,6 +715,11 @@ def rain_season_start() -> bool:
                     assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
                     assign(da_pr, [y1, 4, 14], [y1, 4, 22], 0.99)
                     assign(da_pr, [y1, 4, 23], [y1, 5, 3], 1.01)
+                    assign(da_pr, [y1, 5, 4], [y1, 10, 15], 5.01)
+                    assign(da_pr, [y1, 10, 16], [y1, 10, 16], 4.01)
+                    assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.01)
+                    assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.01)
+                    assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.01)
                     res_expected = [91, np.nan]
 
                 # Case #0: real dataset.
@@ -897,17 +904,22 @@ def rain_season_end() -> bool:
                 if op in [op_max, op_sum, op_etp]:
                     start_date, end_date = "09-01", "12-31"  # A, B
                     da_pr = generate(var, y1, n_years, 0.0)
-                    assign(da_pr, [y1, 5, 4], [y1, 10, 15], pr_rate)
-                    assign(da_pr, [y1, 10, 16], [y1, 10, 16], pr_rate * 4/5)
-                    assign(da_pr, [y1, 10, 17], [y1, 10, 17], pr_rate * 3/5)
-                    assign(da_pr, [y1, 10, 18], [y1, 10, 18], pr_rate * 2/5)
-                    assign(da_pr, [y1, 10, 19], [y1, 10, 19], pr_rate * 1/5)
+                    assign(da_pr, [y1, 1, 1], [y1, 3, 31], 1.01)
+                    assign(da_pr, [y1, 4, 1], [y1, 4, 3], 5.01)
+                    assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
+                    assign(da_pr, [y1, 4, 14], [y1, 4, 22], 0.99)
+                    assign(da_pr, [y1, 4, 23], [y1, 5, 3], 1.01)
+                    assign(da_pr, [y1, 5, 4], [y1, 10, 15], 5.01)
+                    assign(da_pr, [y1, 10, 16], [y1, 10, 16], 4.01)
+                    assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.01)
+                    assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.01)
+                    assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.01)
                     if op == op_max:
                         res_expected = [288, np.nan]
                     elif op == op_sum:
                         res_expected = [275, np.nan]
                     else:
-                        res_expected = [306, np.nan]
+                        res_expected = [305, np.nan]
 
                 # Case #0: real dataset.
                 else:
@@ -1171,22 +1183,22 @@ def rain_season_length_prcptot() -> bool:
                     assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
                     assign(da_pr, [y1, 4, 14], [y1, 4, 22], 0.99)
                     assign(da_pr, [y1, 4, 23], [y1, 5, 3], 1.01)
-                    assign(da_pr, [y1, 5, 4], [y1, 10, 15], 5.0)
-                    assign(da_pr, [y1, 10, 16], [y1, 10, 16], 4.0)
-                    assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.0)
-                    assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.0)
-                    assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.0)
+                    assign(da_pr, [y1, 5, 4], [y1, 10, 15], 5.01)
+                    assign(da_pr, [y1, 10, 16], [y1, 10, 16], 4.01)
+                    assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.01)
+                    assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.01)
+                    assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.01)
                     da_start = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
                     assign(da_start, y1, y1, 91)
                     da_end = generate(cfg.idx_rain_season_end, y1, n_years, np.nan, "YS")
                     assign(da_end, y1, y1, 288)
                     res_expected_length = [198, np.nan]
-                    res_expected_prcptot = [870, np.nan]
+                    res_expected_prcptot = [871, np.nan]
 
                 # Case #0: real dataset.
                 else:
                     da_pr = get_sample_data(cfg.var_cordex_pr)
-                    locations = list(da_pr.location.values)
+                    locations = list(xr.DataArray(da_pr).location.values)
                     da_start = generate(cfg.idx_rain_season_start, 1990, 4, np.nan, "YS", locations)
                     assign(da_start, [], [], [89, 61, 66, 63], locations[0])
                     assign(da_start, [], [], [92, 97, 70, 90], locations[1])
@@ -1501,3 +1513,5 @@ def run():
 
     utils.log("Step #0f  rain_season")
     rain_season()
+    test_precip.test_rain_season()
+    test_indices.test_rain_season(pr_series)

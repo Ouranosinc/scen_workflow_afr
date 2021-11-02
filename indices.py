@@ -1266,7 +1266,6 @@ def rain_season(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Rename dimensions to have latitude and longitude dimensions.
     def rename_dimensions(da: xr.DataArray, lat_name: str = "latitude", lon_name: str = "longitude") -> xr.DataArray:
         if ("location" not in da.dims) and ((lat_name not in da.dims) or (lon_name not in da.dims)):
             if "dim_0" in list(da.dims):
@@ -1282,9 +1281,18 @@ def rain_season(
                 if lon_name == "longitude":
                     da = da.expand_dims(longitude=1)
         return da
-    pr = rename_dimensions(pr)
+
+    def reorder_dimensions(da: xr.DataArray) -> xr.DataArray:
+        if "location" not in da.dims:
+            da = da.transpose("time", "latitude", "longitude")
+        else:
+            da = da.transpose("location", "time")
+        return da
+
+    # Rename dimensions and reorder dimensions.
+    pr = reorder_dimensions(rename_dimensions(pr))
     if etp is not None:
-        etp = rename_dimensions(etp)
+        etp = reorder_dimensions(rename_dimensions(etp))
 
     # Calculate rain season start.
     start = xr.DataArray(rain_season_start(pr, s_thresh_wet, s_window_wet, s_thresh_dry, s_dry_days, s_window_dry,
@@ -1357,7 +1365,7 @@ def rain_season_start(
     --------
     Successful season start:
         . . . . 10 10 10 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
-             ^
+                 ^
     False start:
         . . . . 10 10 10 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
     Not even a start:
@@ -1670,7 +1678,9 @@ def rain_season_end(
                 else:
                     pos_win_2 = pos_end + 1
                     pos_win_1 = max(0, pos_end - window)
-                if not ((pram_loc[pos_win_1:pos_win_2].sum(dim="time") > 0) or (pram_loc[pos_end] > 0)):
+                pos_range = [min(pos_win_1, pos_win_2), max(pos_win_1, pos_win_2)]
+                if not ((pram_loc.isel(time=slice(pos_range[0], pos_range[1])).sum(dim="time") > 0) or
+                        (pram_loc.isel(time=pos_end) > 0)):
                     end_loc[t] = np.nan
             n_days += n_days_t
         return end_loc
