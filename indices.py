@@ -1154,10 +1154,10 @@ def dry_spell_total_length(
     for i in range(2):
         pram_i = pram if dry is None else pram.sortby("time", ascending=False)
         if op == "max":
-            mask_i = xr.DataArray(pram_i.rolling(time=window).max() < thresh)
+            mask_i = (pram_i.rolling(time=window).max() < thresh)
         else:
-            mask_i = xr.DataArray(pram_i.rolling(time=window).sum() < thresh)
-        dry_i = xr.DataArray(mask_i.rolling(time=window).sum() >= 1).shift(time=-(window - 1))
+            mask_i = (pram_i.rolling(time=window).sum() < thresh)
+        dry_i = (mask_i.rolling(time=window).sum() >= 1).shift(time=-(window - 1))
         if dry is None:
             dry = dry_i
         else:
@@ -1172,12 +1172,12 @@ def dry_spell_total_length(
     doy_end = 365
     if end_date != "":
         doy_end = datetime.datetime.strptime(end_date, "%m-%d").timetuple().tm_yday
-    if doy_end >= doy_start:
-        doy = (pram.time.dt.dayofyear >= doy_start) &\
-              (pram.time.dt.dayofyear <= doy_end)
-    else:
-        doy = (pram.time.dt.dayofyear <= doy_end) |\
-              (pram.time.dt.dayofyear >= doy_start)
+    bisextile_year_fix = xr.where(pram.time.dt.year % 4 == 0, 1, 0)
+    doy_start = ([doy_start] * len(pram.time)) if doy_start < 60 else (doy_start + bisextile_year_fix)
+    doy_end = ([doy_end] * len(pram.time)) if doy_end < 60 else (doy_end + bisextile_year_fix)
+    doy = xr.where(doy_end >= doy_start,
+                   (pram.time.dt.dayofyear >= doy_start) & (pram.time.dt.dayofyear <= doy_end),
+                   (pram.time.dt.dayofyear <= doy_end) | (pram.time.dt.dayofyear >= doy_start))
 
     # Calculate the number of dry days per year.
     out = (dry & doy).astype(float).resample(time=freq).sum("time")
