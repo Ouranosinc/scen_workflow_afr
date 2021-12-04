@@ -885,7 +885,7 @@ def get_desc(
 
         elif varidx_name in [idx_cwd, idx_cdd, idx_r10mm, idx_r20mm, idx_rnnmm, idx_wet_days, idx_dry_days]:
             desc = "Nbr jours"
-            if varidx_name == idx_cwd:
+            if varidx_name in [idx_cdd, idx_cwd]:
                 desc += " consécutifs"
             desc += " où P" + ("<" if varidx_name in [idx_cdd, idx_dry_days] else "≥") +\
                     str(idx_params_loc[0]) + get_unit(var_cordex_pr)
