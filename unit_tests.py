@@ -22,7 +22,6 @@ import datetime
 import indices
 import numpy as np
 import pandas as pd
-
 import utils
 import xarray as xr
 import xclim.indices as xindices
