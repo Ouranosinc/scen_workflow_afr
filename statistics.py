@@ -388,12 +388,7 @@ def calc_stats(
 
                             # Extract value.
                             if varidx_name in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
-                                # Mean daily value.
-                                n_years = hor[1] - hor[0] + 1
-                                val = float(ds_stat_hor[varidx_name].sum()) / n_years
-                                # Mean annual value.
-                                if freq == cfg.freq_D:
-                                    val = val * n_years * 365
+                                val = float(ds_stat_hor[varidx_name].sum()) / (hor[1] - hor[0] + 1)
                             else:
                                 val = float(ds_stat_hor[varidx_name].mean())
 
@@ -409,7 +404,10 @@ def calc_stats(
 
                             # Clearing cache.
                             # This is an ugly patch. Otherwise, the value of 'val' is incorrect.
-                            caching.clear_cache()
+                            try:
+                                caching.clear_cache()
+                            except AttributeError:
+                                pass
 
             # Save results.
             if len(stn_l) > 0:
@@ -630,20 +628,20 @@ def calc_ts(
                                     warnings.simplefilter("ignore", category=SettingWithCopyWarning)
                                     df[cfg.rcp_ref][df["year"] == years[i]] = vals[i]
                         elif rcp == cfg.rcp_26:
-                            df[cfg.rcp_26 + "_min"] = ds_rcp_26_grp[0][varidx_name].values
-                            df[cfg.rcp_26 + "_moy"] = ds_rcp_26_grp[1][varidx_name].values
+                            df[cfg.rcp_26 + "_moy"] = ds_rcp_26_grp[0][varidx_name].values
+                            df[cfg.rcp_26 + "_min"] = ds_rcp_26_grp[1][varidx_name].values
                             df[cfg.rcp_26 + "_max"] = ds_rcp_26_grp[2][varidx_name].values
                         elif rcp == cfg.rcp_45:
-                            df[cfg.rcp_45 + "_min"] = ds_rcp_45_grp[0][varidx_name].values
-                            df[cfg.rcp_45 + "_moy"] = ds_rcp_45_grp[1][varidx_name].values
+                            df[cfg.rcp_45 + "_moy"] = ds_rcp_45_grp[0][varidx_name].values
+                            df[cfg.rcp_45 + "_min"] = ds_rcp_45_grp[1][varidx_name].values
                             df[cfg.rcp_45 + "_max"] = ds_rcp_45_grp[2][varidx_name].values
                         elif rcp == cfg.rcp_85:
-                            df[cfg.rcp_85 + "_min"] = ds_rcp_85_grp[0][varidx_name].values
-                            df[cfg.rcp_85 + "_moy"] = ds_rcp_85_grp[1][varidx_name].values
+                            df[cfg.rcp_85 + "_moy"] = ds_rcp_85_grp[0][varidx_name].values
+                            df[cfg.rcp_85 + "_min"] = ds_rcp_85_grp[1][varidx_name].values
                             df[cfg.rcp_85 + "_max"] = ds_rcp_85_grp[2][varidx_name].values
                         else:
-                            df[cfg.rcp_xx + "_min"] = ds_rcp_xx_grp[0][varidx_name].values
-                            df[cfg.rcp_xx + "_moy"] = ds_rcp_xx_grp[1][varidx_name].values
+                            df[cfg.rcp_xx + "_moy"] = ds_rcp_xx_grp[0][varidx_name].values
+                            df[cfg.rcp_xx + "_min"] = ds_rcp_xx_grp[1][varidx_name].values
                             df[cfg.rcp_xx + "_max"] = ds_rcp_xx_grp[2][varidx_name].values
 
                     # Save file.

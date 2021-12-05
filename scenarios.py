@@ -524,6 +524,10 @@ def regrid(
             ds_data[var][t, :, :].values.ravel(), (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
 
     # Create data array.
+    # Using xarray v0.20.2, the following line crashes with the following error:
+    # {TypeError} Using a DataArray object to construct a variable is ambiguous, please extract the data using the .data
+    # property.
+    # It runs fine with v0.18.2.
     da_regrid = xr.DataArray(arr_regrid,
         coords=[(cfg.dim_time, ds_data.time[0:t_len]), (cfg.dim_lat, grid_lat), (cfg.dim_lon, grid_lon)],
         dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
