@@ -1392,7 +1392,7 @@ def run():
     # - calculation is very slow (something is wrong).
     utils.log("-")
     msg = "Step #8c  Generating heat maps (scenarios)"
-    if cfg.opt_ra and (cfg.opt_map[0] or cfg.opt_save_csv[0]):
+    if cfg.opt_ra and cfg.opt_map[0]:
         utils.log(msg)
 
         # Loop through variables.

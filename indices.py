@@ -1968,7 +1968,7 @@ def run():
     # - calculation is very slow (something is wrong).
     utils.log("-")
     msg = "Step #8c  Generating heat maps (indices)"
-    if cfg.opt_ra and (cfg.opt_map[1] or cfg.opt_save_csv[1]):
+    if cfg.opt_ra and cfg.opt_map[1]:
         utils.log(msg)
 
         # Loop through indices.

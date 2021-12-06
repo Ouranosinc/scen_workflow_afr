@@ -645,7 +645,7 @@ def calc_ts(
                             df[cfg.rcp_xx + "_max"] = ds_rcp_xx_grp[2][varidx_name].values
 
                     # Save file.
-                    if cfg.opt_save_csv:
+                    if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
                         utils.save_csv(df, p_csv)
 
                 # Generate plot with simulations grouped by RCP scenario.
