@@ -218,6 +218,8 @@ def load_params(
                 cfg.opt_plot_col_2cla_prec = convert_to_1d(value, str)
             elif key == "opt_plot_col_2cla_wind":
                 cfg.opt_plot_col_2cla_wind = convert_to_1d(value, str)
+            elif key == "opt_ts":
+                cfg.opt_ts = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_map":
                 cfg.opt_map = [False, False]
                 if cfg.opt_ra:

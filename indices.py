@@ -1954,10 +1954,13 @@ def run():
         utils.log(msg + not_req)
 
     # Generate plots.
-    if cfg.opt_plot[1]:
-        utils.log("=")
-        utils.log("Step #8b  Generating time series (indices)")
+    utils.log("-")
+    msg = "Step #8b  Generating time series (indices)"
+    if cfg.opt_ts[1]:
+        utils.log(msg)
         statistics.calc_ts(cfg.cat_idx)
+    else:
+        utils.log(msg + not_req)
 
     # Generate maps.
     # Heat maps are not generated from data at stations:

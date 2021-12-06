@@ -631,17 +631,18 @@ idx_params          = []            # Index parameters.
 
 # Step 7 - Statistics --------------------------------------------------------------------------------------------------
 
-opt_stat            = [True] * 2        # If True, calculate statistics [for scenarios, for indices].
+opt_stat            = [True] * 2        # If True, calculate statistics for [scenarios, indices].
 opt_stat_quantiles  = [1.00, 0.90, 0.50, 0.10, 0.00]  # Quantiles.
 opt_stat_clip       = False             # If True, clip according to 'd_bounds'.
-opt_save_csv        = [False] * 2       # If True, save results to CSV files [for scenarios, for indices].
+opt_save_csv        = [False] * 2       # If True, save results to CSV files for [scenarios, indices].
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
 
 # Plots.
-opt_plot              = [True] * 2      # If True, actives plot generation [for scenarios, for indices].
+opt_plot              = [True] * 2      # If True, generate plots, except time series for [scenarios, indices].
+opt_ts                = [True] * 2      # If True, generate time series for [scenarios, indices].
 opt_map               = [False] * 2     # If True, generate heat maps [for scenarios, for indices].
-opt_map_delta         = [False] * 2     # If True, generate delta heat maps [for scenarios, for indices].
+opt_map_delta         = [False] * 2     # If True, generate delta heat maps for [scenarios, indices].
 opt_map_clip          = False           # If True, clip according to 'd_bounds'.
 opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
