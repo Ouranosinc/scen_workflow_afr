@@ -645,21 +645,19 @@ def calc_ts(
                             df[cfg.rcp_xx + "_max"] = ds_rcp_xx_grp[2][varidx_name].values
 
                     # Save file.
-                    utils.save_csv(df, p_csv)
+                    if cfg.opt_save_csv:
+                        utils.save_csv(df, p_csv)
 
-                # Generate plots.
-                if ((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1])):
+                # Generate plot with simulations grouped by RCP scenario.
+                p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "time_series",
+                                           varidx_code_grp) + varidx_name + "_rcp" + cfg.f_ext_png
+                plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(),
+                             varidx_code, rcps, ylim, p_fig_rcp, 1)
 
-                    # Time series with simulations grouped by RCP scenario.
-                    p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "time_series",
-                                               varidx_code_grp) + varidx_name + "_rcp" + cfg.f_ext_png
-                    plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(),
-                                 varidx_code, rcps, ylim, p_fig_rcp, 1)
-
-                    # Time series showing individual simulations.
-                    p_fig_sim = p_fig_rcp.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
-                    plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(),
-                                 varidx_code, rcps, ylim, p_fig_sim, 2)
+                # Generate plot showing individual simulations.
+                p_fig_sim = p_fig_rcp.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
+                plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(),
+                             varidx_code, rcps, ylim, p_fig_sim, 2)
 
 
 def calc_stat_mean_min_max(
