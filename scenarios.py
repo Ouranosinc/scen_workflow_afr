@@ -520,17 +520,23 @@ def regrid(
     t_len = len(ds_data.time)
     arr_regrid = np.empty((t_len, len(grid_lat), len(grid_lon)))
     for t in range(0, t_len):
-        arr_regrid[t, :, :] = griddata((ds_data.lon.values.ravel(), ds_data.lat.values.ravel()),
-            ds_data[var][t, :, :].values.ravel(), (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear")
+        arr_regrid[t, :, :] = griddata(
+            (ds_data.lon.values.ravel(), ds_data.lat.values.ravel()),
+            ds_data[var][t, :, :].values.ravel(),
+            (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear"
+        )
 
     # Create data array.
     # Using xarray v0.20.2, the following line crashes with the following error:
     # {TypeError} Using a DataArray object to construct a variable is ambiguous, please extract the data using the .data
     # property.
     # It runs fine with v0.18.2.
-    da_regrid = xr.DataArray(arr_regrid,
+    da_regrid = xr.DataArray(
+        arr_regrid,
         coords=[(cfg.dim_time, ds_data.time[0:t_len]), (cfg.dim_lat, grid_lat), (cfg.dim_lon, grid_lon)],
-        dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon], attrs=ds_data.attrs)
+        dims=[cfg.dim_time, cfg.dim_rlat, cfg.dim_rlon],
+        attrs=ds_data.attrs
+    )
 
     # Apply and create mask.
     if (cfg.obs_src == cfg.obs_src_era5_land) and \

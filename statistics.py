@@ -89,7 +89,7 @@ def calc_stat(
             d = cfg.get_d_idx(stn, varidx_code_grp)
         p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp == cfg.rcp_xx else rcp) + cfg.f_ext_nc)
 
-    # Exit if there is not file corresponding to the criteria.
+    # Exit if there is no file corresponding to the criteria.
     if (len(p_sim_l) == 0) or \
        ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
         return None
@@ -893,6 +893,10 @@ def calc_heatmap(
                 # Current map.
                 ds_map = calc_heatmap_rcp(varidx_code, rcp, per_hor, stat, q)
 
+                # Clip to geographic boundaries.
+                if cfg.opt_map_clip and (cfg.d_bounds != ""):
+                    ds_map = utils.subset_shape(ds_map)
+
                 # Record current map, statistic and quantile, RCP and period.
                 arr_ds_maps.append(ds_map)
                 arr_items.append([stat, q, rcp, per_hor])
@@ -973,7 +977,8 @@ def calc_heatmap(
                 # Plots ------------------------------------------------------------------------------------------------
 
                 # Path.
-                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps", varidx_code_grp + cfg.sep +
+                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps",
+                                       (varidx_code_grp + cfg.sep if varidx_code_grp != varidx_code else "") +
                                        varidx_code + cfg.sep + per_str)
                 if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
                     stat_str = "_" + stat
@@ -993,7 +998,8 @@ def calc_heatmap(
                 # CSV files --------------------------------------------------------------------------------------------
 
                 # Path.
-                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps", varidx_code_grp + cfg.sep +
+                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps",
+                                       (varidx_code_grp + cfg.sep if varidx_code_grp != varidx_code else "") +
                                        varidx_code + "_csv" + cfg.sep + per_str)
                 fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
                 p_csv = d_csv + fn_csv

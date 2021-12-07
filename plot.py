@@ -9,6 +9,10 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import config as cfg
+# Pandas may need to be imported before matplotlib. If not done, it may result in the following message:
+# rasterio.errors.CRSError: The EPSG code is unknown. PROJ: proj_create_from_database:
+# /home/<user>/anaconda3/envs/xclim-dev/share/proj/proj.db lacks
+# DATABASE.LAYOUT.VERSION.MAJOR / DATABASE.LAYOUT.VERSION.MINOR metadata. It comes from another PROJ installation.
 import matplotlib.cbook
 import matplotlib.cm
 import matplotlib.colors as colors
@@ -873,6 +877,7 @@ def plot_heatmap(
         da_tif.rio.set_crs("EPSG:4326")
         if cfg.opt_map_spat_ref != "EPSG:4326":
             da_tif.rio.set_spatial_dims(cfg.dim_lon, cfg.dim_lat, inplace=True)
+            # TODO: The following command is now crashing, but it was working in July 2021.
             da_tif = da_tif.rio.reproject(cfg.opt_map_spat_ref)
             da_tif.values[da_tif.values == -9999] = np.nan
             da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
