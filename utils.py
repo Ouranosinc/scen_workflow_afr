@@ -1170,6 +1170,8 @@ def subset_lon_lat(
     i_lat_max = math.ceil((lat_max - lat_bnds[0]) / lat_range * n_lat)
     if lat_bnds[0] == lat_bnds[1]:
         i_lat_max = i_lat_min
+    i_lat_min = max(0, i_lat_min)
+    i_lat_max = min(n_lat, i_lat_max)
 
     # Calculate longitude.
     lon_range = lon_max - lon_min
@@ -1177,6 +1179,8 @@ def subset_lon_lat(
     i_lon_max = math.ceil((lon_bnds[1] - lon_min) / lon_range * n_lon)
     if lon_bnds[0] == lon_bnds[1]:
         i_lon_max = i_lon_min
+    i_lon_min = max(0, i_lon_min)
+    i_lon_max = min(n_lat, i_lon_max)
 
     # Slice.
     if cfg.dim_latitude in ds.dims:

@@ -20,6 +20,7 @@ import os
 import pandas as pd
 import plot
 import rcm
+import re
 import scenarios_calib
 import statistics
 import utils
@@ -75,9 +76,9 @@ def load_observations(
             # Extract temperature.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
             arr = np.expand_dims(np.expand_dims(obs[stn].values, axis=1), axis=2)
-            da = xr.DataArray(arr, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
 
             # Create DataArray.
+            da = xr.DataArray(arr, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
             da.name = var
             da.attrs[cfg.attrs_sname] = "temperature"
             da.attrs[cfg.attrs_lname] = "temperature"
@@ -95,9 +96,9 @@ def load_observations(
             # Extract variable and convert from mm to kg m-2 s-1.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
             arr = np.expand_dims(np.expand_dims(obs[stn].values / cfg.spd, axis=1), axis=2)
-            da = xr.DataArray(arr, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
 
             # Create DataArray.
+            da = xr.DataArray(arr, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
             da.name = var
             da.attrs[cfg.attrs_sname] = "precipitation_flux"
             da.attrs[cfg.attrs_lname] = "Precipitation"
@@ -185,6 +186,94 @@ def load_observations(
         p_stn = d_stn + var + "_" + ds.attrs[cfg.attrs_stn] + cfg.f_ext_nc
         desc = cfg.sep + cfg.cat_obs + cfg.sep + os.path.basename(p_stn)
         utils.save_netcdf(ds, p_stn, desc=desc)
+
+
+def preload_reanalysis(
+    var_ra: str
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Combine daily NetCDF files (one day per file) into annual single file (all days of one year per file).
+
+    Parameters
+    ----------
+    var_ra : str
+        Variable.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # List NetCDF files.
+    p_l = list(glob.glob(cfg.d_ra_day + var_ra + cfg.sep + "daily" + cfg.sep + "*" + cfg.f_ext_nc))
+
+    # Determine which token corresponds to the date (based on the name of the first file).
+    id_token = -1
+    if len(p_l) > 0:
+        tokens = re.split(r"[_|.]", os.path.basename(p_l[0]))
+        for i in range(len(tokens)):
+            if (len(tokens[i]) == 8) and tokens[i].isnumeric():
+                id_token = i
+                break
+    if id_token == -1:
+        utils.log("Unable to locate date within file name.")
+        return
+
+    # Extract years.
+    year_l = []
+    for p in p_l:
+        year = int(re.split(r"[_|.]", os.path.basename(p))[id_token][0:4])
+        if year not in year_l:
+            year_l.append(year)
+
+    # Add time dimension (if not there).
+    for p in p_l:
+        ds = utils.open_netcdf(p)
+        if cfg.dim_time not in ds.dims:
+            date_str = re.split(r"[_|.]", os.path.basename(p))[id_token][0:8]
+            time = pd.to_datetime(date_str[0:4] + "-" + date_str[4:6] + "-" + date_str[6:8])
+            da_time = xr.DataArray(time)
+            ds[cfg.dim_time] = da_time
+            ds = ds.expand_dims(cfg.dim_time)
+            utils.save_netcdf(ds, p)
+
+    # Combine files.
+    for year in year_l:
+
+        # Paths.
+        p_l = list(glob.glob(cfg.d_ra_day + var_ra + cfg.sep + "daily" + cfg.sep + "*" + str(year) + "*" + cfg.f_ext_nc))
+        p_l.sort()
+        p = cfg.d_ra_day + var_ra + cfg.sep + var_ra + "_" + cfg.obs_src + "_day_" + str(year) + cfg.f_ext_nc
+
+        if (not os.path.exists(p)) or cfg.opt_force_overwrite:
+
+            # Combine NetCDF files.
+            ds = utils.open_netcdf(p_l, combine="nested", concat_dim=cfg.dim_time).load()
+
+            # Rename dimensions
+            ds = ds.rename_dims({"Lon": cfg.dim_longitude, "Lat": cfg.dim_latitude})
+            ds[cfg.dim_longitude] = ds["Lon"]
+            ds[cfg.dim_latitude] = ds["Lat"]
+            ds = ds.drop(["Lon", "Lat"])
+            ds[cfg.dim_longitude].attrs["long_name"] = cfg.dim_longitude
+            ds[cfg.dim_latitude].attrs["long_name"] = cfg.dim_latitude
+            if var_ra not in ds.variables:
+                if var_ra == cfg.var_anacim_rr:
+                    da_name = "precip"
+                else:
+                    da_name = "temp"
+                ds[var_ra] = ds[da_name]
+                ds = ds.drop(da_name)
+
+            # Adjust units.
+            if (var_ra in [cfg.var_anacim_tmin, cfg.var_anacim_tmin]) and (cfg.unit_C in ds[var_ra].attrs["units"]):
+                ds[var_ra] = ds[var_ra] + 273.0
+                ds[var_ra].attrs["units"] = cfg.unit_K
+            elif (var_ra in [cfg.var_anacim_rr, cfg.var_anacim_pet]) and (cfg.unit_mm in ds[var_ra].attrs["units"]):
+                ds[var_ra] = ds[var_ra] / cfg.spd
+                ds[var_ra].attrs["units"] = cfg.unit_kg_m2s1
+
+            # Save combined datasets.
+            utils.save_netcdf(ds, p, os.path.basename(p))
 
 
 def load_reanalysis(
@@ -927,6 +1016,8 @@ def generate():
     else:
         utils.log("Step #2c  Merging reanalysis NetCDF files.")
         for var_ra in cfg.variables_ra:
+            if cfg.obs_src == cfg.obs_src_anacim:
+                preload_reanalysis(var_ra)
             load_reanalysis(var_ra)
 
     # Step #2d: List directories potentially containing CORDEX files (but not necessarily for all selected variables).

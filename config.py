@@ -11,6 +11,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import os.path
+from typing import Union
 
 # Constants ------------------------------------------------------------------------------------------------------------
 
@@ -18,6 +19,7 @@ import os.path
 obs_src_era5        = "era5"        # ERA5.
 obs_src_era5_land   = "era5_land"   # ERA5-Land.
 obs_src_merra2      = "merra2"      # Merra2.
+obs_src_anacim      = "anacim"      # ANACIM.
 
 # Projection data.
 prj_src_cordex      = "cordex"      # CORDEX.
@@ -123,6 +125,12 @@ var_era5_e          = "e"           # Evaporation.
 var_era5_pev        = "pev"         # Potential evapotranspiration.
 var_era5_d2m        = "d2m"         # Dew temperature.
 var_era5_sh         = "sh"          # Specific humidity.
+
+# Variables (anacim).
+var_anacim_tmin     = "tmin"        # Temperature (daily minimum).
+var_anacim_tmax     = "tmax"        # Temperature (daily maximum).
+var_anacim_rr       = "rr"          # Precipitation.
+var_anacim_pet      = "pet"         # Potential evapotranspiration.
 
 # ======================================================================================================================
 # TODO.CUSTOMIZATION.VARIABLE.END
@@ -1070,7 +1078,7 @@ def get_plot_ylabel(
 
 def convert_var_name(
     var: str
-):
+) -> Union[any, str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1083,22 +1091,32 @@ def convert_var_name(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Pairs.
-    pairs = [[var_cordex_tas, var_era5_t2m], [var_cordex_tasmin, var_era5_t2mmin], [var_cordex_tasmax, var_era5_t2mmax],
-             [var_cordex_pr, var_era5_tp], [var_cordex_uas, var_era5_u10], [var_cordex_vas, var_era5_v10],
-             [var_cordex_sfcwindmax, var_era5_uv10max], [var_cordex_ps, var_era5_sp], [var_cordex_rsds, var_era5_ssrd],
-             [var_cordex_evspsbl, var_era5_e], [var_cordex_evspsblpot, var_era5_pev], [var_cordex_huss, var_era5_sh]]
+    # Equivalences.
+    equi = [[var_cordex_tas,        var_era5_t2m,     ""],
+            [var_cordex_tasmin,     var_era5_t2mmin,  var_anacim_tmin],
+            [var_cordex_tasmax,     var_era5_t2mmax,  var_anacim_tmax],
+            [var_cordex_pr,         var_era5_tp,      var_anacim_rr],
+            [var_cordex_uas,        var_era5_u10,     ""],
+            [var_cordex_vas,        var_era5_v10,     ""],
+            [var_cordex_sfcwindmax, var_era5_uv10max, ""],
+            [var_cordex_ps,         var_era5_sp,      ""],
+            [var_cordex_rsds,       var_era5_ssrd,    ""],
+            [var_cordex_evspsbl,    var_era5_e,       ""],
+            [var_cordex_evspsblpot, var_era5_pev,     var_anacim_pet],
+            [var_cordex_huss,       var_era5_sh,      ""]]
 
-    # Loop through pairs.
-    for i in range(len(pairs)):
-        var_type_a = pairs[i][0]
-        var_type_b = pairs[i][1]
+    # Loop through equivalences.
+    for i in range(len(equi)):
 
         # Verify if there is a match.
-        if var == var_type_a:
-            return var_type_b
-        elif var == var_type_b:
-            return var_type_a
+        if var in equi[i]:
+            if var in variables_cordex:
+                if obs_src in [obs_src_era5, obs_src_era5_land]:
+                    return equi[i][1]
+                elif obs_src == obs_src_anacim:
+                    return equi[i][2]
+            else:
+                return equi[i][0]
 
     return None
 
