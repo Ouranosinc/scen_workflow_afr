@@ -781,7 +781,7 @@ def open_netcdf(
     if isinstance(p, str):
 
         # Open file normally.
-        ds = xr.open_dataset(p, drop_variables=drop_variables)
+        ds = xr.open_dataset(p, drop_variables=drop_variables).load()
 
         # Determine the number of chunks.
         if cfg.use_chunks and (chunks is None) and ("scen" in p) and (cfg.dim_time in ds.dims):
