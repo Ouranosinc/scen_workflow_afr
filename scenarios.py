@@ -861,7 +861,8 @@ def postprocess(
 
     # Load transfer function.
     if (p_qmf != "") and os.path.exists(p_qmf) and (not cfg.opt_force_overwrite):
-        ds_qmf = utils.open_netcdf(p_qmf, chunks={cfg.dim_time: 1})
+        chunks = {cfg.dim_time: 1} if cfg.use_chunks else None
+        ds_qmf = utils.open_netcdf(p_qmf, chunks=chunks)
 
     # Calculate transfer function.
     else:
@@ -883,7 +884,8 @@ def postprocess(
 
     # Load quantile mapping.
     if (p_qqmap != "") and os.path.exists(p_qqmap) and (not cfg.opt_force_overwrite):
-        ds_qqmap = utils.open_netcdf(p_qqmap, chunks={cfg.dim_time: 1})
+        chunks = {cfg.dim_time: 1} if cfg.use_chunks else None
+        ds_qqmap = utils.open_netcdf(p_qqmap, chunks=chunks)
 
     # Apply transfer function.
     else:
