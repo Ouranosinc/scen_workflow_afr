@@ -434,9 +434,10 @@ def extract(
         # Must use xr.open_dataset here, otherwise there is a problem in parallel mode.
         p_proj = list(glob.glob(d_ref + var + cfg.sep + "*" + cfg.f_ext_nc))[0]
         try:
-            ds_proj = xr.open_dataset(p_proj)
+            ds_proj = xr.open_dataset(p_proj).load()
         except xcv.MissingDimensionsError:
-            ds_proj = xr.open_dataset(p_proj, drop_variables=["time_bnds"])
+            ds_proj = xr.open_dataset(p_proj, drop_variables=["time_bnds"]).load()
+        utils.close_netcdf(ds_proj)
         res_proj_lat = abs(ds_proj.rlat.values[1] - ds_proj.rlat.values[0])
         res_proj_lon = abs(ds_proj.rlon.values[1] - ds_proj.rlon.values[0])
 
