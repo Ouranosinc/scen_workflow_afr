@@ -19,6 +19,30 @@ import os
 import utils
 
 
+def download_from_cordex(
+    p_base: str,
+    domain: str,
+    var: str
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Downloads a data set from CORDEX.
+
+    Parameters
+    ----------
+    p_base : str
+        Path of directory where data is saved.
+    domain : str
+        Domain.
+    var : str
+        Variable code = {cfg.var_cordex_*}.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    return ""
+
+
 def download_from_copernicus(
     p_base: str,
     obs_src: str,
@@ -96,27 +120,30 @@ def download_from_copernicus(
 
     # Form file name.
     fn = p_base + var + cfg.sep + var + "_" + obs_src + "_hour_" + str(year) + cfg.f_ext_nc
-    if os.path.exists(fn):
-        return
-    p = os.path.dirname(fn)
-    if not(os.path.isdir(p)):
-        os.makedirs(p)
+    if not os.path.exists(fn):
 
-    c = cdsapi.Client()
-    api_request = {
-        "product_type": "reanalysis",
-        "variable": var_code,
-        "year": str(year),
-        "month": months,
-        "day": days,
-        "time": times,
-        "area": area,
-        "format": "netcdf",
-    }
-    c.retrieve(
-        "reanalysis-" + set_name,
-        api_request,
-        fn)
+        p = os.path.dirname(fn)
+        if not(os.path.isdir(p)):
+            os.makedirs(p)
+
+        c = cdsapi.Client()
+        api_request = {
+            "product_type": "reanalysis",
+            "variable": var_code,
+            "year": str(year),
+            "month": months,
+            "day": days,
+            "time": times,
+            "area": area,
+            "format": "netcdf",
+        }
+        c.retrieve(
+            "reanalysis-" + set_name,
+            api_request,
+            fn)
+
+    if cfg.n_proc > 1:
+        utils.log("Work done!", True)
 
 
 def download_merra2(

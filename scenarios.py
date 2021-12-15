@@ -240,7 +240,8 @@ def preload_reanalysis(
     for year in year_l:
 
         # Paths.
-        p_l = list(glob.glob(cfg.d_ra_day + var_ra + cfg.sep + "daily" + cfg.sep + "*" + str(year) + "*" + cfg.f_ext_nc))
+        p_pattern = cfg.d_ra_day + var_ra + cfg.sep + "daily" + cfg.sep + "*" + str(year) + "*" + cfg.f_ext_nc
+        p_l = list(glob.glob(p_pattern))
         p_l.sort()
         p = cfg.d_ra_day + var_ra + cfg.sep + var_ra + "_" + cfg.obs_src + "_day_" + str(year) + cfg.f_ext_nc
 
@@ -253,7 +254,7 @@ def preload_reanalysis(
             ds = ds.rename_dims({"Lon": cfg.dim_longitude, "Lat": cfg.dim_latitude})
             ds[cfg.dim_longitude] = ds["Lon"]
             ds[cfg.dim_latitude] = ds["Lat"]
-            ds = ds.drop(["Lon", "Lat"])
+            ds = ds.drop_sel(["Lon", "Lat"])
             ds[cfg.dim_longitude].attrs["long_name"] = cfg.dim_longitude
             ds[cfg.dim_latitude].attrs["long_name"] = cfg.dim_latitude
             if var_ra not in ds.variables:
@@ -838,11 +839,6 @@ def postprocess(
     da_fut = ds_fut[var]
     ds_qqmap = None
 
-    # The following two commented statements are similar to those in the initial code version They seem to have not
-    # effect as a boundary box selection was already made earlier.
-    # ds_ref = ds_ref.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
-    # ds_fut = ds_fut.sel(rlon=slice(min(ds_stn[var].longitude), max(ds_stn[var].longitude)))
-
     # Future -----------------------------------------------------------------------------------------------------------
 
     # Convert to a 365-day calendar.
@@ -1100,13 +1096,6 @@ def generate():
 
                 utils.log("Processing: " + var + ", " + stn + ", " + rcp, True)
 
-                # Perform extraction.
-                # A first call to generate_single is required for the extraction to be done in scalar mode (before
-                # forking) because of the incompatibility of xr.open_mfdataset with parallel processing.
-                if cfg.n_proc > 1:
-                    for i_sim in range(n_sim):
-                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, True, i_sim)
-
                 # Scalar mode.
                 if cfg.n_proc == 1:
                     for i_sim in range(n_sim):
@@ -1114,6 +1103,12 @@ def generate():
 
                 # Parallel processing mode.
                 else:
+
+                    # Perform extraction.
+                    # A first call to generate_single is required for the extraction to be done in scalar mode (before
+                    # forking) because of the incompatibility of xr.open_mfdataset with parallel processing.
+                    for i_sim in range(n_sim):
+                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, True, i_sim)
 
                     # Loop until all simulations have been processed.
                     while True:
@@ -1221,6 +1216,8 @@ def generate_single(
 
     if (len(p_sim_ref_l) == 0) or (len(p_sim_fut_l) == 0):
         utils.log("Skipping iteration: data not available for simulation-variable.", True)
+        if cfg.n_proc > 1:
+            utils.log("Work done!", True)
         return
 
     # Files within CORDEX or CORDEX-NA.
@@ -1246,6 +1243,8 @@ def generate_single(
             utils.log("Skipping iteration: simulation exception.", True)
             break
     if is_sim_except or is_var_sim_except:
+        if cfg.n_proc > 1:
+            utils.log("Work done!", True)
         return
 
     # Paths and NetCDF files.
@@ -1268,7 +1267,7 @@ def generate_single(
 
     # When running in parallel mode and only performing extraction, the remaining steps will be done in a second pass.
     if extract_only:
-        return()
+        return
 
     # Step #4: Spatial and temporal interpolation.
     # This modifies one .nc file in ~/sim_climat/<country>/<project>/<stn>/raw/<var>/ and
@@ -1332,6 +1331,9 @@ def generate_single(
         postprocess(var, int(nq), up_qmf, int(time_win), ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf)
     else:
         utils.log(msg + " (not required)")
+
+    if cfg.n_proc > 1:
+        utils.log("Work done!", True)
 
 
 def run():

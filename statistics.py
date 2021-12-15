@@ -1393,6 +1393,7 @@ def conv_nc_csv(
                             pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(p_l)))
                             func = functools.partial(conv_nc_csv_single, p_l, varidx_name)
                             pool.map(func, list(range(n_files)))
+                            utils.log("Work done!", True)
                             pool.close()
                             pool.join()
                             utils.log("Fork ended.", True)
@@ -1440,7 +1441,9 @@ def conv_nc_csv_single(
         replace(cfg.sep + varidx_code_grp + cfg.sep, cfg.sep + varidx_code_grp + "_" + cfg.f_csv + cfg.sep)
 
     if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
-        return()
+        if cfg.n_proc > 1:
+            utils.log("Work done!", True)
+        return
 
     # Explode lists of codes and names.
     idx_names_exploded = cfg.explode_idx_l(cfg.idx_names)
@@ -1508,3 +1511,6 @@ def conv_nc_csv_single(
 
     # Save CSV file.
     utils.save_csv(df, p_csv)
+
+    if cfg.n_proc > 1:
+        utils.log("Work done!", True)

@@ -299,6 +299,8 @@ def generate_single(
 
     # Exit loop if the file already exists (simulations files only; not reference file).
     if (rcp != cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
+        if cfg.n_proc > 1:
+            utils.log("Work done!", True)
         return
 
     # Load datasets (one per variable or index).
@@ -310,10 +312,7 @@ def generate_single(
             # Open dataset.
             p_sim_j =\
                 cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
-            if not cfg.use_chunks:
-                ds = utils.open_netcdf(p_sim_j)
-            else:
-                ds = utils.open_netcdf(p_sim_j, chunks={cfg.dim_time: len(cfg.dim_time)}).load()
+            ds = utils.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.
             if (rcp == cfg.rcp_ref) and (varidx_name in cfg.variables_cordex):
@@ -882,6 +881,9 @@ def generate_single(
             cfg.idx_params[cfg.idx_codes.index(idx_code)][0] = \
                 float(round(da_idx.quantile(param_pr).values.ravel()[0], 2))
 
+    if cfg.n_proc > 1:
+        utils.log("Work done!", True)
+
 
 def precip_accumulation(
     da_pr: xr.DataArray,
@@ -1154,9 +1156,9 @@ def dry_spell_total_length(
     for i in range(2):
         pram_i = pram if dry is None else pram.sortby("time", ascending=False)
         if op == "max":
-            mask_i = (pram_i.rolling(time=window).max() < thresh)
+            mask_i = xr.DataArray(pram_i.rolling(time=window).max() < thresh)
         else:
-            mask_i = (pram_i.rolling(time=window).sum() < thresh)
+            mask_i = xr.DataArray(pram_i.rolling(time=window).sum() < thresh)
         dry_i = (mask_i.rolling(time=window).sum() >= 1).shift(time=-(window - 1))
         if dry is None:
             dry = dry_i

@@ -108,7 +108,7 @@ def bias_adj(
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
                     p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_calibration, var) +\
-                            comb + cfg.sep + fn_fig
+                        comb + cfg.sep + fn_fig
                     p_fig_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
                         replace(cfg.f_ext_png, "_" + cfg.stat_mean + cfg.f_ext_csv)
                     p_fig_ts = p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png)
@@ -120,14 +120,13 @@ def bias_adj(
 
                     if not calc_err:
 
-                        msg = "Assessment of " + sim_name_i + ": nq=" + str(nq) + ", up_qmf=" + str(up_qmf) +\
-                              ", time_win=" + str(time_win) + " is "
+                        msg = "nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + ", time_win=" + str(time_win)
                         if not(os.path.exists(p_fig)) or \
                            (not(os.path.exists(p_fig_csv)) and cfg.opt_save_csv[0]) or\
                            not(os.path.exists(p_fig_ts)) or \
                            (not (os.path.exists(p_fig_ts_csv)) and cfg.opt_save_csv[0]) or \
                            not(os.path.exists(p_qqmap)) or not(os.path.exists(p_qmf)) or cfg.opt_force_overwrite:
-                            utils.log(msg + "running", True)
+                            utils.log(msg, True)
 
                             # Calculate QQ and generate calibration plots.
                             with warnings.catch_warnings():
@@ -135,7 +134,7 @@ def bias_adj(
                                 scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap,
                                                  p_qmf, title, p_fig)
                         else:
-                            utils.log(msg + "not required", True)
+                            utils.log(msg + " (not required)", True)
 
                     # Bias error ---------------------------------------------------------------------------------------
 
