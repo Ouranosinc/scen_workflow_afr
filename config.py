@@ -1295,7 +1295,7 @@ def get_d_scen(
         d = d + cat_stn + sep + stn + ("_" + region if region != "" else "") + sep
     if cat != "":
         d = d
-        if (cat == cat_obs) or (cat == cat_raw) or (cat == cat_regrid) or (cat == cat_qqmap) or (cat == cat_qmf):
+        if cat in [cat_obs, cat_raw, cat_regrid, cat_qqmap, cat_qmf, "*"]:
             d = d + cat_scen + sep
         d = d + cat + sep
     if var != "":

@@ -434,8 +434,14 @@ def main():
     # c. Run the script.
 
     # Clean NetCDF files.
-    utils.clean_netcdf(cfg.d_stn)
-    utils.clean_netcdf(cfg.get_d_scen(cfg.obs_src, "", ""))
+    if cfg.opt_scen:
+        for var in cfg.variables_cordex:
+            utils.clean_netcdf(cfg.d_stn + var + cfg.sep)
+            utils.clean_netcdf(cfg.get_d_scen(cfg.obs_src, "scen" + cfg.sep + "*", var))
+    if cfg.opt_idx:
+        for idx_code in cfg.idx_codes:
+            idx_name = cfg.extract_idx(idx_code)
+            utils.clean_netcdf(cfg.get_d_idx(cfg.obs_src, idx_name))
 
     # Initialization.
     scen_calib.init_calib_params()
