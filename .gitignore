@@ -1,5 +1,6 @@
 .idea/
 __pycache__/
+dashboard/
 doc/
 config.ini
 config_aggregate.ini

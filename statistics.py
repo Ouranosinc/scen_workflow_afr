@@ -268,7 +268,7 @@ def calc_stat(
     if not(cfg.dim_lon in ds_stat.dims):
         ds_stat[cfg.dim_lon] = lon
         ds_stat[cfg.dim_lat] = lat
-    if n_time > 1:
+    if freq_out == cfg.freq_YS:
         ds_stat[cfg.dim_time] = utils.reset_calendar(ds_stat, year_1, year_n, freq_out)
 
     # Adjust units.
