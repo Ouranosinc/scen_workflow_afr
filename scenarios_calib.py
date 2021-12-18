@@ -107,8 +107,8 @@ def bias_adj(
                     fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + cfg.f_ext_png
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
-                    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_fig_calibration, var) +\
-                        comb + cfg.sep + fn_fig
+                    d = cfg.cat_scen + cfg.sep + cfg.cat_fig + cfg.sep + cfg.cat_fig_calibration
+                    p_fig = cfg.get_d_scen(stn, d, var) + comb + cfg.sep + fn_fig
                     p_fig_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
                         replace(cfg.f_ext_png, "_" + cfg.stat_mean + cfg.f_ext_csv)
                     p_fig_ts = p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png)

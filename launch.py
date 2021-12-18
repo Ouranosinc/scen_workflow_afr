@@ -132,8 +132,10 @@ def load_params(
                 cfg.variables_cordex = convert_to_1d(value, str)
                 for var in cfg.variables_cordex:
                     cfg.variables_ra.append(cfg.convert_var_name(var))
-            elif key == "d_bounds":
-                cfg.d_bounds = ast.literal_eval(value)
+            elif key == "p_bounds":
+                cfg.p_bounds = ast.literal_eval(value)
+            elif key == "p_locations":
+                cfg.p_locations = ast.literal_eval(value)
             elif key == "region":
                 cfg.region = ast.literal_eval(value)
 
@@ -221,6 +223,8 @@ def load_params(
                 cfg.opt_plot_col_2cla_wind = convert_to_1d(value, str)
             elif key == "opt_ts":
                 cfg.opt_ts = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+            elif key == "opt_cycle":
+                cfg.opt_cycle = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_map":
                 cfg.opt_map = [False, False]
                 if cfg.opt_ra:
@@ -315,8 +319,10 @@ def main():
     obs_src_region = cfg.obs_src + ("_" + cfg.region if (cfg.region != "") and cfg.opt_ra else "")
     cfg.d_stn = d_base + cfg.cat_stn + cfg.sep + obs_src_region + cfg.sep
     cfg.d_res = cfg.d_exec + "sim_climat" + cfg.sep + cfg.country + cfg.sep + cfg.project + cfg.sep
-    if cfg.d_bounds != "":
-        cfg.d_bounds = d_base + "gis" + cfg.sep + cfg.d_bounds
+    if cfg.p_bounds != "":
+        cfg.p_bounds = d_base + "gis" + cfg.sep + cfg.p_bounds
+    if cfg.p_locations != "":
+        cfg.p_locations = d_base + "gis" + cfg.sep + cfg.p_locations
 
     # Log file.
     cfg.p_log = cfg.d_res + "stn" + cfg.sep + obs_src_region + cfg.sep + "log" + cfg.sep +\

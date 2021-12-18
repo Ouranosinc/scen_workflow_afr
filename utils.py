@@ -1385,7 +1385,7 @@ def subset_shape(
 
     ds_res = ds.copy(deep=True)
 
-    if cfg.d_bounds != "":
+    if cfg.p_bounds != "":
 
         try:
             # Memorize dimension names and attributes.
@@ -1400,7 +1400,7 @@ def subset_shape(
             logger = logging.getLogger()
             level = logger.level
             logger.setLevel(logging.CRITICAL)
-            ds_res = subset.subset_shape(ds_res, cfg.d_bounds)
+            ds_res = subset.subset_shape(ds_res, cfg.p_bounds)
             logger.setLevel(level)
 
             # Recover initial dimension names.

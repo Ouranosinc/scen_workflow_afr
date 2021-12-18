@@ -15,14 +15,21 @@ import multiprocessing
 import numpy as np
 import os
 import pandas as pd
-import plot
+# Do not delete the line below: 'rioxarray' must be added even if it's not explicitly used in order to have a 'rio'
+# variable in DataArrays.
+import rioxarray as rio
 import utils
 import warnings
 import xarray as xr
+import xesmf as xe
 from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
 from streamlit import caching
 from typing import Union, List
+
+import sys
+sys.path.append("dashboard")
+from dashboard import context_def, hor_def, lib_def, rcp_def, stat_def, varidx_def, dash_plot
 
 
 def calc_stat(
@@ -64,7 +71,7 @@ def calc_stat(
     per_region : bool
         If True, statistics are calculated for a region as a whole.
     clip : bool
-        If True, clip according to 'cfg.d_bounds'.
+        If True, clip according to 'cfg.p_bounds'.
     stat : str
         Statistic: {cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantile"}
     q : float, optional
@@ -148,14 +155,14 @@ def calc_stat(
         if cfg.opt_ra:
 
             # Statistics are calculated at a point.
-            if cfg.d_bounds == "":
+            if cfg.p_bounds == "":
                 ds = utils.subset_ctrl_pt(ds)
 
             # Statistics are calculated on a surface.
             else:
 
                 # Clip to geographic boundaries.
-                if clip and (cfg.d_bounds != ""):
+                if clip and (cfg.p_bounds != ""):
                     ds = utils.subset_shape(ds)
 
                 # Calculate mean value.
@@ -464,10 +471,11 @@ def calc_ts(
             utils.log("Processing: " + stn + ", " + idx_desc, True)
 
             # Files to be created.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "time_series", varidx_code_grp +
-                                   "_csv") + varidx_name + cfg.f_ext_csv
+            p_rcp_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "ts",
+                                       varidx_code_grp + "_csv") + varidx_name + "_rcp" + cfg.f_ext_csv
+            p_sim_csv = p_rcp_csv.replace("_rcp", "_sim")
             if not (((cat == cfg.cat_scen) and (cfg.opt_plot[0])) or ((cat == cfg.cat_idx) and (cfg.opt_plot[1]))) and\
-                    (os.path.exists(p_csv) or cfg.opt_force_overwrite):
+                    ((os.path.exists(p_rcp_csv) and os.path.exists(p_sim_csv)) or cfg.opt_force_overwrite):
                 continue
 
             # Loop through emission scenarios.
@@ -518,7 +526,7 @@ def calc_ts(
 
                     # Select control point.
                     if cfg.opt_ra:
-                        if cfg.d_bounds == "":
+                        if cfg.p_bounds == "":
                             ds = utils.subset_ctrl_pt(ds)
                         else:
                             ds = utils.squeeze_lon_lat(ds, varidx_name)
@@ -599,65 +607,79 @@ def calc_ts(
                         ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, varidx_name)
                     ds_rcp_xx_grp = calc_stat_mean_min_max(ds_rcp_xx, varidx_name)
 
+            df_rcp, df_sim = None, None
             if (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
 
-                # Generate statistics.
+                # Extract years.
+                years = []
+                if cfg.rcp_26 in rcps:
+                    years = utils.extract_date_field(ds_rcp_26_grp[0], "year")
+                elif cfg.rcp_45 in rcps:
+                    years = utils.extract_date_field(ds_rcp_45_grp[0], "year")
+                elif cfg.rcp_85 in rcps:
+                    years = utils.extract_date_field(ds_rcp_85_grp[0], "year")
+                dict_pd = {"year": years}
+
+                # Create a pandas dataframe (RCP groups).
+                df_rcp = pd.DataFrame(dict_pd)
+                df_rcp[cfg.rcp_ref] = None
+                for rcp in rcps:
+                    if rcp == cfg.rcp_ref:
+                        years = utils.extract_date_field(ds_ref, "year")
+                        vals = ds_ref[varidx_name].values
+                        for i in range(len(vals)):
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("ignore", category=SettingWithCopyWarning)
+                                df_rcp[cfg.rcp_ref][df_rcp["year"] == years[i]] = vals[i]
+                    elif rcp == cfg.rcp_26:
+                        df_rcp[cfg.rcp_26 + "_moy"] = ds_rcp_26_grp[0][varidx_name].values
+                        df_rcp[cfg.rcp_26 + "_min"] = ds_rcp_26_grp[1][varidx_name].values
+                        df_rcp[cfg.rcp_26 + "_max"] = ds_rcp_26_grp[2][varidx_name].values
+                    elif rcp == cfg.rcp_45:
+                        df_rcp[cfg.rcp_45 + "_moy"] = ds_rcp_45_grp[0][varidx_name].values
+                        df_rcp[cfg.rcp_45 + "_min"] = ds_rcp_45_grp[1][varidx_name].values
+                        df_rcp[cfg.rcp_45 + "_max"] = ds_rcp_45_grp[2][varidx_name].values
+                    elif rcp == cfg.rcp_85:
+                        df_rcp[cfg.rcp_85 + "_moy"] = ds_rcp_85_grp[0][varidx_name].values
+                        df_rcp[cfg.rcp_85 + "_min"] = ds_rcp_85_grp[1][varidx_name].values
+                        df_rcp[cfg.rcp_85 + "_max"] = ds_rcp_85_grp[2][varidx_name].values
+                    else:
+                        df_rcp[cfg.rcp_xx + "_moy"] = ds_rcp_xx_grp[0][varidx_name].values
+                        df_rcp[cfg.rcp_xx + "_min"] = ds_rcp_xx_grp[1][varidx_name].values
+                        df_rcp[cfg.rcp_xx + "_max"] = ds_rcp_xx_grp[2][varidx_name].values
+
+                # Create a pandas dataframe (individual simulations).
+                df_sim = df_rcp["year"].copy()
+                for i in range(len(ds_rcp_26)):
+                    df_sim[cfg.rcp_26 + "_" + str(i)] = ds_rcp_26[i].values
+                for i in range(len(ds_rcp_45)):
+                    df_sim[cfg.rcp_45 + "_" + str(i)] = ds_rcp_45[i].values
+                for i in range(len(ds_rcp_85)):
+                    df_sim[cfg.rcp_85 + "_" + str(i)] = ds_rcp_85[i].values
+
+                # Save file.
                 if cfg.opt_save_csv:
+                    if not os.path.exists(p_rcp_csv) or cfg.opt_force_overwrite:
+                        utils.save_csv(df_rcp, p_rcp_csv)
+                    if not os.path.exists(p_sim_csv) or cfg.opt_force_overwrite:
+                        utils.save_csv(df_sim, p_sim_csv)
 
-                    # Extract years.
-                    years = []
-                    if cfg.rcp_26 in rcps:
-                        years = utils.extract_date_field(ds_rcp_26_grp[0], "year")
-                    elif cfg.rcp_45 in rcps:
-                        years = utils.extract_date_field(ds_rcp_45_grp[0], "year")
-                    elif cfg.rcp_85 in rcps:
-                        years = utils.extract_date_field(ds_rcp_85_grp[0], "year")
+            # Create context.
+            cntx = context_def.Context(context_def.code_script)
+            cntx.lib = lib_def.Lib(lib_def.mode_mat)
+            cntx.varidx = varidx_def.VarIdx(varidx_code)
+            cntx.rcps = rcp_def.RCPs(cntx)
 
-                    # Initialize pandas dataframe.
-                    dict_pd = {"year": years}
-                    df = pd.DataFrame(dict_pd)
-                    df[cfg.rcp_ref] = None
+            # Generate plot with simulations grouped by RCP scenario.
+            p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "ts",
+                                       varidx_code_grp) + varidx_name + "_rcp" + cfg.f_ext_png
+            fig = dash_plot.gen_ts(cntx, df_rcp, dash_plot.mode_rcp)
+            utils.save_plot(fig, p_fig_rcp)
 
-                    # Add values.
-                    for rcp in rcps:
-                        if rcp == cfg.rcp_ref:
-                            years = utils.extract_date_field(ds_ref, "year")
-                            vals = ds_ref[varidx_name].values
-                            for i in range(len(vals)):
-                                with warnings.catch_warnings():
-                                    warnings.simplefilter("ignore", category=SettingWithCopyWarning)
-                                    df[cfg.rcp_ref][df["year"] == years[i]] = vals[i]
-                        elif rcp == cfg.rcp_26:
-                            df[cfg.rcp_26 + "_moy"] = ds_rcp_26_grp[0][varidx_name].values
-                            df[cfg.rcp_26 + "_min"] = ds_rcp_26_grp[1][varidx_name].values
-                            df[cfg.rcp_26 + "_max"] = ds_rcp_26_grp[2][varidx_name].values
-                        elif rcp == cfg.rcp_45:
-                            df[cfg.rcp_45 + "_moy"] = ds_rcp_45_grp[0][varidx_name].values
-                            df[cfg.rcp_45 + "_min"] = ds_rcp_45_grp[1][varidx_name].values
-                            df[cfg.rcp_45 + "_max"] = ds_rcp_45_grp[2][varidx_name].values
-                        elif rcp == cfg.rcp_85:
-                            df[cfg.rcp_85 + "_moy"] = ds_rcp_85_grp[0][varidx_name].values
-                            df[cfg.rcp_85 + "_min"] = ds_rcp_85_grp[1][varidx_name].values
-                            df[cfg.rcp_85 + "_max"] = ds_rcp_85_grp[2][varidx_name].values
-                        else:
-                            df[cfg.rcp_xx + "_moy"] = ds_rcp_xx_grp[0][varidx_name].values
-                            df[cfg.rcp_xx + "_min"] = ds_rcp_xx_grp[1][varidx_name].values
-                            df[cfg.rcp_xx + "_max"] = ds_rcp_xx_grp[2][varidx_name].values
-
-                    # Save file.
-                    if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
-                        utils.save_csv(df, p_csv)
-
-                # Generate plot with simulations grouped by RCP scenario.
-                p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "time_series",
-                                           varidx_code_grp) + varidx_name + "_rcp" + cfg.f_ext_png
-                plot.plot_ts(ds_ref, ds_rcp_26_grp, ds_rcp_45_grp, ds_rcp_85_grp, stn.capitalize(),
-                             varidx_code, rcps, ylim, p_fig_rcp, 1)
-
-                # Generate plot showing individual simulations.
-                p_fig_sim = p_fig_rcp.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
-                plot.plot_ts(ds_ref, ds_rcp_26, ds_rcp_45, ds_rcp_85, stn.capitalize(),
-                             varidx_code, rcps, ylim, p_fig_sim, 2)
+            # Generate plot showing individual simulations.
+            p_fig_sim = p_fig_rcp.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
+            fig = dash_plot.gen_ts(cntx, df_sim, dash_plot.mode_sim)
+            utils.save_plot(fig, p_fig_sim)
 
 
 def calc_stat_mean_min_max(
@@ -854,10 +876,10 @@ def calc_heatmap(
     # Calculate the overall minimum and maximum values (considering all maps for the current 'varidx').
     # There is one z-value per period.
     n_per_hors = len(cfg.per_hors)
-    z_min = [np.nan] * n_per_hors
-    z_max = [np.nan] * n_per_hors
-    z_min_delta = [np.nan] * n_per_hors
-    z_max_delta = [np.nan] * n_per_hors
+    z_min_net = [np.nan] * n_per_hors
+    z_max_net = [np.nan] * n_per_hors
+    z_min_del = [np.nan] * n_per_hors
+    z_max_del = [np.nan] * n_per_hors
 
     # Calculated datasets and item description.
     arr_ds_maps = []
@@ -894,7 +916,7 @@ def calc_heatmap(
                 ds_map = calc_heatmap_rcp(varidx_code, rcp, per_hor, stat, q)
 
                 # Clip to geographic boundaries.
-                if cfg.opt_map_clip and (cfg.d_bounds != ""):
+                if cfg.opt_map_clip and (cfg.p_bounds != ""):
                     ds_map = utils.subset_shape(ds_map)
 
                 # Record current map, statistic and quantile, RCP and period.
@@ -907,25 +929,25 @@ def calc_heatmap(
                     ds_map_ref = ds_map
 
                 # Extract values.
-                vals = ds_map[varidx_name].values
-                vals_delta = None
+                vals_net = ds_map[varidx_name].values
+                vals_del = None
                 if per_hor != cfg.per_ref:
-                    vals_delta = ds_map[varidx_name].values - ds_map_ref[varidx_name].values
+                    vals_del = ds_map[varidx_name].values - ds_map_ref[varidx_name].values
 
-                # Record mean values.
-                # Mean absolute values.
-                z_min_j = np.nanmin(vals)
-                z_max_j = np.nanmax(vals)
-                z_min[k_per_hor] = z_min_j if np.isnan(z_min[k_per_hor]) else min(z_min[k_per_hor], z_min_j)
-                z_max[k_per_hor] = z_max_j if np.isnan(z_max[k_per_hor]) else max(z_max[k_per_hor], z_max_j)
-                # Mean delta values.
-                if vals_delta is not None:
-                    z_min_delta_j = np.nanmin(vals_delta)
-                    z_max_delta_j = np.nanmax(vals_delta)
-                    z_min_delta[k_per_hor] = z_min_delta_j if np.isnan(z_min_delta[k_per_hor])\
-                        else min(z_min_delta[k_per_hor], z_min_delta_j)
-                    z_max_delta[k_per_hor] = z_max_delta_j if np.isnan(z_max_delta[k_per_hor])\
-                        else max(z_max_delta[k_per_hor], z_max_delta_j)
+                # Record mean absolute values.
+                z_min_j = np.nanmin(vals_net)
+                z_max_j = np.nanmax(vals_net)
+                z_min_net[k_per_hor] = z_min_j if np.isnan(z_min_net[k_per_hor]) else min(z_min_net[k_per_hor], z_min_j)
+                z_max_net[k_per_hor] = z_max_j if np.isnan(z_max_net[k_per_hor]) else max(z_max_net[k_per_hor], z_max_j)
+
+                # Record mean delta values.
+                if vals_del is not None:
+                    z_min_del_j = np.nanmin(vals_del)
+                    z_max_del_j = np.nanmax(vals_del)
+                    z_min_del[k_per_hor] = z_min_del_j if np.isnan(z_min_del[k_per_hor])\
+                        else min(z_min_del[k_per_hor], z_min_del_j)
+                    z_max_del[k_per_hor] = z_max_del_j if np.isnan(z_max_del[k_per_hor])\
+                        else max(z_max_del[k_per_hor], z_max_del_j)
 
     # Generate maps ----------------------------------------------------------------------------------------------------
 
@@ -966,18 +988,18 @@ def calc_heatmap(
                 # Specific period.
                 if k == 0:
                     per_str = str(per_hor[0]) + "-" + str(per_hor[1])
-                    z_min_map = z_min[i_per_hor] if j == 0 else z_min_delta[i_per_hor]
-                    z_max_map = z_max[i_per_hor] if j == 0 else z_max_delta[i_per_hor]
+                    z_min = z_min_net[i_per_hor] if j == 0 else z_min_del[i_per_hor]
+                    z_max = z_max_net[i_per_hor] if j == 0 else z_max_del[i_per_hor]
                 # All periods combined.
                 else:
                     per_str = str(cfg.per_ref[0]) + "-" + str(cfg.per_hors[len(cfg.per_hors) - 1][1])
-                    z_min_map = np.nanmin(z_min if j == 0 else z_min_delta)
-                    z_max_map = np.nanmax(z_max if j == 0 else z_max_delta)
+                    z_min = np.nanmin(z_min_net if j == 0 else z_min_del)
+                    z_max = np.nanmax(z_max_net if j == 0 else z_max_del)
 
-                # Plots ------------------------------------------------------------------------------------------------
+                # PNG format -------------------------------------------------------------------------------------------
 
                 # Path.
-                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps",
+                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "map",
                                        (varidx_code_grp + cfg.sep if varidx_code_grp != varidx_code else "") +
                                        varidx_code + cfg.sep + per_str)
                 if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
@@ -990,15 +1012,65 @@ def calc_heatmap(
                 if j == 1:
                     p_fig = p_fig.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
 
-                # Generate plot.
-                if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
-                    plot.plot_heatmap(da_map, stn, varidx_code, rcp, per_hor, stat, q, z_min_map, z_max_map, j == 1,
-                                      p_fig)
+                # Create context.
+                cntx = context_def.Context(context_def.code_script)
+                cntx.p_locations = cfg.p_locations
+                cntx.p_bounds    = cfg.p_bounds
+                cntx.lib         = lib_def.Lib(lib_def.mode_mat)
+                cntx.varidx      = varidx_def.VarIdx(varidx_code)
+                cntx.project.set_quantiles(cntx.project.get_code(), cntx, cfg.opt_stat_quantiles)
+                cntx.RCPs        = rcp_def.RCP(rcp)
+                cntx.hor         = hor_def.Hor(per_hor)
+                cntx.stat        = stat_def.Stat(stat_str.replace("_", ""))
+                cntx.delta       = (j == 1)
 
-                # CSV files --------------------------------------------------------------------------------------------
+                # Generate and save plot.
+                if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
+                    df = pd.DataFrame()
+                    df["longitude"] = da_map["longitude"].values
+                    df["latitude"] = da_map["latitude"].values
+                    df[cntx.varidx.get_code()] = da_map[cntx.varidx.get_code()].values
+                    fig = dash_plot.gen_map(cntx, df, [z_min, z_max])
+                    utils.save_plot(fig, p_fig)
+
+                # TIF format -------------------------------------------------------------------------------------------
+
+                if cfg.f_tif in cfg.opt_map_formats:
+
+                    # TODO: da_tif.rio.reproject is now crashing. It was working in July 2021.
+
+                    # Increase resolution.
+                    da_tif = da_map.copy()
+                    if cfg.opt_map_res > 0:
+                        lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cfg.opt_map_res)
+                        lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cfg.opt_map_res)
+                        da_tif = da_tif.rename({cfg.dim_latitude: cfg.dim_lat, cfg.dim_longitude: cfg.dim_lon})
+                        da_grid = xr.Dataset(
+                            {cfg.dim_lat: ([cfg.dim_lat], lat_vals), cfg.dim_lon: ([cfg.dim_lon], lon_vals)})
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", category=FutureWarning)
+                            da_tif = xe.Regridder(da_tif, da_grid, "bilinear")(da_tif)
+
+                    # Project data.
+                    da_tif.rio.set_crs("EPSG:4326")
+                    if cfg.opt_map_spat_ref != "EPSG:4326":
+                        da_tif.rio.set_spatial_dims(cfg.dim_lon, cfg.dim_lat, inplace=True)
+                        da_tif = da_tif.rio.reproject(cfg.opt_map_spat_ref)
+                        da_tif.values[da_tif.values == -9999] = np.nan
+                        da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
+
+                    # Save.
+                    p_fig_tif = p_fig.replace(varidx_code + cfg.sep, varidx_code + "_" + cfg.f_tif + cfg.sep). \
+                        replace(cfg.f_ext_png, cfg.f_ext_tif)
+                    d = os.path.dirname(p_fig_tif)
+                    if not (os.path.isdir(d)):
+                        os.makedirs(d)
+                    da_tif.rio.to_raster(p_fig_tif)
+
+                # CSV format -------------------------------------------------------------------------------------------
 
                 # Path.
-                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "maps",
+                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "map",
                                        (varidx_code_grp + cfg.sep if varidx_code_grp != varidx_code else "") +
                                        varidx_code + "_csv" + cfg.sep + per_str)
                 fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
@@ -1514,3 +1586,141 @@ def conv_nc_csv_single(
 
     if cfg.n_proc > 1:
         utils.log("Work done!", True)
+
+
+def calc_cycle(
+    ds: xr.Dataset,
+    stn: str,
+    varidx_name: str,
+    per: [int, int],
+    freq: str,
+    title: str,
+    i_trial: int = 1
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate monthly plots (for the reference period).
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+        Dataset containing data.
+    stn: str
+        Station.
+    varidx_name: str
+        Climate variable or index name.
+    per: [int, int]
+        Period of interest, for instance, [1981, 2010].
+    freq: str
+        Frequency = {cfg.freq_D, cfg.freq_MS}
+    title: str
+        Plot title.
+    i_trial: int
+        Iteration number. The purpose is to attempt doing the analysis again. It happens once in a while that the
+        dictionary is missing values, which results in the impossibility to build a dataframe and save it.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Extract data.
+    if i_trial == 1:
+        ds = utils.sel_period(ds, per)
+        if freq == cfg.freq_D:
+            ds = utils.remove_feb29(ds)
+
+    # Convert units.
+    units = ds[varidx_name].attrs[cfg.attrs_units]
+    if (varidx_name in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]) and \
+       (ds[varidx_name].attrs[cfg.attrs_units] == cfg.unit_K):
+        ds = ds - cfg.d_KC
+    elif (varidx_name in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]) and \
+         (ds[varidx_name].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
+        ds = ds * cfg.spd
+    ds[varidx_name].attrs[cfg.attrs_units] = units
+
+    # Calculate statistics.
+    ds_l = calc_by_freq(ds, varidx_name, per, freq)
+
+    n = 12 if freq == cfg.freq_MS else 365
+
+    # Remove February 29th.
+    if (freq == cfg.freq_D) and (len(ds_l[0][varidx_name]) > 365):
+        for i in range(3):
+            ds_l[i] = ds_l[i].rename_dims({"dayofyear": "time"})
+            ds_l[i] = ds_l[i][varidx_name][ds_l[i][cfg.dim_time] != 59].to_dataset()
+            ds_l[i][cfg.dim_time] = utils.reset_calendar(ds_l[i], cfg.per_ref[0], cfg.per_ref[0], cfg.freq_D)
+            ds_l[i][varidx_name].attrs[cfg.attrs_units] = ds[varidx_name].attrs[cfg.attrs_units]
+
+    # Paths.
+    cat_fig = cfg.cat_fig_cycle_ms if freq == cfg.freq_MS else cfg.cat_fig_cycle_d
+    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_scen + cfg.sep + cat_fig, varidx_name)
+    if varidx_name in cfg.idx_names:
+        p_fig = p_fig.replace(cfg.sep + cfg.cat_scen, cfg.sep + cfg.cat_idx)
+    p_fig += title + cfg.f_ext_png
+    p_csv = p_fig.replace(cfg.sep + varidx_name + cfg.sep, cfg.sep + varidx_name + "_" + cfg.f_csv + cfg.sep).\
+        replace(cfg.f_ext_png, cfg.f_ext_csv)
+
+    error = False
+
+    # Create context.
+    cntx = context_def.Context(context_def.code_script)
+    cntx.p_locations = cfg.p_locations
+    cntx.p_bounds = cfg.p_bounds
+    cntx.lib = lib_def.Lib(lib_def.mode_mat)
+    cntx.varidx = varidx_def.VarIdx(varidx_name)
+
+    if os.path.exists(p_fig) and os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
+        return
+
+    if freq == cfg.freq_D:
+
+        # Create dataframe.
+        dict_pd = {
+            ("month" if freq == cfg.freq_MS else "day"): range(1, n + 1),
+            "mean": list(ds_l[0][varidx_name].values),
+            "min": list(ds_l[1][varidx_name].values),
+            "max": list(ds_l[2][varidx_name].values), "var": [varidx_name] * n
+        }
+        df = pd.DataFrame(dict_pd)
+
+        # Generate plot.
+        fig = dash_plot.gen_cycle_d(cntx, df)
+
+    else:
+
+        # Create dataframe.
+        year_l = list(range(per[0], per[1] + 1))
+        dict_pd = {
+            "year": year_l,
+            "1": ds_l[varidx_name].values[0], "2": ds_l[varidx_name].values[1], "3": ds_l[varidx_name].values[2],
+            "4": ds_l[varidx_name].values[3], "5": ds_l[varidx_name].values[4], "6": ds_l[varidx_name].values[5],
+            "7": ds_l[varidx_name].values[6], "8": ds_l[varidx_name].values[7], "9": ds_l[varidx_name].values[8],
+            "10": ds_l[varidx_name].values[9], "11": ds_l[varidx_name].values[10], "12": ds_l[varidx_name].values[11]
+        }
+        df = pd.DataFrame(dict_pd)
+
+        # Generate plot.
+        fig = dash_plot.gen_cycle_ms(cntx, df)
+
+    # Save plot.
+    utils.save_plot(fig, p_fig)
+
+    # Generate CSV file.
+    if cfg.opt_save_csv[0]:
+        try:
+            utils.save_csv(df, p_csv)
+        except:
+            error = True
+
+    # Attempt the same analysis again if an error occurred. Remove this option if it's no longer required.
+    if error:
+
+        # Log error.
+        msg_err = "Unable to save " + ("daily" if (freq == cfg.freq_D) else "monthly") +\
+                  " plot data (failed " + str(i_trial) + " time(s)):"
+        utils.log(msg_err, True)
+        utils.log(title, True)
+
+        # Attempt the same analysis again.
+        if i_trial < 3:
+            calc_cycle(ds, stn, varidx_name, per, freq, title, i_trial + 1)

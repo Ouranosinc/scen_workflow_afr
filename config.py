@@ -155,8 +155,8 @@ cat_fig             = "fig"          # Figures.
 cat_fig_calibration = "calibration"  # Figures (calibration).
 cat_fig_postprocess = "postprocess"  # Figures (postprocess).
 cat_fig_workflow    = "workflow"     # Figures (workflow).
-cat_fig_monthly     = "monthly"      # Figures (monthly).
-cat_fig_daily       = "daily"        # Figures (daily).
+cat_fig_cycle_ms    = "cycle_ms"     # Figures (annual cycle, monthly).
+cat_fig_cycle_d     = "cycle_d"      # Figures (annual cycle, daily).
 
 # Calendar types.
 cal_noleap          = "noleap"      # No-leap.
@@ -530,12 +530,13 @@ priority_timestep   = ["day"] * len(variables_cordex)
 # System ---------------------------------------------------------------------------------------------------------------
 
 # Input-only files and directories.
-# The parameter 'd_bounds' is only used to compute statistics; this includes .csv files in the 'stat' directory and
+# The parameter 'p_bounds' is only used to compute statistics; this includes .csv files in the 'stat' directory and
 # time series (.png and .csv)). The idea behind this is to export heat maps (.png and .csv) that covers values included
 # in the box defined by 'lon_bnds' and 'lat_bnds'.
 d_proj              = ""            # Projections.
 d_ra_raw            = ""            # Reanalysis set (default frequency, usually hourly).
-d_bounds            = ""            # geog.json file comprising political boundaries.
+p_bounds            = ""            # .geogjson file comprising political boundaries.
+p_locations         = ""            # .csv file comprising locations.
 region              = ""            # Region name or acronym.
 # Output-only files and directories.
 d_stn               = ""            # Observations or reanalysis.
@@ -641,7 +642,7 @@ idx_params          = []            # Index parameters.
 
 opt_stat            = [True] * 2        # If True, calculate statistics for [scenarios, indices].
 opt_stat_quantiles  = [1.00, 0.90, 0.50, 0.10, 0.00]  # Quantiles.
-opt_stat_clip       = False             # If True, clip according to 'd_bounds'.
+opt_stat_clip       = False             # If True, clip according to 'p_bounds'.
 opt_save_csv        = [False] * 2       # If True, save results to CSV files for [scenarios, indices].
 
 # Step 8 - Visualization -----------------------------------------------------------------------------------------------
@@ -649,9 +650,10 @@ opt_save_csv        = [False] * 2       # If True, save results to CSV files for
 # Plots.
 opt_plot              = [True] * 2      # If True, generate plots, except time series for [scenarios, indices].
 opt_ts                = [True] * 2      # If True, generate time series for [scenarios, indices].
+opt_cycle             = [True] * 2      # If Ture, generate cycle plots for [scenarios, indices].
 opt_map               = [False] * 2     # If True, generate heat maps [for scenarios, for indices].
 opt_map_delta         = [False] * 2     # If True, generate delta heat maps for [scenarios, indices].
-opt_map_clip          = False           # If True, clip according to 'd_bounds'.
+opt_map_clip          = False           # If True, clip according to 'p_bounds'.
 opt_map_quantiles     = []              # Quantiles for which a map is required.
 opt_map_formats       = [f_png]         # Map formats.
 opt_map_spat_ref      = ""              # Spatial reference (starts with: EPSG).
