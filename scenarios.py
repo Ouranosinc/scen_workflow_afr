@@ -1517,7 +1517,7 @@ def run():
         for i in range(len(cfg.variables_cordex)):
 
             # Generate maps.
-            stats.calc_heatmap(cfg.variables_cordex[i])
+            stats.calc_map(cfg.variables_cordex[i])
 
     else:
         utils.log(msg + " (not required)")

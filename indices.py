@@ -2038,7 +2038,7 @@ def run():
         for i in range(len(idx_codes_exploded)):
 
             # Generate maps.
-            stats.calc_heatmap(idx_codes_exploded[i])
+            stats.calc_map(idx_codes_exploded[i])
 
     else:
         utils.log(msg + " (not required)")
