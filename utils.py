@@ -1056,8 +1056,8 @@ def subset_ctrl_pt(
     ds_res = None
 
     # Determine control point.
-    lon = cfg.lon_bnds.mean()
-    lat = cfg.lat_bnds.mean()
+    lon = np.mean(cfg.lon_bnds)
+    lat = np.mean(cfg.lat_bnds)
     if cfg.ctrl_pt is not None:
         lon = cfg.ctrl_pt[0]
         lat = cfg.ctrl_pt[1]

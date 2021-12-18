@@ -29,7 +29,7 @@ from typing import Union, List
 
 import sys
 sys.path.append("dashboard")
-from dashboard import context_def, hor_def, lib_def, rcp_def, stat_def, varidx_def, view_def, dash_plot
+from dashboard import context_def, project_def, hor_def, lib_def, rcp_def, stat_def, varidx_def, view_def, dash_plot
 
 
 def calc_stat(
@@ -997,9 +997,9 @@ def calc_map(
                     z_min = np.nanmin(z_min_net if j == 0 else z_min_del)
                     z_max = np.nanmax(z_max_net if j == 0 else z_max_del)
 
-                # PNG format -------------------------------------------------------------------------------------------
+                # PNG and CSV formats ----------------------------------------------------------------------------------
 
-                # Path.
+                # Path of PNG file.
                 d_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "map",
                                        (varidx_code_grp + cfg.sep if varidx_code_grp != varidx_code else "") +
                                        varidx_code + cfg.sep + per_str)
@@ -1013,31 +1013,58 @@ def calc_map(
                 if j == 1:
                     p_fig = p_fig.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
 
+                # Path of CSV file.
+                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "map",
+                                       (varidx_code_grp + cfg.sep if varidx_code_grp != varidx_code else "") +
+                                       varidx_code + "_csv" + cfg.sep + per_str)
+                fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
+                p_csv = d_csv + fn_csv
+                if j == 1:
+                    p_csv = p_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
+
                 # Create context.
                 cntx = context_def.Context(context_def.code_script)
+                cntx.project     = project_def.Project("x", cntx=cntx)
                 cntx.p_locations = cfg.p_locations
                 cntx.p_bounds    = cfg.p_bounds
                 cntx.view        = view_def.View(view_def.mode_map)
                 cntx.lib         = lib_def.Lib(lib_def.mode_mat)
-                cntx.varidx      = varidx_def.VarIdx(varidx_code)
-                cntx.project.set_quantiles(cntx.project.get_code(), cntx, cfg.opt_stat_quantiles)
+                cntx.varidx      = varidx_def.VarIdx(varidx_name)
+                cntx.project.set_quantiles("x", cntx, cfg.opt_map_quantiles)
                 cntx.RCP         = rcp_def.RCP(rcp)
                 cntx.hor         = hor_def.Hor(per_hor)
                 cntx.stat        = stat_def.Stat(stat_str.replace("_", ""))
                 cntx.delta       = (j == 1)
 
-                # Generate and save plot.
-                if ((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1])):
-                    df = pd.DataFrame()
-                    df["longitude"] = da_map["longitude"].values
-                    df["latitude"] = da_map["latitude"].values
-                    df[cntx.varidx.get_code()] = da_map[cntx.varidx.get_code()].values
+                if (((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1]))) and \
+                   (cfg.opt_force_overwrite or
+                    ((not os.path.exists(p_fig)) and (cfg.f_png in cfg.opt_map_formats)) or
+                    ((not os.path.exists(p_csv)) and cfg.opt_save_csv)):
+
+                    # Create dataframe.
+                    arr_lon = []
+                    arr_lat = []
+                    arr_val = []
+                    for m in range(len(da_map.longitude.values)):
+                        for n in range(len(da_map.latitude.values)):
+                            arr_lon.append(da_map.longitude.values[m])
+                            arr_lat.append(da_map.latitude.values[n])
+                            arr_val.append(da_map.values[n, m])
+                    dict_pd = {cfg.dim_longitude: arr_lon, cfg.dim_latitude: arr_lat, varidx_name: arr_val}
+                    df = pd.DataFrame(dict_pd)
+
+                    # Generate and save plot.
                     fig = dash_plot.gen_map(cntx, df, [z_min, z_max])
                     utils.save_plot(fig, p_fig)
+                    utils.save_csv(df, p_csv)
 
                 # TIF format -------------------------------------------------------------------------------------------
 
-                if cfg.f_tif in cfg.opt_map_formats:
+                # Path of TIF file.
+                p_tif = p_fig.replace(varidx_code + cfg.sep, varidx_code + "_" + cfg.f_tif + cfg.sep). \
+                    replace(cfg.f_ext_png, cfg.f_ext_tif)
+
+                if (cfg.f_tif in cfg.opt_map_formats) and ((not os.path.exists(p_tif)) or cfg.opt_force_overwrite):
 
                     # TODO: da_tif.rio.reproject is now crashing. It was working in July 2021.
 
@@ -1062,43 +1089,10 @@ def calc_map(
                         da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
 
                     # Save.
-                    p_fig_tif = p_fig.replace(varidx_code + cfg.sep, varidx_code + "_" + cfg.f_tif + cfg.sep). \
-                        replace(cfg.f_ext_png, cfg.f_ext_tif)
-                    d = os.path.dirname(p_fig_tif)
+                    d = os.path.dirname(p_tif)
                     if not (os.path.isdir(d)):
                         os.makedirs(d)
-                    da_tif.rio.to_raster(p_fig_tif)
-
-                # CSV format -------------------------------------------------------------------------------------------
-
-                # Path.
-                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "map",
-                                       (varidx_code_grp + cfg.sep if varidx_code_grp != varidx_code else "") +
-                                       varidx_code + "_csv" + cfg.sep + per_str)
-                fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
-                p_csv = d_csv + fn_csv
-                if j == 1:
-                    p_csv = p_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
-
-                # Save.
-                if cfg.opt_save_csv and (not os.path.exists(p_csv) or cfg.opt_force_overwrite):
-
-                    # Extract data.
-                    arr_lon = []
-                    arr_lat = []
-                    arr_val = []
-                    for m in range(len(da_map.longitude.values)):
-                        for n in range(len(da_map.latitude.values)):
-                            arr_lon.append(da_map.longitude.values[m])
-                            arr_lat.append(da_map.latitude.values[n])
-                            arr_val.append(da_map.values[n, m])
-
-                    # Build dataframe.
-                    dict_pd = {cfg.dim_longitude: arr_lon, cfg.dim_latitude: arr_lat, varidx_name: arr_val}
-                    df = pd.DataFrame(dict_pd)
-
-                    # Save to file.
-                    utils.save_csv(df, p_csv)
+                    da_tif.rio.to_raster(p_tif)
 
 
 def calc_map_rcp(
