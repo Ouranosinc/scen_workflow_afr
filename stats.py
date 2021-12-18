@@ -29,7 +29,7 @@ from typing import Union, List
 
 import sys
 sys.path.append("dashboard")
-from dashboard import context_def, hor_def, lib_def, rcp_def, stat_def, varidx_def, dash_plot
+from dashboard import context_def, hor_def, lib_def, rcp_def, stat_def, varidx_def, view_def, dash_plot
 
 
 def calc_stat(
@@ -666,9 +666,10 @@ def calc_ts(
 
             # Create context.
             cntx = context_def.Context(context_def.code_script)
+            cntx.view = view_def.View(view_def.mode_ts)
             cntx.lib = lib_def.Lib(lib_def.mode_mat)
             cntx.varidx = varidx_def.VarIdx(varidx_code)
-            cntx.rcps = rcp_def.RCPs(cntx)
+            cntx.rcps = rcp_def.RCPs(cfg.rcps)
 
             # Generate plot with simulations grouped by RCP scenario.
             p_fig_rcp = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "ts",
@@ -848,7 +849,7 @@ def calc_by_freq(
     return ds_l
 
 
-def calc_heatmap(
+def calc_map(
     varidx_code: str
 ):
 
@@ -913,7 +914,7 @@ def calc_heatmap(
                 per_hor = per_hors[k_per_hor]
 
                 # Current map.
-                ds_map = calc_heatmap_rcp(varidx_code, rcp, per_hor, stat, q)
+                ds_map = calc_map_rcp(varidx_code, rcp, per_hor, stat, q)
 
                 # Clip to geographic boundaries.
                 if cfg.opt_map_clip and (cfg.p_bounds != ""):
@@ -1016,10 +1017,11 @@ def calc_heatmap(
                 cntx = context_def.Context(context_def.code_script)
                 cntx.p_locations = cfg.p_locations
                 cntx.p_bounds    = cfg.p_bounds
+                cntx.view        = view_def.View(view_def.mode_map)
                 cntx.lib         = lib_def.Lib(lib_def.mode_mat)
                 cntx.varidx      = varidx_def.VarIdx(varidx_code)
                 cntx.project.set_quantiles(cntx.project.get_code(), cntx, cfg.opt_stat_quantiles)
-                cntx.RCPs        = rcp_def.RCP(rcp)
+                cntx.RCP         = rcp_def.RCP(rcp)
                 cntx.hor         = hor_def.Hor(per_hor)
                 cntx.stat        = stat_def.Stat(stat_str.replace("_", ""))
                 cntx.delta       = (j == 1)
@@ -1099,7 +1101,7 @@ def calc_heatmap(
                     utils.save_csv(df, p_csv)
 
 
-def calc_heatmap_rcp(
+def calc_map_rcp(
     varidx_code: str,
     rcp: str,
     per: [int],
