@@ -15,7 +15,7 @@ import math
 import multiprocessing
 import numpy as np
 import os.path
-import statistics
+import stats
 import utils
 import xarray as xr
 import xclim.indices as indices
@@ -1933,7 +1933,7 @@ def run():
     msg = "Step #7a  Calculating statistics (indices)"
     if cfg.opt_stat[1]:
         utils.log(msg)
-        statistics.calc_stats(cfg.cat_idx)
+        stats.calc_stats(cfg.cat_idx)
     else:
         utils.log(msg + not_req)
 
@@ -1942,7 +1942,7 @@ def run():
     if cfg.opt_save_csv[1] and not cfg.opt_ra:
         utils.log(msg)
         utils.log("-")
-        statistics.conv_nc_csv(cfg.cat_idx)
+        stats.conv_nc_csv(cfg.cat_idx)
     else:
         utils.log(msg + not_req)
 
@@ -1955,12 +1955,73 @@ def run():
     else:
         utils.log(msg + not_req)
 
+    # Generate daily and monthly plots.
+    if cfg.opt_cycle[1]:
+
+        utils.log("-")
+        utils.log("Step #8a  Generating daily and monthly plots (indices)")
+
+        # Loop through variables.
+        for idx_code in cfg.idx_codes:
+            idx_name = cfg.extract_idx(idx_code)
+
+            # Loop through stations.
+            stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
+            for stn in stns:
+
+                utils.log("Processing: " + idx_code + ", " + stn, True)
+
+                # Path ofo NetCDF file containing station data.
+                p_obs = cfg.get_p_obs(stn, idx_code)
+
+                # Loop through raw NetCDF files.
+                p_l = list(glob.glob(cfg.get_d_idx(stn, idx_code) + "*" + cfg.f_ext_nc))
+                for i in range(len(p_l)):
+                    p = p_l[i]
+
+                    # File name.
+                    fn_fig = p.split(cfg.sep)[-1].replace(cfg.f_ext_nc, cfg.f_ext_png)
+
+                    # Generate monthly and daily plots.
+                    ds = utils.open_netcdf(p)
+                    for per in cfg.per_hors:
+                        per_str = str(per[0]) + "_" + str(per[1])
+
+                        # This creates 2 files:
+                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
+                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
+                        title = fn_fig[:-4] + per_str + "_" + cfg.cat_fig_cycle_ms
+                        stats.calc_cycle(ds, stn, idx_name, per, cfg.freq_MS, title)
+
+                        # This creates 2 files:
+                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
+                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
+                        title = fn_fig[:-4] + per_str + "_" + cfg.cat_fig_cycle_d
+                        stats.calc_cycle(ds, stn, idx_name, per, cfg.freq_D, title)
+
+                if os.path.exists(p_obs):
+
+                    ds_obs = utils.open_netcdf(p_obs)
+                    per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
+
+                    # This creates 2 files:
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
+                    title = idx_name + "_" + per_str + "_" + cfg.cat_fig_cycle_ms
+                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, cfg.freq_MS, title)
+
+                    # This creates 2 files:
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
+                    title = idx_name + "_" + per_str + "_" + cfg.cat_fig_cycle_d
+                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, cfg.freq_D, title)
+
     # Generate plots.
     utils.log("-")
     msg = "Step #8b  Generating time series (indices)"
     if cfg.opt_ts[1]:
         utils.log(msg)
-        statistics.calc_ts(cfg.cat_idx)
+        stats.calc_ts(cfg.cat_idx)
     else:
         utils.log(msg + not_req)
 
@@ -1977,7 +2038,7 @@ def run():
         for i in range(len(idx_codes_exploded)):
 
             # Generate maps.
-            statistics.calc_heatmap(idx_codes_exploded[i])
+            stats.calc_heatmap(idx_codes_exploded[i])
 
     else:
         utils.log(msg + " (not required)")
