@@ -1,0 +1,22 @@
+========================================================================================================================
+20210825_123642 PRODUCTION OF CLIMATE SCENARIOS & CALCULATION OF CLIMATE INDICES                
+20210825_123642 Python Script created by Ouranos, based on xclim and xarray libraries.          
+20210825_123642 Script launched: 20210825_123642
+========================================================================================================================
+20210825_123642 Country                : senegal
+20210825_123642 Project                : far
+20210825_123642 Variables (CORDEX)     : [tasmin, tasmax, pr, evapsblpot]
+20210825_123642 Reanalysis set         : era5_land
+20210825_123642 Variables (reanalysis) : [t2mmin, t2mmax, tp, pev]
+20210825_123642 Emission scenarios     : [rcp45, rcp85]
+20210825_123642 Reference period       : [1981, 2010]
+20210825_123642 Future period          : [1981, 2090]
+20210825_123642 Horizons               : [[1981, 2010], [2021, 2050], [2051, 2080]]
+20210825_123642 Region                 : sn
+========================================================================================================================
+20210825_123642 Step #2a  Downloading climate data (not required)
+========================================================================================================================
+20210825_123642 Step #2b  Aggregating hourly data (not required)
+20210825_123650 Step #2-5 Calculating scenarios
+========================================================================================================================
+20210825_123650 Step #2c  Merging reanalysis NetCDF files.
