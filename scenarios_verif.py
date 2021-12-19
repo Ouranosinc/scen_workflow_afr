@@ -27,12 +27,12 @@ def run():
     for stn in cfg.stns:
 
         # Loop through variables.
-        for var in cfg.variables_cordex:
+        for vi_name in cfg.variables:
 
             # Produce plots.
             try:
-                plot.plot_ts_single(stn, var)
-                plot.plot_ts_mosaic(stn, var)
+                plot.plot_ts_single(stn, vi_name)
+                plot.plot_ts_mosaic(stn, vi_name)
             except FileExistsError:
                 utils.log("Unable to locate the required files!", True)
                 pass

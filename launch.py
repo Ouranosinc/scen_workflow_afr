@@ -19,6 +19,10 @@ import scenarios_calib as scen_calib
 import unit_tests
 import utils
 
+import sys
+sys.path.append("dashboard")
+from dashboard import varidx_def as vi
+
 
 def load_params(
     p_ini: str
@@ -94,10 +98,10 @@ def load_params(
             # OBSERVATIONS:
             elif key == "obs_src":
                 cfg.obs_src = ast.literal_eval(value)
-                cfg.opt_ra = (cfg.obs_src == cfg.obs_src_era5) or \
-                             (cfg.obs_src == cfg.obs_src_era5_land) or \
-                             (cfg.obs_src == cfg.obs_src_merra2) or \
-                             (cfg.obs_src == "anacim")
+                cfg.opt_ra = (cfg.obs_src == vi.ens_era5) or \
+                             (cfg.obs_src == vi.ens_era5_land) or \
+                             (cfg.obs_src == vi.ens_merra2) or \
+                             (cfg.obs_src == vi.ens_enacts)
             elif key == "obs_src_username":
                 cfg.obs_src_username = ast.literal_eval(value)
             elif key == "obs_src_password":
@@ -128,10 +132,10 @@ def load_params(
                 cfg.lat_bnds = convert_to_1d(value, float)
             elif key == "ctrl_pt":
                 cfg.ctrl_pt = convert_to_1d(value, float)
-            elif key == "variables_cordex":
-                cfg.variables_cordex = convert_to_1d(value, str)
-                for var in cfg.variables_cordex:
-                    cfg.variables_ra.append(cfg.convert_var_name(var))
+            elif key == "variables":
+                cfg.variables = convert_to_1d(value, str)
+                for var in cfg.variables:
+                    cfg.variables_ra.append(vi.VarIdx(var).convert_name(vi.ens_era5))
             elif key == "p_bounds":
                 cfg.p_bounds = ast.literal_eval(value)
             elif key == "p_locations":
@@ -192,14 +196,13 @@ def load_params(
             elif key == "idx_codes":
                 cfg.idx_codes = convert_to_1d(value, str)
                 for i in range(len(cfg.idx_codes)):
-                    idx_name = cfg.extract_idx(str(cfg.idx_codes[i]))
-                    cfg.idx_names.append(idx_name)
+                    cfg.idx_names.append(vi.VarIdx(cfg.idx_codes[i]).get_name())
             elif key == "idx_params":
                 cfg.idx_params = convert_to_2d(value, float)
                 for i in range(len(cfg.idx_names)):
-                    if cfg.idx_names[i] == cfg.idx_r10mm:
+                    if cfg.idx_names[i] == vi.i_r10mm:
                         cfg.idx_params[i] = [10]
-                    elif cfg.idx_names[i] == cfg.idx_r20mm:
+                    elif cfg.idx_names[i] == vi.i_r20mm:
                         cfg.idx_params[i] = [20]
 
             # STATISTICS:
@@ -215,12 +218,6 @@ def load_params(
             # VISUALIZATION:
             elif key == "opt_plot":
                 cfg.opt_plot = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
-            elif key == "opt_plot_col_2cla_temp":
-                cfg.opt_plot_col_2cla_temp = convert_to_1d(value, str)
-            elif key == "opt_plot_col_2cla_prec":
-                cfg.opt_plot_col_2cla_prec = convert_to_1d(value, str)
-            elif key == "opt_plot_col_2cla_wind":
-                cfg.opt_plot_col_2cla_wind = convert_to_1d(value, str)
             elif key == "opt_ts":
                 cfg.opt_ts = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_cycle":
@@ -278,7 +275,7 @@ def load_params(
             elif key == "d_exec":
                 cfg.d_exec = ast.literal_eval(value)
                 if "\\" in cfg.d_exec:
-                    sep = "\\"
+                    cfg.sep = "\\"
             elif key == "d_proj":
                 cfg.d_proj = ast.literal_eval(value)
             elif key == "d_ra_raw":
@@ -312,7 +309,7 @@ def main():
     cfg.pid = os.getpid()
 
     # Variables.
-    cfg.priority_timestep = ["day"] * len(cfg.variables_cordex)
+    cfg.priority_timestep = ["day"] * len(cfg.variables)
 
     # The following variables are determined automatically.
     d_base = cfg.d_exec + cfg.country + cfg.sep + cfg.project + cfg.sep
@@ -345,7 +342,7 @@ def main():
     utils.log("=")
     utils.log("Country                : " + cfg.country)
     utils.log("Project                : " + cfg.project)
-    utils.log("Variables (CORDEX)     : " + str(cfg.variables_cordex).replace("'", ""))
+    utils.log("Variables (CORDEX)     : " + str(cfg.variables).replace("'", ""))
     n_i = len(cfg.idx_names)
     for i in range(n_i):
         params_i = str(cfg.idx_params[i]).replace("'", "").replace("(", "[").replace(")", "]").replace("\\n", "")
@@ -441,13 +438,12 @@ def main():
 
     # Clean NetCDF files.
     if cfg.opt_scen:
-        for var in cfg.variables_cordex:
-            utils.clean_netcdf(cfg.d_stn + var + cfg.sep)
-            utils.clean_netcdf(cfg.get_d_scen(cfg.obs_src, "scen" + cfg.sep + "*", var))
+        for vi_code in cfg.variables:
+            utils.clean_netcdf(cfg.d_stn + vi_code + cfg.sep)
+            utils.clean_netcdf(cfg.get_d_scen(cfg.obs_src, "scen" + cfg.sep + "*", vi_code))
     if cfg.opt_idx:
-        for idx_code in cfg.idx_codes:
-            idx_name = cfg.extract_idx(idx_code)
-            utils.clean_netcdf(cfg.get_d_idx(cfg.obs_src, idx_name))
+        for vi_code in cfg.idx_codes:
+            utils.clean_netcdf(cfg.get_d_idx(cfg.obs_src, str(vi.VarIdx(vi_code).get_name())))
 
     # Initialization.
     scen_calib.init_calib_params()

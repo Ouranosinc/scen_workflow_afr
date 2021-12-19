@@ -22,6 +22,10 @@ import warnings
 import xarray as xr
 from scipy import signal
 
+import sys
+sys.path.append("dashboard")
+from dashboard import varidx_def as vi, rcp_def
+
 
 # ======================================================================================================================
 # Aggregation
@@ -30,7 +34,6 @@ from scipy import signal
 def plot_year(
     ds_hour: xr.Dataset,
     ds_day: xr.Dataset,
-    set_name: str,
     var: str
 ):
 
@@ -44,14 +47,12 @@ def plot_year(
         Dataset with hourly frequency.
     ds_day : xr.Dataset
         Dataset with daily frequency.
-    set_name : str
-        Set name.
     var : str
         Variable.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var_desc_unit = cfg.get_desc(var, set_name)  + " [" + cfg.get_unit(var, set_name) + "]"
+    y_label = vi.VarIdx(var).get_label()
 
     fs = 10
     f = plt.figure(figsize=(10, 3))
@@ -61,19 +62,18 @@ def plot_year(
     ds_hour.plot(color="black")
     plt.title("")
     plt.xlabel("", fontsize=fs)
-    plt.ylabel(var_desc_unit, fontsize=fs)
+    plt.ylabel(y_label, fontsize=fs)
 
     ds_day.plot(color="orange")
     plt.title("")
     plt.xlabel("", fontsize=fs)
-    plt.ylabel(var_desc_unit, fontsize=fs)
+    plt.ylabel(y_label, fontsize=fs)
 
     plt.close()
 
 
 def plot_dayofyear(
     ds_day: xr.Dataset,
-    set_name: str,
     var: str,
     date: str
 ):
@@ -86,8 +86,6 @@ def plot_dayofyear(
     ----------
     ds_day : xr.Dataset
         Dataset with daily frequency.
-    set_name : str
-        Set name.
     var : str
         Variable.
     date : str
@@ -95,16 +93,14 @@ def plot_dayofyear(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Variable.
-    var_desc = cfg.get_desc(var, set_name) + " (" + cfg.get_unit(var, set_name) + ")"
-
     # Data.
     ds_day_sel = ds_day.sel(time=date)
 
     # Plot.
     fs = 10
+    y_label = vi.VarIdx(var).get_label()
     ds_day_sel.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                               cbar_kwargs=dict(orientation="vertical", pad=0.05, shrink=1, label=var_desc))
+                               cbar_kwargs=dict(orientation="vertical", pad=0.05, shrink=1, label=y_label))
     plt.title(date)
     plt.suptitle("", fontsize=fs)
     plt.xlabel("Longitude (º)", fontsize=fs)
@@ -176,18 +172,14 @@ def plot_postprocess(
                 da_fut   = utils.squeeze_lon_lat(da_fut)
                 da_qqmap = utils.squeeze_lon_lat(da_qqmap)
 
-    # Weather variable description and unit.
-    var_desc = cfg.get_desc(var)
-    var_unit = cfg.get_unit(var)
-
     # Conversion coefficient.
     coef = 1
     delta_obs   = 0
     delta_fut   = 0
     delta_qqmap = 0
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+    if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
         coef = cfg.spd * 365
-    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+    elif var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
         if da_obs.units == cfg.unit_K:
             delta_obs = -cfg.d_KC
         if da_fut.units == cfg.unit_K:
@@ -219,7 +211,8 @@ def plot_postprocess(
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    y_label = vi.VarIdx(var).get_label()
+    plt.ylabel(y_label, fontsize=fs_axes)
     plt.title("")
     plt.suptitle(title, fontsize=fs_sup_title)
     plt.tick_params(axis="x", labelsize=fs_axes)
@@ -279,10 +272,6 @@ def plot_workflow(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Weather variable description and unit.
-    var_desc = cfg.get_desc(var)
-    var_unit = cfg.get_unit(var)
-
     # Load datasets.
     da_ref = utils.open_netcdf(p_regrid_ref)[var]
     da_fut = utils.open_netcdf(p_regrid_fut)[var]
@@ -308,9 +297,9 @@ def plot_workflow(
     coef = 1
     delta_ref = 0
     delta_fut = 0
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+    if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
         coef = cfg.spd
-    if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+    if var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
         if da_ref.units == cfg.unit_K:
             delta_ref = -cfg.d_KC
         if da_fut.units == cfg.unit_K:
@@ -322,11 +311,15 @@ def plot_workflow(
     coefs = poly.polyfit(x, y, 4)
     ffit  = poly.polyval(x, coefs)
 
-    # Initialize plot.
+    # Font size.
     fs_sup_title = 8
     fs_title     = 8
     fs_legend    = 6
     fs_axes      = 8
+
+    y_label = vi.VarIdx(var).get_label()
+
+    # Initialize plot.
     f = plt.figure(figsize=(15, 6))
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.07, right=0.99, hspace=0.40, wspace=0.00)
     sup_title = os.path.basename(p_fig).replace(cfg.f_ext_png, "") +\
@@ -346,7 +339,7 @@ def plot_workflow(
         plt.plot(da_ref.time, ffit, color="black")
         plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
         plt.xlabel("Année", fontsize=fs_axes)
-        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.ylabel(y_label, fontsize=fs_axes)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
         plt.title("Tendance", fontsize=fs_title)
@@ -361,7 +354,7 @@ def plot_workflow(
         plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=cfg.col_sim_ref)
         plt.legend(["Simulation", "Simulation (réf.)"], fontsize=fs_legend, frameon=False)
         plt.xlabel("Jours", fontsize=fs_axes)
-        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.ylabel(y_label, fontsize=fs_axes)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
         plt.title("Variation autour de la moyenne (prédiction basée sur une équation quartique)", fontsize=fs_title)
@@ -418,20 +411,19 @@ def plot_calib(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Weather variable description and unit.
-    var_desc = cfg.get_desc(var)
-    var_unit = cfg.get_unit(var)
-
     # Files.
     p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
         replace(cfg.f_ext_png, cfg.f_ext_csv)
 
     # Quantile ---------------------------------------------------------------------------------------------------------
 
+    # Font size.
     fs_sup_title = 8
     fs_title     = 6
     fs_legend    = 5
     fs_axes      = 7
+
+    y_label = vi.VarIdx(var).get_label()
 
     f = plt.figure(figsize=(12, 8))
     ax = f.add_subplot(431)
@@ -465,7 +457,7 @@ def plot_calib(
     plt.xlim([1, 12])
     plt.xticks(np.arange(1, 13, 1))
     plt.xlabel("Mois", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.ylabel(y_label, fontsize=fs_axes)
     plt.tick_params(axis="x", labelsize=fs_axes)
     plt.tick_params(axis="y", labelsize=fs_axes)
 
@@ -488,7 +480,7 @@ def plot_calib(
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
         plt.xlabel("Mois", fontsize=fs_axes)
-        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.ylabel(y_label, fontsize=fs_axes)
         plt.legend(legend_items, fontsize=fs_legend, frameon=False)
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
@@ -507,7 +499,7 @@ def plot_calib(
     da_ref.plot.line(alpha=0.5, color=cfg.col_sim_ref)
     da_obs.plot.line(alpha=0.5, color=cfg.col_obs)
     plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.ylabel(y_label, fontsize=fs_axes)
     plt.legend(["Sim. ajustée", "Sim. (réf.)", "Observations"], fontsize=fs_legend, frameon=False)
     plt.title("")
 
@@ -564,13 +556,14 @@ def plot_calib_ts(
     if da_qqmap.time.dtype == cfg.dtype_obj:
         da_qqmap[cfg.dim_time] = utils.reset_calendar(da_qqmap)
 
-    # Weather variable description and unit.
-    var_desc = cfg.get_desc(var)
-    var_unit = cfg.get_unit(var)
-
+    # Font size.
     fs_sup_title = 8
     fs_legend = 8
     fs_axes = 8
+
+    y_label = vi.VarIdx(var).get_label()
+
+    # Initialize plot.
     f = plt.figure(figsize=(15, 3))
     f.add_subplot(111)
     plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
@@ -583,7 +576,7 @@ def plot_calib_ts(
     # Customize.
     plt.legend(["Sim. ajustée", "Sim. (réf.)", "Observations"], fontsize=fs_legend, frameon=False)
     plt.xlabel("Année", fontsize=fs_axes)
-    plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+    plt.ylabel(y_label, fontsize=fs_axes)
     plt.title("")
     plt.suptitle(title, fontsize=fs_sup_title)
     plt.tick_params(axis="x", labelsize=fs_axes)
@@ -668,7 +661,7 @@ def draw_curves(
 
     # Determine if sum is needed.
     stat_actual = stat
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+    if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
         if stat == cfg.stat_mean:
             stat_actual = cfg.stat_sum
         with warnings.catch_warnings():
@@ -796,20 +789,19 @@ def plot_ts_single(
 
     utils.log("Processing (single): " + stn + ", " + var, True)
 
-    # Weather variable description and unit.
-    var_desc = cfg.get_desc(var)
-    var_unit = cfg.get_unit(var)
-
     # Paths and NetCDF files.
     d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
     p_l   = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
-    # Plot.
+    # Font size.
     fs_title  = 8
     fs_legend = 8
     fs_axes   = 8
 
+    y_label = vi.VarIdx(var).get_label()
+
+    # Initialize plot.
     f = plt.figure(figsize=(15, 3))
     f.add_subplot(111)
     plt.subplots_adjust(top=0.9, bottom=0.18, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
@@ -817,8 +809,8 @@ def plot_ts_single(
     # Loop through simulation sets.
     for i in range(int(len(p_l) / 3)):
 
-        p_ref   = [i for i in p_l if cfg.rcp_ref in i][i]
-        p_fut   = p_ref.replace(cfg.rcp_ref + "_", "")
+        p_ref   = [i for i in p_l if rcp_def.rcp_ref in i][i]
+        p_fut   = p_ref.replace(rcp_def.rcp_ref + "_", "")
         p_qqmap = p_fut.replace("_4qqmap", "").replace(cfg.cat_regrid, cfg.cat_qqmap)
         ds_fut   = utils.open_netcdf(p_fut)
         ds_qqmap = utils.open_netcdf(p_qqmap)
@@ -840,7 +832,7 @@ def plot_ts_single(
         title = os.path.basename(p_fut).replace("4qqmap" + cfg.f_ext_nc, "verif_ts_single")
         plt.suptitle(title, fontsize=fs_title)
         plt.xlabel("Année", fontsize=fs_axes)
-        plt.ylabel(var_desc + " [" + var_unit + "]", fontsize=fs_axes)
+        plt.ylabel(y_label, fontsize=fs_axes)
         plt.title("")
         plt.suptitle(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
@@ -875,13 +867,9 @@ def plot_ts_mosaic(
 
     utils.log("Processing (mosaic): " + stn + ", " + var, True)
 
-    # Weather variable description and unit.
-    var_desc = cfg.get_desc(var)
-    var_unit = cfg.get_unit(var)
-
     # Conversion coefficient.
     coef = 1
-    if var == cfg.var_cordex_pr:
+    if var == vi.v_pr:
         coef = cfg.spd
 
     # Paths and NetCDF files.
@@ -889,10 +877,14 @@ def plot_ts_mosaic(
     p_l      = utils.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
-    # Plot.
+    # Font size.
     fs_title  = 6
     fs_legend = 6
     fs_axes   = 6
+
+    y_label = vi.VarIdx(var).get_label()
+
+    # Initialize plot.
     plt.figure(figsize=(15, 15))
     plt.subplots_adjust(top=0.96, bottom=0.07, left=0.04, right=0.99, hspace=0.40, wspace=0.30)
 
@@ -900,8 +892,8 @@ def plot_ts_mosaic(
     title = ""
     for i in range(int(len(p_l) / 3)):
 
-        # NetCDF files.
-        p_fut_i   = [i for i in p_l if cfg.rcp_ref in i][i].replace(cfg.rcp_ref + "_", "")
+        # Path of NetCDF files.
+        p_fut_i   = [i for i in p_l if rcp_def.rcp_ref in i][i].replace(rcp_def.rcp_ref + "_", "")
         p_qqmap_i = p_fut_i.replace("_4" + cfg.cat_qqmap, "").replace(cfg.cat_regrid, cfg.cat_qqmap)
 
         # Open datasets.
@@ -923,7 +915,7 @@ def plot_ts_mosaic(
 
         # Format.
         plt.xlabel("", fontsize=fs_axes)
-        plt.ylabel(var_desc + " (" + var_unit + ")", fontsize=fs_axes)
+        plt.ylabel(y_label, fontsize=fs_axes)
         title = os.path.basename(p_l[i]).replace(cfg.f_ext_nc, "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)

@@ -26,9 +26,13 @@ from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to, declare_units, rate2amount, to_agg_units
 
+import sys
+sys.path.append("dashboard")
+from dashboard import varidx_def as vi, rcp_def, rcp_def
+
 
 def generate(
-    idx_code: str
+    vi_code: str
 ):
 
     """
@@ -37,83 +41,72 @@ def generate(
 
     Parameters:
     idx_code : str
-        Index code (contains 'idx_name' and an identifier).
+        Index code (contains 'vi_name' and an identifier).
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Obtain complete index name, index name and index parameters.
-    idx_name   = cfg.extract_idx(idx_code)
-    idx_params = cfg.idx_params[cfg.idx_codes.index(idx_code)]
+    # Extract index name and parameters.
+    varidx    = vi.VarIdx(vi_code)
+    vi_name   = str(varidx.get_name())
+    vi_params = cfg.idx_params[cfg.idx_codes.index(vi_code)]
 
     # Emission scenarios.
-    rcps = [cfg.rcp_ref] + cfg.rcps
+    rcps = [rcp_def.rcp_ref] + cfg.rcps
 
     # Data preparation -------------------------------------------------------------------------------------------------
 
     utils.log("Selecting variables and indices.", True)
 
-    # ==================================================================================================================
-    # TODO.CUSTOMIZATION.INDEX.BEGIN
-    # Select variables and indices.
-    # ==================================================================================================================
-
-    # Select variables.
-    varidx_name_l = []
+    # Select required variables.
+    vi_code_l = []
 
     # Temperature.
-    if idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropical_nights, cfg.idx_tng_months_below,
-                    cfg.idx_heat_wave_max_length, cfg.idx_heat_wave_total_length, cfg.idx_tgg, cfg.idx_etr,
-                    cfg.idx_tn_days_below]:
-        varidx_name_l.append(cfg.var_cordex_tasmin)
+    if vi_name in [vi.i_tnx, vi.i_tng, vi.i_tropical_nights, vi.i_tng_months_below, vi.i_heat_wave_max_length,
+                   vi.i_heat_wave_total_length, vi.i_tgg, vi.i_etr, vi.i_tn_days_below]:
+        vi_code_l.append(vi.v_tasmin)
 
-    if idx_name in [cfg.idx_tx90p, cfg.idx_tx_days_above, cfg.idx_hot_spell_frequency, cfg.idx_hot_spell_max_length,
-                    cfg.idx_txg, cfg.idx_txx, cfg.idx_wsdi, cfg.idx_heat_wave_max_length,
-                    cfg.idx_heat_wave_total_length, cfg.idx_tgg, cfg.idx_etr]:
-        varidx_name_l.append(cfg.var_cordex_tasmax)
+    if vi_name in [vi.i_tx90p, vi.i_tx_days_above, vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_txg,
+                   vi.i_txx, vi.i_wsdi, vi.i_heat_wave_max_length, vi.i_heat_wave_total_length, vi.i_tgg, vi.i_etr]:
+        vi_code_l.append(vi.v_tasmax)
 
     # Precipitation.
-    if idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_cwd, cfg.idx_cdd, cfg.idx_sdii, cfg.idx_prcptot,
-                    cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wet_days, cfg.idx_dry_days,
-                    cfg.idx_rain_season_start, cfg.idx_rain_season_end, cfg.idx_rain_season_prcptot,
-                    cfg.idx_dry_spell_total_length, cfg.idx_rain_season]:
-        varidx_name_l.append(cfg.var_cordex_pr)
+    if vi_name in [vi.i_rx1day, vi.i_rx5day, vi.i_cwd, vi.i_cdd, vi.i_sdii, vi.i_prcptot, vi.i_r10mm, vi.i_r20mm,
+                   vi.i_rnnmm, vi.i_wet_days, vi.i_dry_days, vi.i_rain_season_start, vi.i_rain_season_end,
+                   vi.i_rain_season_prcptot, vi.i_dry_spell_total_length, vi.i_rain_season]:
+        vi_code_l.append(vi.v_pr)
 
-        if idx_name in [cfg.idx_rain_season_end, cfg.idx_rain_season]:
-            if cfg.var_cordex_evspsblpot in cfg.variables_cordex:
-                varidx_name_l.append(cfg.var_cordex_evspsblpot)
-            elif cfg.var_cordex_evspsbl in cfg.variables_cordex:
-                varidx_name_l.append(cfg.var_cordex_evspsbl)
+        if vi_name in [vi.i_rain_season_end, vi.i_rain_season]:
+            if vi.v_evspsblpot in cfg.variables:
+                vi_code_l.append(vi.v_evspsblpot)
+            elif vi.v_evspsbl in cfg.variables:
+                vi_code_l.append(vi.v_evspsbl)
             else:
-                varidx_name_l.append("nan")
+                vi_code_l.append("nan")
 
-        if idx_name in [cfg.idx_rain_season_end, cfg.idx_rain_season_length, cfg.idx_rain_season_prcptot]:
-            varidx_name_l.append(idx_code.replace(idx_name, cfg.idx_rain_season_start))
+        if vi_name in [vi.i_rain_season_end, vi.i_rain_season_length, vi.i_rain_season_prcptot]:
+            vi_code_l.append(vi_code.replace(vi_name, vi.i_rain_season_start))
 
-        if idx_name == cfg.idx_rain_season:
-            varidx_name_l.append("nan")
+        if vi_name == vi.i_rain_season:
+            vi_code_l.append("nan")
 
-        if idx_name in [cfg.idx_rain_season_end, cfg.idx_rain_season]:
-            varidx_name_l.append(str(idx_params[len(idx_params) - 1]))
+        if vi_name in [vi.i_rain_season_end, vi.i_rain_season]:
+            vi_code_l.append(str(vi_params[len(vi_params) - 1]))
 
-        if idx_name in [cfg.idx_rain_season_length, cfg.idx_rain_season_prcptot]:
-            varidx_name_l.append(idx_code.replace(idx_name, cfg.idx_rain_season_end))
+        if vi_name in [vi.i_rain_season_length, vi.i_rain_season_prcptot]:
+            vi_code_l.append(vi_code.replace(vi_name, vi.i_rain_season_end))
 
     # Temperature-precipitation.
-    if idx_name == cfg.idx_drought_code:
-        varidx_name_l.append(cfg.var_cordex_tas)
-        varidx_name_l.append(cfg.var_cordex_pr)
+    if vi_name == vi.i_drought_code:
+        vi_code_l.append(vi.v_tas)
+        vi_code_l.append(vi.v_pr)
 
     # Wind.
-    if idx_name == cfg.idx_wg_days_above:
-        varidx_name_l.append(cfg.var_cordex_uas)
-        varidx_name_l.append(cfg.var_cordex_vas)
+    if vi_name == vi.i_wg_days_above:
+        vi_code_l.append(vi.v_uas)
+        vi_code_l.append(vi.v_vas)
 
-    elif idx_name == cfg.idx_wx_days_above:
-        varidx_name_l.append(cfg.var_cordex_sfcwindmax)
-
-    # ==================================================================================================================
-    # TODO.CUSTOMIZATION.INDEX.END
-    # ==================================================================================================================
+    elif vi_name == vi.i_wx_days_above:
+        vi_code_l.append(vi.v_sfcwindmax)
 
     # Loop through stations.
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
@@ -121,45 +114,43 @@ def generate(
 
         # Verify if this variable or index is available for the current station.
         utils.log("Verifying data availability (based on directories).", True)
-        varidx_name_l_avail = True
-        for varidx_name in varidx_name_l:
-            if (varidx_name != "nan") and \
-               (((cfg.extract_idx(varidx_name) in cfg.variables_cordex) and
-                 not os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, varidx_name))) or
-                ((cfg.extract_idx(varidx_name) not in cfg.variables_cordex) and
-                 not os.path.isdir(cfg.get_d_idx(stn, varidx_name)))):
-                varidx_name_l_avail = False
+        vi_code_l_avail = True
+        for vi_code_i in vi_code_l:
+            ens = vi.VarIdx(vi_code_i).get_ens()
+            if (vi_code_i != "nan") and \
+               (((ens == vi.ens_cordex) and not os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_i))) or
+                ((ens != vi.ens_cordex) and not os.path.isdir(cfg.get_d_idx(stn, vi_code_i)))):
+                vi_code_l_avail = False
                 break
-        if not varidx_name_l_avail:
+        if not vi_code_l_avail:
             continue
 
         # Create mask.
         da_mask = None
-        if stn == cfg.obs_src_era5_land:
+        if stn == vi.ens_era5_land:
             da_mask = utils.create_mask()
 
         # Loop through emissions scenarios.
         for rcp in rcps:
 
-            utils.log("Processing: " + idx_code + ", " + stn + ", " + cfg.get_rcp_desc(rcp) + "", True)
+            utils.log("Processing: " + vi_code + ", " + stn + ", " + str(rcp_def.RCP(rcp).get_desc()) + "", True)
 
             # List simulation files for the first variable. As soon as there is no file for one variable, the analysis
             # for the current RCP needs to abort.
             utils.log("Collecting simulation files.", True)
-            if rcp == cfg.rcp_ref:
-                if cfg.extract_idx(varidx_name_l[0]) in cfg.variables_cordex:
-                    p_sim = cfg.get_d_stn(varidx_name_l[0]) +\
-                            cfg.extract_idx(varidx_name_l[0]) + "_" + stn + cfg.f_ext_nc
+            varidx_0 = vi.VarIdx(vi_code_l[0])
+            if rcp == rcp_def.rcp_ref:
+                if varidx_0.get_ens() in vi.ens_cordex:
+                    p_sim = cfg.get_d_stn(vi_code_l[0]) + varidx_0.get_name() + "_" + stn + cfg.f_ext_nc
                 else:
-                    p_sim = cfg.get_d_idx(cfg.obs_src, varidx_name_l[0]) +\
-                            cfg.extract_idx(varidx_name_l[0]) + "_ref" + cfg.f_ext_nc
+                    p_sim = cfg.get_d_idx(cfg.obs_src, vi_code_l[0]) + varidx_0.get_name() + "_ref" + cfg.f_ext_nc
                 if os.path.exists(p_sim) and (type(p_sim) is str):
                     p_sim = [p_sim]
             else:
-                if cfg.extract_idx(varidx_name_l[0]) in cfg.variables_cordex:
-                    d = cfg.get_d_scen(stn, cfg.cat_qqmap, varidx_name_l[0])
+                if varidx_0.get_ens() == vi.ens_cordex:
+                    d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_l[0])
                 else:
-                    d = cfg.get_d_idx(stn, varidx_name_l[0])
+                    d = cfg.get_d_idx(stn, vi_code_l[0])
                 p_sim = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
             if not p_sim:
                 continue
@@ -185,13 +176,13 @@ def generate(
 
             # Ensure that simulations are available for other variables than the first one.
             utils.log("Verifying data availability (based on NetCDF files).", True)
-            if len(varidx_name_l) > 1:
+            if len(vi_code_l) > 1:
                 p_sim_fix = []
                 for p_sim_i in p_sim:
                     missing = False
-                    for varidx_name_j in varidx_name_l[1:]:
-                        if varidx_name_j != "nan":
-                            p_sim_j = cfg.get_equivalent_idx_path(p_sim_i, varidx_name_l[0], varidx_name_j, stn, rcp)
+                    for vi_code_j in vi_code_l[1:]:
+                        if vi_code_j != "nan":
+                            p_sim_j = cfg.get_equivalent_idx_path(p_sim_i, vi_code_l[0], vi_code_j, stn, rcp)
                             if not os.path.exists(p_sim_j):
                                 missing = True
                                 break
@@ -204,12 +195,12 @@ def generate(
             utils.log("Calculating climate indices", True)
 
             n_sim = len(p_sim)
-            d_idx = cfg.get_d_idx(stn, idx_name)
+            d_idx = cfg.get_d_idx(stn, vi_code)
 
             # Scalar mode.
             if cfg.n_proc == 1:
                 for i_sim in range(n_sim):
-                    generate_single(idx_code, idx_params, varidx_name_l, p_sim, stn, rcp, da_mask, i_sim)
+                    generate_single(vi_code, vi_params, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
 
             # Parallel processing mode.
             else:
@@ -223,11 +214,11 @@ def generate(
 
                     # Scalar processing mode.
                     scalar_required = False
-                    if idx_name == cfg.idx_prcptot:
-                        scalar_required = not str(idx_params[0]).isdigit()
+                    if vi_name == vi.i_prcptot:
+                        scalar_required = not str(vi_params[0]).isdigit()
                     if (cfg.n_proc == 1) or scalar_required:
                         for i_sim in range(n_sim):
-                            generate_single(idx_code, idx_params, varidx_name_l, p_sim, stn, rcp, da_mask, i_sim)
+                            generate_single(vi_code, vi_params, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
 
                     # Parallel processing mode.
                     else:
@@ -235,7 +226,7 @@ def generate(
                         try:
                             utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                             pool = multiprocessing.Pool(processes=min(cfg.n_proc, n_sim))
-                            func = functools.partial(generate_single, idx_code, idx_params, varidx_name_l, p_sim,
+                            func = functools.partial(generate_single, vi_code, vi_params, vi_code_l, p_sim,
                                                      stn, rcp, da_mask)
                             pool.map(func, list(range(n_sim)))
                             pool.close()
@@ -254,9 +245,9 @@ def generate(
 
 
 def generate_single(
-    idx_code: str,
-    idx_params,
-    varidx_name_l: [str],
+    vi_code: str,
+    vi_params,
+    vi_code_l: [str],
     p_sim: [str],
     stn: str,
     rcp: str,
@@ -270,11 +261,11 @@ def generate_single(
 
     Parameters
     ----------
-    idx_code : str
+    vi_code : str
         Climate index code.
-    idx_params :
+    vi_params :
         Climate index parameters.
-    varidx_name_l : [str]
+    vi_code_l : [str]
         List of climate variables or indices.
     p_sim : [str]
         List of simulation files.
@@ -289,126 +280,125 @@ def generate_single(
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Extract variable name
+    varidx = vi.VarIdx(vi_code)
+    vi_name = str(varidx.get_name())
+    varidx_0 = vi.VarIdx(vi_code_l[0])
+    vi_name_0 = str(varidx_0.get_name())
+
     # Name of NetCDF file to generate.
-    idx_name = cfg.extract_idx(idx_code)
-    if rcp == cfg.rcp_ref:
-        p_idx = cfg.get_d_idx(stn, idx_code) + idx_name + "_ref" + cfg.f_ext_nc
+    if rcp == rcp_def.rcp_ref:
+        p_idx = cfg.get_d_idx(stn, vi_code) + vi_name + "_ref" + cfg.f_ext_nc
     else:
-        p_idx = cfg.get_d_scen(stn, cfg.cat_idx, idx_code) +\
-                os.path.basename(p_sim[i_sim]).replace(cfg.extract_idx(varidx_name_l[0]), idx_name)
+        p_idx = cfg.get_d_scen(stn, cfg.cat_idx, vi_code) +\
+                os.path.basename(p_sim[i_sim]).replace(vi_name_0, vi_name)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
-    if (rcp != cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
+    if (rcp != rcp_def.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
         if cfg.n_proc > 1:
             utils.log("Work done!", True)
         return
 
     # Load datasets (one per variable or index).
-    ds_varidx_l: List[xr.Dataset] = []
-    for i_varidx in range(0, len(varidx_name_l)):
-        varidx_name = varidx_name_l[i_varidx]
+    ds_vi_l: List[xr.Dataset] = []
+    for i_varidx in range(0, len(vi_code_l)):
+        vi_code_i = vi_code_l[i_varidx]
+        varidx_i = vi.VarIdx(vi_name)
 
         try:
             # Open dataset.
-            p_sim_j =\
-                cfg.get_equivalent_idx_path(p_sim[i_sim], varidx_name_l[0], cfg.get_idx_group(varidx_name), stn, rcp)
+            p_sim_j = cfg.get_equivalent_idx_path(p_sim[i_sim], vi_code_l[0], vi.get_group(vi_code_i), stn, rcp)
             ds = utils.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.
-            if (rcp == cfg.rcp_ref) and (varidx_name in cfg.variables_cordex):
+            if (rcp == rcp_def.rcp_ref) and (varidx_i.get_ens() == vi.ens_cordex):
                 ds = utils.remove_feb29(ds)
                 ds = utils.sel_period(ds, cfg.per_ref)
 
             # Adjust temperature units.
-            if cfg.extract_idx(varidx_name) in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
-                if ds[varidx_name].attrs[cfg.attrs_units] == cfg.unit_K:
-                    ds[varidx_name] = ds[varidx_name] - cfg.d_KC
-                elif rcp == cfg.rcp_ref:
-                    ds[varidx_name][cfg.attrs_units] = cfg.unit_C
-                ds[varidx_name].attrs[cfg.attrs_units] = cfg.unit_C
+            if varidx_i.get_name() in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
+                if ds[vi_code_i].attrs[cfg.attrs_units] == cfg.unit_K:
+                    ds[vi_code_i] = ds[vi_code_i] - cfg.d_KC
+                elif rcp == rcp_def.rcp_ref:
+                    ds[vi_code_i][cfg.attrs_units] = cfg.unit_C
+                ds[vi_code_i].attrs[cfg.attrs_units] = cfg.unit_C
 
         except:
             ds = None
 
         # Add dataset.
-        ds_varidx_l.append(ds)
-
-    # ======================================================================================================
-    # TODO.CUSTOMIZATION.INDEX.BEGIN
-    # Calculate indices.
-    # ======================================================================================================
+        ds_vi_l.append(ds)
 
     # Calculate the 90th percentile of tasmax for the reference period.
     da_tx90p = None
-    if (idx_name == cfg.idx_wsdi) and (rcp == cfg.rcp_ref):
-        da_tx90p = xr.DataArray(percentile_doy(ds_varidx_l[0][cfg.var_cordex_tasmax], per=0.9))
+    if (vi_name == vi.i_wsdi) and (rcp == rcp_def.rcp_ref):
+        da_tx90p = xr.DataArray(percentile_doy(ds_vi_l[0][vi.v_tasmax], per=0.9))
 
     # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
-    idx_params_str = []
-    for i in range(len(idx_params)):
-        idx_param = idx_params[i]
+    vi_params_str = []
+    for i in range(len(vi_params)):
+        vi_param = vi_params[i]
 
         # Convert thresholds (percentile to absolute value) ------------------------------------------------
 
-        if (idx_name == cfg.idx_tx90p) or ((idx_name == cfg.idx_wsdi) and (i == 0)):
-            idx_param = "90p"
-        if (idx_name in [cfg.idx_tx_days_above, cfg.idx_tng_months_below, cfg.idx_tx90p, cfg.idx_prcptot,
-                         cfg.idx_tropical_nights]) or\
-           ((idx_name in [cfg.idx_hot_spell_frequency, cfg.idx_hot_spell_max_length, cfg.idx_wsdi]) and (i == 0)) or \
-           ((idx_name in [cfg.idx_heat_wave_max_length, cfg.idx_heat_wave_total_length]) and (i <= 1)) or \
-           ((idx_name in [cfg.idx_wg_days_above, cfg.idx_wx_days_above]) and (i == 0)):
+        if (vi_name == vi.i_tx90p) or ((vi_name == vi.i_wsdi) and (i == 0)):
+            vi_param = "90p"
+        if (vi_name in [vi.i_tx_days_above, vi.i_tng_months_below, vi.i_tx90p, vi.i_prcptot, vi.i_tropical_nights]) or\
+           ((vi_name in [vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_wsdi]) and (i == 0)) or \
+           ((vi_name in [vi.i_heat_wave_max_length, vi.i_heat_wave_total_length]) and (i <= 1)) or \
+           ((vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]) and (i == 0)):
 
-            if "p" in str(idx_param):
-                idx_param = float(idx_param.replace("p", "")) / 100.0
-                if rcp == cfg.rcp_ref:
+            if "p" in str(vi_param):
+                vi_param = float(vi_param.replace("p", "")) / 100.0
+                if rcp == rcp_def.rcp_ref:
                     # Calculate percentile.
-                    if (idx_name in [cfg.idx_tx90p, cfg.idx_hot_spell_frequency, cfg.idx_hot_spell_max_length,
-                                     cfg.idx_wsdi]) or (i == 1):
-                        idx_param = ds_varidx_l[i][cfg.var_cordex_tasmax].quantile(idx_param).values.ravel()[0]
-                    elif idx_name in [cfg.idx_heat_wave_max_length, cfg.idx_heat_wave_total_length]:
-                        idx_param = ds_varidx_l[i][cfg.var_cordex_tasmin].quantile(idx_param).values.ravel()[0]
-                    elif idx_name == cfg.idx_prcptot:
+                    if (vi_name in [vi.i_tx90p, vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_wsdi]) or\
+                       (i == 1):
+                        vi_param = ds_vi_l[i][vi.v_tasmax].quantile(vi_param).values.ravel()[0]
+                    elif vi_name in [vi.i_heat_wave_max_length, vi.i_heat_wave_total_length]:
+                        vi_param = ds_vi_l[i][vi.v_tasmin].quantile(vi_param).values.ravel()[0]
+                    elif vi_name == vi.i_prcptot:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=FutureWarning)
-                            da_i = ds_varidx_l[i][cfg.var_cordex_pr].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
-                        dims = utils.get_coord_names(ds_varidx_l[i])
-                        idx_param = da_i.mean(dim=dims).quantile(idx_param).values.ravel()[0] * cfg.spd
-                    elif idx_name in [cfg.idx_wg_days_above, cfg.idx_wx_days_above]:
-                        if idx_name == cfg.idx_wg_days_above:
-                            da_uas = ds_varidx_l[0][cfg.var_cordex_uas]
-                            da_vas = ds_varidx_l[1][cfg.var_cordex_vas]
+                            da_i = ds_vi_l[i][vi.v_pr].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+                        dims = utils.get_coord_names(ds_vi_l[i])
+                        vi_param = da_i.mean(dim=dims).quantile(vi_param).values.ravel()[0] * cfg.spd
+                    elif vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]:
+                        if vi_name == vi.i_wg_days_above:
+                            da_uas = ds_vi_l[0][vi.v_uas]
+                            da_vas = ds_vi_l[1][vi.v_vas]
                             da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas)
                         else:
-                            da_vv = ds_varidx_l[0][cfg.var_cordex_sfcwindmax]
-                        idx_param = da_vv.quantile(idx_param).values.ravel()[0]
+                            da_vv = ds_vi_l[0][vi.v_sfcwindmax]
+                        vi_param = da_vv.quantile(vi_param).values.ravel()[0]
                     # Round value and save it.
-                    idx_param = float(round(idx_param, 2))
-                    cfg.idx_params[cfg.idx_names.index(idx_name)][i] = idx_param
+                    vi_param = float(round(vi_param, 2))
+                    cfg.idx_params[cfg.idx_names.index(vi_name)][i] = vi_param
                 else:
-                    idx_param = cfg.idx_params[cfg.idx_names.index(idx_name)][i]
+                    vi_param = cfg.idx_params[cfg.idx_names.index(vi_name)][i]
 
         # Combine threshold and unit -----------------------------------------------------------------------
 
-        if (idx_name in [cfg.idx_tx90p, cfg.idx_tropical_nights]) or\
-           ((idx_name in [cfg.idx_hot_spell_frequency, cfg.idx_hot_spell_max_length, cfg.idx_wsdi,
-                          cfg.idx_tn_days_below, cfg.idx_tx_days_above]) and (i == 0)) or \
-           ((idx_name in [cfg.idx_heat_wave_max_length, cfg.idx_heat_wave_total_length]) and (i <= 1)):
-            idx_ref = str(idx_param) + " " + cfg.unit_C
-            idx_fut = str(idx_param + cfg.d_KC) + " " + cfg.unit_K
-            idx_params_str.append(idx_ref if (rcp == cfg.rcp_ref) else idx_fut)
+        if (vi_name in [vi.i_tx90p, vi.i_tropical_nights]) or\
+           ((vi_name in [vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_wsdi,
+                         vi.i_tn_days_below, vi.i_tx_days_above]) and (i == 0)) or \
+           ((vi_name in [vi.i_heat_wave_max_length, vi.i_heat_wave_total_length]) and (i <= 1)):
+            vi_ref = str(vi_param) + " " + cfg.unit_C
+            vi_fut = str(vi_param + cfg.d_KC) + " " + cfg.unit_K
+            vi_params_str.append(vi_ref if (rcp == rcp_def.rcp_ref) else vi_fut)
 
-        elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
-                          cfg.idx_wet_days, cfg.idx_dry_days, cfg.idx_sdii]:
-            idx_params_str.append(str(idx_param) + " mm/day")
+        elif vi_name in [vi.i_cwd, vi.i_cdd, vi.i_r10mm, vi.i_r20mm, vi.i_rnnmm,
+                         vi.i_wet_days, vi.i_dry_days, vi.i_sdii]:
+            vi_params_str.append(str(vi_param) + " mm/day")
 
-        elif (idx_name in [cfg.idx_wg_days_above, cfg.idx_wx_days_above]) and (i == 1):
-            idx_params_str.append(str(idx_param) + " " + cfg.unit_m_s)
+        elif (vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]) and (i == 1):
+            vi_params_str.append(str(vi_param) + " " + cfg.unit_m_s)
 
-        elif not ((idx_name in [cfg.idx_wg_days_above, cfg.idx_wx_days_above]) and (i == 4)):
-            idx_params_str.append(str(idx_param))
+        elif not ((vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]) and (i == 4)):
+            vi_params_str.append(str(vi_param))
 
     # Exit loop if the file already exists (reference file only).
-    if not ((rcp == cfg.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite)):
+    if not ((rcp == rcp_def.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite)):
 
         # Will hold data arrays and units.
         da_idx_l    = []
@@ -417,15 +407,15 @@ def generate_single(
 
         # Temperature --------------------------------------------------------------------------------------------------
 
-        if idx_name in [cfg.idx_tx_days_above, cfg.idx_tx90p]:
+        if vi_name in [vi.i_tx_days_above, vi.i_tx90p]:
 
             # Collect required datasets and parameters.
-            da_tasmax = ds_varidx_l[0][cfg.var_cordex_tasmax]
-            thresh = idx_params_str[0]
+            da_tasmax = ds_vi_l[0][vi.v_tasmax]
+            thresh = vi_params_str[0]
             start_date = end_date = ""
-            if len(idx_params_str) > 1:
-                start_date = str(idx_params_str[1]).replace("nan", "")
-                end_date = str(idx_params_str[2]).replace("nan", "")
+            if len(vi_params_str) > 1:
+                start_date = str(vi_params_str[1]).replace("nan", "")
+                end_date = str(vi_params_str[2]).replace("nan", "")
 
             # Calculate index.
             da_idx = tx_days_above(da_tasmax, thresh, start_date, end_date)
@@ -435,15 +425,15 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        if idx_name == cfg.idx_tn_days_below:
+        if vi_name == vi.i_tn_days_below:
 
             # Collect required datasets and parameters.
-            da_tasmin = ds_varidx_l[0][cfg.var_cordex_tasmin]
-            thresh = idx_params_str[0]
+            da_tasmin = ds_vi_l[0][vi.v_tasmin]
+            thresh = vi_params_str[0]
             start_date = end_date = ""
-            if len(idx_params_str) > 1:
-                start_date = str(idx_params_str[1]).replace("nan", "")
-                end_date = str(idx_params_str[2]).replace("nan", "")
+            if len(vi_params_str) > 1:
+                start_date = str(vi_params_str[1]).replace("nan", "")
+                end_date = str(vi_params_str[2]).replace("nan", "")
 
             # Calculate index.
             da_idx = tn_days_below(da_tasmin, thresh, start_date, end_date)
@@ -453,11 +443,11 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name == cfg.idx_tng_months_below:
+        elif vi_name == vi.i_tng_months_below:
 
             # Collect required datasets and parameters.
-            da_tasmin = ds_varidx_l[0][cfg.var_cordex_tasmin]
-            param_tasmin = float(idx_params_str[0])
+            da_tasmin = ds_vi_l[0][vi.v_tasmin]
+            param_tasmin = float(vi_params_str[0])
             if da_tasmin.attrs[cfg.attrs_units] != cfg.unit_C:
                 param_tasmin += cfg.d_KC
 
@@ -472,18 +462,18 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name in [cfg.idx_hot_spell_frequency, cfg.idx_hot_spell_max_length, cfg.idx_wsdi]:
+        elif vi_name in [vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_wsdi]:
 
             # Collect required datasets and parameters.
-            da_tasmax = ds_varidx_l[0][cfg.var_cordex_tasmax]
-            param_tasmax = idx_params_str[0]
-            param_ndays = int(float(idx_params_str[1]))
+            da_tasmax = ds_vi_l[0][vi.v_tasmax]
+            param_tasmax = vi_params_str[0]
+            param_ndays = int(float(vi_params_str[1]))
 
             # Calculate index.
-            if idx_name == cfg.idx_hot_spell_frequency:
+            if vi_name == vi.i_hot_spell_frequency:
                 da_idx = xr.DataArray(
                     indices.hot_spell_frequency(da_tasmax, param_tasmax, param_ndays).values)
-            elif idx_name == cfg.idx_hot_spell_max_length:
+            elif vi_name == vi.i_hot_spell_max_length:
                 da_idx = xr.DataArray(
                     indices.hot_spell_max_length(da_tasmax, param_tasmax, param_ndays).values)
             else:
@@ -495,17 +485,17 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name in [cfg.idx_heat_wave_max_length, cfg.idx_heat_wave_total_length]:
+        elif vi_name in [vi.i_heat_wave_max_length, vi.i_heat_wave_total_length]:
 
             # Collect required datasets and parameters.
-            da_tasmin = ds_varidx_l[0][cfg.var_cordex_tasmin]
-            da_tasmax = ds_varidx_l[1][cfg.var_cordex_tasmax]
-            param_tasmin = idx_params_str[0]
-            param_tasmax = idx_params_str[1]
-            window = int(float(idx_params_str[2]))
+            da_tasmin = ds_vi_l[0][vi.v_tasmin]
+            da_tasmax = ds_vi_l[1][vi.v_tasmax]
+            param_tasmin = vi_params_str[0]
+            param_tasmax = vi_params_str[1]
+            window = int(float(vi_params_str[2]))
 
             # Calculate index.
-            if idx_name == cfg.idx_heat_wave_max_length:
+            if vi_name == vi.i_heat_wave_max_length:
                 da_idx = xr.DataArray(
                     heat_wave_max_length(da_tasmin, da_tasmax, param_tasmin, param_tasmax, window).values)
             else:
@@ -517,15 +507,15 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name in [cfg.idx_txg, cfg.idx_txx]:
+        elif vi_name in [vi.i_txg, vi.i_txx]:
 
             # Collect required datasets and parameters.
-            da_tasmax = ds_varidx_l[0][cfg.var_cordex_tasmax]
+            da_tasmax = ds_vi_l[0][vi.v_tasmax]
 
             # Calculate index.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                if idx_name == cfg.idx_txg:
+                if vi_name == vi.i_txg:
                     da_idx = xr.DataArray(indices.tx_mean(da_tasmax))
                 else:
                     da_idx = xr.DataArray(indices.tx_max(da_tasmax))
@@ -534,23 +524,23 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_C)
 
-        elif idx_name in [cfg.idx_tnx, cfg.idx_tng, cfg.idx_tropical_nights]:
+        elif vi_name in [vi.i_tnx, vi.i_tng, vi.i_tropical_nights]:
 
             # Collect required datasets and parameters.
-            da_tasmin = ds_varidx_l[0][cfg.var_cordex_tasmin]
+            da_tasmin = ds_vi_l[0][vi.v_tasmin]
 
             # Calculate index.
-            if idx_name in [cfg.idx_tnx, cfg.idx_tng]:
+            if vi_name in [vi.i_tnx, vi.i_tng]:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=Warning)
-                    if idx_name == cfg.idx_tnx:
+                    if vi_name == vi.i_tnx:
                         da_idx = xr.DataArray(indices.tn_max(da_tasmin))
                         idx_units = cfg.unit_C
                     else:
                         da_idx = xr.DataArray(indices.tn_mean(da_tasmin))
                         idx_units = cfg.unit_C
             else:
-                param_tasmin = idx_params_str[0]
+                param_tasmin = vi_params_str[0]
                 da_idx = xr.DataArray(indices.tropical_nights(da_tasmin, param_tasmin))
                 idx_units = cfg.unit_1
 
@@ -558,16 +548,16 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(idx_units)
 
-        elif idx_name in [cfg.idx_tgg, cfg.idx_etr]:
+        elif vi_name in [vi.i_tgg, vi.i_etr]:
 
             # Collect required datasets and parameters.
-            da_tasmin = ds_varidx_l[0][cfg.var_cordex_tasmin]
-            da_tasmax = ds_varidx_l[1][cfg.var_cordex_tasmax]
+            da_tasmin = ds_vi_l[0][vi.v_tasmin]
+            da_tasmax = ds_vi_l[1][vi.v_tasmax]
 
             # Calculate index.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                if idx_name == cfg.idx_tgg:
+                if vi_name == vi.i_tgg:
                     da_idx = xr.DataArray(indices.tg_mean(indices.tas(da_tasmin, da_tasmax)))
                 else:
                     da_idx = xr.DataArray(indices.tx_max(da_tasmax) - indices.tn_min(da_tasmin))
@@ -576,12 +566,12 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_C)
 
-        elif idx_name == cfg.idx_drought_code:
+        elif vi_name == vi.i_drought_code:
 
             # Collect required datasets and parameters.
-            da_tas = ds_varidx_l[0][cfg.var_cordex_tas]
-            da_pr  = ds_varidx_l[1][cfg.var_cordex_pr]
-            da_lon, da_lat = utils.get_coordinates(ds_varidx_l[0])
+            da_tas = ds_vi_l[0][vi.v_tas]
+            da_pr  = ds_vi_l[1][vi.v_pr]
+            da_lon, da_lat = utils.get_coordinates(ds_vi_l[0])
 
             # Calculate index
             with warnings.catch_warnings():
@@ -594,48 +584,48 @@ def generate_single(
 
         # Precipitation ------------------------------------------------------------------------------------------------
 
-        elif idx_name in [cfg.idx_rx1day, cfg.idx_rx5day, cfg.idx_prcptot]:
+        elif vi_name in [vi.i_rx1day, vi.i_rx5day, vi.i_prcptot]:
 
             # Collect required datasets and parameters.
-            da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
+            da_pr = ds_vi_l[0][vi.v_pr]
 
             # Calculate index.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                if idx_name == cfg.idx_rx1day:
+                if vi_name == vi.i_rx1day:
                     da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS))
-                elif idx_name == cfg.idx_rx5day:
+                elif vi_name == vi.i_rx5day:
                     da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS))
                 else:
                     start_date = end_date = ""
-                    if len(idx_params_str) == 3:
-                        start_date = str(idx_params_str[1]).replace("nan", "")
-                        end_date = str(idx_params_str[2]).replace("nan", "")
+                    if len(vi_params_str) == 3:
+                        start_date = str(vi_params_str[1]).replace("nan", "")
+                        end_date = str(vi_params_str[2]).replace("nan", "")
                     da_idx = xr.DataArray(precip_accumulation(da_pr, start_date, end_date))
 
             # Add to list.
             da_idx_l.append(da_idx)
             idx_units_l.append(da_idx.attrs[cfg.attrs_units])
 
-        elif idx_name in [cfg.idx_cwd, cfg.idx_cdd, cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm,
-                          cfg.idx_wet_days, cfg.idx_dry_days, cfg.idx_sdii]:
+        elif vi_name in [vi.i_cwd, vi.i_cdd, vi.i_r10mm, vi.i_r20mm, vi.i_rnnmm,
+                          vi.i_wet_days, vi.i_dry_days, vi.i_sdii]:
 
             # Collect required datasets and parameters.
-            da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
-            param_pr = idx_params_str[0]
+            da_pr = ds_vi_l[0][vi.v_pr]
+            param_pr = vi_params_str[0]
 
             # Calculate index.
-            if idx_name in cfg.idx_cwd:
+            if vi_name in vi.i_cwd:
                 da_idx = xr.DataArray(
                     indices.maximum_consecutive_wet_days(da_pr, param_pr, cfg.freq_YS))
-            elif idx_name in cfg.idx_cdd:
+            elif vi_name in vi.i_cdd:
                 da_idx = xr.DataArray(
                     indices.maximum_consecutive_dry_days(da_pr, param_pr, cfg.freq_YS))
-            elif idx_name in [cfg.idx_r10mm, cfg.idx_r20mm, cfg.idx_rnnmm, cfg.idx_wet_days]:
+            elif vi_name in [vi.i_r10mm, vi.i_r20mm, vi.i_rnnmm, vi.i_wet_days]:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=Warning)
                     da_idx = xr.DataArray(indices.wetdays(da_pr, param_pr, cfg.freq_YS))
-            elif idx_name == cfg.idx_dry_days:
+            elif vi_name == vi.i_dry_days:
                 da_idx = xr.DataArray(indices.dry_days(da_pr, param_pr, cfg.freq_YS))
             else:
                 da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, param_pr))
@@ -645,17 +635,17 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name == cfg.idx_rain_season_start:
+        elif vi_name == vi.i_rain_season_start:
 
             # Collect required datasets and parameters.
-            da_pr      = ds_varidx_l[0][cfg.var_cordex_pr]
-            thresh_wet = idx_params_str[0] + " mm"
-            window_wet = int(idx_params_str[1])
-            thresh_dry = idx_params_str[2] + " mm"
-            dry_days   = int(idx_params_str[3])
-            window_dry = int(idx_params_str[4])
-            start_date = str(idx_params_str[5]).replace("nan", "")
-            end_date   = str(idx_params_str[6]).replace("nan", "")
+            da_pr      = ds_vi_l[0][vi.v_pr]
+            thresh_wet = vi_params_str[0] + " mm"
+            window_wet = int(vi_params_str[1])
+            thresh_dry = vi_params_str[2] + " mm"
+            dry_days   = int(vi_params_str[3])
+            window_dry = int(vi_params_str[4])
+            start_date = str(vi_params_str[5]).replace("nan", "")
+            end_date   = str(vi_params_str[6]).replace("nan", "")
 
             # Calculate index.
             da_idx =\
@@ -666,28 +656,28 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name == cfg.idx_rain_season_end:
+        elif vi_name == vi.i_rain_season_end:
 
             # Collect required datasets and parameters.
-            da_pr  = ds_varidx_l[0][cfg.var_cordex_pr]
+            da_pr  = ds_vi_l[0][vi.v_pr]
             da_etp = None
-            if ds_varidx_l[1] is not None:
-                if cfg.var_cordex_evspsblpot in cfg.variables_cordex:
-                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsblpot]
-                elif cfg.var_cordex_evspsbl in cfg.variables_cordex:
-                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsbl]
+            if ds_vi_l[1] is not None:
+                if vi.v_evspsblpot in cfg.variables:
+                    da_etp = ds_vi_l[1][vi.v_evspsblpot]
+                elif vi.v_evspsbl in cfg.variables:
+                    da_etp = ds_vi_l[1][vi.v_evspsbl]
             da_start = None
-            if ds_varidx_l[2] is not None:
-                da_start = ds_varidx_l[2][cfg.idx_rain_season_start]
+            if ds_vi_l[2] is not None:
+                da_start = ds_vi_l[2][vi.i_rain_season_start]
             da_start_next = None
-            if ds_varidx_l[3] is not None:
-                da_start_next = ds_varidx_l[3][cfg.idx_rain_season_start]
-            op         = idx_params_str[0]
-            thresh     = idx_params_str[1] + " mm"
-            window     = -1 if str(idx_params_str[2]) == "nan" else int(idx_params_str[2])
-            etp_rate   = ("0" if str(idx_params_str[3]) == "nan" else idx_params_str[3]) + " mm"
-            start_date = str(idx_params_str[4]).replace("nan", "")
-            end_date   = str(idx_params_str[5]).replace("nan", "")
+            if ds_vi_l[3] is not None:
+                da_start_next = ds_vi_l[3][vi.i_rain_season_start]
+            op         = vi_params_str[0]
+            thresh     = vi_params_str[1] + " mm"
+            window     = -1 if str(vi_params_str[2]) == "nan" else int(vi_params_str[2])
+            etp_rate   = ("0" if str(vi_params_str[3]) == "nan" else vi_params_str[3]) + " mm"
+            start_date = str(vi_params_str[4]).replace("nan", "")
+            end_date   = str(vi_params_str[5]).replace("nan", "")
 
             # Calculate index.
             da_idx = xr.DataArray(rain_season_end(da_pr, da_etp, da_start, da_start_next, op, thresh, window, etp_rate,
@@ -697,11 +687,11 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name == cfg.idx_rain_season_length:
+        elif vi_name == vi.i_rain_season_length:
 
             # Collect required datasets and parameters.
-            da_start = ds_varidx_l[0][cfg.idx_rain_season_start]
-            da_end   = ds_varidx_l[1][cfg.idx_rain_season_end]
+            da_start = ds_vi_l[0][vi.i_rain_season_start]
+            da_end   = ds_vi_l[1][vi.i_rain_season_end]
 
             # Calculate index.
             da_idx = rain_season_length(da_start, da_end)
@@ -710,48 +700,48 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        elif idx_name == cfg.idx_rain_season_prcptot:
+        elif vi_name == vi.i_rain_season_prcptot:
 
             # Collect required datasets and parameters.
-            da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
-            da_start = ds_varidx_l[1][cfg.idx_rain_season_start]
-            da_end = ds_varidx_l[2][cfg.idx_rain_season_end]
+            da_pr = ds_vi_l[0][vi.v_pr]
+            da_start = ds_vi_l[1][vi.i_rain_season_start]
+            da_end = ds_vi_l[2][vi.i_rain_season_end]
 
             # Calculate index.
             da_idx = xr.DataArray(rain_season_prcptot(da_pr, da_start, da_end))
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.get_unit(idx_name))
+            idx_units_l.append(vi.VarIdx(vi_name).get_unit())
 
-        elif idx_name == cfg.idx_rain_season:
+        elif vi_name == vi.i_rain_season:
 
             # Collect required datasets and parameters.
-            da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
+            da_pr = ds_vi_l[0][vi.v_pr]
             # Rain start:
-            s_thresh_wet = idx_params_str[0] + " mm"
-            s_window_wet = int(idx_params_str[1])
-            s_thresh_dry = idx_params_str[2] + " mm"
-            s_dry_days   = int(idx_params_str[3])
-            s_window_dry = int(idx_params_str[4])
-            s_start_date = str(idx_params_str[5]).replace("nan", "")
-            s_end_date   = str(idx_params_str[6]).replace("nan", "")
+            s_thresh_wet = vi_params_str[0] + " mm"
+            s_window_wet = int(vi_params_str[1])
+            s_thresh_dry = vi_params_str[2] + " mm"
+            s_dry_days   = int(vi_params_str[3])
+            s_window_dry = int(vi_params_str[4])
+            s_start_date = str(vi_params_str[5]).replace("nan", "")
+            s_end_date   = str(vi_params_str[6]).replace("nan", "")
             # Rain end:
             da_etp = None
-            if ds_varidx_l[1] is not None:
-                if cfg.var_cordex_evspsblpot in cfg.variables_cordex:
-                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsblpot]
-                elif cfg.var_cordex_evspsbl in cfg.variables_cordex:
-                    da_etp = ds_varidx_l[1][cfg.var_cordex_evspsbl]
+            if ds_vi_l[1] is not None:
+                if vi.v_evspsblpot in cfg.variables:
+                    da_etp = ds_vi_l[1][vi.v_evspsblpot]
+                elif vi.v_evspsbl in cfg.variables:
+                    da_etp = ds_vi_l[1][vi.v_evspsbl]
             da_start_next = None
-            if ds_varidx_l[3] is not None:
-                da_start_next = ds_varidx_l[3][cfg.idx_rain_season_start]
-            e_op         = idx_params_str[7]
-            e_thresh     = idx_params_str[8] + " mm"
-            e_window     = -1 if str(idx_params_str[9]) == "nan" else int(idx_params_str[9])
-            e_etp_rate   = ("0" if str(idx_params_str[10]) == "nan" else idx_params_str[10]) + " mm"
-            e_start_date = str(idx_params_str[11]).replace("nan", "")
-            e_end_date   = str(idx_params_str[12]).replace("nan", "")
+            if ds_vi_l[3] is not None:
+                da_start_next = ds_vi_l[3][vi.i_rain_season_start]
+            e_op         = vi_params_str[7]
+            e_thresh     = vi_params_str[8] + " mm"
+            e_window     = -1 if str(vi_params_str[9]) == "nan" else int(vi_params_str[9])
+            e_etp_rate   = ("0" if str(vi_params_str[10]) == "nan" else vi_params_str[10]) + " mm"
+            e_start_date = str(vi_params_str[11]).replace("nan", "")
+            e_end_date   = str(vi_params_str[12]).replace("nan", "")
 
             # Calculate indices.
             da_start, da_end, da_length, da_prcptot =\
@@ -761,21 +751,22 @@ def generate_single(
 
             # Add to list.
             da_idx_l = [da_start, da_end, da_length, da_prcptot]
-            idx_units_l = [cfg.unit_1, cfg.unit_1, cfg.unit_1, cfg.get_unit(cfg.idx_rain_season_prcptot)]
-            idx_name_l = [cfg.idx_rain_season_start, cfg.idx_rain_season_end, cfg.idx_rain_season_length,
-                          cfg.idx_rain_season_prcptot]
+            idx_units_l = [cfg.unit_1, cfg.unit_1, cfg.unit_1,
+                           vi.VarIdx(vi.i_rain_season_prcptot).get_unit()]
+            idx_name_l = [vi.i_rain_season_start, vi.i_rain_season_end, vi.i_rain_season_length,
+                          vi.i_rain_season_prcptot]
 
-        elif idx_name == cfg.idx_dry_spell_total_length:
+        elif vi_name == vi.i_dry_spell_total_length:
 
             # Collect required datasets and parameters.
-            da_pr = ds_varidx_l[0][cfg.var_cordex_pr]
-            thresh = idx_params_str[0] + " mm"
-            window = int(idx_params_str[1])
-            op = idx_params_str[2]
+            da_pr = ds_vi_l[0][vi.v_pr]
+            thresh = vi_params_str[0] + " mm"
+            window = int(vi_params_str[1])
+            op = vi_params_str[2]
             start_date = end_date = ""
-            if len(idx_params_str) == 5:
-                start_date = str(idx_params_str[3])
-                end_date = str(idx_params_str[4])
+            if len(vi_params_str) == 5:
+                start_date = str(vi_params_str[3])
+                end_date = str(vi_params_str[4])
 
             # Calculate index.
             da_idx = xr.DataArray(dry_spell_total_length(da_pr, thresh, window, op, start_date, end_date))
@@ -786,23 +777,23 @@ def generate_single(
 
         # Wind ---------------------------------------------------------------------------------------------------------
 
-        elif idx_name in [cfg.idx_wg_days_above, cfg.idx_wx_days_above]:
+        elif vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]:
 
             # Collect required datasets and parameters.
-            param_vv     = float(idx_params_str[0])
-            param_vv_neg = idx_params_str[1]
-            param_dd     = float(idx_params_str[2])
-            param_dd_tol = float(idx_params_str[3])
+            param_vv     = float(vi_params_str[0])
+            param_vv_neg = vi_params_str[1]
+            param_dd     = float(vi_params_str[2])
+            param_dd_tol = float(vi_params_str[3])
             start_date = end_date = ""
-            if len(idx_params_str) == 6:
-                start_date = str(idx_params_str[4]).replace("nan", "")
-                end_date = str(idx_params_str[5]).replace("nan", "")
-            if idx_name == cfg.idx_wg_days_above:
-                da_uas = ds_varidx_l[0][cfg.var_cordex_uas]
-                da_vas = ds_varidx_l[1][cfg.var_cordex_vas]
+            if len(vi_params_str) == 6:
+                start_date = str(vi_params_str[4]).replace("nan", "")
+                end_date = str(vi_params_str[5]).replace("nan", "")
+            if vi_name == vi.i_wg_days_above:
+                da_uas = ds_vi_l[0][vi.v_uas]
+                da_vas = ds_vi_l[1][vi.v_vas]
                 da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas, param_vv_neg)
             else:
-                da_vv = ds_varidx_l[0][cfg.var_cordex_sfcwindmax]
+                da_vv = ds_vi_l[0][vi.v_sfcwindmax]
                 da_dd = None
 
             # Calculate index.
@@ -813,12 +804,8 @@ def generate_single(
             da_idx_l.append(da_idx)
             idx_units_l.append(cfg.unit_1)
 
-        # ==============================================================================================================
-        # TODO.CUSTOMIZATION.INDEX.END
-        # ==============================================================================================================
-
         if len(idx_name_l) == 0:
-            idx_name_l = [idx_name]
+            idx_name_l = [vi_name]
 
         # Loop through data arrays.
         ds_idx = None
@@ -840,7 +827,7 @@ def generate_single(
                 da_idx = utils.interpolate_na_fix(da_idx)
 
             # Reorder dimensions to fit input data.
-            utils.reorder_dims(da_idx, ds_varidx_l[0])
+            utils.reorder_dims(da_idx, ds_vi_l[0])
 
             # Apply mask.
             if da_mask is not None:
@@ -850,35 +837,35 @@ def generate_single(
             if i == 0:
                 ds_idx = da_idx.to_dataset(name=idx_name_l[i])
                 ds_idx.attrs[cfg.attrs_units] = idx_units
-                ds_idx.attrs[cfg.attrs_sname] = idx_name
-                ds_idx.attrs[cfg.attrs_lname] = idx_name
-                ds_idx = utils.copy_coordinates(ds_varidx_l[0], ds_idx)
+                ds_idx.attrs[cfg.attrs_sname] = vi_name
+                ds_idx.attrs[cfg.attrs_lname] = vi_name
+                ds_idx = utils.copy_coordinates(ds_vi_l[0], ds_idx)
 
             # Add data array.
-            ds_idx[idx_name_l[i]] = utils.copy_coordinates(ds_varidx_l[0][cfg.extract_idx(varidx_name_l[0])], da_idx)
+            ds_idx[idx_name_l[i]] = utils.copy_coordinates(ds_vi_l[0][varidx_0.get_name()], da_idx)
 
         # Adjust calendar.
         ds_idx = ds_idx.squeeze()
         year_1 = cfg.per_fut[0]
         year_n = cfg.per_fut[1]
-        if rcp == cfg.rcp_ref:
-            year_1 = max(cfg.per_ref[0], int(str(ds_varidx_l[0][cfg.dim_time][0].values)[0:4]))
-            year_n = min(cfg.per_ref[1], int(str(ds_varidx_l[0][cfg.dim_time]
-                                                 [len(ds_varidx_l[0][cfg.dim_time]) - 1].values)[0:4]))
+        if rcp == rcp_def.rcp_ref:
+            year_1 = max(cfg.per_ref[0], int(str(ds_vi_l[0][cfg.dim_time][0].values)[0:4]))
+            year_n = min(cfg.per_ref[1], int(str(ds_vi_l[0][cfg.dim_time]
+                                                 [len(ds_vi_l[0][cfg.dim_time]) - 1].values)[0:4]))
         ds_idx[cfg.dim_time] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
 
         # Save result to NetCDF file.
-        desc = cfg.sep + idx_name + cfg.sep + os.path.basename(p_idx)
+        desc = cfg.sep + vi_name + cfg.sep + os.path.basename(p_idx)
         utils.save_netcdf(ds_idx, p_idx, desc=desc)
 
     # Convert percentile threshold values for climate indices. This is sometimes required in time series.
-    if (rcp == cfg.rcp_ref) and (idx_name == cfg.idx_prcptot):
+    if (rcp == rcp_def.rcp_ref) and (vi_name == vi.i_prcptot):
         ds_idx = utils.open_netcdf(p_idx)
-        da_idx = ds_idx.mean(dim=[cfg.dim_longitude, cfg.dim_latitude])[idx_name]
-        param_pr = idx_params_str[0]
+        da_idx = ds_idx.mean(dim=[cfg.dim_longitude, cfg.dim_latitude])[vi_name]
+        param_pr = vi_params_str[0]
         if "p" in str(param_pr):
             param_pr = float(param_pr.replace("p", "")) / 100.0
-            cfg.idx_params[cfg.idx_codes.index(idx_code)][0] = \
+            cfg.idx_params[cfg.idx_codes.index(vi_code)][0] = \
                 float(round(da_idx.quantile(param_pr).values.ravel()[0], 2))
 
     if cfg.n_proc > 1:
@@ -900,9 +887,9 @@ def precip_accumulation(
     da_pr : xr.DataArray
         Precipitation data.
     start_date: str
-        First day of year where season can start ("mm-dd").
+        First day of year on which season can start ("mm-dd").
     end_date: str
-        Last day of year where season can start ("mm-dd")
+        Last day of year on which season can start ("mm-dd")
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1963,7 +1950,7 @@ def run():
 
         # Loop through variables.
         for idx_code in cfg.idx_codes:
-            idx_name = cfg.extract_idx(idx_code)
+            idx_name = vi.VarIdx(idx_code).get_name()
 
             # Loop through stations.
             stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])

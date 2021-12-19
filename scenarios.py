@@ -30,6 +30,10 @@ import warnings
 from qm import train, predict
 from scipy.interpolate import griddata
 
+import sys
+sys.path.append("dashboard")
+from dashboard import varidx_def as vi
+
 
 def load_observations(
     var: str
@@ -71,7 +75,7 @@ def load_observations(
 
         # Temperature --------------------------------------------------------------------------------------------------
 
-        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmax, cfg.var_cordex_tasmin]:
+        if var in [vi.v_tas, vi.v_tasmax, vi.v_tasmin]:
 
             # Extract temperature.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
@@ -91,7 +95,7 @@ def load_observations(
 
         # Precipitation, evaporation, evapotranspiration ---------------------------------------------------------------
 
-        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+        elif var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
 
             # Extract variable and convert from mm to kg m-2 s-1.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
@@ -111,7 +115,7 @@ def load_observations(
 
         # Wind ---------------------------------------------------------------------------------------------------------
 
-        elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas]:
+        elif var in [vi.v_uas, vi.v_vas]:
 
             # Extract wind direction (dd).
             obs_dd = pd.DataFrame(data=np.array(obs.iloc[:, 3:].drop("vv", axis=1)), index=time, columns=[stn])
@@ -128,10 +132,10 @@ def load_observations(
             da_uas, da_vas = utils.sfcwind_2_uas_vas(da_vv, da_dd)
 
             # Create DataArray.
-            da = da_uas if var == cfg.var_cordex_uas else da_vas
+            da = da_uas if var == vi.v_uas else da_vas
             da = xr.DataArray(da, coords=[(cfg.dim_time, time), (cfg.dim_lon, [lon]), (cfg.dim_lat, [lat])])
             da.name = var
-            if var == cfg.var_cordex_uas:
+            if var == vi.v_uas:
                 da.attrs[cfg.attrs_sname] = "eastward_wind"
                 da.attrs[cfg.attrs_lname] = "Eastward near-surface wind"
             else:
@@ -143,7 +147,7 @@ def load_observations(
             # Create dataset.
             ds = da.to_dataset()
 
-        elif var == cfg.var_cordex_sfcwindmax:
+        elif var == vi.v_sfcwindmax:
 
             # Extract wind velocity.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
@@ -258,7 +262,7 @@ def preload_reanalysis(
             ds[cfg.dim_longitude].attrs["long_name"] = cfg.dim_longitude
             ds[cfg.dim_latitude].attrs["long_name"] = cfg.dim_latitude
             if var_ra not in ds.variables:
-                if var_ra == cfg.var_anacim_rr:
+                if var_ra == vi.v_enacts_rr:
                     da_name = "precip"
                 else:
                     da_name = "temp"
@@ -266,10 +270,10 @@ def preload_reanalysis(
                 ds = ds.drop_sel(da_name)
 
             # Adjust units.
-            if (var_ra in [cfg.var_anacim_tmin, cfg.var_anacim_tmin]) and (cfg.unit_C in ds[var_ra].attrs["units"]):
+            if (var_ra in [vi.v_enacts_tmin, vi.v_enacts_tmin]) and (cfg.unit_C in ds[var_ra].attrs["units"]):
                 ds[var_ra] = ds[var_ra] + 273.0
                 ds[var_ra].attrs["units"] = cfg.unit_K
-            elif (var_ra in [cfg.var_anacim_rr, cfg.var_anacim_pet]) and (cfg.unit_mm in ds[var_ra].attrs["units"]):
+            elif (var_ra in [vi.v_enacts_rr, vi.v_enacts_pet]) and (cfg.unit_mm in ds[var_ra].attrs["units"]):
                 ds[var_ra] = ds[var_ra] / cfg.spd
                 ds[var_ra].attrs["units"] = cfg.unit_kg_m2s1
 
@@ -294,7 +298,7 @@ def load_reanalysis(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var = cfg.convert_var_name(var_ra)
+    var = vi.VarIdx(var_ra).convert_name(vi.ens_cordex)
 
     # Paths.
     p_stn_l = list(glob.glob(cfg.d_ra_day + var_ra + cfg.sep + "*" + cfg.f_ext_nc))
@@ -310,14 +314,14 @@ def load_reanalysis(
         ds = utils.open_netcdf(p_stn_l, combine="nested", concat_dim=cfg.dim_time).load()
 
         # Rename variables.
-        if var_ra in [cfg.var_era5_t2mmin, cfg.var_era5_t2mmax]:
-            var_ra = cfg.var_era5_t2m
-        elif var_ra in [cfg.var_era5_u10min, cfg.var_era5_u10max]:
-            var_ra = cfg.var_era5_u10
-        elif var_ra in [cfg.var_era5_v10min, cfg.var_era5_v10max]:
-            var_ra = cfg.var_era5_v10
-        elif var_ra == cfg.var_era5_uv10max:
-            var_ra = cfg.var_era5_uv10
+        if var_ra in [vi.v_era5_t2mmin, vi.v_era5_t2mmax]:
+            var_ra = vi.v_era5_t2m
+        elif var_ra in [vi.v_era5_u10min, vi.v_era5_u10max]:
+            var_ra = vi.v_era5_u10
+        elif var_ra in [vi.v_era5_v10min, vi.v_era5_v10max]:
+            var_ra = vi.v_era5_v10
+        elif var_ra == vi.v_era5_uv10max:
+            var_ra = vi.v_era5_uv10
         ds[var] = ds[var_ra]
         del ds[var_ra]
 
@@ -325,47 +329,46 @@ def load_reanalysis(
         ds = utils.subset_lon_lat(ds)
 
         # Apply and create mask.
-        if (cfg.obs_src == cfg.obs_src_era5_land) and \
-           (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
+        if (cfg.obs_src == vi.ens_era5_land) and (var not in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]):
             da_mask = utils.create_mask()
             da = utils.apply_mask(ds[var], da_mask)
             ds = da.to_dataset(name=var)
 
         # Set attributes.
         ds[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
-        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        if var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
             ds[var].attrs[cfg.attrs_sname] = "temperature"
             ds[var].attrs[cfg.attrs_lname] = "Temperature"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_K
-        elif var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
-            if (cfg.obs_src == cfg.obs_src_era5) or (cfg.obs_src == cfg.obs_src_era5_land):
+        elif var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
+            if (cfg.obs_src == vi.ens_era5) or (cfg.obs_src == vi.ens_era5_land):
                 ds[var] = ds[var] * 1000 / cfg.spd
-            if var == cfg.var_cordex_pr:
+            if var == vi.v_pr:
                 ds[var].attrs[cfg.attrs_sname] = "precipitation_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Precipitation"
-            elif var == cfg.var_cordex_evspsbl:
+            elif var == vi.v_evspsbl:
                 ds[var].attrs[cfg.attrs_sname] = "evaporation_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Evaporation"
-            elif var == cfg.var_cordex_evspsblpot:
+            elif var == vi.v_evspsblpot:
                 ds[var].attrs[cfg.attrs_sname] = "evapotranspiration_flux"
                 ds[var].attrs[cfg.attrs_lname] = "Evapotranspiration"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
-        elif var in [cfg.var_cordex_uas, cfg.var_cordex_vas, cfg.var_cordex_sfcwindmax]:
-            if var == cfg.var_cordex_uas:
+        elif var in [vi.v_uas, vi.v_vas, vi.v_sfcwindmax]:
+            if var == vi.v_uas:
                 ds[var].attrs[cfg.attrs_sname] = "eastward_wind"
                 ds[var].attrs[cfg.attrs_lname] = "Eastward near-surface wind"
-            elif var == cfg.var_cordex_vas:
+            elif var == vi.v_vas:
                 ds[var].attrs[cfg.attrs_sname] = "northward_wind"
                 ds[var].attrs[cfg.attrs_lname] = "Northward near-surface wind"
             else:
                 ds[var].attrs[cfg.attrs_sname] = "wind"
                 ds[var].attrs[cfg.attrs_lname] = "near-surface wind"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_m_s
-        elif var == cfg.var_cordex_rsds:
+        elif var == vi.v_rsds:
             ds[var].attrs[cfg.attrs_sname] = "surface_solar_radiation_downwards"
             ds[var].attrs[cfg.attrs_lname] = "Surface solar radiation downwards"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_J_m2
-        elif var == cfg.var_cordex_huss:
+        elif var == vi.v_huss:
             ds[var].attrs[cfg.attrs_sname] = "specific_humidity"
             ds[var].attrs[cfg.attrs_lname] = "Specific humidity"
             ds[var].attrs[cfg.attrs_units] = cfg.unit_1
@@ -373,8 +376,7 @@ def load_reanalysis(
         # Change sign to have the same meaning between projections and reanalysis.
         # A positive sign for the following variables means that the transfer direction is from the surface toward the
         # atmosphere. A negative sign means that there is condensation.
-        if (var in [cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]) and \
-           (cfg.obs_src in [cfg.obs_src_era5, cfg.obs_src_era5_land]):
+        if (var in [vi.v_evspsbl, vi.v_evspsblpot]) and (cfg.obs_src in [vi.ens_era5, vi.ens_era5_land]):
             ds[var] = -ds[var]
 
         # Save data.
@@ -457,7 +459,7 @@ def extract(
 
     # The idea is to extract historical and projected data based on a range of longitude, latitude, years.
     ds_raw = rcm.extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds,
-                                  priority_timestep=cfg.priority_timestep[cfg.variables_cordex.index(var)],
+                                  priority_timestep=cfg.priority_timestep[cfg.variables.index(var)],
                                   tmpdir=d_raw)
 
     # Save NetCDF file (raw).
@@ -630,8 +632,7 @@ def regrid(
     )
 
     # Apply and create mask.
-    if (cfg.obs_src == cfg.obs_src_era5_land) and \
-       (var not in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]):
+    if (cfg.obs_src == vi.ens_era5_land) and (var not in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]):
         ds_regrid = da_regrid.to_dataset(name=var)
         da_mask = utils.create_mask()
         da_regrid = utils.apply_mask(ds_regrid[var], da_mask)
@@ -744,13 +745,13 @@ def preprocess(
         ds_regrid_fut = utils.remove_feb29(ds_fut)
 
         # Adjust values that do not make sense.
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot, cfg.var_cordex_clt]:
+        if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot, vi.v_clt]:
             ds_regrid_fut[var].values[ds_regrid_fut[var] < 0] = 0
-            if var == cfg.var_cordex_clt:
+            if var == vi.v_clt:
                 ds_regrid_fut[var].values[ds_regrid_fut[var] > 100] = 100
 
         # Add small perturbation.
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+        if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
             perturbate(ds_regrid_fut, var)
 
         # Convert to a 365-day calendar.
@@ -767,7 +768,7 @@ def preprocess(
         # Select reference period.
         ds_regrid_ref = utils.sel_period(ds_regrid_fut, cfg.per_ref)
 
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot, cfg.var_cordex_clt]:
+        if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot, vi.v_clt]:
             pos = np.where(np.squeeze(ds_regrid_ref[var].values) > 0.01)[0]
             ds_regrid_ref[var][pos] = 1e-12
 
@@ -824,7 +825,7 @@ def postprocess(
     # Load datasets.
     # The files p_stn and p_ref cannot be opened using xr.open_mfdataset.
     if not cfg.opt_ra:
-        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        if var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
             da_stn_attrs = ds_stn[var].attrs
             ds_stn[var] = ds_stn[var] + cfg.d_KC
             ds_stn[var].attrs = da_stn_attrs
@@ -847,9 +848,9 @@ def postprocess(
 
     # Observation ------------------------------------------------------------------------------------------------------
 
-    if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+    if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
         kind = cfg.kind_mult
-    elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+    elif var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
         kind = cfg.kind_add
     else:
         kind = cfg.kind_add
@@ -869,7 +870,7 @@ def postprocess(
     else:
         da_qmf = xr.DataArray(train(da_ref.squeeze(), da_stn.squeeze(), nq, cfg.group, kind, time_win,
                                     detrend_order=cfg.detrend_order))
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+        if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
             da_qmf.values[da_qmf > up_qmf] = up_qmf
             da_qmf.values[da_qmf < -up_qmf] = -up_qmf
         ds_qmf = da_qmf.to_dataset(name=var)
@@ -933,14 +934,14 @@ def postprocess(
             return da
 
         # Convert units.
-        if var in [cfg.var_cordex_pr, cfg.var_cordex_evspsbl, cfg.var_cordex_evspsblpot]:
+        if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
             da_stn       = convert_units(da_stn, cfg.unit_mm)
             da_ref       = convert_units(da_ref, cfg.unit_mm)
             da_fut       = convert_units(da_fut, cfg.unit_mm)
             da_qqmap     = convert_units(da_qqmap, cfg.unit_mm)
             da_qqmap_ref = convert_units(da_qqmap_ref, cfg.unit_mm)
             da_qmf       = convert_units(da_qmf, cfg.unit_mm)
-        elif var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        elif var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
             da_stn       = convert_units(da_stn, cfg.unit_C)
             da_ref       = convert_units(da_ref, cfg.unit_C)
             da_fut       = convert_units(da_fut, cfg.unit_C)
@@ -1010,12 +1011,12 @@ def generate():
 
     if not cfg.opt_ra:
         utils.log("Step #2c  Converting observations from CSV to NetCDF files")
-        for var in cfg.variables_cordex:
+        for var in cfg.variables:
             load_observations(var)
     else:
         utils.log("Step #2c  Merging reanalysis NetCDF files.")
         for var_ra in cfg.variables_ra:
-            if cfg.obs_src == cfg.obs_src_anacim:
+            if cfg.obs_src == vi.ens_enacts:
                 preload_reanalysis(var_ra)
             load_reanalysis(var_ra)
 
@@ -1028,8 +1029,8 @@ def generate():
     utils.log("Step #3-5 Producing climate scenarios")
 
     # Loop through variables.
-    for i_var in range(0, len(cfg.variables_cordex)):
-        var = cfg.variables_cordex[i_var]
+    for i_var in range(0, len(cfg.variables)):
+        var = cfg.variables[i_var]
 
         # Select file names for observation (or reanalysis).
         if not cfg.opt_ra:
@@ -1401,7 +1402,7 @@ def run():
         utils.log("Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)")
 
         # Loop through variables.
-        for var in cfg.variables_cordex:
+        for var in cfg.variables:
 
             # Loop through stations.
             stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
@@ -1423,10 +1424,8 @@ def run():
                     p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + cfg.cat_qqmap + cfg.f_ext_nc
                     p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + cfg.cat_qqmap + cfg.f_ext_nc
 
-                    # Extract simulations name.
-                    sim_name = os.path.basename(p_raw).replace(var + "_", "").replace(cfg.f_ext_nc, "")
-
                     # Calibration parameters.
+                    sim_name = os.path.basename(p_raw).replace(var + "_", "").replace(cfg.f_ext_nc, "")
                     df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
                                               (cfg.df_calib["stn"] == stn) &
                                               (cfg.df_calib["var"] == var)]
@@ -1514,10 +1513,10 @@ def run():
         utils.log(msg)
 
         # Loop through variables.
-        for i in range(len(cfg.variables_cordex)):
+        for i in range(len(cfg.variables)):
 
             # Generate maps.
-            stats.calc_map(cfg.variables_cordex[i])
+            stats.calc_map(cfg.variables[i])
 
     else:
         utils.log(msg + " (not required)")

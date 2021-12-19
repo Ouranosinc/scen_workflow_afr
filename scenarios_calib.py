@@ -23,7 +23,7 @@ import warnings
 
 def bias_adj(
     stn: str,
-    var: str,
+    vi_name: str,
     sim_name: str = "",
     calc_err: bool = False
 ):
@@ -36,8 +36,8 @@ def bias_adj(
     ----------
     stn : str
         Station name.
-    var : str
-        Weather variable.
+    vi_name : str
+        Climate variable name.
     sim_name : str
         Simulation name.
     calc_err : bool
@@ -46,7 +46,7 @@ def bias_adj(
     """
 
     # List regrid files.
-    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
+    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, vi_name)
     p_regrid_l = utils.list_files(d_regrid)
     if p_regrid_l is None:
         utils.log("The required files are not available.", True)
@@ -57,7 +57,7 @@ def bias_adj(
     # Loop through simulation sets.
     for i in range(len(p_regrid_l)):
         p_regrid_tokens = p_regrid_l[i].split(cfg.sep)
-        sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var + "_", "").replace(cfg.f_ext_nc, "")
+        sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(vi_name + "_", "").replace(cfg.f_ext_nc, "")
 
         # Skip iteration if it does not correspond to the specified simulation name.
         if (sim_name != "") and (sim_name != sim_name_i):
@@ -72,7 +72,7 @@ def bias_adj(
                 for time_win in cfg.time_win_calib:
 
                     # NetCDF files.
-                    p_stn        = cfg.get_p_stn(var, stn)
+                    p_stn        = cfg.get_p_stn(vi_name, stn)
                     p_regrid     = p_regrid_l[i]
                     p_regrid_ref = p_regrid.replace(cfg.f_ext_nc, "_ref_4qqmap" + cfg.f_ext_nc)
                     p_regrid_fut = p_regrid.replace(cfg.f_ext_nc, "_4qqmap" + cfg.f_ext_nc)
@@ -104,16 +104,17 @@ def bias_adj(
                     ds_stn = utils.sel_period(ds_stn, cfg.per_ref)
 
                     # Path and title of calibration figure and csv file.
-                    fn_fig = var + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + cfg.f_ext_png
+                    fn_fig = vi_name + "_" + sim_name_i + "_" + cfg.cat_fig_calibration + cfg.f_ext_png
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
                     d = cfg.cat_scen + cfg.sep + cfg.cat_fig + cfg.sep + cfg.cat_fig_calibration
-                    p_fig = cfg.get_d_scen(stn, d, var) + comb + cfg.sep + fn_fig
-                    p_fig_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
+                    p_fig = cfg.get_d_scen(stn, d, vi_name) + comb + cfg.sep + fn_fig
+                    p_fig_csv =\
+                        p_fig.replace(cfg.sep + vi_name + cfg.sep, cfg.sep + vi_name + "_" + cfg.f_csv + cfg.sep).\
                         replace(cfg.f_ext_png, "_" + cfg.stat_mean + cfg.f_ext_csv)
                     p_fig_ts = p_fig.replace(cfg.f_ext_png, "_ts" + cfg.f_ext_png)
                     p_fig_ts_csv =\
-                        p_fig_ts.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
+                        p_fig_ts.replace(cfg.sep + vi_name + cfg.sep, cfg.sep + vi_name + "_" + cfg.f_csv + cfg.sep).\
                         replace(cfg.f_ext_png, cfg.f_ext_csv)
 
                     # Bias adjustment ----------------------------------------------------------------------------------
@@ -131,8 +132,8 @@ def bias_adj(
                             # Calculate QQ and generate calibration plots.
                             with warnings.catch_warnings():
                                 warnings.simplefilter("ignore", category=RuntimeWarning)
-                                scen.postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap,
-                                                 p_qmf, title, p_fig)
+                                scen.postprocess(vi_name, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut,
+                                                 p_qqmap, p_qmf, title, p_fig)
                         else:
                             utils.log(msg + " (not required)", True)
 
@@ -146,7 +147,7 @@ def bias_adj(
                         ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cfg.per_ref)
 
                         # Calculate the error between observations and simulation for the reference period.
-                        bias_err_current = float(round(utils.calc_error(ds_stn[var], ds_qqmap_ref[var]), 4))
+                        bias_err_current = float(round(utils.calc_error(ds_stn[vi_name], ds_qqmap_ref[vi_name]), 4))
 
                         # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
                         # selected method.
@@ -156,7 +157,7 @@ def bias_adj(
                             col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
                             calib_row = (cfg.df_calib["sim_name"] == sim_name) &\
                                         (cfg.df_calib["stn"] == stn) &\
-                                        (cfg.df_calib["var"] == var)
+                                        (cfg.df_calib["var"] == vi_name)
                             cfg.df_calib.loc[calib_row, col_names] = col_values
                             utils.save_csv(cfg.df_calib, cfg.p_calib)
 
@@ -172,24 +173,24 @@ def init_calib_params():
     # Simulations, stations and variables.
     sim_name_l = []
     stn_l      = []
-    var_l      = []
+    vi_code_l  = []
     nq_l       = []
     up_qmf_l   = []
     time_win_l = []
     bias_err_l = []
 
     # Function used to build the dataframe.
-    def build_df(sim_name_inner_l: [str], stn_inner_l: [str], var_inner_l: [str], nq_inner_l: [int],
-                 up_qmf_inner_l: [float], time_win_inner_l: [int], bias_err_inner_l: [float]) -> pd.DataFrame:
+    def build_df(_sim_name_l: [str], _stn_l: [str], _vi_code_l: [str], _nq_l: [int],
+                 _up_qmf_l: [float], _time_win_l: [int], _bias_err_l: [float]) -> pd.DataFrame:
 
         dict_pd = {
-            "sim_name": sim_name_inner_l,
-            "stn": stn_inner_l,
-            "var": var_inner_l,
-            "nq": nq_inner_l,
-            "up_qmf": up_qmf_inner_l,
-            "time_win": time_win_inner_l,
-            "bias_err": bias_err_inner_l}
+            "sim_name": _sim_name_l,
+            "stn": _stn_l,
+            "var": _vi_code_l,
+            "nq": _nq_l,
+            "up_qmf": _up_qmf_l,
+            "time_win": _time_win_l,
+            "bias_err": _bias_err_l}
         return pd.DataFrame(dict_pd)
 
     # Attempt loading a calibration file.
@@ -198,7 +199,7 @@ def init_calib_params():
         if len(cfg.df_calib) > 0:
             sim_name_l = list(cfg.df_calib["sim_name"])
             stn_l      = list(cfg.df_calib["stn"])
-            var_l      = list(cfg.df_calib["var"])
+            vi_code_l  = list(cfg.df_calib["var"])
             nq_l       = list(cfg.df_calib["nq"])
             up_qmf_l   = list(cfg.df_calib["up_qmf"])
             time_win_l = list(cfg.df_calib["time_win"])
@@ -222,26 +223,26 @@ def init_calib_params():
             list_i = list_cordex[rcp][i_sim].split(cfg.sep)
             sim_name = list_i[cfg.get_rank_inst()] + "_" + list_i[cfg.get_rank_inst() + 1]
             for stn in stns:
-                for var in cfg.variables_cordex:
+                for vi_name in cfg.variables:
 
                     # Add the combination if it does not already exist.
                     if (cfg.df_calib is None) or\
                        (len(cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
                                              (cfg.df_calib["stn"] == stn) &
-                                             (cfg.df_calib["var"] == var)]) == 0):
+                                             (cfg.df_calib["var"] == vi_name)]) == 0):
                         sim_name_l.append(sim_name)
                         stn_l.append(stn)
-                        var_l.append(var)
+                        vi_code_l.append(vi_name)
                         nq_l.append(cfg.nq_default)
                         up_qmf_l.append(cfg.up_qmf_default)
                         time_win_l.append(cfg.time_win_default)
                         bias_err_l.append(cfg.bias_err_default)
 
                         # Update dataframe.
-                        cfg.df_calib = build_df(sim_name_l, stn_l, var_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
+                        cfg.df_calib = build_df(sim_name_l, stn_l, vi_code_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
 
     # Build dataframe.
-    cfg.df_calib = build_df(sim_name_l, stn_l, var_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
+    cfg.df_calib = build_df(sim_name_l, stn_l, vi_code_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
 
     # Save calibration parameters to a CSV file.
     if cfg.p_calib != "":
@@ -281,12 +282,12 @@ def run():
 
     # Loop through combinations of stations and variables.
     for stn in cfg.stns:
-        for var in cfg.variables_cordex:
+        for vi_code in cfg.variables:
 
             utils.log("-", True)
             utils.log("Station  : " + stn, True)
-            utils.log("Variable : " + var, True)
+            utils.log("Variable : " + vi_code, True)
             utils.log("-", True)
 
             # Perform bias correction.
-            bias_adj(stn, var)
+            bias_adj(stn, vi_code)

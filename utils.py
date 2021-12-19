@@ -29,6 +29,10 @@ from math import radians, degrees, sqrt
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import Union, List, Tuple
 
+import sys
+sys.path.append("dashboard")
+from dashboard import varidx_def as vi
+
 
 def natural_sort(
     values: Union[float, int]
@@ -804,7 +808,8 @@ def open_netcdf(
 def save_netcdf(
     ds: Union[xr.Dataset, xr.DataArray],
     p: str,
-    desc: str = ""):
+    desc: str = ""
+):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1338,7 +1343,8 @@ def copy_coordinates(
 def copy_attributes(
     ds_from: Union[xr.Dataset, xr.Dataset],
     ds_to: Union[xr.Dataset, xr.Dataset],
-    var: str = "") -> Union[xr.Dataset, xr.Dataset]:
+    var: str = ""
+) -> Union[xr.Dataset, xr.Dataset]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1469,7 +1475,7 @@ def apply_mask(
 
 def get_coord_names(
     ds_or_da: Union[xr.Dataset, xr.DataArray]
-) -> [str]:
+) -> List[str]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1612,7 +1618,7 @@ def create_mask() -> xr.DataArray:
         # Open NetCDF file.
         ds = open_netcdf(f_l[i])
         var = list(ds.data_vars)[0]
-        if var in [cfg.var_cordex_tas, cfg.var_cordex_tasmin, cfg.var_cordex_tasmax]:
+        if var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
 
             # Create mask.
             da_mask = ds[var][0] * 0 + 1

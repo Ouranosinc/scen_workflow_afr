@@ -27,9 +27,12 @@ import xarray as xr
 import xclim.indices as xindices
 import xclim.testing._utils as xutils
 from typing import List, Union
-
 from xclim.testing.tests import test_indices, test_precip, test_locales
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
+
+import sys
+sys.path.append("dashboard")
+from dashboard import varidx_def as vi
 
 
 def get_sample_data(var: str) -> Union[xr.DataArray, None]:
@@ -51,7 +54,7 @@ def get_sample_data(var: str) -> Union[xr.DataArray, None]:
     """
 
     path = ""
-    if var == cfg.var_cordex_pr:
+    if var == vi.v_pr:
         path = "ERA5/daily_surface_cancities_1990-1993.nc"
 
     if path != "":
@@ -61,7 +64,7 @@ def get_sample_data(var: str) -> Union[xr.DataArray, None]:
 
 
 def generate(
-    var_or_idx: str,
+    varidx_name: str,
     start_year: int,
     n_years: int,
     val: float,
@@ -75,8 +78,8 @@ def generate(
 
     Parameters
     ----------
-    var_or_idx : str
-        Variable or index
+    varidx_name : str
+        Variable or index name
     start_year : int
         First year.
     n_years : int
@@ -100,13 +103,10 @@ def generate(
         arr = [[0] * dpy * n_years] * (n_loc if n_loc > 0 else 1)
     time = pd.date_range(str(start_year) + "-01-01", periods=n_years * dpy, freq=freq)
 
-    # Variable.
-    if var_or_idx == cfg.var_cordex_pr:
-        description = "Precipitation"
-        units = "mm"
-    else:
-        description = var_or_idx
-        units = cfg.get_unit(var_or_idx)
+    # Description and units.
+    varidx = vi.VarIdx(varidx_name)
+    desc = varidx.get_desc()
+    units = varidx.get_unit()
 
     # Coordinates.
     if n_loc == 0:
@@ -131,7 +131,7 @@ def generate(
         dims=dims,
         coords=coords,
         attrs=dict(
-            description=description,
+            description=desc,
             units=units,
         )
     )
@@ -324,7 +324,7 @@ def dry_spell_total_length() -> bool:
     algo = 2
 
     # Variable.
-    var = cfg.var_cordex_pr
+    var = vi.v_pr
 
     # Operators.
     op_max = "max"
@@ -391,7 +391,7 @@ def dry_spell_total_length() -> bool:
             # Case #4: real data.
             elif (i == 4) and (op in [op_max_data, op_sum_data]):
                 thresh, window = 3, 7
-                da_pr = get_sample_data(cfg.var_cordex_pr)
+                da_pr = get_sample_data(vi.v_pr)
                 if op == op_sum_data:
                     if algo == 1:
                         res_expect = [[50, 60, 73, 65],
@@ -739,7 +739,7 @@ def rain_season_start() -> bool:
     """
 
     # Variable.
-    var = cfg.var_cordex_pr
+    var = vi.v_pr
 
     # Years.
     n_years = 2
@@ -789,7 +789,7 @@ def rain_season_start() -> bool:
             elif (i == 2) and (op == op_data):
                 start_date, end_date = "03-01", "05-31"  # A, B
                 thresh_wet = 25  # Tw
-                da_pr = get_sample_data(cfg.var_cordex_pr)
+                da_pr = get_sample_data(vi.v_pr)
                 res_expect = [[89, 61, 66, 63],
                               [92, 97, 70, 90],
                               [np.nan, np.nan, np.nan, np.nan],
@@ -917,7 +917,7 @@ def rain_season_end() -> bool:
     """
 
     # Variable.
-    var = cfg.var_cordex_pr
+    var = vi.v_pr
 
     # Methods.
     op_max      = "max"
@@ -992,7 +992,7 @@ def rain_season_end() -> bool:
                 else:
                     thresh = 20.0  # T
                 window = 10
-                da_pr = get_sample_data(cfg.var_cordex_pr)
+                da_pr = get_sample_data(vi.v_pr)
                 if op == op_max_data:
                     res_expect = [[190, 152, 256, 217],
                                   [204, 152, 202, 179],
@@ -1208,7 +1208,7 @@ def rain_season_length_prcptot() -> bool:
     """
 
     # Variable.
-    var = cfg.var_cordex_pr
+    var = vi.v_pr
 
     # Years.
     n_years = 2
@@ -1256,7 +1256,7 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #2: real data.
             elif (i == 2) and (op == op_data):
-                da_pr = get_sample_data(cfg.var_cordex_pr)
+                da_pr = get_sample_data(vi.v_pr)
                 locations = list(xr.DataArray(da_pr).location.values)
                 da_start = generate(cfg.idx_rain_season_start, 1990, 4, np.nan, "YS", locations)
                 assign(da_start, [], [], [89, 61, 66, 63], locations[0])
@@ -1370,7 +1370,7 @@ def rain_season() -> bool:
     """
 
     # Variable.
-    var = cfg.var_cordex_pr
+    var = vi.v_pr
 
     # Methods.
     e_op_max = "max"
@@ -1457,7 +1457,7 @@ def rain_season() -> bool:
                 e_etp_rate   = 5
                 e_start_date = "06-01"
                 e_end_date   = "09-30"
-                da_pr = get_sample_data(cfg.var_cordex_pr)
+                da_pr = get_sample_data(vi.v_pr)
                 res_expect_start = [[89, 61, 66, 63],
                                     [92, 97, 70, 90],
                                     [213, 230, 190, 187],

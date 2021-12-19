@@ -18,29 +18,9 @@ import multiprocessing
 import os
 import utils
 
-
-def download_from_cordex(
-    p_base: str,
-    domain: str,
-    var: str
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Downloads a data set from CORDEX.
-
-    Parameters
-    ----------
-    p_base : str
-        Path of directory where data is saved.
-    domain : str
-        Domain.
-    var : str
-        Variable code = {cfg.var_cordex_*}.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    return ""
+import sys
+sys.path.append("dashboard")
+from dashboard import varidx_def as vi
 
 
 def download_from_copernicus(
@@ -60,7 +40,7 @@ def download_from_copernicus(
     p_base : str
         Path of directory where data is saved.
     obs_src : str
-        Set code: {cfg.obs_src_era5, cfg.obs_src_era5_land}
+        Set code: {varidx_def.ens_era5, varidx_def.ens_era5_land}
     area : [float]
         Bounding box defining the 4 limits of the area of interest (in decimal degrees):
         [North, West, South, East].
@@ -75,9 +55,9 @@ def download_from_copernicus(
 
     # Basic configuration.
     set_name = ""
-    if obs_src == cfg.obs_src_era5:
+    if obs_src == vi.ens_era5:
         set_name = "era5-single-levels"
-    elif obs_src == cfg.obs_src_era5_land:
+    elif obs_src == vi.ens_era5_land:
         set_name = "era5-land"
 
     # Lists of months, days and times.
@@ -87,35 +67,35 @@ def download_from_copernicus(
 
     # Variable names.
     var_code = ""
-    # Can be transformed to become equivalent to cfg.var_co_huss.
-    if var == cfg.var_era5_d2m:
+    # Equivalent to vi.v_huss.
+    if var == vi.v_era5_d2m:
         var_code = "2m_dewpoint_temperature"
-    # Equivalent to cfg.var_cordex_evspsbl.
-    elif var == cfg.var_era5_e:
+    # Equivalent to vi.v_evspsbl.
+    elif var == vi.v_era5_e:
         var_code = "evaporation"
-    # Equivalent to cfg.var_cordex_evspsblpot.
-    elif var == cfg.var_era5_pev:
+    # Equivalent to vi.v_evspsblpot.
+    elif var == vi.v_era5_pev:
         var_code = "potential_evaporation"
-    # Equivalent to cfg.var_cordex_ps.
-    elif var == cfg.var_era5_sp:
+    # Equivalent to vi.v_ps.
+    elif var == vi.v_era5_sp:
         var_code = "surface_pressure"
-    # Equivalent to cfg.var_cordex_rsds.
-    elif var == cfg.var_era5_ssrd:
+    # Equivalent to vi.v_rsds.
+    elif var == vi.v_era5_ssrd:
         var_code = "surface_solar_radiation_downwards"
-    # Equivalent to cfg.var_cordex_tas.
-    elif var == cfg.var_era5_t2m:
+    # Equivalent to vi.v_tas.
+    elif var == vi.v_era5_t2m:
         var_code = "2m_temperature"
-    # Equivalent to cfg.var_cordex_pr.
-    elif var == cfg.var_era5_tp:
+    # Equivalent to vi.v_pr.
+    elif var == vi.v_era5_tp:
         var_code = "total_precipitation"
-    # Equivalent to cfg.var_cordex_uas.
-    elif var == cfg.var_era5_u10:
+    # Equivalent to vi.v_uas.
+    elif var == vi.v_era5_u10:
         var_code = "10m_u_component_of_wind"
-    # Equivalent to cfg.var_cordex_vas.
-    elif var == cfg.var_era5_v10:
+    # Equivalent to vi.v_vas.
+    elif var == vi.v_era5_v10:
         var_code = "10m_v_component_of_wind"
-    # Equivalent to cfg.var_cordex_sfcwindmax.
-    elif var == cfg.var_era5_uv10:
+    # Equivalent to vi.v_sfcwindmax.
+    elif var == vi.v_era5_uv10:
         var_code = "10m_wind"
 
     # Form file name.
@@ -234,13 +214,13 @@ def run():
     d_prefix = os.path.dirname(cfg.d_ra_raw) + cfg.sep
 
     # ERA5 or ERA5_LAND.
-    if (cfg.obs_src == cfg.obs_src_era5_land) or (cfg.obs_src == cfg.obs_src_era5):
+    if (cfg.obs_src == vi.ens_era5_land) or (cfg.obs_src == vi.ens_era5):
 
         # Path, set code and years.
         years = []
-        if cfg.obs_src == cfg.obs_src_era5_land:
+        if cfg.obs_src == vi.ens_era5_land:
             years = range(1981, 2019 + 1)
-        elif cfg.obs_src == cfg.obs_src_era5:
+        elif cfg.obs_src == vi.ens_era5:
             years = range(1979, 2019 + 1)
 
         # Loop through variable codes.
@@ -279,7 +259,7 @@ def run():
                 done = (list(years) == years_processed)
 
     # MERRA2.
-    elif cfg.obs_src == cfg.obs_src_merra2:
+    elif cfg.obs_src == vi.ens_merra2:
 
         # Download.
         download_merra2(d_prefix, "M2SDNXSLV.5.12.4")
