@@ -1441,16 +1441,16 @@ def run():
                     if cfg.opt_plot[0]:
 
                         # This creates one file:
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/postprocess/<var>/*.png
+                        #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
                         title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                        d = cfg.cat_scen + cfg.sep + cfg.cat_fig + cfg.sep + cfg.cat_fig_postprocess
+                        d = cfg.cat_fig + cfg.sep + cfg.cat_scen + cfg.sep + cfg.cat_fig_postprocess
                         p_fig = cfg.get_d_scen(stn, d, var) + fn_fig
                         if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
                             plot.plot_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                         # This creates one file:
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/workflow/<var>/*.png
-                        d = cfg.cat_scen + cfg.sep + cfg.cat_fig + cfg.sep + cfg.cat_fig_workflow
+                        #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
+                        d = cfg.cat_fig + cfg.sep + cfg.cat_scen + cfg.sep + cfg.cat_fig_workflow
                         p_fig = cfg.get_d_scen(stn, d, var) + \
                             p_regrid_fut.split(cfg.sep)[-1].replace("4qqmap" + cfg.f_ext_nc,
                                                                     cfg.cat_fig_workflow + cfg.f_ext_png)

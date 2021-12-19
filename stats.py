@@ -607,23 +607,24 @@ def calc_ts(
 
                 # Group by RCP.
                 if rcp != rcp_def.rcp_ref:
-                    if rcp == rcp_def.rcp_26:
+                    if (rcp == rcp_def.rcp_26) and (len(ds_rcp_26) > 0):
                         ds_rcp_26_grp = calc_stat_mean_min_max(ds_rcp_26, vi_name)
-                    elif rcp == rcp_def.rcp_45:
+                    elif (rcp == rcp_def.rcp_45) and (len(ds_rcp_45) > 0):
                         ds_rcp_45_grp = calc_stat_mean_min_max(ds_rcp_45, vi_name)
-                    elif rcp == rcp_def.rcp_85:
+                    elif (rcp == rcp_def.rcp_85) and (len(ds_rcp_85) > 0):
                         ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, vi_name)
-                    ds_rcp_xx_grp = calc_stat_mean_min_max(ds_rcp_xx, vi_name)
+                    if len(ds_rcp_xx) > 0:
+                        ds_rcp_xx_grp = calc_stat_mean_min_max(ds_rcp_xx, vi_name)
 
             if (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
 
                 # Extract years.
                 years = []
-                if rcp_def.rcp_26 in rcps:
+                if (rcp_def.rcp_26 in rcps) and (len(ds_rcp_26_grp) > 0):
                     years = utils.extract_date_field(ds_rcp_26_grp[0], "year")
-                elif rcp_def.rcp_45 in rcps:
+                elif (rcp_def.rcp_45 in rcps) and (len(ds_rcp_45_grp) > 0):
                     years = utils.extract_date_field(ds_rcp_45_grp[0], "year")
-                elif rcp_def.rcp_85 in rcps:
+                elif (rcp_def.rcp_85 in rcps) and (len(ds_rcp_85_grp) > 0):
                     years = utils.extract_date_field(ds_rcp_85_grp[0], "year")
                 dict_pd = {"year": years}
 
