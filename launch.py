@@ -134,8 +134,9 @@ def load_params(
                 cfg.ctrl_pt = convert_to_1d(value, float)
             elif key == "variables":
                 cfg.variables = convert_to_1d(value, str)
-                for var in cfg.variables:
-                    cfg.variables_ra.append(vi.VarIdx(var).convert_name(vi.ens_era5))
+                if cfg.obs_src in [vi.ens_era5, vi.ens_era5_land, vi.ens_enacts]:
+                    for var in cfg.variables:
+                        cfg.variables_ra.append(vi.VarIdx(var).convert_name(cfg.obs_src))
             elif key == "p_bounds":
                 cfg.p_bounds = ast.literal_eval(value)
             elif key == "p_locations":
