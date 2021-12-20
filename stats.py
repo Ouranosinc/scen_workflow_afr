@@ -6,6 +6,7 @@
 # 1. rousseau.yannick@ouranos.ca
 # (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
+from pandas import DataFrame
 
 import config as cfg
 import functools
@@ -25,7 +26,7 @@ import xesmf as xe
 from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
 from streamlit import caching
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Optional
 
 import sys
 sys.path.append("dashboard")
@@ -545,7 +546,7 @@ def calc_ts(
 def calc_ts_prep(
     stn: str,
     vi_code: str
-) -> Tuple[Union[pd.DataFrame, None]]:
+) -> Tuple[Union[DataFrame, None], Union[DataFrame, None]]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -560,7 +561,7 @@ def calc_ts_prep(
 
     Returns
     -------
-    Tuple[pd.DataFrame]
+    Tuple[Union[DataFrame, None], Union[DataFrame, None]]
         Two dataframes (rcp|sim).
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -569,7 +570,7 @@ def calc_ts_prep(
 
     # Extract information related to the variable.
     varidx = vi.VarIdx(vi_code)
-    vi_name = varidx.get_name()
+    vi_name = str(varidx.get_name())
     vi_code_grp = vi.get_group(vi_code)
 
     # Emission scenarios.
