@@ -874,7 +874,7 @@ def clean_netcdf(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    log("Cleaning NetCDF file", True)
+    log("Cleaning NetCDF file: " + d, True)
 
     # List temporary files.
     if d[len(d) - 1] != cfg.sep:

@@ -258,7 +258,7 @@ def preload_reanalysis(
             ds = ds.rename_dims({"Lon": cfg.dim_longitude, "Lat": cfg.dim_latitude})
             ds[cfg.dim_longitude] = ds["Lon"]
             ds[cfg.dim_latitude] = ds["Lat"]
-            ds = ds.drop_sel(["Lon", "Lat"])
+            ds = ds.drop_vars(["Lon", "Lat"])
             ds[cfg.dim_longitude].attrs["long_name"] = cfg.dim_longitude
             ds[cfg.dim_latitude].attrs["long_name"] = cfg.dim_latitude
             if var_ra not in ds.variables:
@@ -267,7 +267,7 @@ def preload_reanalysis(
                 else:
                     da_name = "temp"
                 ds[var_ra] = ds[da_name]
-                ds = ds.drop_sel(da_name)
+                ds = ds.drop_vars([da_name])
 
             # Adjust units.
             if (var_ra in [vi.v_enacts_tmin, vi.v_enacts_tmin]) and (cfg.unit_C in ds[var_ra].attrs["units"]):
