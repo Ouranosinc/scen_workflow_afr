@@ -25,7 +25,7 @@ import xesmf as xe
 from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
 from streamlit import caching
-from typing import Union, List
+from typing import Union, List, Tuple
 
 import sys
 sys.path.append("dashboard")
@@ -449,248 +449,304 @@ def calc_ts(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Emission scenarios.
-    rcps = [rcp_def.rcp_ref] + cfg.rcps
-
     # Loop through stations.
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
 
-        # Explode lists of codes and names.
-        idx_names_exploded = cfg.explode_idx_l(cfg.idx_names)
-        idx_codes_exploded = cfg.explode_idx_l(cfg.idx_codes)
-
         # Loop through variables.
-        vi_name_l = cfg.variables if cat == cfg.cat_scen else idx_names_exploded
-        for i_varidx in range(len(vi_name_l)):
-            vi_name = vi_name_l[i_varidx]
-            vi_code = vi_name if cat == cfg.cat_scen else idx_codes_exploded[i_varidx]
+        vi_code_l = cfg.variables if cat == cfg.cat_scen else cfg.explode_idx_l(cfg.idx_codes)
+        for vi_code in vi_code_l:
+
+            # Extract information about the variable.
+            varidx = vi.VarIdx(vi_code)
+            vi_name = varidx.get_name()
             vi_code_grp = vi.get_group(vi_code)
 
-            # Minimum and maximum values along the y-axis
-            ylim = []
-
-            idx_desc = vi_name
-            if vi_code_grp != vi_name:
-                idx_desc = vi_code_grp + "." + idx_desc
-            utils.log("Processing: " + stn + ", " + idx_desc, True)
+            # Status message.
+            msg = vi_code
+            if vi_code_grp != vi_code:
+                msg = vi_code_grp + "." + msg
+            utils.log("Processing: " + stn + ", " + msg, True)
 
             # Path of files to be created.
+            # CSV files:
             p_rcp_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "ts",
-                                       vi_code_grp + "_csv") + vi_name + "_rcp" + cfg.f_ext_csv
+                                       vi_code_grp + "_" + cfg.f_csv) + vi_name + "_rcp" + cfg.f_ext_csv
             p_sim_csv = p_rcp_csv.replace("_rcp", "_sim")
+            # PNG files.
             p_rcp_png = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "ts",
                                        vi_code_grp) + vi_name + "_rcp" + cfg.f_ext_png
             p_sim_png = p_rcp_png.replace("_rcp" + cfg.f_ext_png, "_sim" + cfg.f_ext_png)
+            p_rcp_del_png = p_rcp_png.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
+            p_sim_del_png = p_sim_png.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
 
-            save_csv = (not os.path.exists(p_rcp_csv) or not os.path.exists(p_sim_csv)) and cfg.opt_save_csv
-            save_png = (not os.path.exists(p_rcp_png) or not os.path.exists(p_sim_png))
+            # Skip if no work required.
+            save_csv = (not os.path.exists(p_rcp_csv) or not os.path.exists(p_sim_csv)) and \
+                       (cfg.opt_save_csv[0 if cat == cfg.cat_scen else 1])
+            save_png = (not os.path.exists(p_rcp_png) or not os.path.exists(p_sim_png) or
+                        not os.path.exists(p_rcp_del_png) or not os.path.exists(p_sim_del_png))
             if (not save_csv) and (not save_png) and (not cfg.opt_force_overwrite):
                 continue
 
-            # Loop through emission scenarios.
-            ds_ref = None
-            ds_rcp_26, ds_rcp_26_grp = [], []
-            ds_rcp_45, ds_rcp_45_grp = [], []
-            ds_rcp_85, ds_rcp_85_grp = [], []
-            ds_rcp_xx, ds_rcp_xx_grp = [], []
-            for rcp in rcps:
+            # Attempt loading CSV files into dataframes.
+            if os.path.exists(p_rcp_csv) and os.path.exists(p_sim_csv):
+                df_rcp = pd.read_csv(p_rcp_csv)
+                df_sim = pd.read_csv(p_sim_csv)
 
-                # List files.
-                if rcp == rcp_def.rcp_ref:
-                    if vi_name in cfg.variables:
-                        p_sim_l = [cfg.get_d_stn(vi_code_grp) + vi_code_grp + "_" + stn + cfg.f_ext_nc]
-                    else:
-                        p_sim_l = [cfg.get_d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + cfg.f_ext_nc]
+            # Generate dataframes.
+            else:
+                df_rcp, df_sim = calc_ts_prep(stn, vi_code)
+
+            # CSV file format ------------------------------------------------------------------------------------------
+
+            if cfg.opt_save_csv:
+                if (not os.path.exists(p_rcp_csv)) or cfg.opt_force_overwrite:
+                    utils.save_csv(df_rcp, p_rcp_csv)
+                if (not os.path.exists(p_sim_csv)) or cfg.opt_force_overwrite:
+                    utils.save_csv(df_sim, p_sim_csv)
+
+            # PNG file format ------------------------------------------------------------------------------------------
+
+            if cfg.f_png in cfg.opt_map_formats:
+
+                # Create context.
+                cntx = context_def.Context(context_def.code_script)
+                cntx.view = view_def.View(view_def.mode_ts)
+                cntx.lib = lib_def.Lib(lib_def.mode_mat)
+                cntx.varidx = vi.VarIdx(vi_code)
+                cntx.rcps = rcp_def.RCPs(cfg.rcps)
+
+                # Loop through modes (rcp|sim).
+                for mode in [dash_plot.mode_rcp, dash_plot.mode_sim]:
+                    df_mode = df_rcp if (mode == dash_plot.mode_rcp) else df_sim
+
+                    # Loop through delta.
+                    for delta in [False, True]:
+                        cntx.delta = delta
+
+                        # Select file name.
+                        if mode == dash_plot.mode_rcp:
+                            if not delta:
+                                p_png = p_rcp_png
+                            else:
+                                p_png = p_rcp_del_png
+                        else:
+                            if not delta:
+                                p_png = p_sim_png
+                            else:
+                                p_png = p_sim_del_png
+
+                        # Generate plot.
+                        if (not os.path.exists(p_png)) or cfg.opt_force_overwrite:
+                            fig = dash_plot.gen_ts(cntx, df_mode, mode)
+                            utils.save_plot(fig, p_png)
+
+
+def calc_ts_prep(
+    stn: str,
+    vi_code: str
+) -> Tuple[Union[pd.DataFrame, None]]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Prepare datasets for the generation of  time series.
+
+    Parameters
+    ----------
+    stn : str
+        Station.
+    vi_code : str
+        Variable or index code.
+
+    Returns
+    -------
+    Tuple[pd.DataFrame]
+        Two dataframes (rcp|sim).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    df_rcp, df_sim = None, None
+
+    # Extract information related to the variable.
+    varidx = vi.VarIdx(vi_code)
+    vi_name = varidx.get_name()
+    vi_code_grp = vi.get_group(vi_code)
+
+    # Emission scenarios.
+    rcps = [rcp_def.rcp_ref] + cfg.rcps
+
+    # Loop through emission scenarios.
+    ds_ref = None
+    ds_rcp_26, ds_rcp_26_grp = [], []
+    ds_rcp_45, ds_rcp_45_grp = [], []
+    ds_rcp_85, ds_rcp_85_grp = [], []
+    ds_rcp_xx, ds_rcp_xx_grp = [], []
+    for rcp in rcps:
+
+        # List files.
+        if rcp == rcp_def.rcp_ref:
+            if vi_code in cfg.variables:
+                p_sim_l = [cfg.get_d_stn(vi_code_grp) + vi_code_grp + "_" + stn + cfg.f_ext_nc]
+            else:
+                p_sim_l = [cfg.get_d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + cfg.f_ext_nc]
+        else:
+            if vi_code in cfg.variables:
+                d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_grp)
+            else:
+                d = cfg.get_d_idx(stn, vi_code_grp)
+            p_sim_l = glob.glob(d + "*_" + ("*" if rcp == rcp_def.rcp_xx else rcp) + cfg.f_ext_nc)
+
+        # Exit if there is no file corresponding to the criteria.
+        if (len(p_sim_l) == 0) or \
+                ((len(p_sim_l) > 0) and not (os.path.isdir(os.path.dirname(p_sim_l[0])))):
+            continue
+
+        # Loop through simulation files.
+        for i_sim in range(len(p_sim_l)):
+
+            # Skip iteration if file doesn't exist.
+            if not os.path.exists(p_sim_l[i_sim]):
+                continue
+
+            # Load dataset.
+            ds = utils.open_netcdf(p_sim_l[i_sim]).squeeze()
+            if (rcp == rcp_def.rcp_ref) and (vi_name in cfg.variables):
+                ds = utils.remove_feb29(ds)
+                ds = utils.sel_period(ds, cfg.per_ref)
+
+            # Records units.
+            if varidx.get_ens() == vi.ens_cordex:
+                units = ds[vi_name].attrs[cfg.attrs_units]
+            else:
+                units = ds.attrs[cfg.attrs_units]
+            if units == "degree_C":
+                units = cfg.unit_C
+
+            # Select control point.
+            if cfg.opt_ra:
+                if cfg.p_bounds == "":
+                    ds = utils.subset_ctrl_pt(ds)
                 else:
-                    if vi_name in cfg.variables:
-                        d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_grp)
-                    else:
-                        d = cfg.get_d_idx(stn, vi_code_grp)
-                    p_sim_l = glob.glob(d + "*_" + ("*" if rcp == rcp_def.rcp_xx else rcp) + cfg.f_ext_nc)
+                    ds = utils.squeeze_lon_lat(ds, vi_name)
 
-                # Exit if there is no file corresponding to the criteria.
-                if (len(p_sim_l) == 0) or \
-                   ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
-                    continue
+            # First and last years.
+            year_1 = int(str(ds.time.values[0])[0:4])
+            year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
+            if rcp == rcp_def.rcp_ref:
+                year_1 = max(year_1, cfg.per_ref[0])
+                year_n = min(year_n, cfg.per_ref[1])
+            else:
+                year_1 = max(year_1, cfg.per_ref[0])
+                year_n = min(year_n, cfg.per_fut[1])
 
-                # Loop through simulation files.
-                for i_sim in range(len(p_sim_l)):
+            # Select years.
+            years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
+            ds = ds.sel(time=slice(years_str[0], years_str[1]))
 
-                    # Skip iteration if file doesn't exist.
-                    if not os.path.exists(p_sim_l[i_sim]):
-                        continue
+            # Calculate statistics.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                if vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
+                    ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
+                else:
+                    ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
+            n_time = len(ds[cfg.dim_time].values)
+            da = xr.DataArray(np.array(ds[vi_name].values), name=vi_name,
+                              coords=[(cfg.dim_time, np.arange(n_time))])
 
-                    # Load dataset.
-                    ds = utils.open_netcdf(p_sim_l[i_sim]).squeeze()
-                    if (rcp == rcp_def.rcp_ref) and (vi_name in cfg.variables):
-                        ds = utils.remove_feb29(ds)
-                        ds = utils.sel_period(ds, cfg.per_ref)
+            # Create dataset.
+            ds = da.to_dataset()
+            ds[cfg.dim_time] = utils.reset_calendar_l(list(range(year_1, year_n + 1)))
+            ds[vi_name].attrs[cfg.attrs_units] = units
 
-                    # Records units.
-                    units = ds[vi_name].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds.attrs[cfg.attrs_units]
-                    if units == "degree_C":
-                        units = cfg.unit_C
+            # Convert units.
+            if vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
+                if ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_K:
+                    ds = ds - cfg.d_KC
+                    ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_C
+            elif vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
+                if ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
+                    ds = ds * cfg.spd
+                    ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_mm
+            elif vi_name in [vi.v_uas, vi.v_vas, vi.v_sfcwindmax]:
+                ds = ds * cfg.km_h_per_m_s
+                ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_km_h
 
-                    # Select control point.
-                    if cfg.opt_ra:
-                        if cfg.p_bounds == "":
-                            ds = utils.subset_ctrl_pt(ds)
-                        else:
-                            ds = utils.squeeze_lon_lat(ds, vi_name)
-
-                    # First and last years.
-                    year_1 = int(str(ds.time.values[0])[0:4])
-                    year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
-                    if rcp == rcp_def.rcp_ref:
-                        year_1 = max(year_1, cfg.per_ref[0])
-                        year_n = min(year_n, cfg.per_ref[1])
-                    else:
-                        year_1 = max(year_1, cfg.per_ref[0])
-                        year_n = min(year_n, cfg.per_fut[1])
-
-                    # Select years.
-                    years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
-                    ds = ds.sel(time=slice(years_str[0], years_str[1]))
-
-                    # Calculate statistics.
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", category=RuntimeWarning)
-                        if vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
-                            ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
-                        else:
-                            ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
-                    n_time = len(ds[cfg.dim_time].values)
-                    da = xr.DataArray(np.array(ds[vi_name].values), name=vi_name,
-                                      coords=[(cfg.dim_time, np.arange(n_time))])
-
-                    # Create dataset.
-                    ds = da.to_dataset()
-                    ds[cfg.dim_time] = utils.reset_calendar_l(list(range(year_1, year_n + 1)))
-                    ds[vi_name].attrs[cfg.attrs_units] = units
-
-                    # Convert units.
-                    if vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
-                        if ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_K:
-                            ds = ds - cfg.d_KC
-                            ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_C
-                    elif vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
-                        if ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
-                            ds = ds * cfg.spd
-                            ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_mm
-                    elif vi_name in [vi.v_uas, vi.v_vas, vi.v_sfcwindmax]:
-                        ds = ds * cfg.km_h_per_m_s
-                        ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_km_h
-
-                    # Calculate minimum and maximum values along the y-axis.
-                    if not ylim:
-                        ylim = [min(ds[vi_name].values), max(ds[vi_name].values)]
-                    else:
-                        ylim = [min(ylim[0], min(ds[vi_name].values)),
-                                max(ylim[1], max(ds[vi_name].values))]
-
-                    # Append to list of datasets.
-                    if rcp == rcp_def.rcp_ref:
-                        ds_ref = ds
-                    else:
-                        ds_is_ok = True
-                        if (vi_name == vi.i_rain_season_prcptot) and (float(ds[vi_name].max().values) == 0):
-                            ds_is_ok = False
-                        if ds_is_ok:
-                            if rcp == rcp_def.rcp_26:
-                                ds_rcp_26.append(ds)
-                            elif rcp == rcp_def.rcp_45:
-                                ds_rcp_45.append(ds)
-                            elif rcp == rcp_def.rcp_85:
-                                ds_rcp_85.append(ds)
-                            ds_rcp_xx.append(ds)
-
-                # Group by RCP.
-                if rcp != rcp_def.rcp_ref:
-                    if (rcp == rcp_def.rcp_26) and (len(ds_rcp_26) > 0):
-                        ds_rcp_26_grp = calc_stat_mean_min_max(ds_rcp_26, vi_name)
-                    elif (rcp == rcp_def.rcp_45) and (len(ds_rcp_45) > 0):
-                        ds_rcp_45_grp = calc_stat_mean_min_max(ds_rcp_45, vi_name)
-                    elif (rcp == rcp_def.rcp_85) and (len(ds_rcp_85) > 0):
-                        ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, vi_name)
-                    if len(ds_rcp_xx) > 0:
-                        ds_rcp_xx_grp = calc_stat_mean_min_max(ds_rcp_xx, vi_name)
-
-            if (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
-
-                # Extract years.
-                years = []
-                if (rcp_def.rcp_26 in rcps) and (len(ds_rcp_26_grp) > 0):
-                    years = utils.extract_date_field(ds_rcp_26_grp[0], "year")
-                elif (rcp_def.rcp_45 in rcps) and (len(ds_rcp_45_grp) > 0):
-                    years = utils.extract_date_field(ds_rcp_45_grp[0], "year")
-                elif (rcp_def.rcp_85 in rcps) and (len(ds_rcp_85_grp) > 0):
-                    years = utils.extract_date_field(ds_rcp_85_grp[0], "year")
-                dict_pd = {"year": years}
-
-                # Create pandas dataframe.
-                df_rcp, df_sim = pd.DataFrame(dict_pd), pd.DataFrame(dict_pd)
-                df_rcp[rcp_def.rcp_ref], df_sim[rcp_def.rcp_ref] = None, None
-                for rcp in rcps:
-                    if rcp == rcp_def.rcp_ref:
-                        years = utils.extract_date_field(ds_ref, "year")
-                        vals = ds_ref[vi_name].values
-                        for i in range(len(vals)):
-                            with warnings.catch_warnings():
-                                warnings.simplefilter("ignore", category=SettingWithCopyWarning)
-                                df_rcp[rcp_def.rcp_ref][df_rcp["year"] == years[i]] = vals[i]
-                                df_sim[rcp_def.rcp_ref][df_sim["year"] == years[i]] = vals[i]
-                    elif rcp == rcp_def.rcp_26:
-                        df_rcp[rcp_def.rcp_26 + "_moy"] = ds_rcp_26_grp[0][vi_name].values
-                        df_rcp[rcp_def.rcp_26 + "_min"] = ds_rcp_26_grp[1][vi_name].values
-                        df_rcp[rcp_def.rcp_26 + "_max"] = ds_rcp_26_grp[2][vi_name].values
-                        for i in range(len(ds_rcp_26)):
-                            df_sim[rcp_def.rcp_26 + "_" + str(i)] = ds_rcp_26[i][vi_name].values
+            # Append to list of datasets.
+            if rcp == rcp_def.rcp_ref:
+                ds_ref = ds
+            else:
+                ds_is_ok = True
+                if (vi_name == vi.i_rain_season_prcptot) and (float(ds[vi_name].max().values) == 0):
+                    ds_is_ok = False
+                if ds_is_ok:
+                    if rcp == rcp_def.rcp_26:
+                        ds_rcp_26.append(ds)
                     elif rcp == rcp_def.rcp_45:
-                        df_rcp[rcp_def.rcp_45 + "_moy"] = ds_rcp_45_grp[0][vi_name].values
-                        df_rcp[rcp_def.rcp_45 + "_min"] = ds_rcp_45_grp[1][vi_name].values
-                        df_rcp[rcp_def.rcp_45 + "_max"] = ds_rcp_45_grp[2][vi_name].values
-                        for i in range(len(ds_rcp_45)):
-                            df_sim[rcp_def.rcp_45 + "_" + str(i)] = ds_rcp_45[i][vi_name].values
+                        ds_rcp_45.append(ds)
                     elif rcp == rcp_def.rcp_85:
-                        df_rcp[rcp_def.rcp_85 + "_moy"] = ds_rcp_85_grp[0][vi_name].values
-                        df_rcp[rcp_def.rcp_85 + "_min"] = ds_rcp_85_grp[1][vi_name].values
-                        df_rcp[rcp_def.rcp_85 + "_max"] = ds_rcp_85_grp[2][vi_name].values
-                        for i in range(len(ds_rcp_85)):
-                            df_sim[rcp_def.rcp_85 + "_" + str(i)] = ds_rcp_85[i][vi_name].values
-                    else:
-                        df_rcp[rcp_def.rcp_xx + "_moy"] = ds_rcp_xx_grp[0][vi_name].values
-                        df_rcp[rcp_def.rcp_xx + "_min"] = ds_rcp_xx_grp[1][vi_name].values
-                        df_rcp[rcp_def.rcp_xx + "_max"] = ds_rcp_xx_grp[2][vi_name].values
+                        ds_rcp_85.append(ds)
+                    ds_rcp_xx.append(ds)
 
-                # CSV file format --------------------------------------------------------------------------------------
+        # Group by RCP.
+        if rcp != rcp_def.rcp_ref:
+            if (rcp == rcp_def.rcp_26) and (len(ds_rcp_26) > 0):
+                ds_rcp_26_grp = calc_stat_mean_min_max(ds_rcp_26, vi_name)
+            elif (rcp == rcp_def.rcp_45) and (len(ds_rcp_45) > 0):
+                ds_rcp_45_grp = calc_stat_mean_min_max(ds_rcp_45, vi_name)
+            elif (rcp == rcp_def.rcp_85) and (len(ds_rcp_85) > 0):
+                ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, vi_name)
+            if len(ds_rcp_xx) > 0:
+                ds_rcp_xx_grp = calc_stat_mean_min_max(ds_rcp_xx, vi_name)
 
-                if cfg.opt_save_csv:
-                    if (not os.path.exists(p_rcp_csv)) or cfg.opt_force_overwrite:
-                        utils.save_csv(df_rcp, p_rcp_csv)
-                    if (not os.path.exists(p_sim_csv)) or cfg.opt_force_overwrite:
-                        utils.save_csv(df_sim, p_sim_csv)
+    if (ds_ref is not None) or (ds_rcp_26 != []) or (ds_rcp_45 != []) or (ds_rcp_85 != []):
 
-                # PNG file format --------------------------------------------------------------------------------------
+        # Extract years.
+        years = []
+        if (rcp_def.rcp_26 in rcps) and (len(ds_rcp_26_grp) > 0):
+            years = utils.extract_date_field(ds_rcp_26_grp[0], "year")
+        elif (rcp_def.rcp_45 in rcps) and (len(ds_rcp_45_grp) > 0):
+            years = utils.extract_date_field(ds_rcp_45_grp[0], "year")
+        elif (rcp_def.rcp_85 in rcps) and (len(ds_rcp_85_grp) > 0):
+            years = utils.extract_date_field(ds_rcp_85_grp[0], "year")
+        dict_pd = {"year": years}
 
-                if cfg.f_png in cfg.opt_map_formats:
+        # Create pandas dataframe.
+        df_rcp, df_sim = pd.DataFrame(dict_pd), pd.DataFrame(dict_pd)
+        df_rcp[rcp_def.rcp_ref], df_sim[rcp_def.rcp_ref] = None, None
+        for rcp in rcps:
+            if rcp == rcp_def.rcp_ref:
+                years = utils.extract_date_field(ds_ref, "year")
+                vals = ds_ref[vi_name].values
+                for i in range(len(vals)):
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=SettingWithCopyWarning)
+                        df_rcp[rcp_def.rcp_ref][df_rcp["year"] == years[i]] = vals[i]
+                        df_sim[rcp_def.rcp_ref][df_sim["year"] == years[i]] = vals[i]
+            elif rcp == rcp_def.rcp_26:
+                df_rcp[rcp_def.rcp_26 + "_moy"] = ds_rcp_26_grp[0][vi_name].values
+                df_rcp[rcp_def.rcp_26 + "_min"] = ds_rcp_26_grp[1][vi_name].values
+                df_rcp[rcp_def.rcp_26 + "_max"] = ds_rcp_26_grp[2][vi_name].values
+                for i in range(len(ds_rcp_26)):
+                    df_sim[rcp_def.rcp_26 + "_" + str(i)] = ds_rcp_26[i][vi_name].values
+            elif rcp == rcp_def.rcp_45:
+                df_rcp[rcp_def.rcp_45 + "_moy"] = ds_rcp_45_grp[0][vi_name].values
+                df_rcp[rcp_def.rcp_45 + "_min"] = ds_rcp_45_grp[1][vi_name].values
+                df_rcp[rcp_def.rcp_45 + "_max"] = ds_rcp_45_grp[2][vi_name].values
+                for i in range(len(ds_rcp_45)):
+                    df_sim[rcp_def.rcp_45 + "_" + str(i)] = ds_rcp_45[i][vi_name].values
+            elif rcp == rcp_def.rcp_85:
+                df_rcp[rcp_def.rcp_85 + "_moy"] = ds_rcp_85_grp[0][vi_name].values
+                df_rcp[rcp_def.rcp_85 + "_min"] = ds_rcp_85_grp[1][vi_name].values
+                df_rcp[rcp_def.rcp_85 + "_max"] = ds_rcp_85_grp[2][vi_name].values
+                for i in range(len(ds_rcp_85)):
+                    df_sim[rcp_def.rcp_85 + "_" + str(i)] = ds_rcp_85[i][vi_name].values
+            else:
+                df_rcp[rcp_def.rcp_xx + "_moy"] = ds_rcp_xx_grp[0][vi_name].values
+                df_rcp[rcp_def.rcp_xx + "_min"] = ds_rcp_xx_grp[1][vi_name].values
+                df_rcp[rcp_def.rcp_xx + "_max"] = ds_rcp_xx_grp[2][vi_name].values
 
-                    # Create context.
-                    cntx = context_def.Context(context_def.code_script)
-                    cntx.view = view_def.View(view_def.mode_ts)
-                    cntx.lib = lib_def.Lib(lib_def.mode_mat)
-                    cntx.varidx = vi.VarIdx(vi_code)
-                    cntx.rcps = rcp_def.RCPs(cfg.rcps)
-
-                    # Generate plot with simulations grouped by RCP scenario.
-                    if (not os.path.exists(p_rcp_png)) or cfg.opt_force_overwrite:
-                        fig = dash_plot.gen_ts(cntx, df_rcp, dash_plot.mode_rcp)
-                        utils.save_plot(fig, p_rcp_png)
-
-                    # Generate plot showing individual simulations.
-                    if (not os.path.exists(p_sim_png)) or cfg.opt_force_overwrite:
-                        fig = dash_plot.gen_ts(cntx, df_sim, dash_plot.mode_sim)
-                        utils.save_plot(fig, p_sim_png)
+    return df_rcp, df_sim
 
 
 def calc_stat_mean_min_max(

@@ -776,18 +776,18 @@ def explode_idx_l(
 
         # Loop through index groups.
         in_group = False
-        for j in range(len(vi.i_groups)):
+        for key in vi.i_groups:
 
             # Explode and add to list.
-            if vi.i_groups[j][0] in idx_code:
+            if vi.i_groups[key][0] in idx_code:
                 in_group = True
 
                 # Extract instance number of index (ex: "_1").
                 no = idx_code.replace(idx_code, "")
 
                 # Loop through embedded indices.
-                for k in range(len(vi.i_groups[j][1])):
-                    idx_l_new.append(vi.i_groups[j][1][k] + no)
+                for k in range(len(vi.i_groups[key][1])):
+                    idx_l_new.append(vi.i_groups[key][1][k] + no)
 
         if not in_group:
             idx_l_new.append(idx_code)
