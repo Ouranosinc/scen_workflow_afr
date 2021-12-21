@@ -17,9 +17,10 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 
 The latest version of the code requires the following project:
 - https://github.com/yrouranos/dashboard
-This project, which is essentially a plot generator, must be downloaded within the scen_workflow_afr directory/project. 
 
-The technical documentation can be found [here](https://ouranos-my.sharepoint.com/:f:/g/personal/yanrou1_ouranos_ca/EknV5GO46cxChVpilQwKzMQBrB3wu4e6aS3bUfoUlZ3gwg?e=R1Ju2C).
+- This project, which is essentially a plot generator, must be downloaded within the scen_workflow_afr directory/project. 
+
+Technical documentation can be found [here](https://ouranos-my.sharepoint.com/:f:/g/personal/yanrou1_ouranos_ca/EknV5GO46cxChVpilQwKzMQBrB3wu4e6aS3bUfoUlZ3gwg?e=R1Ju2C).
 
 ## Releases
 
