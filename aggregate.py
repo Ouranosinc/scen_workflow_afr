@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ----------------------------------------------------------------------------------------------------------------------
 # Aggregation of a dataset (hourly to daily).
-# The algorithm is only compatible with varidx_def.ens_era5 and varid_def.ens_era5_land datasets.
+# The algorithm is only compatible with def_varidx.ens_era5 and def_varid.ens_era5_land datasets.
 #
 # Contributors:
 # 1. rousseau.yannick@ouranos.ca
@@ -20,7 +20,7 @@ import warnings
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi
+from dashboard import def_varidx as vi
 
 
 def aggregate(

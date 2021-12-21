@@ -11,7 +11,7 @@ import os.path
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi, rcp_def
+from dashboard import def_varidx as vi, def_rcp
 
 
 # Constants ------------------------------------------------------------------------------------------------------------
@@ -394,7 +394,7 @@ country             = ""            # Country name.
 project             = ""            # Project acronym.
 
 # Emission scenarios, periods and horizons.
-rcps                = [rcp_def.rcp_26, rcp_def.rcp_45, rcp_def.rcp_85]          # All emission scenarios.
+rcps                = [def_rcp.rcp_26, def_rcp.rcp_45, def_rcp.rcp_85]          # All emission scenarios.
 per_ref             = [1981, 2010]                                              # Reference period.
 per_fut             = [1981, 2100]                                              # Future period.
 per_hors            = [[1981, 2010], [2021, 2040], [2041, 2060], [2061, 2080]]  # Horizons.
@@ -843,13 +843,13 @@ def get_equivalent_idx_path(
                 p = get_d_idx(stn, vi_code_b)
             # Index->Variable.
             else:
-                if rcp == rcp_def.rcp_ref:
+                if rcp == def_rcp.rcp_ref:
                     p = get_d_stn(vi_code_b)
                 else:
                     p = get_d_scen(stn, cat_qqmap, vi_code_b)
             # Both.
-            if rcp == rcp_def.rcp_ref:
-                p += str(vi_b.get_name()) + "_" + rcp_def.rcp_ref + f_ext_nc
+            if rcp == def_rcp.rcp_ref:
+                p += str(vi_b.get_name()) + "_" + def_rcp.rcp_ref + f_ext_nc
             else:
                 p += fn.replace(str(vi_a.get_name()) + "_", str(vi_b.get_name()) + "_")
 

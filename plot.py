@@ -24,7 +24,7 @@ from scipy import signal
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi, rcp_def
+from dashboard import def_varidx as vi, def_rcp
 
 
 # ======================================================================================================================
@@ -809,8 +809,8 @@ def plot_ts_single(
     # Loop through simulation sets.
     for i in range(int(len(p_l) / 3)):
 
-        p_ref   = [i for i in p_l if rcp_def.rcp_ref in i][i]
-        p_fut   = p_ref.replace(rcp_def.rcp_ref + "_", "")
+        p_ref   = [i for i in p_l if def_rcp.rcp_ref in i][i]
+        p_fut   = p_ref.replace(def_rcp.rcp_ref + "_", "")
         p_qqmap = p_fut.replace("_4qqmap", "").replace(cfg.cat_regrid, cfg.cat_qqmap)
         ds_fut   = utils.open_netcdf(p_fut)
         ds_qqmap = utils.open_netcdf(p_qqmap)
@@ -893,7 +893,7 @@ def plot_ts_mosaic(
     for i in range(int(len(p_l) / 3)):
 
         # Path of NetCDF files.
-        p_fut_i   = [i for i in p_l if rcp_def.rcp_ref in i][i].replace(rcp_def.rcp_ref + "_", "")
+        p_fut_i   = [i for i in p_l if def_rcp.rcp_ref in i][i].replace(def_rcp.rcp_ref + "_", "")
         p_qqmap_i = p_fut_i.replace("_4" + cfg.cat_qqmap, "").replace(cfg.cat_regrid, cfg.cat_qqmap)
 
         # Open datasets.

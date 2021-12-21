@@ -32,7 +32,7 @@ from scipy.interpolate import griddata
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi
+from dashboard import def_varidx as vi
 
 
 def load_observations(
@@ -261,6 +261,8 @@ def preload_reanalysis(
             ds = ds.drop_vars(["Lon", "Lat"])
             ds[cfg.dim_longitude].attrs["long_name"] = cfg.dim_longitude
             ds[cfg.dim_latitude].attrs["long_name"] = cfg.dim_latitude
+            ds[cfg.dim_longitude].attrs["units"] = "degrees_east"
+            ds[cfg.dim_latitude].attrs["units"] = "degrees_north"
             if var_ra not in ds.variables:
                 if var_ra == vi.v_enacts_rr:
                     da_name = "precip"
@@ -374,7 +376,7 @@ def load_reanalysis(
             ds[var].attrs[cfg.attrs_units] = cfg.unit_1
 
         # Change sign to have the same meaning between projections and reanalysis.
-        # A positive sign for the following variables means that the transfer direction is from the surface toward the
+        # A positive sign for the following variable means that the transfer direction is from the surface toward the
         # atmosphere. A negative sign means that there is condensation.
         if (var in [vi.v_evspsbl, vi.v_evspsblpot]) and (cfg.obs_src in [vi.ens_era5, vi.ens_era5_land]):
             ds[var] = -ds[var]

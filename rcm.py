@@ -76,19 +76,19 @@ def extract_variable(
             var + cfg.sep + "*" + cfg.f_ext_nc
         p_fut = d_fut.replace(cfg.sep + "*" + cfg.sep, cfg.sep + priority_timestep + cfg.sep) +\
             var + cfg.sep + "*" + cfg.f_ext_nc
-        p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
+        p_l = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
-        # Since CORDEX-NA (once again) screwed up their directories, we need
-        # to check in /raw/ as well.
         if not p_l:
+
+            # Since CORDEX-NA (once again) screwed up their directories, we need
+            # to check in /raw/ as well.
             p_ref = d_ref.replace(cfg.sep + "*" + cfg.sep, cfg.sep + priority_timestep + cfg.sep) +\
                 cfg.cat_raw + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc
             p_fut = d_fut.replace(cfg.sep + "*" + cfg.sep, cfg.sep + priority_timestep + cfg.sep) +\
                 cfg.cat_raw + cfg.sep + var + cfg.sep + "*" + cfg.f_ext_nc
-            p_l   = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
+            p_l = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
 
-        # If no data was found, search other time resolutions.
-        if not p_l:
+            # If no data was found, search other time resolutions.
             timestep_order = ["ann", "mon", "day", "6h", "6hr", "3h", "3hr", "1h", "1hr"]
             index_ts       = timestep_order.index(priority_timestep) + 1
 

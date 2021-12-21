@@ -20,7 +20,7 @@ import utils
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi
+from dashboard import def_varidx as vi
 
 
 def download_from_copernicus(
@@ -40,7 +40,7 @@ def download_from_copernicus(
     p_base : str
         Path of directory where data is saved.
     obs_src : str
-        Set code: {varidx_def.ens_era5, varidx_def.ens_era5_land}
+        Set code: {def_varidx.ens_era5, def_varidx.ens_era5_land}
     area : [float]
         Bounding box defining the 4 limits of the area of interest (in decimal degrees):
         [North, West, South, East].

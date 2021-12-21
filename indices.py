@@ -28,7 +28,7 @@ from xclim.core.units import convert_units_to, declare_units, rate2amount, to_ag
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi, rcp_def, rcp_def
+from dashboard import def_varidx as vi, def_rcp, def_rcp
 
 
 def generate(
@@ -51,7 +51,7 @@ def generate(
     vi_params = cfg.idx_params[cfg.idx_codes.index(vi_code)]
 
     # Emission scenarios.
-    rcps = [rcp_def.rcp_ref] + cfg.rcps
+    rcps = [def_rcp.rcp_ref] + cfg.rcps
 
     # Data preparation -------------------------------------------------------------------------------------------------
 
@@ -133,13 +133,13 @@ def generate(
         # Loop through emissions scenarios.
         for rcp in rcps:
 
-            utils.log("Processing: " + vi_code + ", " + stn + ", " + str(rcp_def.RCP(rcp).get_desc()) + "", True)
+            utils.log("Processing: " + vi_code + ", " + stn + ", " + str(def_rcp.RCP(rcp).get_desc()) + "", True)
 
             # List simulation files for the first variable. As soon as there is no file for one variable, the analysis
             # for the current RCP needs to abort.
             utils.log("Collecting simulation files.", True)
             varidx_0 = vi.VarIdx(vi_code_l[0])
-            if rcp == rcp_def.rcp_ref:
+            if rcp == def_rcp.rcp_ref:
                 if varidx_0.get_ens() in vi.ens_cordex:
                     p_sim = cfg.get_d_stn(vi_code_l[0]) + varidx_0.get_name() + "_" + stn + cfg.f_ext_nc
                 else:
@@ -287,14 +287,14 @@ def generate_single(
     vi_name_0 = str(varidx_0.get_name())
 
     # Name of NetCDF file to generate.
-    if rcp == rcp_def.rcp_ref:
+    if rcp == def_rcp.rcp_ref:
         p_idx = cfg.get_d_idx(stn, vi_code) + vi_name + "_ref" + cfg.f_ext_nc
     else:
         p_idx = cfg.get_d_scen(stn, cfg.cat_idx, vi_code) +\
                 os.path.basename(p_sim[i_sim]).replace(vi_name_0, vi_name)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
-    if (rcp != rcp_def.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
+    if (rcp != def_rcp.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
         if cfg.n_proc > 1:
             utils.log("Work done!", True)
         return
@@ -311,7 +311,7 @@ def generate_single(
             ds = utils.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.
-            if (rcp == rcp_def.rcp_ref) and (varidx_i.get_ens() == vi.ens_cordex):
+            if (rcp == def_rcp.rcp_ref) and (varidx_i.get_ens() == vi.ens_cordex):
                 ds = utils.remove_feb29(ds)
                 ds = utils.sel_period(ds, cfg.per_ref)
 
@@ -319,7 +319,7 @@ def generate_single(
             if varidx_i.get_name() in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
                 if ds[vi_code_i].attrs[cfg.attrs_units] == cfg.unit_K:
                     ds[vi_code_i] = ds[vi_code_i] - cfg.d_KC
-                elif rcp == rcp_def.rcp_ref:
+                elif rcp == def_rcp.rcp_ref:
                     ds[vi_code_i][cfg.attrs_units] = cfg.unit_C
                 ds[vi_code_i].attrs[cfg.attrs_units] = cfg.unit_C
 
@@ -331,7 +331,7 @@ def generate_single(
 
     # Calculate the 90th percentile of tasmax for the reference period.
     da_tx90p = None
-    if (vi_name == vi.i_wsdi) and (rcp == rcp_def.rcp_ref):
+    if (vi_name == vi.i_wsdi) and (rcp == def_rcp.rcp_ref):
         da_tx90p = xr.DataArray(percentile_doy(ds_vi_l[0][vi.v_tasmax], per=0.9))
 
     # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
@@ -350,7 +350,7 @@ def generate_single(
 
             if "p" in str(vi_param):
                 vi_param = float(vi_param.replace("p", "")) / 100.0
-                if rcp == rcp_def.rcp_ref:
+                if rcp == def_rcp.rcp_ref:
                     # Calculate percentile.
                     if (vi_name in [vi.i_tx90p, vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_wsdi]) or\
                        (i == 1):
@@ -385,7 +385,7 @@ def generate_single(
            ((vi_name in [vi.i_heat_wave_max_length, vi.i_heat_wave_total_length]) and (i <= 1)):
             vi_ref = str(vi_param) + " " + cfg.unit_C
             vi_fut = str(vi_param + cfg.d_KC) + " " + cfg.unit_K
-            vi_params_str.append(vi_ref if (rcp == rcp_def.rcp_ref) else vi_fut)
+            vi_params_str.append(vi_ref if (rcp == def_rcp.rcp_ref) else vi_fut)
 
         elif vi_name in [vi.i_cwd, vi.i_cdd, vi.i_r10mm, vi.i_r20mm, vi.i_rnnmm,
                          vi.i_wet_days, vi.i_dry_days, vi.i_sdii]:
@@ -398,7 +398,7 @@ def generate_single(
             vi_params_str.append(str(vi_param))
 
     # Exit loop if the file already exists (reference file only).
-    if not ((rcp == rcp_def.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite)):
+    if not ((rcp == def_rcp.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite)):
 
         # Will hold data arrays and units.
         da_idx_l    = []
@@ -848,7 +848,7 @@ def generate_single(
         ds_idx = ds_idx.squeeze()
         year_1 = cfg.per_fut[0]
         year_n = cfg.per_fut[1]
-        if rcp == rcp_def.rcp_ref:
+        if rcp == def_rcp.rcp_ref:
             year_1 = max(cfg.per_ref[0], int(str(ds_vi_l[0][cfg.dim_time][0].values)[0:4]))
             year_n = min(cfg.per_ref[1], int(str(ds_vi_l[0][cfg.dim_time]
                                                  [len(ds_vi_l[0][cfg.dim_time]) - 1].values)[0:4]))
@@ -859,7 +859,7 @@ def generate_single(
         utils.save_netcdf(ds_idx, p_idx, desc=desc)
 
     # Convert percentile threshold values for climate indices. This is sometimes required in time series.
-    if (rcp == rcp_def.rcp_ref) and (vi_name == vi.i_prcptot):
+    if (rcp == def_rcp.rcp_ref) and (vi_name == vi.i_prcptot):
         ds_idx = utils.open_netcdf(p_idx)
         da_idx = ds_idx.mean(dim=[cfg.dim_longitude, cfg.dim_latitude])[vi_name]
         param_pr = vi_params_str[0]

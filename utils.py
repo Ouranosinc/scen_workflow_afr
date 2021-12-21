@@ -31,7 +31,7 @@ from typing import Union, List, Tuple
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi
+from dashboard import def_varidx as vi
 
 
 def natural_sort(
@@ -1155,54 +1155,27 @@ def subset_lon_lat(
 
     ds_res = ds.copy(deep=True)
 
-    if lon_bnds is None:
-        lon_bnds = cfg.lon_bnds
-    if lat_bnds is None:
-        lat_bnds = cfg.lat_bnds
-
     # Latitude.
     if cfg.dim_latitude in ds_res.dims:
-        n_lat = len(ds_res.latitude)
         lat_min = ds_res.latitude.min()
         lat_max = ds_res.latitude.max()
     else:
-        n_lat = len(ds_res.rlat)
         lat_min = ds_res.rlat.min()
         lat_max = ds_res.rlat.max()
 
     # Longitude.
     if cfg.dim_longitude in ds_res.dims:
-        n_lon = len(ds_res.longitude)
         lon_min = ds_res.longitude.min()
         lon_max = ds_res.longitude.max()
     else:
-        n_lon = len(ds_res.rlon)
         lon_min = ds_res.rlon.min()
         lon_max = ds_res.rlon.max()
 
-    # Calculate latitude.
-    lat_range = lat_max - lat_min
-    i_lat_min = math.floor((lat_max - lat_bnds[1]) / lat_range * n_lat)
-    i_lat_max = math.ceil((lat_max - lat_bnds[0]) / lat_range * n_lat)
-    if lat_bnds[0] == lat_bnds[1]:
-        i_lat_max = i_lat_min
-    i_lat_min = max(0, i_lat_min)
-    i_lat_max = min(n_lat, i_lat_max)
-
-    # Calculate longitude.
-    lon_range = lon_max - lon_min
-    i_lon_min = math.floor((lon_bnds[0] - lon_min) / lon_range * n_lon)
-    i_lon_max = math.ceil((lon_bnds[1] - lon_min) / lon_range * n_lon)
-    if lon_bnds[0] == lon_bnds[1]:
-        i_lon_max = i_lon_min
-    i_lon_min = max(0, i_lon_min)
-    i_lon_max = min(n_lat, i_lon_max)
-
     # Slice.
     if cfg.dim_latitude in ds.dims:
-        ds_res = ds_res.isel(latitude=slice(i_lat_min, i_lat_max), longitude=slice(i_lon_min, i_lon_max))
+        ds_res = ds_res.sel(latitude=slice(lat_min, lat_max), longitude=slice(lon_min, lon_max))
     else:
-        ds_res = ds_res.isel(rlat=slice(i_lat_min, i_lat_max), rlon=slice(i_lon_min, i_lon_max))
+        ds_res = ds_res.sel(rlat=slice(lat_min, lat_max), rlon=slice(lon_min, lon_max))
 
     return ds_res
 

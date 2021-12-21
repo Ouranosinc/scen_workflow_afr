@@ -32,7 +32,7 @@ from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi
+from dashboard import def_varidx as vi
 
 
 def get_sample_data(var: str) -> Union[xr.DataArray, None]:

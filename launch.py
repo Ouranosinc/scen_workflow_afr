@@ -21,7 +21,7 @@ import utils
 
 import sys
 sys.path.append("dashboard")
-from dashboard import varidx_def as vi
+from dashboard import def_varidx as vi
 
 
 def load_params(
@@ -197,7 +197,7 @@ def load_params(
             elif key == "idx_codes":
                 cfg.idx_codes = convert_to_1d(value, str)
                 for i in range(len(cfg.idx_codes)):
-                    cfg.idx_names.append(vi.VarIdx(cfg.idx_codes[i]).get_name())
+                    cfg.idx_names.append(vi.VarIdx(str(cfg.idx_codes[i])))
             elif key == "idx_params":
                 cfg.idx_params = convert_to_2d(value, float)
                 for i in range(len(cfg.idx_names)):
@@ -263,6 +263,8 @@ def load_params(
                 cfg.opt_map_col_wind_var = convert_to_1d(value, str)
             elif key == "opt_map_col_wind_idx_1":
                 cfg.opt_map_col_wind_idx_1 = convert_to_1d(value, str)
+            elif key == "opt_map_col_default":
+                cfg.opt_map_col_default = convert_to_1d(value, str)
 
             # ENVIRONMENT:
             elif key == "n_proc":

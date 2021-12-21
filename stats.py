@@ -30,7 +30,7 @@ from typing import Union, List, Tuple, Optional
 
 import sys
 sys.path.append("dashboard")
-from dashboard import context_def, project_def, hor_def, lib_def, rcp_def, stat_def, varidx_def as vi, view_def,\
+from dashboard import def_context, def_project, def_hor, def_lib, def_rcp, def_stat, def_varidx as vi, def_view,\
     dash_plot
 
 
@@ -66,7 +66,7 @@ def calc_stat(
     vi_code : str
         Climate variable or index code.
     rcp : str
-        Emission scenario: {rcp_def.rcp_26, rcp_def.rcp_45, rcp_def, rcp_def.rcp_xx}
+        Emission scenario: {def_rcp.rcp_26, def_rcp.rcp_45, def_rcp, def_rcp.rcp_xx}
     hor : [int]
         Horizon: ex: [1981, 2010]
         If None is specified, the complete time range is considered.
@@ -100,7 +100,7 @@ def calc_stat(
             d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_name)
         else:
             d = cfg.get_d_idx(stn, vi_code_grp)
-        p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp == rcp_def.rcp_xx else rcp) + cfg.f_ext_nc)
+        p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp == def_rcp.rcp_xx else rcp) + cfg.f_ext_nc)
 
     # Exit if there is no file corresponding to the criteria.
     if (len(p_sim_l) == 0) or \
@@ -306,9 +306,9 @@ def calc_stats(
     """
 
     # List emission scenarios.
-    rcps = [rcp_def.rcp_ref] + cfg.rcps
+    rcps = [def_rcp.rcp_ref] + cfg.rcps
     if len(rcps) > 2:
-        rcps = rcps + [rcp_def.rcp_xx]
+        rcps = rcps + [def_rcp.rcp_xx]
 
     # Data frequency.
     freq = cfg.freq_D if cat == cfg.cat_scen else cfg.freq_YS
@@ -345,7 +345,7 @@ def calc_stats(
             for rcp in rcps:
 
                 # Select years.
-                if rcp == rcp_def.rcp_ref:
+                if rcp == def_rcp.rcp_ref:
                     hors = [cfg.per_ref]
                     cat_rcp = cfg.cat_obs
                     if cat == cfg.cat_scen:
@@ -511,11 +511,11 @@ def calc_ts(
             if cfg.f_png in cfg.opt_map_formats:
 
                 # Create context.
-                cntx = context_def.Context(context_def.code_script)
-                cntx.view = view_def.View(view_def.mode_ts)
-                cntx.lib = lib_def.Lib(lib_def.mode_mat)
+                cntx = def_context.Context(def_context.code_script)
+                cntx.view = def_view.View(def_view.mode_ts)
+                cntx.lib = def_lib.Lib(def_lib.mode_mat)
                 cntx.varidx = vi.VarIdx(vi_code)
-                cntx.rcps = rcp_def.RCPs(cfg.rcps)
+                cntx.rcps = def_rcp.RCPs(cfg.rcps)
 
                 # Loop through modes (rcp|sim).
                 for mode in [dash_plot.mode_rcp, dash_plot.mode_sim]:
@@ -574,7 +574,7 @@ def calc_ts_prep(
     vi_code_grp = vi.get_group(vi_code)
 
     # Emission scenarios.
-    rcps = [rcp_def.rcp_ref] + cfg.rcps
+    rcps = [def_rcp.rcp_ref] + cfg.rcps
 
     # Loop through emission scenarios.
     ds_ref = None
@@ -585,7 +585,7 @@ def calc_ts_prep(
     for rcp in rcps:
 
         # List files.
-        if rcp == rcp_def.rcp_ref:
+        if rcp == def_rcp.rcp_ref:
             if vi_code in cfg.variables:
                 p_sim_l = [cfg.get_d_stn(vi_code_grp) + vi_code_grp + "_" + stn + cfg.f_ext_nc]
             else:
@@ -595,7 +595,7 @@ def calc_ts_prep(
                 d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_grp)
             else:
                 d = cfg.get_d_idx(stn, vi_code_grp)
-            p_sim_l = glob.glob(d + "*_" + ("*" if rcp == rcp_def.rcp_xx else rcp) + cfg.f_ext_nc)
+            p_sim_l = glob.glob(d + "*_" + ("*" if rcp == def_rcp.rcp_xx else rcp) + cfg.f_ext_nc)
 
         # Exit if there is no file corresponding to the criteria.
         if (len(p_sim_l) == 0) or \
@@ -611,7 +611,7 @@ def calc_ts_prep(
 
             # Load dataset.
             ds = utils.open_netcdf(p_sim_l[i_sim]).squeeze()
-            if (rcp == rcp_def.rcp_ref) and (vi_name in cfg.variables):
+            if (rcp == def_rcp.rcp_ref) and (vi_name in cfg.variables):
                 ds = utils.remove_feb29(ds)
                 ds = utils.sel_period(ds, cfg.per_ref)
 
@@ -633,7 +633,7 @@ def calc_ts_prep(
             # First and last years.
             year_1 = int(str(ds.time.values[0])[0:4])
             year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
-            if rcp == rcp_def.rcp_ref:
+            if rcp == def_rcp.rcp_ref:
                 year_1 = max(year_1, cfg.per_ref[0])
                 year_n = min(year_n, cfg.per_ref[1])
             else:
@@ -674,28 +674,28 @@ def calc_ts_prep(
                 ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_km_h
 
             # Append to list of datasets.
-            if rcp == rcp_def.rcp_ref:
+            if rcp == def_rcp.rcp_ref:
                 ds_ref = ds
             else:
                 ds_is_ok = True
                 if (vi_name == vi.i_rain_season_prcptot) and (float(ds[vi_name].max().values) == 0):
                     ds_is_ok = False
                 if ds_is_ok:
-                    if rcp == rcp_def.rcp_26:
+                    if rcp == def_rcp.rcp_26:
                         ds_rcp_26.append(ds)
-                    elif rcp == rcp_def.rcp_45:
+                    elif rcp == def_rcp.rcp_45:
                         ds_rcp_45.append(ds)
-                    elif rcp == rcp_def.rcp_85:
+                    elif rcp == def_rcp.rcp_85:
                         ds_rcp_85.append(ds)
                     ds_rcp_xx.append(ds)
 
         # Group by RCP.
-        if rcp != rcp_def.rcp_ref:
-            if (rcp == rcp_def.rcp_26) and (len(ds_rcp_26) > 0):
+        if rcp != def_rcp.rcp_ref:
+            if (rcp == def_rcp.rcp_26) and (len(ds_rcp_26) > 0):
                 ds_rcp_26_grp = calc_stat_mean_min_max(ds_rcp_26, vi_name)
-            elif (rcp == rcp_def.rcp_45) and (len(ds_rcp_45) > 0):
+            elif (rcp == def_rcp.rcp_45) and (len(ds_rcp_45) > 0):
                 ds_rcp_45_grp = calc_stat_mean_min_max(ds_rcp_45, vi_name)
-            elif (rcp == rcp_def.rcp_85) and (len(ds_rcp_85) > 0):
+            elif (rcp == def_rcp.rcp_85) and (len(ds_rcp_85) > 0):
                 ds_rcp_85_grp = calc_stat_mean_min_max(ds_rcp_85, vi_name)
             if len(ds_rcp_xx) > 0:
                 ds_rcp_xx_grp = calc_stat_mean_min_max(ds_rcp_xx, vi_name)
@@ -704,48 +704,48 @@ def calc_ts_prep(
 
         # Extract years.
         years = []
-        if (rcp_def.rcp_26 in rcps) and (len(ds_rcp_26_grp) > 0):
+        if (def_rcp.rcp_26 in rcps) and (len(ds_rcp_26_grp) > 0):
             years = utils.extract_date_field(ds_rcp_26_grp[0], "year")
-        elif (rcp_def.rcp_45 in rcps) and (len(ds_rcp_45_grp) > 0):
+        elif (def_rcp.rcp_45 in rcps) and (len(ds_rcp_45_grp) > 0):
             years = utils.extract_date_field(ds_rcp_45_grp[0], "year")
-        elif (rcp_def.rcp_85 in rcps) and (len(ds_rcp_85_grp) > 0):
+        elif (def_rcp.rcp_85 in rcps) and (len(ds_rcp_85_grp) > 0):
             years = utils.extract_date_field(ds_rcp_85_grp[0], "year")
         dict_pd = {"year": years}
 
         # Create pandas dataframe.
         df_rcp, df_sim = pd.DataFrame(dict_pd), pd.DataFrame(dict_pd)
-        df_rcp[rcp_def.rcp_ref], df_sim[rcp_def.rcp_ref] = None, None
+        df_rcp[def_rcp.rcp_ref], df_sim[def_rcp.rcp_ref] = None, None
         for rcp in rcps:
-            if rcp == rcp_def.rcp_ref:
+            if rcp == def_rcp.rcp_ref:
                 years = utils.extract_date_field(ds_ref, "year")
                 vals = ds_ref[vi_name].values
                 for i in range(len(vals)):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=SettingWithCopyWarning)
-                        df_rcp[rcp_def.rcp_ref][df_rcp["year"] == years[i]] = vals[i]
-                        df_sim[rcp_def.rcp_ref][df_sim["year"] == years[i]] = vals[i]
-            elif rcp == rcp_def.rcp_26:
-                df_rcp[rcp_def.rcp_26 + "_moy"] = ds_rcp_26_grp[0][vi_name].values
-                df_rcp[rcp_def.rcp_26 + "_min"] = ds_rcp_26_grp[1][vi_name].values
-                df_rcp[rcp_def.rcp_26 + "_max"] = ds_rcp_26_grp[2][vi_name].values
+                        df_rcp[def_rcp.rcp_ref][df_rcp["year"] == years[i]] = vals[i]
+                        df_sim[def_rcp.rcp_ref][df_sim["year"] == years[i]] = vals[i]
+            elif rcp == def_rcp.rcp_26:
+                df_rcp[def_rcp.rcp_26 + "_moy"] = ds_rcp_26_grp[0][vi_name].values
+                df_rcp[def_rcp.rcp_26 + "_min"] = ds_rcp_26_grp[1][vi_name].values
+                df_rcp[def_rcp.rcp_26 + "_max"] = ds_rcp_26_grp[2][vi_name].values
                 for i in range(len(ds_rcp_26)):
-                    df_sim[rcp_def.rcp_26 + "_" + str(i)] = ds_rcp_26[i][vi_name].values
-            elif rcp == rcp_def.rcp_45:
-                df_rcp[rcp_def.rcp_45 + "_moy"] = ds_rcp_45_grp[0][vi_name].values
-                df_rcp[rcp_def.rcp_45 + "_min"] = ds_rcp_45_grp[1][vi_name].values
-                df_rcp[rcp_def.rcp_45 + "_max"] = ds_rcp_45_grp[2][vi_name].values
+                    df_sim[def_rcp.rcp_26 + "_" + str(i)] = ds_rcp_26[i][vi_name].values
+            elif rcp == def_rcp.rcp_45:
+                df_rcp[def_rcp.rcp_45 + "_moy"] = ds_rcp_45_grp[0][vi_name].values
+                df_rcp[def_rcp.rcp_45 + "_min"] = ds_rcp_45_grp[1][vi_name].values
+                df_rcp[def_rcp.rcp_45 + "_max"] = ds_rcp_45_grp[2][vi_name].values
                 for i in range(len(ds_rcp_45)):
-                    df_sim[rcp_def.rcp_45 + "_" + str(i)] = ds_rcp_45[i][vi_name].values
-            elif rcp == rcp_def.rcp_85:
-                df_rcp[rcp_def.rcp_85 + "_moy"] = ds_rcp_85_grp[0][vi_name].values
-                df_rcp[rcp_def.rcp_85 + "_min"] = ds_rcp_85_grp[1][vi_name].values
-                df_rcp[rcp_def.rcp_85 + "_max"] = ds_rcp_85_grp[2][vi_name].values
+                    df_sim[def_rcp.rcp_45 + "_" + str(i)] = ds_rcp_45[i][vi_name].values
+            elif rcp == def_rcp.rcp_85:
+                df_rcp[def_rcp.rcp_85 + "_moy"] = ds_rcp_85_grp[0][vi_name].values
+                df_rcp[def_rcp.rcp_85 + "_min"] = ds_rcp_85_grp[1][vi_name].values
+                df_rcp[def_rcp.rcp_85 + "_max"] = ds_rcp_85_grp[2][vi_name].values
                 for i in range(len(ds_rcp_85)):
-                    df_sim[rcp_def.rcp_85 + "_" + str(i)] = ds_rcp_85[i][vi_name].values
+                    df_sim[def_rcp.rcp_85 + "_" + str(i)] = ds_rcp_85[i][vi_name].values
             else:
-                df_rcp[rcp_def.rcp_xx + "_moy"] = ds_rcp_xx_grp[0][vi_name].values
-                df_rcp[rcp_def.rcp_xx + "_min"] = ds_rcp_xx_grp[1][vi_name].values
-                df_rcp[rcp_def.rcp_xx + "_max"] = ds_rcp_xx_grp[2][vi_name].values
+                df_rcp[def_rcp.rcp_xx + "_moy"] = ds_rcp_xx_grp[0][vi_name].values
+                df_rcp[def_rcp.rcp_xx + "_min"] = ds_rcp_xx_grp[1][vi_name].values
+                df_rcp[def_rcp.rcp_xx + "_max"] = ds_rcp_xx_grp[2][vi_name].values
 
     return df_rcp, df_sim
 
@@ -936,7 +936,7 @@ def calc_map(
     varidx = vi.VarIdx(vi_code)
     vi_name = vi_code if cat == cfg.cat_scen else varidx.get_name()
     vi_code_grp = vi.get_group(vi_code)
-    rcps = [rcp_def.rcp_ref, rcp_def.rcp_xx] + cfg.rcps
+    rcps = [def_rcp.rcp_ref, def_rcp.rcp_xx] + cfg.rcps
 
     msg = "Calculating maps."
     utils.log(msg, True)
@@ -995,7 +995,7 @@ def calc_map(
 
                 # Calculate reference map.
                 if (ds_map_ref is None) and\
-                   (stat == cfg.stat_mean) and (rcp == rcp_def.rcp_xx) and (per_hor == cfg.per_ref):
+                   (stat == cfg.stat_mean) and (rcp == def_rcp.rcp_xx) and (per_hor == cfg.per_ref):
                     ds_map_ref = ds_map
 
                 # Extract values.
@@ -1092,30 +1092,40 @@ def calc_map(
                     p_csv = p_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
 
                 # Create context.
-                cntx = context_def.Context(context_def.code_script)
-                cntx.project     = project_def.Project("x", cntx=cntx)
+                cntx = def_context.Context(def_context.code_script)
+                cntx.project     = def_project.Project("x", cntx=cntx)
                 cntx.p_locations = cfg.p_locations
                 cntx.p_bounds    = cfg.p_bounds
-                cntx.view        = view_def.View(view_def.mode_map)
-                cntx.lib         = lib_def.Lib(lib_def.mode_mat)
+                cntx.view        = def_view.View(def_view.mode_map)
+                cntx.lib         = def_lib.Lib(def_lib.mode_mat)
                 cntx.varidx      = vi.VarIdx(vi_name)
                 cntx.project.set_quantiles("x", cntx, cfg.opt_map_quantiles)
-                cntx.RCP         = rcp_def.RCP(rcp)
-                cntx.hor         = hor_def.Hor(per_hor)
-                cntx.stat        = stat_def.Stat(stat_str.replace("_", ""))
+                cntx.RCP         = def_rcp.RCP(rcp)
+                cntx.hor         = def_hor.Hor(per_hor)
+                cntx.stat        = def_stat.Stat(stat_str.replace("_", ""))
                 cntx.delta       = (j == 1)
 
                 # Update colors.
-                cntx.opt_map_col_temp_var   = cfg.opt_map_col_temp_var
-                cntx.opt_map_col_temp_idx_1 = cfg.opt_map_col_temp_idx_1
-                cntx.opt_map_col_temp_idx_2 = cfg.opt_map_col_temp_idx_2
-                cntx.opt_map_col_prec_var   = cfg.opt_map_col_prec_var
-                cntx.opt_map_col_prec_idx_1 = cfg.opt_map_col_prec_idx_1
-                cntx.opt_map_col_prec_idx_2 = cfg.opt_map_col_prec_idx_2
-                cntx.opt_map_col_prec_idx_3 = cfg.opt_map_col_prec_idx_3
-                cntx.opt_map_col_wind_var   = cfg.opt_map_col_wind_var
-                cntx.opt_map_col_wind_idx_1 = cfg.opt_map_col_wind_idx_1
-                cntx.opt_map_col_default    = cfg.opt_map_col_default
+                if len(cfg.opt_map_col_temp_var) > 0:
+                    cntx.opt_map_col_temp_var = cfg.opt_map_col_temp_var
+                if len(cfg.opt_map_col_temp_idx_1) > 0:
+                    cntx.opt_map_col_temp_idx_1 = cfg.opt_map_col_temp_idx_1
+                if len(cfg.opt_map_col_temp_idx_2) > 0:
+                    cntx.opt_map_col_temp_idx_2 = cfg.opt_map_col_temp_idx_2
+                if len(cfg.opt_map_col_prec_var) > 0:
+                    cntx.opt_map_col_prec_var = cfg.opt_map_col_prec_var
+                if len(cfg.opt_map_col_prec_idx_1) > 0:
+                    cntx.opt_map_col_prec_idx_1 = cfg.opt_map_col_prec_idx_1
+                if len(cfg.opt_map_col_prec_idx_2) > 0:
+                    cntx.opt_map_col_prec_idx_2 = cfg.opt_map_col_prec_idx_2
+                if len(cfg.opt_map_col_prec_idx_3) > 0:
+                    cntx.opt_map_col_prec_idx_3 = cfg.opt_map_col_prec_idx_3
+                if len(cfg.opt_map_col_wind_var) > 0:
+                    cntx.opt_map_col_wind_var = cfg.opt_map_col_wind_var
+                if len(cfg.opt_map_col_wind_idx_1) > 0:
+                    cntx.opt_map_col_wind_idx_1 = cfg.opt_map_col_wind_idx_1
+                if len(cfg.opt_map_col_default) > 0:
+                    cntx.opt_map_col_default = cfg.opt_map_col_default
 
                 if (((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1]))) and \
                    (cfg.opt_force_overwrite or
@@ -1211,10 +1221,10 @@ def calc_map_rcp(
 
     utils.log("Processing: " + vi_code + ", " +
               ("q" + str(int(q * 100)).rjust(2, "0") if q >= 0 else stat) + ", " +
-              str(rcp_def.RCP(rcp).get_desc()) + ", " + str(per[0]) + "-" + str(per[1]) + "", True)
+              str(def_rcp.RCP(rcp).get_desc()) + ", " + str(per[0]) + "-" + str(per[1]) + "", True)
 
     # Number of years and stations.
-    if rcp == rcp_def.rcp_ref:
+    if rcp == def_rcp.rcp_ref:
         n_year = cfg.per_ref[1] - cfg.per_ref[0] + 1
     else:
         n_year = cfg.per_fut[1] - cfg.per_ref[1] + 1
@@ -1242,7 +1252,7 @@ def calc_map_rcp(
             lat = df[df["station"] == stn][cfg.dim_lat].values[0]
 
             # Calculate statistics.
-            ds_stat = calc_stat(cfg.cat_obs if rcp == rcp_def.rcp_ref else cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn,
+            ds_stat = calc_stat(cfg.cat_obs if rcp == def_rcp.rcp_ref else cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn,
                                 vi_code, rcp, None, False, cfg.opt_map_clip, stat, q)
             if ds_stat is None:
                 continue
@@ -1322,7 +1332,7 @@ def calc_map_rcp(
                 vi_code_grp + "_" + cfg.obs_src + cfg.f_ext_nc
         else:
             p_sim_ref = cfg.get_d_idx(cfg.obs_src, vi_code_grp) + vi_code_grp + "_ref" + cfg.f_ext_nc
-        if rcp == rcp_def.rcp_ref:
+        if rcp == def_rcp.rcp_ref:
 
             # Open dataset.
             p_sim = p_sim_ref
@@ -1370,7 +1380,7 @@ def calc_map_rcp(
             n_sim   = 0
             units   = 1
             for p_sim in p_sim_l:
-                if os.path.exists(p_sim) and ((rcp in p_sim) or (rcp == rcp_def.rcp_xx)):
+                if os.path.exists(p_sim) and ((rcp in p_sim) or (rcp == def_rcp.rcp_xx)):
 
                     # Open dataset.
                     ds_sim = utils.open_netcdf(p_sim)
@@ -1628,7 +1638,7 @@ def conv_nc_csv_single(
             for i in range(n_time):
                 val_l[i] = val_l[i].mean()
         else:
-            if rcp_def.rcp_ref in p:
+            if def_rcp.rcp_ref in p:
                 for i in range(n_time):
                     val_l[i] = val_l[i][0][0]
             else:
@@ -1744,10 +1754,10 @@ def calc_cycle(
     error = False
 
     # Create context.
-    cntx = context_def.Context(context_def.code_script)
+    cntx = def_context.Context(def_context.code_script)
     cntx.p_locations = cfg.p_locations
     cntx.p_bounds = cfg.p_bounds
-    cntx.lib = lib_def.Lib(lib_def.mode_mat)
+    cntx.lib = def_lib.Lib(def_lib.mode_mat)
     cntx.varidx = vi.VarIdx(vi_name)
 
     if os.path.exists(p_fig) and os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
