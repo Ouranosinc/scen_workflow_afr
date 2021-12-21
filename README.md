@@ -10,13 +10,19 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 - calculation of climate indices;
 - calculation of statistics related to climate scenarios and indices (min., max., mean or sum, quantiles);
 - generation of time series;
-- generation of maps.
+- generation of maps;
+- multiprocesssing (per simulation).
 
-The current version of the script (v1.3.3) performs these tasks at a station.
+## Notes
+
+The latest version of the code requires the following project:
+- https://github.com/yrouranos/dashboard
+This project, which is essentially a plot generator, must be downloaded within the scen_workflow_afr directory/project. 
 
 The technical documentation can be found [here](https://ouranos-my.sharepoint.com/:f:/g/personal/yanrou1_ouranos_ca/EknV5GO46cxChVpilQwKzMQBrB3wu4e6aS3bUfoUlZ3gwg?e=R1Ju2C).
 
 ## Releases
+
 ### v1.0.0
 
 This is the initial stable release.
@@ -168,6 +174,13 @@ Implemented features:
 - adjusting file separator automatically according to d_exec parameter to ensure compatibility with Windows (issue #5);
 - created a unit testing module that can be enabled using 'opt_unit_tests';
 - increased the performance of 'rain_season*' and 'dry_spell_total_length' indices.
+
+### v1.3.6 (under development)
+
+Implemented features:
+- relocated plotting functions within a distinct Github project (see note in the introduction);
+- added compatibility with ENACTS reanalysis data;
+- restructured code to make it easier to maintain. 
 
 ## Contributing
 
