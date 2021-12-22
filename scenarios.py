@@ -19,7 +19,6 @@ import numpy as np
 import os
 import pandas as pd
 import plot
-import rcm
 import re
 import scenarios_calib
 import stats
@@ -328,7 +327,7 @@ def load_reanalysis(
         del ds[var_ra]
 
         # Subset.
-        ds = utils.subset_lon_lat(ds)
+        ds = utils.subset_lon_lat_time(ds, var, cfg.lon_bnds, cfg.lat_bnds)
 
         # Apply and create mask.
         if (cfg.obs_src == vi.ens_era5_land) and (var not in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]):
@@ -415,9 +414,6 @@ def extract(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Directories.
-    d_raw = cfg.get_d_scen("", cfg.cat_raw, var)
-
     # Zone of interest -------------------------------------------------------------------------------------------------
 
     # Observations.
@@ -426,8 +422,8 @@ def extract(
         # Assume a square around the location.
         lat_stn = round(float(ds_stn.lat.values), 1)
         lon_stn = round(float(ds_stn.lon.values), 1)
-        lat_bnds = [lat_stn - cfg.radius, lat_stn + cfg.radius]
-        lon_bnds = [lon_stn - cfg.radius, lon_stn + cfg.radius]
+        lat_l = [lat_stn - cfg.radius, lat_stn + cfg.radius]
+        lon_l = [lon_stn - cfg.radius, lon_stn + cfg.radius]
 
     # Reanalysis.
     # When using reanalysis data, need to include extra cells in case the resolution of the reanalysis dataset is lower
@@ -454,19 +450,38 @@ def extract(
         n_lon_ext = float(max(1.0, math.ceil(res_proj_lon / res_ra_lon)))
 
         # Calculate extended boundaries.
-        lat_bnds = [cfg.lat_bnds[0] - n_lat_ext * res_ra_lat, cfg.lat_bnds[1] + n_lat_ext * res_ra_lat]
-        lon_bnds = [cfg.lon_bnds[0] - n_lon_ext * res_ra_lon, cfg.lon_bnds[1] + n_lon_ext * res_ra_lon]
+        lat_l = [cfg.lat_bnds[0] - n_lat_ext * res_ra_lat, cfg.lat_bnds[1] + n_lat_ext * res_ra_lat]
+        lon_l = [cfg.lon_bnds[0] - n_lon_ext * res_ra_lon, cfg.lon_bnds[1] + n_lon_ext * res_ra_lon]
 
     # Data extraction --------------------------------------------------------------------------------------------------
 
-    # The idea is to extract historical and projected data based on a range of longitude, latitude, years.
-    ds_raw = rcm.extract_variable(d_ref, d_fut, var, lat_bnds, lon_bnds,
-                                  priority_timestep=cfg.priority_timestep[cfg.variables.index(var)],
-                                  tmpdir=d_raw)
+    # Patch: Create and discard an empty file to avoid stalling when writing the NetCDF file.
+    #        It seems to wake up the hard disk.
+    p_inc = p_raw.replace(cfg.f_ext_nc, ".incomplete")
+    if not os.path.exists(p_inc):
+        open(p_inc, 'a').close()
+    if os.path.exists(p_inc):
+        os.remove(p_inc)
 
-    # Save NetCDF file (raw).
+    # List years.
+    year_l = [min(min(cfg.per_ref), min(cfg.per_fut)), max(max(cfg.per_ref), max(cfg.per_fut))]
+
+    # Find the data at the requested timestep.
+    p_ref = d_ref.replace(cfg.sep + "*" + cfg.sep, cfg.sep + "day" + cfg.sep) + var + cfg.sep + "*" + cfg.f_ext_nc
+    p_fut = d_fut.replace(cfg.sep + "*" + cfg.sep, cfg.sep + "day" + cfg.sep) + var + cfg.sep + "*" + cfg.f_ext_nc
+    p_l = sorted(glob.glob(p_ref)) + sorted(glob.glob(p_fut))
+
+    # Open NetCDF.
+    # Note: subset is not working with chunks.
+    ds = utils.open_netcdf(p_l, chunks={cfg.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
+                           combine="by_coords")
+
+    # Subset.
+    ds_subset = utils.subset_lon_lat_time(ds, var, lon_l, lat_l, year_l)
+
+    # Save NetCDF file.
     desc = cfg.sep + cfg.cat_raw + cfg.sep + os.path.basename(p_raw)
-    utils.save_netcdf(ds_raw, p_raw, desc=desc)
+    utils.save_netcdf(ds_subset, p_raw, desc=desc)
 
 
 def interpolate(

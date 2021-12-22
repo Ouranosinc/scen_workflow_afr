@@ -1130,10 +1130,12 @@ def subset_doy(
     return da_or_ds_res
 
 
-def subset_lon_lat(
+def subset_lon_lat_time(
     ds: xr.Dataset,
-    lon_bnds=None,
-    lat_bnds=None
+    vi_name: str,
+    lon: List[float] = [],
+    lat: List[float] = [],
+    time: List[int] = []
 ) -> xr.Dataset:
 
     """
@@ -1146,36 +1148,55 @@ def subset_lon_lat(
     ----------
     ds : xr.Dataset
         Dataset.
-    lon_bnds : [float], optional
-        Longitude boundaries.
-    lat_bnds : [float], optional
-        Latitude boundaries.
+    vi_name : str
+        Variable or index name.
+    lon : List[float]
+        Longitude.
+    lat : List[float]
+        Latitude.
+    time : List[int]
+        Time.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     ds_res = ds.copy(deep=True)
 
-    # Latitude.
-    if cfg.dim_latitude in ds_res.dims:
-        lat_min = ds_res.latitude.min()
-        lat_max = ds_res.latitude.max()
-    else:
-        lat_min = ds_res.rlat.min()
-        lat_max = ds_res.rlat.max()
-
     # Longitude.
-    if cfg.dim_longitude in ds_res.dims:
-        lon_min = ds_res.longitude.min()
-        lon_max = ds_res.longitude.max()
-    else:
-        lon_min = ds_res.rlon.min()
-        lon_max = ds_res.rlon.max()
+    if len(lon) > 0:
+        if cfg.dim_longitude in ds_res.dims:
+            lon_min = max(ds_res.longitude.min(), min(lon))
+            lon_max = min(ds_res.longitude.max(), max(lon))
+            ds_res = ds_res.sel(longitude=slice(lon_min, lon_max))
+        else:
+            lon_min = max(ds_res.rlon.min(), min(lon))
+            lon_max = min(ds_res.rlon.max(), max(lon))
+            ds_res = ds_res.sel(rlon=slice(lon_min, lon_max))
 
-    # Slice.
-    if cfg.dim_latitude in ds.dims:
-        ds_res = ds_res.sel(latitude=slice(lat_min, lat_max), longitude=slice(lon_min, lon_max))
-    else:
-        ds_res = ds_res.sel(rlat=slice(lat_min, lat_max), rlon=slice(lon_min, lon_max))
+    # Latitude.
+    if len(lat) > 0:
+        if cfg.dim_latitude in ds_res.dims:
+            lat_min = max(ds_res.latitude.min(), min(lat))
+            lat_max = min(ds_res.latitude.max(), max(lat))
+            ds_res = ds_res.sel(latitude=slice(lat_min, lat_max))
+        else:
+            lat_min = max(ds_res.rlat.min(), min(lat))
+            lat_max = min(ds_res.rlat.max(), max(lat))
+            ds_res = ds_res.sel(rlat=slice(lat_min, lat_max))
+
+    # Time.
+    if (len(time) > 0) and (cfg.dim_time in ds_res.dims):
+        time_l = list(np.unique(ds_res.time.dt.year))
+        time_min = max(min(time_l), min(time))
+        time_max = min(max(time_l), max(time))
+        ds_res = ds_res.sel(time=slice(str(time_min), str(time_max)))
+
+    # Adjust grid.
+    if (len(lon) > 0) or (len(lat) > 0) or (len(time) > 0):
+        try:
+            grid = ds[vi_name].attrs[cfg.attrs_gmap]
+            ds_res[grid] = ds[grid]
+        except KeyError:
+            pass
 
     return ds_res
 
