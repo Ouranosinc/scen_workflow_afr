@@ -31,7 +31,7 @@ from scipy.interpolate import griddata
 
 import sys
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard import def_varidx as vi, def_view
 
 
 def load_observations(
@@ -1001,6 +1001,7 @@ def postprocess(
     return ds_qqmap if (p_fig == "") else None
 
 
+
 def generate():
 
     """
@@ -1454,7 +1455,7 @@ def run():
                     fn_fig = p_regrid_fut.split(cfg.sep)[-1]. \
                         replace("_4qqmap" + cfg.f_ext_nc, "_" + cfg.cat_fig_postprocess + cfg.f_ext_png)
 
-                    # Generate pot-process and workflow plots.
+                    # Generate post-process and workflow plots.
                     if cfg.opt_plot[0]:
 
                         # This creates one file:
@@ -1511,10 +1512,18 @@ def run():
                     stats.calc_cycle(ds_obs, stn, var, cfg.per_ref, cfg.freq_D, title)
 
     utils.log("-")
-    msg = "Step #8b  Generating time series (scenarios)"
+    msg = "Step #8b  Generating time series (scenarios, bias adjusted)"
     if cfg.opt_ts[0]:
         utils.log(msg)
-        stats.calc_ts(cfg.cat_scen)
+        stats.calc_ts(cfg.cat_scen, def_view.mode_ts)
+    else:
+        utils.log(msg + not_req)
+
+    utils.log("-")
+    msg = "Step #8c  Generating time series (scenarios, raw values and bias)"
+    if cfg.opt_bias[0]:
+        utils.log(msg)
+        stats.calc_ts(cfg.cat_scen, def_view.mode_bias)
     else:
         utils.log(msg + not_req)
 
@@ -1525,7 +1534,7 @@ def run():
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
     utils.log("-")
-    msg = "Step #8c  Generating heat maps (scenarios)"
+    msg = "Step #8d  Generating heat maps (scenarios)"
     if cfg.opt_ra and cfg.opt_map[0]:
         utils.log(msg)
 
