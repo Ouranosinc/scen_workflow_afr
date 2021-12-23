@@ -94,7 +94,7 @@ cat_fig_postprocess = "postprocess"  # Figures (postprocess).
 cat_fig_workflow    = "workflow"     # Figures (workflow).
 cat_fig_cycle_ms    = "cycle_ms"     # Figures (annual cycle, monthly).
 cat_fig_cycle_d     = "cycle_d"      # Figures (annual cycle, daily).
-cat_fig_bias        = "bias"         # Figures (bias).
+cat_fig_ts_bias     = "ts_bias"      # Figures (time series, bias).
 
 # Calendar types.
 cal_noleap          = "noleap"      # No-leap.
@@ -543,7 +543,7 @@ opt_save_csv        = [False] * 2       # If True, save results to CSV files for
 opt_plot            = [True] * 2   # If True, generate plots, except time series for scenarios.
 opt_ts              = [True] * 2   # If True, generate time series for [scenarios, indices].
 opt_cycle           = [True] * 2   # If True, generate cycle plots for [scenarios, indices].
-opt_bias            = [True]       # If True, generate bias plots for [scenarios].
+opt_ts_bias         = [True]       # If True, generate bias plots for [scenarios].
 opt_map             = [False] * 2  # If True, generate heat maps [for scenarios, for indices].
 opt_map_delta       = [False] * 2  # If True, generate delta heat maps for [scenarios, indices].
 opt_map_clip        = False        # If True, clip according to 'p_bounds'.

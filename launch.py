@@ -223,8 +223,8 @@ def load_params(
                 cfg.opt_ts = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_cycle":
                 cfg.opt_cycle = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
-            elif key == "opt_bias":
-                cfg.opt_bias = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+            elif key == "opt_ts_bias":
+                cfg.opt_ts_bias = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
             elif key == "opt_map":
                 cfg.opt_map = [False, False]
                 if cfg.opt_ra:

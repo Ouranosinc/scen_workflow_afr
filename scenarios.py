@@ -1521,9 +1521,9 @@ def run():
 
     utils.log("-")
     msg = "Step #8c  Generating time series (scenarios, raw values and bias)"
-    if cfg.opt_bias[0]:
+    if cfg.opt_ts_bias[0]:
         utils.log(msg)
-        stats.calc_ts(cfg.cat_scen, def_view.code_bias)
+        stats.calc_ts(cfg.cat_scen, def_view.code_ts_bias)
     else:
         utils.log(msg + not_req)
 

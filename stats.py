@@ -634,7 +634,7 @@ def calc_ts_prep(
                     sim_code = tokens[1] + "_" + tokens[2] + "_" + tokens[3] + "_" + tokens[4]
 
                 # Calculate dataset.
-                if (view_code == def_view.code_bias) and (vi_name in cfg.variables):
+                if (view_code == def_view.code_ts_bias) and (vi_name in cfg.variables):
                     p_val = p_sim_l[i_sim]
                     if rcp != def_rcp.rcp_ref:
                         p_val = p_val.replace(cfg.sep + cfg.cat_qqmap, cfg.sep + cfg.cat_regrid).\
@@ -800,7 +800,7 @@ def calc_ts_ds(
     year_1 = int(str(ds.time.values[0])[0:4])
     year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
     year_1 = max(year_1, cfg.per_ref[0])
-    if ("rcp" not in p) or (cntx.view.get_code() == def_view.code_bias):
+    if ("rcp" not in p) or (cntx.view.get_code() == def_view.code_ts_bias):
         year_n = min(year_n, cfg.per_ref[1])
     else:
         year_n = min(year_n, cfg.per_fut[1])
