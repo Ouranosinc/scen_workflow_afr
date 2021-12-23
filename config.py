@@ -470,12 +470,12 @@ opt_aggregate       = False         # If True, aggregate data.
 
 # Steps 3-4 - Data extraction and scenarios ----------------------------------------------------------------------------
 
-opt_ra                  = False      # If True, the analysis is based on reanalysis data.
+opt_ra              = False         # If True, the analysis is based on reanalysis data.
 
 # Scenarios.
-opt_scen                = True      # If True, produce climate scenarios.
-radius                  = 0.5       # Search radius (around any given location).
-detrend_order           = None      # TODO.MAB: Seems to be not working.
+opt_scen            = True          # If True, produce climate scenarios.
+radius              = 0.5           # Search radius (around any given location).
+detrend_order       = None          # TODO.MAB: Seems to be not working.
 
 # Patch.
 # Simulation excluded from the analysis.
@@ -483,11 +483,11 @@ detrend_order           = None      # TODO.MAB: Seems to be not working.
 # Ex2: "RCA4_AFR-44_MPI-M-MPI-ESM-LR_rcp85",
 # Ex3: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp45",
 # Ex4: "HIRHAM5_AFR-44_ICHEC-EC-EARTH_rcp85"
-sim_excepts = []
+sim_excepts         = []
 # Simulation-variable combinations excluded from the analysis.
 # Ex1: "pr_RCA4_AFR-44_CSIRO-QCCCE-CSIRO-Mk3-6-0_rcp85",
 # Ex2: "tasmin_REMO2009_AFR-44_MIROC-MIROC5_rcp26"
-var_sim_excepts = []
+var_sim_excepts     = []
 
 # Step 5 - Bias adjustment and statistical downscaling -----------------------------------------------------------------
 

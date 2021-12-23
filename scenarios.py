@@ -1512,10 +1512,10 @@ def run():
                     stats.calc_cycle(ds_obs, stn, var, cfg.per_ref, cfg.freq_D, title)
 
     utils.log("-")
-    msg = "Step #8b  Generating time series (scenarios, bias adjusted)"
+    msg = "Step #8b  Generating time series (scenarios, bias-adjusted values)"
     if cfg.opt_ts[0]:
         utils.log(msg)
-        stats.calc_ts(cfg.cat_scen, def_view.mode_ts)
+        stats.calc_ts(cfg.cat_scen, def_view.code_ts)
     else:
         utils.log(msg + not_req)
 
@@ -1523,7 +1523,7 @@ def run():
     msg = "Step #8c  Generating time series (scenarios, raw values and bias)"
     if cfg.opt_bias[0]:
         utils.log(msg)
-        stats.calc_ts(cfg.cat_scen, def_view.mode_bias)
+        stats.calc_ts(cfg.cat_scen, def_view.code_bias)
     else:
         utils.log(msg + not_req)
 
