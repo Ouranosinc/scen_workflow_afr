@@ -502,6 +502,7 @@ def calc_ts(
             cntx.lib = def_lib.Lib(def_lib.mode_mat)
             cntx.varidx = vi.VarIdx(vi_code)
             cntx.rcps = def_rcp.RCPs(cfg.rcps)
+            cntx.rcp = def_rcp.RCP("")
             cntx.sim = def_sim.Sim("")
 
             # Attempt loading CSV files into dataframes.
