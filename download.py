@@ -11,12 +11,12 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import cdsapi
-import config as cfg
+import file_utils as fu
 import functools
 import glob
 import multiprocessing
 import os
-import utils
+from config import cfg
 
 import sys
 sys.path.append("dashboard")
@@ -99,7 +99,7 @@ def download_from_copernicus(
         var_code = "10m_wind"
 
     # Form file name.
-    fn = p_base + var + cfg.sep + var + "_" + obs_src + "_hour_" + str(year) + cfg.f_ext_nc
+    fn = p_base + var + cfg.sep + var + "_" + obs_src + "_hour_" + str(year) + fu.f_ext_nc
     if not os.path.exists(fn):
 
         p = os.path.dirname(fn)
@@ -123,7 +123,7 @@ def download_from_copernicus(
             fn)
 
     if cfg.n_proc > 1:
-        utils.log("Work done!", True)
+        fu.log("Work done!", True)
 
 
 def download_merra2(
@@ -167,7 +167,7 @@ def download_merra2(
         else:
             set_name = "MERRA2_400.statD_2d_slv_Nx"
         url_template = "https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2/" + set_version + \
-                       "/<year>/<month>/" + set_name + ".<year><month><day>" + cfg.f_ext_nc4
+                       "/<year>/<month>/" + set_name + ".<year><month><day>" + fu.f_ext_nc4
 
         # Loop through months.
         for month in range(1, 13):
@@ -190,7 +190,7 @@ def download_merra2(
                 d = p_base + year_str + cfg.sep
                 if not (os.path.isdir(d)):
                     os.makedirs(d)
-                p = d + "merra2_day_" + year_str + month_str + day_str + cfg.f_ext_nc4
+                p = d + "merra2_day_" + year_str + month_str + day_str + fu.f_ext_nc4
 
                 # Download.
                 cmd = "wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --keep-session-cookies " +\
@@ -238,23 +238,23 @@ def run():
                 # Parallel processing mode.
                 else:
                     try:
-                        utils.log("Processing: " + var, True)
-                        utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
+                        fu.log("Processing: " + var, True)
+                        fu.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                         pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(years)))
                         func = functools.partial(download_from_copernicus, d_prefix, cfg.obs_src, area, var)
                         pool.map(func, years)
                         pool.close()
                         pool.join()
-                        utils.log("Fork ended.", True)
+                        fu.log("Fork ended.", True)
                     except Exception as e:
-                        utils.log(str(e))
+                        fu.log(str(e))
                         pass
 
                 # Verify if treatment is done. Files are sometimes forgotten.
-                years_processed = glob.glob(d_prefix + var + cfg.sep + "*" + cfg.f_ext_nc)
+                years_processed = glob.glob(d_prefix + var + cfg.sep + "*" + fu.f_ext_nc)
                 years_processed.sort()
                 for i in range(len(years_processed)):
-                    years_processed[i] = int(years_processed[i].replace(cfg.f_ext_nc, "")[-4:])
+                    years_processed[i] = int(years_processed[i].replace(fu.f_ext_nc, "")[-4:])
                 years_processed.sort()
                 done = (list(years) == years_processed)
 

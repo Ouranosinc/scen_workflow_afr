@@ -8,7 +8,8 @@
 # (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import config as cfg
+import constants as const
+import file_utils as fu
 import matplotlib.cbook
 import matplotlib.cm
 import matplotlib.pyplot as plt
@@ -20,16 +21,20 @@ import pandas as pd
 import utils
 import warnings
 import xarray as xr
+from config import cfg
 from scipy import signal
 
 import sys
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi, def_rcp
+from dashboard import def_varidx as vi, def_rcp, def_stat
 
+# Color associated with specific datasets (calibration plots).
+col_sim_adj_ref     = "blue"       # Simulation (bias-adjusted) for the reference period.
+col_sim_ref         = "orange"     # Simulation (non-adjusted) for the reference period
+col_obs             = "green"      # Observations.
+col_sim_adj         = "red"        # Simulation (bias-adjusted).
+col_sim_fut         = "purple"     # Simulation (non-adjusted) for the future period.
 
-# ======================================================================================================================
-# Aggregation
-# ======================================================================================================================
 
 def plot_year(
     ds_hour: xr.Dataset,
@@ -111,11 +116,6 @@ def plot_dayofyear(
     plt.close()
 
 
-# ======================================================================================================================
-# Scenarios
-# ======================================================================================================================
-
-
 def plot_postprocess(
     p_obs: str,
     p_fut: str,
@@ -147,20 +147,20 @@ def plot_postprocess(
     """
 
     # Load datasets.
-    da_obs = utils.open_netcdf(p_obs)[var]
-    if cfg.dim_longitude in da_obs.dims:
-        da_obs = da_obs.rename({cfg.dim_longitude: cfg.dim_rlon, cfg.dim_latitude: cfg.dim_rlat})
-    da_fut = utils.open_netcdf(p_fut)[var]
-    da_qqmap = utils.open_netcdf(p_qqmap)[var]
+    da_obs = fu.open_netcdf(p_obs)[var]
+    if const.dim_longitude in da_obs.dims:
+        da_obs = da_obs.rename({const.dim_longitude: const.dim_rlon, const.dim_latitude: const.dim_rlat})
+    da_fut = fu.open_netcdf(p_fut)[var]
+    da_qqmap = fu.open_netcdf(p_qqmap)[var]
 
     # Select control point.
     if cfg.opt_ra:
         subset_ctrl_pt = False
-        if cfg.dim_rlon in da_obs.dims:
+        if const.dim_rlon in da_obs.dims:
             subset_ctrl_pt = (len(da_obs.rlon) > 1) or (len(da_obs.rlat) > 1)
-        elif cfg.dim_lon in da_obs.dims:
+        elif const.dim_lon in da_obs.dims:
             subset_ctrl_pt = (len(da_obs.lon) > 1) or (len(da_obs.lat) > 1)
-        elif cfg.dim_longitude in da_obs.dims:
+        elif const.dim_longitude in da_obs.dims:
             subset_ctrl_pt = (len(da_obs.longitude) > 1) or (len(da_obs.latitude) > 1)
         if subset_ctrl_pt:
             if cfg.p_bounds == "":
@@ -178,14 +178,14 @@ def plot_postprocess(
     delta_fut   = 0
     delta_qqmap = 0
     if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
-        coef = cfg.spd * 365
+        coef = const.spd * 365
     elif var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
-        if da_obs.units == cfg.unit_K:
-            delta_obs = -cfg.d_KC
-        if da_fut.units == cfg.unit_K:
-            delta_fut = -cfg.d_KC
-        if da_qqmap.units == cfg.unit_K:
-            delta_qqmap = -cfg.d_KC
+        if da_obs.units == const.unit_K:
+            delta_obs = -const.d_KC
+        if da_fut.units == const.unit_K:
+            delta_fut = -const.d_KC
+        if da_qqmap.units == const.unit_K:
+            delta_qqmap = -const.d_KC
 
     # Calculate annual mean values.
     da_qqmap_mean = None
@@ -204,9 +204,9 @@ def plot_postprocess(
     legend_items = ["Simulation", "Observation"]
     if da_qqmap is not None:
         legend_items.insert(0, "Sim. ajustée")
-        da_qqmap_mean.plot.line(color=cfg.col_sim_adj)
-    da_fut_mean.plot.line(color=cfg.col_sim_fut)
-    da_obs_mean.plot(color=cfg.col_obs)
+        da_qqmap_mean.plot.line(color=col_sim_adj)
+    da_fut_mean.plot.line(color=col_sim_fut)
+    da_obs_mean.plot(color=col_obs)
 
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
@@ -220,15 +220,15 @@ def plot_postprocess(
 
     # Save plot.
     if p_fig != "":
-        utils.save_plot(plt, p_fig)
+        fu.save_plot(plt, p_fig)
 
     # Close plot.
     plt.close()
 
     # Save to CSV.
     if cfg.opt_save_csv[0]:
-        p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep). \
-            replace(cfg.f_ext_png, cfg.f_ext_csv)
+        p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + fu.f_csv + cfg.sep). \
+            replace(fu.f_ext_png, fu.f_ext_csv)
         n_obs_mean = len(list(da_obs_mean.values))
         n_qqmap_mean = len(list(da_qqmap_mean.values))
         dict_pd = {"year": list(range(1, n_qqmap_mean + 1)),
@@ -236,7 +236,7 @@ def plot_postprocess(
                    "qqmap": list(da_qqmap_mean.values),
                    "fut": list(da_fut_mean.values)}
         df = pd.DataFrame(dict_pd)
-        utils.save_csv(df, p_csv)
+        fu.save_csv(df, p_csv)
 
 
 def plot_workflow(
@@ -273,17 +273,17 @@ def plot_workflow(
     """
 
     # Load datasets.
-    da_ref = utils.open_netcdf(p_regrid_ref)[var]
-    da_fut = utils.open_netcdf(p_regrid_fut)[var]
+    da_ref = fu.open_netcdf(p_regrid_ref)[var]
+    da_fut = fu.open_netcdf(p_regrid_fut)[var]
 
     # Select control point.
     if cfg.opt_ra:
         subset_ctrl_pt = False
-        if cfg.dim_rlon in da_ref.dims:
+        if const.dim_rlon in da_ref.dims:
             subset_ctrl_pt = (len(da_ref.rlon) > 1) or (len(da_ref.rlat) > 1)
-        elif cfg.dim_lon in da_ref.dims:
+        elif const.dim_lon in da_ref.dims:
             subset_ctrl_pt = (len(da_ref.lon) > 1) or (len(da_ref.lat) > 1)
-        elif cfg.dim_longitude in da_ref.dims:
+        elif const.dim_longitude in da_ref.dims:
             subset_ctrl_pt = (len(da_ref.longitude) > 1) or (len(da_ref.latitude) > 1)
         if subset_ctrl_pt:
             if cfg.p_bounds == "":
@@ -298,12 +298,12 @@ def plot_workflow(
     delta_ref = 0
     delta_fut = 0
     if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
-        coef = cfg.spd
+        coef = const.spd
     if var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
-        if da_ref.units == cfg.unit_K:
-            delta_ref = -cfg.d_KC
-        if da_fut.units == cfg.unit_K:
-            delta_fut = -cfg.d_KC
+        if da_ref.units == const.unit_K:
+            delta_ref = -const.d_KC
+        if da_fut.units == const.unit_K:
+            delta_fut = -const.d_KC
 
     # Fit.
     x     = [*range(len(da_ref.time))]
@@ -322,20 +322,20 @@ def plot_workflow(
     # Initialize plot.
     f = plt.figure(figsize=(15, 6))
     plt.subplots_adjust(top=0.90, bottom=0.07, left=0.07, right=0.99, hspace=0.40, wspace=0.00)
-    sup_title = os.path.basename(p_fig).replace(cfg.f_ext_png, "") +\
+    sup_title = os.path.basename(p_fig).replace(fu.f_ext_png, "") +\
         "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
     plt.suptitle(sup_title, fontsize=fs_sup_title)
 
     # Convert date format if the need is.
-    if da_ref.time.dtype == cfg.dtype_obj:
-        da_ref[cfg.dim_time] = utils.reset_calendar(da_ref)
+    if da_ref.time.dtype == const.dtype_obj:
+        da_ref[const.dim_time] = utils.reset_calendar(da_ref)
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
         # Upper plot: Reference period.
         f.add_subplot(211)
-        plt.plot(da_ref.time, y, color=cfg.col_sim_ref)
+        plt.plot(da_ref.time, y, color=col_sim_ref)
         plt.plot(da_ref.time, ffit, color="black")
         plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
         plt.xlabel("Année", fontsize=fs_axes)
@@ -350,8 +350,8 @@ def plot_workflow(
         arr_x_detrend = cfg.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
         arr_y_error  = (y - ffit)
         arr_x_error = cfg.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
-        plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=cfg.col_sim_fut)
-        plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=cfg.col_sim_ref)
+        plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=col_sim_fut)
+        plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=col_sim_ref)
         plt.legend(["Simulation", "Simulation (réf.)"], fontsize=fs_legend, frameon=False)
         plt.xlabel("Jours", fontsize=fs_axes)
         plt.ylabel(y_label, fontsize=fs_axes)
@@ -361,15 +361,10 @@ def plot_workflow(
 
     # Save plot.
     if p_fig != "":
-        utils.save_plot(plt, p_fig)
+        fu.save_plot(plt, p_fig)
 
     # Close plot.
     plt.close()
-
-
-# ======================================================================================================================
-# Calibration
-# ======================================================================================================================
 
 
 def plot_calib(
@@ -412,8 +407,8 @@ def plot_calib(
     """
 
     # Files.
-    p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
-        replace(cfg.f_ext_png, cfg.f_ext_csv)
+    p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + fu.f_csv + cfg.sep).\
+        replace(fu.f_ext_png, fu.f_ext_csv)
 
     # Quantile ---------------------------------------------------------------------------------------------------------
 
@@ -451,7 +446,7 @@ def plot_calib(
 
     # Plot.
     f.add_subplot(432)
-    draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, cfg.stat_mean, -1, p_csv)
+    draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, def_stat.code_mean, -1, p_csv)
     plt.title("Moyenne", fontsize=fs_title)
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlim([1, 12])
@@ -471,9 +466,9 @@ def plot_calib(
         q     = cfg.opt_stat_quantiles[i-1]
         title = "Q_" + "{0:.2f}".format(q)
         if q == 0:
-            stat = cfg.stat_min
+            stat = def_stat.code_min
         elif q == 1:
-            stat = cfg.stat_max
+            stat = def_stat.code_max
 
         draw_curves(var, da_obs, da_ref, da_fut, da_qqmap, da_qqmap_ref, stat, q)
 
@@ -489,15 +484,15 @@ def plot_calib(
     # Time series ------------------------------------------------------------------------------------------------------
 
     # Convert date format if the need is.
-    if da_qqmap.time.time.dtype == cfg.dtype_obj:
-        da_qqmap[cfg.dim_time] = utils.reset_calendar(da_qqmap.time)
-    if da_ref.time.time.dtype == cfg.dtype_obj:
-        da_ref[cfg.dim_time] = utils.reset_calendar(da_ref.time)
+    if da_qqmap.time.time.dtype == const.dtype_obj:
+        da_qqmap[const.dim_time] = utils.reset_calendar(da_qqmap.time)
+    if da_ref.time.time.dtype == const.dtype_obj:
+        da_ref[const.dim_time] = utils.reset_calendar(da_ref.time)
 
     plt.subplot(313)
-    da_qqmap.plot.line(alpha=0.5, color=cfg.col_sim_adj)
-    da_ref.plot.line(alpha=0.5, color=cfg.col_sim_ref)
-    da_obs.plot.line(alpha=0.5, color=cfg.col_obs)
+    da_qqmap.plot.line(alpha=0.5, color=col_sim_adj)
+    da_ref.plot.line(alpha=0.5, color=col_sim_ref)
+    da_obs.plot.line(alpha=0.5, color=col_obs)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(y_label, fontsize=fs_axes)
     plt.legend(["Sim. ajustée", "Sim. (réf.)", "Observations"], fontsize=fs_legend, frameon=False)
@@ -507,12 +502,12 @@ def plot_calib(
     plt.tick_params(axis="x", labelsize=fs_axes)
     plt.tick_params(axis="y", labelsize=fs_axes)
 
-    if cfg.attrs_bias in da_qqmap.attrs:
-        del da_qqmap.attrs[cfg.attrs_bias]
+    if const.attrs_bias in da_qqmap.attrs:
+        del da_qqmap.attrs[const.attrs_bias]
 
     # Save plot.
     if p_fig != "":
-        utils.save_plot(plt, p_fig)
+        fu.save_plot(plt, p_fig)
 
     # Close plot.
     plt.close()
@@ -549,12 +544,12 @@ def plot_calib_ts(
     """
 
     # Convert date format if the need is.
-    if da_obs.time.dtype == cfg.dtype_obj:
-        da_obs[cfg.dim_time] = utils.reset_calendar(da_obs)
-    if da_fut.time.dtype == cfg.dtype_obj:
-        da_fut[cfg.dim_time] = utils.reset_calendar(da_fut)
-    if da_qqmap.time.dtype == cfg.dtype_obj:
-        da_qqmap[cfg.dim_time] = utils.reset_calendar(da_qqmap)
+    if da_obs.time.dtype == const.dtype_obj:
+        da_obs[const.dim_time] = utils.reset_calendar(da_obs)
+    if da_fut.time.dtype == const.dtype_obj:
+        da_fut[const.dim_time] = utils.reset_calendar(da_fut)
+    if da_qqmap.time.dtype == const.dtype_obj:
+        da_qqmap[const.dim_time] = utils.reset_calendar(da_qqmap)
 
     # Font size.
     fs_sup_title = 8
@@ -569,9 +564,9 @@ def plot_calib_ts(
     plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
 
     # Add curves.
-    da_qqmap.plot.line(alpha=0.5, color=cfg.col_sim_adj)
-    da_fut.plot.line(alpha=0.5, color=cfg.col_sim_fut)
-    da_obs.plot.line(alpha=0.5, color=cfg.col_obs)
+    da_qqmap.plot.line(alpha=0.5, color=col_sim_adj)
+    da_fut.plot.line(alpha=0.5, color=col_sim_fut)
+    da_obs.plot.line(alpha=0.5, color=col_obs)
 
     # Customize.
     plt.legend(["Sim. ajustée", "Sim. (réf.)", "Observations"], fontsize=fs_legend, frameon=False)
@@ -584,15 +579,15 @@ def plot_calib_ts(
 
     # Save plot.
     if p_fig != "":
-        utils.save_plot(plt, p_fig)
+        fu.save_plot(plt, p_fig)
 
     # Close plot.
     plt.close()
 
     # Save to CSV.
     if cfg.opt_save_csv[0]:
-        p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + cfg.f_csv + cfg.sep).\
-            replace(cfg.f_ext_png, cfg.f_ext_csv)
+        p_csv = p_fig.replace(cfg.sep + var + cfg.sep, cfg.sep + var + "_" + fu.f_csv + cfg.sep).\
+            replace(fu.f_ext_png, fu.f_ext_csv)
         n_obs = len(list(da_obs.values))
         n_qqmap = len(list(da_qqmap.values))
         dict_pd = {"day": list(range(1, n_qqmap + 1)),
@@ -600,7 +595,7 @@ def plot_calib_ts(
                    "qqmap": list(da_qqmap.values),
                    "fut": list(da_fut.values)}
         df = pd.DataFrame(dict_pd)
-        utils.save_csv(df, p_csv)
+        fu.save_csv(df, p_csv)
 
 
 def draw_curves(
@@ -634,7 +629,7 @@ def draw_curves(
     da_qqmap_ref : xr.DataArray
         Adjusted simulation for the reference period.
     stat : str
-        Statistic: {cfg.stat_max, cfg.stat_quantile, cfg.stat_mean, cfg.stat_sum}
+        Statistic: {def_stat.code_max, def_stat.code_quantile, def_stat.code_mean, def_stat.code_sum}
     q : float, optional
         Quantile.
     p_csv : str
@@ -646,24 +641,24 @@ def draw_curves(
     def da_groupby(da: xr.DataArray, stat_inner: str, quantile_inner: float = -1.0) -> xr.DataArray:
         da_group = da.groupby(da.time.dt.month)
         da_group_stat = None
-        if stat_inner == cfg.stat_min:
-            da_group_stat = da_group.min(dim=cfg.dim_time)
-        elif stat_inner == cfg.stat_max:
-            da_group_stat = da_group.max(dim=cfg.dim_time)
-        elif stat_inner == cfg.stat_mean:
-            da_group_stat = da_group.mean(dim=cfg.dim_time)
-        elif stat_inner == cfg.stat_quantile:
-            da_group_stat = da_group.quantile(quantile_inner, dim=cfg.dim_time)
-        elif stat_inner == cfg.stat_sum:
-            n_years = da[cfg.dim_time].size / 12
-            da_group_stat = da_group.sum(dim=cfg.dim_time) / n_years
+        if stat_inner == def_stat.code_min:
+            da_group_stat = da_group.min(dim=const.dim_time)
+        elif stat_inner == def_stat.code_max:
+            da_group_stat = da_group.max(dim=const.dim_time)
+        elif stat_inner == def_stat.code_mean:
+            da_group_stat = da_group.mean(dim=const.dim_time)
+        elif stat_inner == def_stat.code_quantile:
+            da_group_stat = da_group.quantile(quantile_inner, dim=const.dim_time)
+        elif stat_inner == def_stat.code_sum:
+            n_years = da[const.dim_time].size / 12
+            da_group_stat = da_group.sum(dim=const.dim_time) / n_years
         return da_group_stat
 
     # Determine if sum is needed.
     stat_actual = stat
     if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
-        if stat == cfg.stat_mean:
-            stat_actual = cfg.stat_sum
+        if stat == def_stat.code_mean:
+            stat_actual = def_stat.code_sum
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
             da_obs       = da_obs.resample(time="1M").sum()
@@ -680,19 +675,19 @@ def draw_curves(
     da_qqmap_ref = da_groupby(da_qqmap_ref, stat_actual, q)
 
     # Draw curves.
-    da_obs.plot.line(color=cfg.col_obs)
-    da_ref.plot.line(color=cfg.col_sim_ref)
-    da_fut.plot.line(color=cfg.col_sim_fut)
-    da_qqmap.plot.line(color=cfg.col_sim_adj)
-    da_qqmap_ref.plot.line(color=cfg.col_sim_adj_ref)
+    da_obs.plot.line(color=col_obs)
+    da_ref.plot.line(color=col_sim_ref)
+    da_fut.plot.line(color=col_sim_fut)
+    da_qqmap.plot.line(color=col_sim_adj)
+    da_qqmap_ref.plot.line(color=col_sim_adj_ref)
 
     # Save to CSV.
     if cfg.opt_save_csv[0] and (p_csv != ""):
-        if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_sum]:
+        if stat in [def_stat.code_mean, def_stat.code_min, def_stat.code_max, def_stat.code_sum]:
             suffix = stat
         else:
             suffix = "q" + str(round(q * 100)).zfill(2)
-        p_csv = p_csv.replace(cfg.f_ext_csv, "_" + suffix + cfg.f_ext_csv)
+        p_csv = p_csv.replace(fu.f_ext_csv, "_" + suffix + fu.f_ext_csv)
         dict_pd = {"month": list(range(1, 13)),
                    "obs": list(da_obs.values),
                    "ref": list(da_ref.values),
@@ -700,7 +695,7 @@ def draw_curves(
                    "qqmap": list(da_qqmap.values),
                    "qqmap_ref": list(da_qqmap_ref.values)}
         df = pd.DataFrame(dict_pd)
-        utils.save_csv(df, p_csv)
+        fu.save_csv(df, p_csv)
 
 
 def plot_360_vs_365(
@@ -764,11 +759,6 @@ def plot_rsq(
     plt.close()
 
 
-# ======================================================================================================================
-# Verification
-# ======================================================================================================================
-
-
 def plot_ts_single(
     stn: str,
     var: str
@@ -787,11 +777,11 @@ def plot_ts_single(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("Processing (single): " + stn + ", " + var, True)
+    fu.log("Processing (single): " + stn + ", " + var, True)
 
     # Paths and NetCDF files.
-    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
-    p_l   = utils.list_files(d_regrid)
+    d_regrid = cfg.get_d_scen(stn, const.cat_regrid, var)
+    p_l   = fu.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
     # Font size.
@@ -811,16 +801,16 @@ def plot_ts_single(
 
         p_ref   = [i for i in p_l if def_rcp.rcp_ref in i][i]
         p_fut   = p_ref.replace(def_rcp.rcp_ref + "_", "")
-        p_qqmap = p_fut.replace("_4qqmap", "").replace(cfg.cat_regrid, cfg.cat_qqmap)
-        ds_fut   = utils.open_netcdf(p_fut)
-        ds_qqmap = utils.open_netcdf(p_qqmap)
-        ds_obs   = utils.open_netcdf(p_obs)
+        p_qqmap = p_fut.replace("_4qqmap", "").replace(const.cat_regrid, const.cat_qqmap)
+        ds_fut   = fu.open_netcdf(p_fut)
+        ds_qqmap = fu.open_netcdf(p_qqmap)
+        ds_obs   = fu.open_netcdf(p_obs)
 
         # Convert date format if the need is.
-        if ds_fut.time.dtype == cfg.dtype_obj:
-            ds_fut[cfg.dim_time] = utils.reset_calendar(ds_fut)
-        if ds_qqmap.time.dtype == cfg.dtype_obj:
-            ds_qqmap[cfg.dim_time] = utils.reset_calendar(ds_qqmap)
+        if ds_fut.time.dtype == const.dtype_obj:
+            ds_fut[const.dim_time] = utils.reset_calendar(ds_fut)
+        if ds_qqmap.time.dtype == const.dtype_obj:
+            ds_qqmap[const.dim_time] = utils.reset_calendar(ds_qqmap)
 
         # Curves.
         (ds_obs[var]).plot(alpha=0.5)
@@ -828,8 +818,8 @@ def plot_ts_single(
         (ds_qqmap[var]).plot(alpha=0.5)
 
         # Format.
-        plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
-        title = os.path.basename(p_fut).replace("4qqmap" + cfg.f_ext_nc, "verif_ts_single")
+        plt.legend(["sim", const.cat_qqmap, const.cat_obs], fontsize=fs_legend)
+        title = os.path.basename(p_fut).replace("4qqmap" + fu.f_ext_nc, "verif_ts_single")
         plt.suptitle(title, fontsize=fs_title)
         plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(y_label, fontsize=fs_axes)
@@ -839,9 +829,9 @@ def plot_ts_single(
         plt.tick_params(axis="y", labelsize=fs_axes)
 
         # Save plot.
-        p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + "verif" + cfg.sep + "ts_single", var) +\
-            title + cfg.f_ext_png
-        utils.save_plot(plt, p_fig)
+        p_fig = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + "verif" + cfg.sep + "ts_single", var) +\
+            title + fu.f_ext_png
+        fu.save_plot(plt, p_fig)
 
         # Close plot.
         plt.close()
@@ -865,16 +855,16 @@ def plot_ts_mosaic(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("Processing (mosaic): " + stn + ", " + var, True)
+    fu.log("Processing (mosaic): " + stn + ", " + var, True)
 
     # Conversion coefficient.
     coef = 1
     if var == vi.v_pr:
-        coef = cfg.spd
+        coef = const.spd
 
     # Paths and NetCDF files.
-    d_regrid = cfg.get_d_scen(stn, cfg.cat_regrid, var)
-    p_l      = utils.list_files(d_regrid)
+    d_regrid = cfg.get_d_scen(stn, const.cat_regrid, var)
+    p_l      = fu.list_files(d_regrid)
     p_obs    = cfg.get_p_obs(stn, var)
 
     # Font size.
@@ -894,18 +884,18 @@ def plot_ts_mosaic(
 
         # Path of NetCDF files.
         p_fut_i   = [i for i in p_l if def_rcp.rcp_ref in i][i].replace(def_rcp.rcp_ref + "_", "")
-        p_qqmap_i = p_fut_i.replace("_4" + cfg.cat_qqmap, "").replace(cfg.cat_regrid, cfg.cat_qqmap)
+        p_qqmap_i = p_fut_i.replace("_4" + const.cat_qqmap, "").replace(const.cat_regrid, const.cat_qqmap)
 
         # Open datasets.
-        ds_fut   = utils.open_netcdf(p_fut_i)
-        ds_qqmap = utils.open_netcdf(p_qqmap_i)
-        ds_obs   = utils.open_netcdf(p_obs)
+        ds_fut   = fu.open_netcdf(p_fut_i)
+        ds_qqmap = fu.open_netcdf(p_qqmap_i)
+        ds_obs   = fu.open_netcdf(p_obs)
 
         # Convert date format if the need is.
-        if ds_fut.time.dtype == cfg.dtype_obj:
-            ds_fut[cfg.dim_time] = utils.reset_calendar(ds_fut)
-        if ds_qqmap.time.dtype == cfg.dtype_obj:
-            ds_qqmap[cfg.dim_time] = utils.reset_calendar(ds_qqmap)
+        if ds_fut.time.dtype == const.dtype_obj:
+            ds_fut[const.dim_time] = utils.reset_calendar(ds_fut)
+        if ds_qqmap.time.dtype == const.dtype_obj:
+            ds_qqmap[const.dim_time] = utils.reset_calendar(ds_qqmap)
 
         # Curves.
         plt.subplot(7, 7, i + 1)
@@ -916,18 +906,18 @@ def plot_ts_mosaic(
         # Format.
         plt.xlabel("", fontsize=fs_axes)
         plt.ylabel(y_label, fontsize=fs_axes)
-        title = os.path.basename(p_l[i]).replace(cfg.f_ext_nc, "")
+        title = os.path.basename(p_l[i]).replace(fu.f_ext_nc, "")
         plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
         if i == 0:
-            plt.legend(["sim", cfg.cat_qqmap, cfg.cat_obs], fontsize=fs_legend)
+            plt.legend(["sim", const.cat_qqmap, const.cat_obs], fontsize=fs_legend)
             sup_title = title + "_verif_ts_mosaic"
             plt.suptitle(sup_title, fontsize=fs_title)
 
     # Save plot.
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + "verif" + cfg.sep + "ts_mosaic", var) + title + cfg.f_ext_png
-    utils.save_plot(plt, p_fig)
+    p_fig = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + "verif" + cfg.sep + "ts_mosaic", var) + title + fu.f_ext_png
+    fu.save_plot(plt, p_fig)
 
     # Close plot.
     plt.close()

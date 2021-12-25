@@ -16,9 +16,10 @@
 #   Td = dry threshold
 # ----------------------------------------------------------------------------------------------------------------------
 
-import config as cfg
+import constants as const
 import copy
 import datetime
+import file_utils as fu
 import indices
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ import utils
 import xarray as xr
 import xclim.indices as xindices
 import xclim.testing._utils as xutils
+from config import cfg
 from typing import List, Union
 from xclim.testing.tests import test_indices, test_precip, test_locales
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
@@ -110,18 +112,18 @@ def generate(
 
     # Coordinates.
     if n_loc == 0:
-        dims = [cfg.dim_longitude, cfg.dim_latitude, cfg.dim_time]
+        dims = [const.dim_longitude, const.dim_latitude, const.dim_time]
         longitude = [0]
         latitude = [0]
         coords = dict(
-            longitude=([cfg.dim_longitude], longitude),
-            latitude=([cfg.dim_latitude], latitude),
+            longitude=([const.dim_longitude], longitude),
+            latitude=([const.dim_latitude], latitude),
             time=time
         )
     else:
-        dims = [cfg.dim_location, cfg.dim_time]
+        dims = [const.dim_location, const.dim_time]
         coords = dict(
-            location=([cfg.dim_location], locations),
+            location=([const.dim_location], locations),
             time=time
         )
 
@@ -138,13 +140,13 @@ def generate(
 
     # Reorder dimensions.
     if n_loc == 0:
-        da = da.transpose(cfg.dim_time, cfg.dim_latitude, cfg.dim_longitude)
+        da = da.transpose(const.dim_time, const.dim_latitude, const.dim_longitude)
     else:
-        da = da.transpose(cfg.dim_location, cfg.dim_time)
+        da = da.transpose(const.dim_location, const.dim_time)
 
     # Assign values.
     da = xr.ones_like(da).astype(bool) * val
-    da.attrs[cfg.attrs_units] = units
+    da.attrs[const.attrs_units] = units
 
     return da
 
@@ -207,7 +209,7 @@ def assign(
         year_n, doy_n = extract_year_doy(end_str)
         t1 = (year_1 - int(da["time"].dt.year.min())) * n + (doy_1 - 1)
         tn = (year_n - int(da["time"].dt.year.min())) * n + (doy_n - 1)
-        da.loc[slice(da[cfg.dim_time][t1], da[cfg.dim_time][tn])] = vals
+        da.loc[slice(da[const.dim_time][t1], da[const.dim_time][tn])] = vals
 
     else:
         da[da.location == loc] = vals
@@ -687,8 +689,8 @@ def dry_spell_total_length() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / cfg.spd
-                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                da_pr = da_pr / const.spd
+                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
             else:
                 op = op_sum if op == op_sum_data else op_max
 
@@ -884,8 +886,8 @@ def rain_season_start() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / cfg.spd
-                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                da_pr = da_pr / const.spd
+                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
 
             # Calculate index.
             da_start = indices.rain_season_start(da_pr, str(thresh_wet) + " mm", window_wet,
@@ -1170,11 +1172,11 @@ def rain_season_end() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / cfg.spd
-                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                da_pr = da_pr / const.spd
+                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
                 if da_etp is not None:
-                    da_etp = da_etp / cfg.spd
-                    da_etp.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                    da_etp = da_etp / const.spd
+                    da_etp.attrs[const.attrs_units] = const.unit_kg_m2s1
             else:
                 op = op_max if op == op_max_data else op_sum if op == op_sum_data else op_etp
 
@@ -1284,45 +1286,45 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #3: | . A1 . B1 . | . A2 . B2 . |
             elif (i == 3) and (op == op_synthetic):
-                da_start = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_start, y1 + j, y1 + j, 91 + j)
-                da_end = generate(cfg.idx_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_end, y1 + j, y1 + j, 273 - j)
                 res_expect_length = res_expect_prcptot = [273 - 91 + 1, 272 - 92 + 1]
 
             # Case #4: | . A1 . | . B1 . |
             elif (i == 4) and (op == op_synthetic):
-                da_start = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 273)
-                da_end = generate(cfg.idx_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y2, y2, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #5: | . B0 . A1 . | . B1 . A2 . |
             elif (i == 5) and (op == op_synthetic):
-                da_start = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_start, y, y, 273)
-                da_end = generate(cfg.idx_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_end, y, y, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #6: | . B1 . | . A2 . |
             elif (i == 6) and (op == op_synthetic):
-                da_start = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y2, y2, 91)
-                da_end = generate(cfg.idx_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 273)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
             # Case #7: | . B1 A1 . | . |
             elif (i == 7) and (op == op_synthetic):
-                da_start = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = generate(cfg.idx_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 90)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
@@ -1333,8 +1335,8 @@ def rain_season_length_prcptot() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / cfg.spd
-                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                da_pr = da_pr / const.spd
+                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
 
             # Calculate indices.
             da_length = indices.rain_season_length(da_start, da_end)
@@ -1491,7 +1493,7 @@ def rain_season() -> bool:
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], s_thresh_wet / s_window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 9, 30], s_thresh_dry)
                 if i == 2:
-                    da_start_next = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                    da_start_next = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                     assign(da_start_next, y1, y1, utils.doy_str_to_doy("09-05"))
                 res_expect_start = [91, np.nan]
                 if i == 1:
@@ -1509,11 +1511,11 @@ def rain_season() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / cfg.spd
-                da_pr.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                da_pr = da_pr / const.spd
+                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
                 if da_etp is not None:
-                    da_etp = da_etp / cfg.spd
-                    da_etp.attrs[cfg.attrs_units] = cfg.unit_kg_m2s1
+                    da_etp = da_etp / const.spd
+                    da_etp.attrs[const.attrs_units] = const.unit_kg_m2s1
 
             # Calculate indices.
             da_start, da_end, da_length, da_prcptot =\
@@ -1563,27 +1565,27 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    utils.log("=")
-    utils.log("Step #0   Testing indices")
+    fu.log("=")
+    fu.log("Step #0   Testing indices")
 
-    utils.log("Step #0a  translations")
+    fu.log("Step #0a  translations")
     test_locales.test_xclim_translations("fr", official_indicators())
 
-    utils.log("Step #0b  dry_spell_total_length")
+    fu.log("Step #0b  dry_spell_total_length")
     dry_spell_total_length()
     test_precip.test_dry_spell()
     test_indices.test_dry_spell(pr_series)
 
-    utils.log("Step #0c  rain_season_start")
+    fu.log("Step #0c  rain_season_start")
     rain_season_start()
 
-    utils.log("Step #0d  rain_season_end")
+    fu.log("Step #0d  rain_season_end")
     rain_season_end()
 
-    utils.log("Step #0e  rain_season_length/prcptot")
+    fu.log("Step #0e  rain_season_length/prcptot")
     rain_season_length_prcptot()
 
-    utils.log("Step #0f  rain_season")
+    fu.log("Step #0f  rain_season")
     rain_season()
     # test_precip.test_rain_season()
     # test_indices.test_rain_season(pr_series)

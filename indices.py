@@ -7,20 +7,22 @@
 # (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import config as cfg
+import constants as const
 import datetime
+import file_utils as fu
 import functools
 import glob
 import math
 import multiprocessing
 import numpy as np
 import os.path
-import stats
+import statistics as stats
 import utils
 import xarray as xr
 import xclim.indices as indices
 import xclim.indices.generic as indices_gen
 import warnings
+from config import cfg
 from typing import Tuple, List
 from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
@@ -55,7 +57,7 @@ def generate(
 
     # Data preparation -------------------------------------------------------------------------------------------------
 
-    utils.log("Selecting variables and indices.", True)
+    fu.log("Selecting variables and indices.", True)
 
     # Select required variables.
     vi_code_l = []
@@ -113,12 +115,12 @@ def generate(
     for stn in stns:
 
         # Verify if this variable or index is available for the current station.
-        utils.log("Verifying data availability (based on directories).", True)
+        fu.log("Verifying data availability (based on directories).", True)
         vi_code_l_avail = True
         for vi_code_i in vi_code_l:
             ens = vi.VarIdx(vi_code_i).get_ens()
             if (vi_code_i != "nan") and \
-               (((ens == vi.ens_cordex) and not os.path.isdir(cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_i))) or
+               (((ens == vi.ens_cordex) and not os.path.isdir(cfg.get_d_scen(stn, const.cat_qqmap, vi_code_i))) or
                 ((ens != vi.ens_cordex) and not os.path.isdir(cfg.get_d_idx(stn, vi_code_i)))):
                 vi_code_l_avail = False
                 break
@@ -128,30 +130,30 @@ def generate(
         # Create mask.
         da_mask = None
         if stn == vi.ens_era5_land:
-            da_mask = utils.create_mask()
+            da_mask = fu.create_mask()
 
         # Loop through emissions scenarios.
         for rcp in rcps:
 
-            utils.log("Processing: " + vi_code + ", " + stn + ", " + str(def_rcp.RCP(rcp).get_desc()) + "", True)
+            fu.log("Processing: " + vi_code + ", " + stn + ", " + str(def_rcp.RCP(rcp).get_desc()) + "", True)
 
             # List simulation files for the first variable. As soon as there is no file for one variable, the analysis
             # for the current RCP needs to abort.
-            utils.log("Collecting simulation files.", True)
+            fu.log("Collecting simulation files.", True)
             varidx_0 = vi.VarIdx(vi_code_l[0])
             if rcp == def_rcp.rcp_ref:
                 if varidx_0.get_ens() in vi.ens_cordex:
-                    p_sim = cfg.get_d_stn(vi_code_l[0]) + varidx_0.get_name() + "_" + stn + cfg.f_ext_nc
+                    p_sim = cfg.get_d_stn(vi_code_l[0]) + varidx_0.get_name() + "_" + stn + fu.f_ext_nc
                 else:
-                    p_sim = cfg.get_d_idx(cfg.obs_src, vi_code_l[0]) + varidx_0.get_name() + "_ref" + cfg.f_ext_nc
+                    p_sim = cfg.get_d_idx(cfg.obs_src, vi_code_l[0]) + varidx_0.get_name() + "_ref" + fu.f_ext_nc
                 if os.path.exists(p_sim) and (type(p_sim) is str):
                     p_sim = [p_sim]
             else:
                 if varidx_0.get_ens() == vi.ens_cordex:
-                    d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_l[0])
+                    d = cfg.get_d_scen(stn, const.cat_qqmap, vi_code_l[0])
                 else:
                     d = cfg.get_d_idx(stn, vi_code_l[0])
-                p_sim = glob.glob(d + "*_" + rcp + cfg.f_ext_nc)
+                p_sim = glob.glob(d + "*_" + rcp + fu.f_ext_nc)
             if not p_sim:
                 continue
 
@@ -161,12 +163,12 @@ def generate(
                 found = False
                 # List of simulation exceptions.
                 for e in cfg.sim_excepts:
-                    if e.replace(cfg.f_ext_nc, "") in p:
+                    if e.replace(fu.f_ext_nc, "") in p:
                         found = True
                         break
                 # List of variable-simulation exceptions.
                 for e in cfg.var_sim_excepts:
-                    if e.replace(cfg.f_ext_nc, "") in p:
+                    if e.replace(fu.f_ext_nc, "") in p:
                         found = True
                         break
                 # Add simulation.
@@ -175,7 +177,7 @@ def generate(
             p_sim = p_sim_filter
 
             # Ensure that simulations are available for other variables than the first one.
-            utils.log("Verifying data availability (based on NetCDF files).", True)
+            fu.log("Verifying data availability (based on NetCDF files).", True)
             if len(vi_code_l) > 1:
                 p_sim_fix = []
                 for p_sim_i in p_sim:
@@ -192,7 +194,7 @@ def generate(
 
             # Calculation ---------------------------------------------------------------------------------------------
 
-            utils.log("Calculating climate indices", True)
+            fu.log("Calculating climate indices", True)
 
             n_sim = len(p_sim)
             d_idx = cfg.get_d_idx(stn, vi_code)
@@ -210,7 +212,7 @@ def generate(
 
                     # Calculate the number of processed files (before generation).
                     # This verification is based on the index NetCDF file.
-                    n_sim_proc_before = len(list(glob.glob(d_idx + "*" + cfg.f_ext_nc)))
+                    n_sim_proc_before = len(list(glob.glob(d_idx + "*" + fu.f_ext_nc)))
 
                     # Scalar processing mode.
                     scalar_required = False
@@ -224,20 +226,20 @@ def generate(
                     else:
 
                         try:
-                            utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
+                            fu.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                             pool = multiprocessing.Pool(processes=min(cfg.n_proc, n_sim))
                             func = functools.partial(generate_single, vi_code, vi_params, vi_code_l, p_sim,
                                                      stn, rcp, da_mask)
                             pool.map(func, list(range(n_sim)))
                             pool.close()
                             pool.join()
-                            utils.log("Fork ended.", True)
+                            fu.log("Fork ended.", True)
                         except Exception as e:
-                            utils.log(str(e))
+                            fu.log(str(e))
                             pass
 
                     # Calculate the number of processed files (after generation).
-                    n_sim_proc_after = len(list(glob.glob(d_idx + "*" + cfg.f_ext_nc)))
+                    n_sim_proc_after = len(list(glob.glob(d_idx + "*" + fu.f_ext_nc)))
 
                     # If no simulation has been processed during a loop iteration, this means that the work is done.
                     if (cfg.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
@@ -288,15 +290,15 @@ def generate_single(
 
     # Name of NetCDF file to generate.
     if rcp == def_rcp.rcp_ref:
-        p_idx = cfg.get_d_idx(stn, vi_code) + vi_name + "_ref" + cfg.f_ext_nc
+        p_idx = cfg.get_d_idx(stn, vi_code) + vi_name + "_ref" + fu.f_ext_nc
     else:
-        p_idx = cfg.get_d_scen(stn, cfg.cat_idx, vi_code) +\
+        p_idx = cfg.get_d_scen(stn, const.cat_idx, vi_code) +\
                 os.path.basename(p_sim[i_sim]).replace(vi_name_0, vi_name)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
     if (rcp != def_rcp.rcp_ref) and os.path.exists(p_idx) and (not cfg.opt_force_overwrite):
         if cfg.n_proc > 1:
-            utils.log("Work done!", True)
+            fu.log("Work done!", True)
         return
 
     # Load datasets (one per variable or index).
@@ -308,7 +310,7 @@ def generate_single(
         try:
             # Open dataset.
             p_sim_j = cfg.get_equivalent_idx_path(p_sim[i_sim], vi_code_l[0], vi.get_group(vi_code_i), stn, rcp)
-            ds = utils.open_netcdf(p_sim_j)
+            ds = fu.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.
             if (rcp == def_rcp.rcp_ref) and (varidx_i.get_ens() == vi.ens_cordex):
@@ -317,11 +319,11 @@ def generate_single(
 
             # Adjust temperature units.
             if varidx_i.get_name() in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
-                if ds[vi_code_i].attrs[cfg.attrs_units] == cfg.unit_K:
-                    ds[vi_code_i] = ds[vi_code_i] - cfg.d_KC
+                if ds[vi_code_i].attrs[const.attrs_units] == const.unit_K:
+                    ds[vi_code_i] = ds[vi_code_i] - const.d_KC
                 elif rcp == def_rcp.rcp_ref:
-                    ds[vi_code_i][cfg.attrs_units] = cfg.unit_C
-                ds[vi_code_i].attrs[cfg.attrs_units] = cfg.unit_C
+                    ds[vi_code_i][const.attrs_units] = const.unit_C
+                ds[vi_code_i].attrs[const.attrs_units] = const.unit_C
 
         except:
             ds = None
@@ -360,9 +362,9 @@ def generate_single(
                     elif vi_name == vi.i_prcptot:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=FutureWarning)
-                            da_i = ds_vi_l[i][vi.v_pr].resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+                            da_i = ds_vi_l[i][vi.v_pr].resample(time=const.freq_YS).sum(dim=const.dim_time)
                         dims = utils.get_coord_names(ds_vi_l[i])
-                        vi_param = da_i.mean(dim=dims).quantile(vi_param).values.ravel()[0] * cfg.spd
+                        vi_param = da_i.mean(dim=dims).quantile(vi_param).values.ravel()[0] * const.spd
                     elif vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]:
                         if vi_name == vi.i_wg_days_above:
                             da_uas = ds_vi_l[0][vi.v_uas]
@@ -383,8 +385,8 @@ def generate_single(
            ((vi_name in [vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_wsdi,
                          vi.i_tn_days_below, vi.i_tx_days_above]) and (i == 0)) or \
            ((vi_name in [vi.i_heat_wave_max_length, vi.i_heat_wave_total_length]) and (i <= 1)):
-            vi_ref = str(vi_param) + " " + cfg.unit_C
-            vi_fut = str(vi_param + cfg.d_KC) + " " + cfg.unit_K
+            vi_ref = str(vi_param) + " " + const.unit_C
+            vi_fut = str(vi_param + const.d_KC) + " " + const.unit_K
             vi_params_str.append(vi_ref if (rcp == def_rcp.rcp_ref) else vi_fut)
 
         elif vi_name in [vi.i_cwd, vi.i_cdd, vi.i_r10mm, vi.i_r20mm, vi.i_rnnmm,
@@ -392,7 +394,7 @@ def generate_single(
             vi_params_str.append(str(vi_param) + " mm/day")
 
         elif (vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]) and (i == 1):
-            vi_params_str.append(str(vi_param) + " " + cfg.unit_m_s)
+            vi_params_str.append(str(vi_param) + " " + const.unit_m_s)
 
         elif not ((vi_name in [vi.i_wg_days_above, vi.i_wx_days_above]) and (i == 4)):
             vi_params_str.append(str(vi_param))
@@ -423,7 +425,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         if vi_name == vi.i_tn_days_below:
 
@@ -441,26 +443,26 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name == vi.i_tng_months_below:
 
             # Collect required datasets and parameters.
             da_tasmin = ds_vi_l[0][vi.v_tasmin]
             param_tasmin = float(vi_params_str[0])
-            if da_tasmin.attrs[cfg.attrs_units] != cfg.unit_C:
-                param_tasmin += cfg.d_KC
+            if da_tasmin.attrs[const.attrs_units] != const.unit_C:
+                param_tasmin += const.d_KC
 
             # Calculate index.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                da_idx = xr.DataArray(indices.tn_mean(da_tasmin, freq=cfg.freq_MS))
-                da_idx = xr.DataArray(indices_gen.threshold_count(da_idx, "<", param_tasmin, cfg.freq_YS))
+                da_idx = xr.DataArray(indices.tn_mean(da_tasmin, freq=const.freq_MS))
+                da_idx = xr.DataArray(indices_gen.threshold_count(da_idx, "<", param_tasmin, const.freq_YS))
             da_idx = da_idx.astype(float)
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name in [vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_wsdi]:
 
@@ -483,7 +485,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name in [vi.i_heat_wave_max_length, vi.i_heat_wave_total_length]:
 
@@ -505,7 +507,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name in [vi.i_txg, vi.i_txx]:
 
@@ -522,7 +524,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_C)
+            idx_units_l.append(const.unit_C)
 
         elif vi_name in [vi.i_tnx, vi.i_tng, vi.i_tropical_nights]:
 
@@ -535,14 +537,14 @@ def generate_single(
                     warnings.simplefilter("ignore", category=Warning)
                     if vi_name == vi.i_tnx:
                         da_idx = xr.DataArray(indices.tn_max(da_tasmin))
-                        idx_units = cfg.unit_C
+                        idx_units = const.unit_C
                     else:
                         da_idx = xr.DataArray(indices.tn_mean(da_tasmin))
-                        idx_units = cfg.unit_C
+                        idx_units = const.unit_C
             else:
                 param_tasmin = vi_params_str[0]
                 da_idx = xr.DataArray(indices.tropical_nights(da_tasmin, param_tasmin))
-                idx_units = cfg.unit_1
+                idx_units = const.unit_1
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -564,7 +566,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_C)
+            idx_units_l.append(const.unit_C)
 
         elif vi_name == vi.i_drought_code:
 
@@ -576,11 +578,11 @@ def generate_single(
             # Calculate index
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                da_idx = xr.DataArray(indices.drought_code(da_tas, da_pr, da_lat)).resample(time=cfg.freq_YS).mean()
+                da_idx = xr.DataArray(indices.drought_code(da_tas, da_pr, da_lat)).resample(time=const.freq_YS).mean()
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         # Precipitation ------------------------------------------------------------------------------------------------
 
@@ -593,9 +595,9 @@ def generate_single(
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
                 if vi_name == vi.i_rx1day:
-                    da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, cfg.freq_YS))
+                    da_idx = xr.DataArray(indices.max_1day_precipitation_amount(da_pr, const.freq_YS))
                 elif vi_name == vi.i_rx5day:
-                    da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, cfg.freq_YS))
+                    da_idx = xr.DataArray(indices.max_n_day_precipitation_amount(da_pr, 5, const.freq_YS))
                 else:
                     start_date = end_date = ""
                     if len(vi_params_str) == 3:
@@ -605,7 +607,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(da_idx.attrs[cfg.attrs_units])
+            idx_units_l.append(da_idx.attrs[const.attrs_units])
 
         elif vi_name in [vi.i_cwd, vi.i_cdd, vi.i_r10mm, vi.i_r20mm, vi.i_rnnmm,
                           vi.i_wet_days, vi.i_dry_days, vi.i_sdii]:
@@ -617,23 +619,23 @@ def generate_single(
             # Calculate index.
             if vi_name in vi.i_cwd:
                 da_idx = xr.DataArray(
-                    indices.maximum_consecutive_wet_days(da_pr, param_pr, cfg.freq_YS))
+                    indices.maximum_consecutive_wet_days(da_pr, param_pr, const.freq_YS))
             elif vi_name in vi.i_cdd:
                 da_idx = xr.DataArray(
-                    indices.maximum_consecutive_dry_days(da_pr, param_pr, cfg.freq_YS))
+                    indices.maximum_consecutive_dry_days(da_pr, param_pr, const.freq_YS))
             elif vi_name in [vi.i_r10mm, vi.i_r20mm, vi.i_rnnmm, vi.i_wet_days]:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=Warning)
-                    da_idx = xr.DataArray(indices.wetdays(da_pr, param_pr, cfg.freq_YS))
+                    da_idx = xr.DataArray(indices.wetdays(da_pr, param_pr, const.freq_YS))
             elif vi_name == vi.i_dry_days:
-                da_idx = xr.DataArray(indices.dry_days(da_pr, param_pr, cfg.freq_YS))
+                da_idx = xr.DataArray(indices.dry_days(da_pr, param_pr, const.freq_YS))
             else:
                 da_idx = xr.DataArray(indices.daily_pr_intensity(da_pr, param_pr))
             da_idx = da_idx.astype(int)
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name == vi.i_rain_season_start:
 
@@ -654,7 +656,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name == vi.i_rain_season_end:
 
@@ -685,7 +687,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name == vi.i_rain_season_length:
 
@@ -698,7 +700,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         elif vi_name == vi.i_rain_season_prcptot:
 
@@ -751,7 +753,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l = [da_start, da_end, da_length, da_prcptot]
-            idx_units_l = [cfg.unit_1, cfg.unit_1, cfg.unit_1,
+            idx_units_l = [const.unit_1, const.unit_1, const.unit_1,
                            vi.VarIdx(vi.i_rain_season_prcptot).get_unit()]
             idx_name_l = [vi.i_rain_season_start, vi.i_rain_season_end, vi.i_rain_season_length,
                           vi.i_rain_season_prcptot]
@@ -773,7 +775,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         # Wind ---------------------------------------------------------------------------------------------------------
 
@@ -802,7 +804,7 @@ def generate_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(cfg.unit_1)
+            idx_units_l.append(const.unit_1)
 
         if len(idx_name_l) == 0:
             idx_name_l = [vi_name]
@@ -814,7 +816,7 @@ def generate_single(
             idx_units = idx_units_l[i]
 
             # Assign units.
-            da_idx.attrs[cfg.attrs_units] = idx_units
+            da_idx.attrs[const.attrs_units] = idx_units
 
             # Convert to float. This is required to ensure that 'nan' values are not transformed into integers.
             da_idx = da_idx.astype(float)
@@ -836,9 +838,9 @@ def generate_single(
             # Create dataset.
             if i == 0:
                 ds_idx = da_idx.to_dataset(name=idx_name_l[i])
-                ds_idx.attrs[cfg.attrs_units] = idx_units
-                ds_idx.attrs[cfg.attrs_sname] = vi_name
-                ds_idx.attrs[cfg.attrs_lname] = vi_name
+                ds_idx.attrs[const.attrs_units] = idx_units
+                ds_idx.attrs[const.attrs_sname] = vi_name
+                ds_idx.attrs[const.attrs_lname] = vi_name
                 ds_idx = utils.copy_coordinates(ds_vi_l[0], ds_idx)
 
             # Add data array.
@@ -849,19 +851,19 @@ def generate_single(
         year_1 = cfg.per_fut[0]
         year_n = cfg.per_fut[1]
         if rcp == def_rcp.rcp_ref:
-            year_1 = max(cfg.per_ref[0], int(str(ds_vi_l[0][cfg.dim_time][0].values)[0:4]))
-            year_n = min(cfg.per_ref[1], int(str(ds_vi_l[0][cfg.dim_time]
-                                                 [len(ds_vi_l[0][cfg.dim_time]) - 1].values)[0:4]))
-        ds_idx[cfg.dim_time] = utils.reset_calendar(ds_idx, year_1, year_n, cfg.freq_YS)
+            year_1 = max(cfg.per_ref[0], int(str(ds_vi_l[0][const.dim_time][0].values)[0:4]))
+            year_n = min(cfg.per_ref[1], int(str(ds_vi_l[0][const.dim_time]
+                                                 [len(ds_vi_l[0][const.dim_time]) - 1].values)[0:4]))
+        ds_idx[const.dim_time] = utils.reset_calendar(ds_idx, year_1, year_n, const.freq_YS)
 
         # Save result to NetCDF file.
         desc = cfg.sep + vi_name + cfg.sep + os.path.basename(p_idx)
-        utils.save_netcdf(ds_idx, p_idx, desc=desc)
+        fu.save_netcdf(ds_idx, p_idx, desc=desc)
 
     # Convert percentile threshold values for climate indices. This is sometimes required in time series.
     if (rcp == def_rcp.rcp_ref) and (vi_name == vi.i_prcptot):
-        ds_idx = utils.open_netcdf(p_idx)
-        da_idx = ds_idx.mean(dim=[cfg.dim_longitude, cfg.dim_latitude])[vi_name]
+        ds_idx = fu.open_netcdf(p_idx)
+        da_idx = ds_idx.mean(dim=[const.dim_longitude, const.dim_latitude])[vi_name]
         param_pr = vi_params_str[0]
         if "p" in str(param_pr):
             param_pr = float(param_pr.replace("p", "")) / 100.0
@@ -869,7 +871,7 @@ def generate_single(
                 float(round(da_idx.quantile(param_pr).values.ravel()[0], 2))
 
     if cfg.n_proc > 1:
-        utils.log("Work done!", True)
+        fu.log("Work done!", True)
 
 
 def precip_accumulation(
@@ -901,7 +903,7 @@ def precip_accumulation(
     da_pr = utils.subset_doy(da_pr, start_doy, end_doy)
 
     # Calculate index.
-    da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=cfg.freq_YS))
+    da_idx = xr.DataArray(indices.precip_accumulation(da_pr, freq=const.freq_YS))
 
     return da_idx
 
@@ -990,7 +992,7 @@ def heat_wave_max_length(
     param_tasmin: str = "22.0 degC",
     param_tasmax: str = "30 degC",
     window: int = 3,
-    freq: str = cfg.freq_YS
+    freq: str = const.freq_YS
 ) -> xr.DataArray:
 
     """
@@ -1004,12 +1006,12 @@ def heat_wave_max_length(
 
     # Adjust calendars.
     if tasmin.time.dtype != tasmax.time.dtype:
-        tasmin[cfg.dim_time] = tasmin[cfg.dim_time].astype("datetime64[ns]")
-        tasmax[cfg.dim_time] = tasmax[cfg.dim_time].astype("datetime64[ns]")
+        tasmin[const.dim_time] = tasmin[const.dim_time].astype("datetime64[ns]")
+        tasmax[const.dim_time] = tasmax[const.dim_time].astype("datetime64[ns]")
 
     # Call the xclim function if time dimension is the same.
-    n_tasmin = len(tasmin[cfg.dim_time])
-    n_tasmax = len(tasmax[cfg.dim_time])
+    n_tasmin = len(tasmin[const.dim_time])
+    n_tasmax = len(tasmax[const.dim_time])
 
     if n_tasmin == n_tasmax:
         return indices.heat_wave_max_length(tasmin, tasmax, param_tasmin, param_tasmax, window, freq)
@@ -1021,17 +1023,17 @@ def heat_wave_max_length(
         if n_tasmax > n_tasmin:
             cond = tasmax
         for t in cond.time:
-            if (t.values in tasmin[cfg.dim_time]) and (t.values in tasmax[cfg.dim_time]):
-                cond[cond[cfg.dim_time] == t] =\
-                    (tasmin[tasmin[cfg.dim_time] == t] > param_tasmin) &\
-                    (tasmax[tasmax[cfg.dim_time] == t] > param_tasmax)
+            if (t.values in tasmin[const.dim_time]) and (t.values in tasmax[const.dim_time]):
+                cond[cond[const.dim_time] == t] =\
+                    (tasmin[tasmin[const.dim_time] == t] > param_tasmin) &\
+                    (tasmax[tasmax[const.dim_time] == t] > param_tasmax)
             else:
-                cond[cond[cfg.dim_time] == t] = False
+                cond[cond[const.dim_time] == t] = False
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
             group = cond.resample(time=freq)
-        max_l = group.map(rl.longest_run, dim=cfg.dim_time)
+        max_l = group.map(rl.longest_run, dim=const.dim_time)
 
         return max_l.where(max_l >= window, 0)
 
@@ -1042,7 +1044,7 @@ def heat_wave_total_length(
     param_tasmin: str = "22.0 degC",
     param_tasmax: str = "30 degC",
     window: int = 3,
-    freq: str = cfg.freq_YS
+    freq: str = const.freq_YS
 ) -> xr.DataArray:
 
     """
@@ -1056,12 +1058,12 @@ def heat_wave_total_length(
 
     # Adjust calendars.
     if tasmin.time.dtype != tasmax.time.dtype:
-        tasmin[cfg.dim_time] = tasmin[cfg.dim_time].astype("datetime64[ns]")
-        tasmax[cfg.dim_time] = tasmax[cfg.dim_time].astype("datetime64[ns]")
+        tasmin[const.dim_time] = tasmin[const.dim_time].astype("datetime64[ns]")
+        tasmax[const.dim_time] = tasmax[const.dim_time].astype("datetime64[ns]")
 
     # Call the xclim function if time dimension is the same.
-    n_tasmin = len(tasmin[cfg.dim_time])
-    n_tasmax = len(tasmax[cfg.dim_time])
+    n_tasmin = len(tasmin[const.dim_time])
+    n_tasmax = len(tasmax[const.dim_time])
 
     if n_tasmin == n_tasmax:
         return indices.heat_wave_total_length(tasmin, tasmax, param_tasmin, param_tasmax, window, freq)
@@ -1073,18 +1075,18 @@ def heat_wave_total_length(
         if n_tasmax > n_tasmin:
             cond = tasmax
         for t in cond.time:
-            if (t.values in tasmin[cfg.dim_time]) and (t.values in tasmax[cfg.dim_time]):
-                cond[cond[cfg.dim_time] == t] =\
-                    (tasmin[tasmin[cfg.dim_time] == t] > param_tasmin) &\
-                    (tasmax[tasmax[cfg.dim_time] == t] > param_tasmax)
+            if (t.values in tasmin[const.dim_time]) and (t.values in tasmax[const.dim_time]):
+                cond[cond[const.dim_time] == t] =\
+                    (tasmin[tasmin[const.dim_time] == t] > param_tasmin) &\
+                    (tasmax[tasmax[const.dim_time] == t] > param_tasmax)
             else:
-                cond[cond[cfg.dim_time] == t] = False
+                cond[cond[const.dim_time] == t] = False
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
             group = cond.resample(time=freq)
 
-        return group.map(rl.windowed_run_count, args=(window,), dim=cfg.dim_time)
+        return group.map(rl.windowed_run_count, args=(window,), dim=const.dim_time)
 
 
 @declare_units(
@@ -1877,7 +1879,7 @@ def w_days_above(
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
-        da_w_days_above = da_conds.resample(time=cfg.freq_YS).sum(dim=cfg.dim_time)
+        da_w_days_above = da_conds.resample(time=const.freq_YS).sum(dim=const.dim_time)
 
     return da_w_days_above
 
@@ -1893,133 +1895,133 @@ def run():
     not_req = " (not required)"
 
     # Explode the list of index codes.
-    idx_codes_exploded = cfg.explode_idx_l(cfg.idx_codes)
+    idx_codes_exploded = vi.explode_idx_l(cfg.idx_codes)
 
     # Indices ----------------------------------------------------------------------------------------------------------
 
     # Calculate indices.
-    utils.log("=")
+    fu.log("=")
     msg = "Step #6   Calculating indices"
     if cfg.opt_idx:
-        utils.log(msg)
+        fu.log(msg)
         for i in range(0, len(cfg.idx_codes)):
             generate(cfg.idx_codes[i])
     else:
-        utils.log(msg + not_req)
+        fu.log(msg + not_req)
 
     # Statistics -------------------------------------------------------------------------------------------------------
 
-    utils.log("=")
+    fu.log("=")
     msg = "Step #7   Exporting results (indices)"
     if cfg.opt_stat[1] or cfg.opt_save_csv[1]:
-        utils.log(msg)
+        fu.log(msg)
     else:
-        utils.log(msg + not_req)
+        fu.log(msg + not_req)
 
-    utils.log("-")
+    fu.log("-")
     msg = "Step #7a  Calculating statistics (indices)"
     if cfg.opt_stat[1]:
-        utils.log(msg)
-        stats.calc_stats(cfg.cat_idx)
+        fu.log(msg)
+        stats.calc_stats(const.cat_idx)
     else:
-        utils.log(msg + not_req)
+        fu.log(msg + not_req)
 
-    utils.log("-")
+    fu.log("-")
     msg = "Step #7b  Converting NetCDF to CSV files (indices)"
     if cfg.opt_save_csv[1] and not cfg.opt_ra:
-        utils.log(msg)
-        utils.log("-")
-        stats.conv_nc_csv(cfg.cat_idx)
+        fu.log(msg)
+        fu.log("-")
+        stats.conv_nc_csv(const.cat_idx)
     else:
-        utils.log(msg + not_req)
+        fu.log(msg + not_req)
 
     # Plots ------------------------------------------------------------------------------------------------------------
 
-    utils.log("=")
+    fu.log("=")
     msg = "Step #8   Generating plots and maps (indices)"
-    if cfg.opt_plot[1] or cfg.opt_map[1]:
-        utils.log(msg)
+    if cfg.opt_map[1]:
+        fu.log(msg)
     else:
-        utils.log(msg + not_req)
+        fu.log(msg + not_req)
 
     # Generate daily and monthly plots.
     if cfg.opt_cycle[1]:
 
-        utils.log("-")
-        utils.log("Step #8a  Generating daily and monthly plots (indices)")
+        fu.log("-")
+        fu.log("Step #8a  Generating daily and monthly plots (indices)")
 
         # Loop through variables.
         for idx_code in cfg.idx_codes:
-            idx_name = vi.VarIdx(idx_code).get_name()
+            idx_name = str(vi.VarIdx(idx_code).get_name())
 
             # Loop through stations.
             stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
             for stn in stns:
 
-                utils.log("Processing: " + idx_code + ", " + stn, True)
+                fu.log("Processing: " + idx_code + ", " + stn, True)
 
                 # Path ofo NetCDF file containing station data.
                 p_obs = cfg.get_p_obs(stn, idx_code)
 
                 # Loop through raw NetCDF files.
-                p_l = list(glob.glob(cfg.get_d_idx(stn, idx_code) + "*" + cfg.f_ext_nc))
+                p_l = list(glob.glob(cfg.get_d_idx(stn, idx_code) + "*" + fu.f_ext_nc))
                 for i in range(len(p_l)):
                     p = p_l[i]
 
                     # File name.
-                    fn_fig = p.split(cfg.sep)[-1].replace(cfg.f_ext_nc, cfg.f_ext_png)
+                    fn_fig = p.split(cfg.sep)[-1].replace(fu.f_ext_nc, fu.f_ext_png)
 
                     # Generate monthly and daily plots.
-                    ds = utils.open_netcdf(p)
+                    ds = fu.open_netcdf(p)
                     for per in cfg.per_hors:
                         per_str = str(per[0]) + "_" + str(per[1])
 
                         # This creates 2 files:
                         #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
                         #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
-                        title = fn_fig[:-4] + per_str + "_" + cfg.cat_fig_cycle_ms
-                        stats.calc_cycle(ds, stn, idx_name, per, cfg.freq_MS, title)
+                        title = fn_fig[:-4] + per_str + "_" + const.cat_fig_cycle_ms
+                        stats.calc_cycle(ds, stn, idx_name, per, const.freq_MS, title)
 
                         # This creates 2 files:
                         #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
                         #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
-                        title = fn_fig[:-4] + per_str + "_" + cfg.cat_fig_cycle_d
-                        stats.calc_cycle(ds, stn, idx_name, per, cfg.freq_D, title)
+                        title = fn_fig[:-4] + per_str + "_" + const.cat_fig_cycle_d
+                        stats.calc_cycle(ds, stn, idx_name, per, const.freq_D, title)
 
                 if os.path.exists(p_obs):
 
-                    ds_obs = utils.open_netcdf(p_obs)
+                    ds_obs = fu.open_netcdf(p_obs)
                     per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
 
                     # This creates 2 files:
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
-                    title = idx_name + "_" + per_str + "_" + cfg.cat_fig_cycle_ms
-                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, cfg.freq_MS, title)
+                    title = idx_name + "_" + per_str + "_" + const.cat_fig_cycle_ms
+                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, const.freq_MS, title)
 
                     # This creates 2 files:
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
-                    title = idx_name + "_" + per_str + "_" + cfg.cat_fig_cycle_d
-                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, cfg.freq_D, title)
+                    title = idx_name + "_" + per_str + "_" + const.cat_fig_cycle_d
+                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, const.freq_D, title)
 
     # Generate plots.
-    utils.log("-")
+    fu.log("-")
     msg = "Step #8b  Generating time series (indices)"
     if cfg.opt_ts[1]:
-        utils.log(msg)
-        stats.calc_ts(cfg.cat_idx)
+        fu.log(msg)
+        stats.calc_ts(const.cat_idx)
     else:
-        utils.log(msg + not_req)
+        fu.log(msg + not_req)
 
     # Generate maps.
     # Heat maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
     # - calculation is very slow (something is wrong).
-    utils.log("-")
+    fu.log("-")
     msg = "Step #8c  Generating heat maps (indices)"
     if cfg.opt_ra and cfg.opt_map[1]:
-        utils.log(msg)
+        fu.log(msg)
 
         # Loop through indices.
         for i in range(len(idx_codes_exploded)):
@@ -2028,7 +2030,7 @@ def run():
             stats.calc_map(idx_codes_exploded[i])
 
     else:
-        utils.log(msg + " (not required)")
+        fu.log(msg + " (not required)")
 
 
 if __name__ == "__main__":

@@ -8,19 +8,20 @@
 # (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import config as cfg
+import constants as const
 import clisops.core.subset as subset
 import datetime
+import file_utils as fu
 import glob
 import os
 import plot as plot
-import utils
 import xarray as xr
 import warnings
+from config import cfg
 
 import sys
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard import def_stat, def_varidx as vi
 
 
 def aggregate(
@@ -58,19 +59,19 @@ def aggregate(
     dbg_longitude = 0
 
     # Hourly data.
-    ds_hour = utils.open_netcdf(p_hour)[var]
+    ds_hour = fu.open_netcdf(p_hour)[var]
 
     # Daily data.
     dir_day = os.path.dirname(p_day) + cfg.sep
     fn_day  = os.path.basename(p_day)
 
     # Loop through statistics.
-    for stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_sum]:
+    for stat in [def_stat.code_mean, def_stat.code_min, def_stat.code_max, def_stat.code_sum]:
 
         # Output file name.
         var_stat = var + stat
         if (var in [vi.v_era5_t2m, vi.v_era5_u10, vi.v_era5_v10, vi.v_era5_uv10]) and\
-           (stat in [cfg.stat_min, cfg.stat_max]):
+           (stat in [def_stat.code_min, def_stat.code_max]):
             p_day_stat = dir_day + var_stat + cfg.sep + fn_day.replace(var + "_", var_stat + "_")
         else:
             p_day_stat = dir_day + var + cfg.sep + fn_day
@@ -81,47 +82,47 @@ def aggregate(
             # Aggregation.
             ds_day = None
             save = False
-            if stat == cfg.stat_mean:
+            if stat == def_stat.code_mean:
                 if (var in [vi.v_era5_d2m, vi.v_era5_sh]) or\
                    ((var == vi.v_era5_t2m) and (vi.v_tas in cfg.variables)) or\
                    (var == vi.v_era5_u10) or (var == vi.v_era5_v10):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
-                        ds_day = ds_hour.resample(time=cfg.freq_D).mean()
+                        ds_day = ds_hour.resample(time=const.freq_D).mean()
                     save = True
-            elif stat == cfg.stat_min:
+            elif stat == def_stat.code_min:
                 if (var == vi.v_era5_t2m) and (vi.v_tasmin in cfg.variables):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
-                        ds_day = ds_hour.resample(time=cfg.freq_D).min()
+                        ds_day = ds_hour.resample(time=const.freq_D).min()
                     save = True
-            elif stat == cfg.stat_max:
+            elif stat == def_stat.code_max:
                 if ((var == vi.v_era5_t2m) and (vi.v_tasmax in cfg.variables)) or\
                    ((var == vi.v_era5_uv10) and (vi.v_sfcwindmax in cfg.variables)):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
-                        ds_day = ds_hour.resample(time=cfg.freq_D).max()
+                        ds_day = ds_hour.resample(time=const.freq_D).max()
                     save = True
-            elif stat == cfg.stat_sum:
+            elif stat == def_stat.code_sum:
                 if (var in [vi.v_era5_tp, vi.v_era5_e, vi.v_era5_pev]) or (var == vi.v_era5_ssrd):
                     if cfg.obs_src == vi.ens_era5:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=Warning)
-                            ds_day = ds_hour.resample(time=cfg.freq_D).sum()
+                            ds_day = ds_hour.resample(time=const.freq_D).sum()
                     else:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=Warning)
-                            ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=cfg.freq_D).sum()
+                            ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=const.freq_D).sum()
                     save = True
 
             # Save NetCDF file.
             if save:
-                utils.save_netcdf(ds_day, p_day_stat)
+                fu.save_netcdf(ds_day, p_day_stat)
 
         # Numerical test and plot for a given day of year.
         if opt_debug and os.path.exists(p_day_stat):
 
-            ds_day = utils.open_netcdf(p_day_stat)[var]
+            ds_day = fu.open_netcdf(p_day_stat)[var]
 
             # Plot #1: Time-series.
             # Hourly data.
@@ -227,21 +228,21 @@ def gen_dataset_sh(
     """
 
     # Load datasets.
-    da_d2m = utils.open_netcdf(p_d2m, chunks={cfg.dim_time: n_years})[vi.v_era5_d2m]
-    da_sp  = utils.open_netcdf(p_sp, chunks={cfg.dim_time: n_years})[vi.v_era5_sp]
+    da_d2m = fu.open_netcdf(p_d2m, chunks={const.dim_time: n_years})[vi.v_era5_d2m]
+    da_sp  = fu.open_netcdf(p_sp, chunks={const.dim_time: n_years})[vi.v_era5_sp]
 
     # Calculate specific humidity values.
-    da_sh = calc_spec_humidity(da_d2m - cfg.d_KC, da_sp / 100.0)
+    da_sh = calc_spec_humidity(da_d2m - const.d_KC, da_sp / 100.0)
 
     # Update meta information.
     da_sh.name = vi.v_era5_sh
-    da_sh.attrs[cfg.attrs_lname] = "specific humidity"
-    da_sh.attrs[cfg.attrs_units] = cfg.unit_1
-    da_sh.attrs[cfg.attrs_lname] = "specific humidity"
-    da_sh.attrs[cfg.attrs_units] = cfg.unit_1
+    da_sh.attrs[const.attrs_lname] = "specific humidity"
+    da_sh.attrs[const.attrs_units] = const.unit_1
+    da_sh.attrs[const.attrs_lname] = "specific humidity"
+    da_sh.attrs[const.attrs_units] = const.unit_1
 
     # Save NetCDF file.
-    utils.save_netcdf(da_sh, p_sh)
+    fu.save_netcdf(da_sh, p_sh)
 
 
 def gen_dataset_uv10(
@@ -269,21 +270,21 @@ def gen_dataset_uv10(
     """
 
     # Load datasets.
-    da_u10 = utils.open_netcdf(p_u10, chunks={cfg.dim_time: n_years})[vi.v_era5_u10]
-    da_v10  = utils.open_netcdf(p_v10, chunks={cfg.dim_time: n_years})[vi.v_era5_v10]
+    da_u10 = fu.open_netcdf(p_u10, chunks={const.dim_time: n_years})[vi.v_era5_u10]
+    da_v10  = fu.open_netcdf(p_v10, chunks={const.dim_time: n_years})[vi.v_era5_v10]
 
     # Calculate specific humidity values.
     da_uv10 = ((da_u10 ** 2) + (da_v10 ** 2)) ** 0.5
 
     # Update meta information.
     da_uv10.name = vi.v_era5_uv10
-    da_uv10.attrs[cfg.attrs_lname] = "wind"
-    da_uv10.attrs[cfg.attrs_units] = cfg.unit_m_s
-    da_uv10.attrs[cfg.attrs_lname] = "wind"
-    da_uv10.attrs[cfg.attrs_units] = cfg.unit_m_s
+    da_uv10.attrs[const.attrs_lname] = "wind"
+    da_uv10.attrs[const.attrs_units] = const.unit_m_s
+    da_uv10.attrs[const.attrs_lname] = "wind"
+    da_uv10.attrs[const.attrs_units] = const.unit_m_s
 
     # Save NetCDF file.
-    utils.save_netcdf(da_uv10, p_uv10)
+    fu.save_netcdf(da_uv10, p_uv10)
 
 
 def run():
@@ -315,14 +316,14 @@ def run():
     for var in var_l:
 
         # Loop through files.
-        p_raw_lst = glob.glob(cfg.d_ra_raw + var + cfg.sep + "*" + cfg.f_ext_nc)
+        p_raw_lst = glob.glob(cfg.d_ra_raw + var + cfg.sep + "*" + fu.f_ext_nc)
         p_raw_lst.sort()
         n_years = len(p_raw_lst)
         for i_raw in range(len(p_raw_lst)):
             p_raw = p_raw_lst[i_raw]
             p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
 
-            utils.log("Processing: " + p_raw, True)
+            fu.log("Processing: " + p_raw, True)
 
             # Perform aggregation.
             if (not os.path.exists(p_day)) or cfg.opt_force_overwrite:

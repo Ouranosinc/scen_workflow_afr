@@ -8,8 +8,9 @@
 # ----------------------------------------------------------------------------------------------------------------------
 from pandas import DataFrame
 
-import config as cfg
+import constants as const
 import functools
+import file_utils as fu
 import glob
 import math
 import multiprocessing
@@ -23,6 +24,7 @@ import utils
 import warnings
 import xarray as xr
 import xesmf as xe
+from config import cfg
 from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
 from streamlit import caching
@@ -56,11 +58,11 @@ def calc_stat(
     ----------
 
     data_type : str
-        Dataset type: {cfg.obs, cfg.cat_scen}
+        Dataset type: {const.obs, const.cat_scen}
     freq_in : str
-        Frequency (input): cfg.freq_D=daily; cfg.freq_YS=annual
+        Frequency (input): const.freq_D=daily; const.freq_YS=annual
     freq_out : str
-        Frequency (output): cfg.freq_D=daily; cfg.freq_YS=annual
+        Frequency (output): const.freq_D=daily; const.freq_YS=annual
     stn : str
         Station.
     vi_code : str
@@ -75,7 +77,7 @@ def calc_stat(
     clip : bool
         If True, clip according to 'cfg.p_bounds'.
     stat : str
-        Statistic: {cfg.stat_mean, cfg.stat_min, cfg.stat_max, cfg.stat_quantile"}
+        Statistic: {def_stat.code_mean, def_stat.code_min, def_stat.code_max, def_stat.code_quantile}
     q : float, optional
         Quantile: value between 0 and 1.
     --------------------------------------------------------------------------------------------------------------------
@@ -85,22 +87,22 @@ def calc_stat(
     varidx = vi.VarIdx(vi_code)
 
     # Extract name and group.
-    cat = cfg.cat_scen if vi_code in cfg.variables else cfg.cat_idx
-    vi_name = vi_code if cat == cfg.cat_scen else varidx.get_name()
+    cat = const.cat_scen if vi_code in cfg.variables else const.cat_idx
+    vi_name = vi_code if cat == const.cat_scen else varidx.get_name()
     vi_code_grp = vi.get_group(vi_code)
 
     # List files.
-    if data_type == cfg.cat_obs:
+    if data_type == const.cat_obs:
         if vi_name in cfg.variables:
-            p_sim_l = [cfg.get_d_scen(stn, cfg.cat_obs, vi_name) + vi_name + "_" + stn + cfg.f_ext_nc]
+            p_sim_l = [cfg.get_d_scen(stn, const.cat_obs, vi_name) + vi_name + "_" + stn + fu.f_ext_nc]
         else:
-            p_sim_l = [cfg.get_d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + cfg.f_ext_nc]
+            p_sim_l = [cfg.get_d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + fu.f_ext_nc]
     else:
         if vi_name in cfg.variables:
-            d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_name)
+            d = cfg.get_d_scen(stn, const.cat_qqmap, vi_name)
         else:
             d = cfg.get_d_idx(stn, vi_code_grp)
-        p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp == def_rcp.rcp_xx else rcp) + cfg.f_ext_nc)
+        p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp == def_rcp.rcp_xx else rcp) + fu.f_ext_nc)
 
     # Exit if there is no file corresponding to the criteria.
     if (len(p_sim_l) == 0) or \
@@ -108,18 +110,18 @@ def calc_stat(
         return None
 
     # List days.
-    ds = utils.open_netcdf(p_sim_l[0])
-    if (cfg.dim_lon in ds.variables) or (cfg.dim_lon in ds.dims):
-        lon = ds[cfg.dim_lon]
-        lat = ds[cfg.dim_lat]
-    elif (cfg.dim_rlon in ds.variables) or (cfg.dim_rlon in ds.dims):
-        lon = ds[cfg.dim_rlon]
-        lat = ds[cfg.dim_rlat]
+    ds = fu.open_netcdf(p_sim_l[0])
+    if (const.dim_lon in ds.variables) or (const.dim_lon in ds.dims):
+        lon = ds[const.dim_lon]
+        lat = ds[const.dim_lat]
+    elif (const.dim_rlon in ds.variables) or (const.dim_rlon in ds.dims):
+        lon = ds[const.dim_rlon]
+        lat = ds[const.dim_rlat]
     else:
-        lon = ds[cfg.dim_longitude]
-        lat = ds[cfg.dim_latitude]
-    if cfg.attrs_units in ds[vi_name].attrs:
-        units = ds[vi_name].attrs[cfg.attrs_units]
+        lon = ds[const.dim_longitude]
+        lat = ds[const.dim_latitude]
+    if const.attrs_units in ds[vi_name].attrs:
+        units = ds[vi_name].attrs[const.attrs_units]
     else:
         units = 1
     n_sim = len(p_sim_l)
@@ -130,33 +132,33 @@ def calc_stat(
     if not(hor is None):
         year_1 = max(year_1, hor[0])
         year_n = min(year_n, hor[1])
-    n_time = (year_n - year_1 + 1) * (365 if freq_in == cfg.freq_D else 1)
+    n_time = (year_n - year_1 + 1) * (365 if freq_in == const.freq_D else 1)
 
     # Collect values from simulations.
     arr_vals = []
     for i_sim in range(n_sim):
 
         # Load dataset.
-        ds = utils.open_netcdf(p_sim_l[i_sim])
+        ds = fu.open_netcdf(p_sim_l[i_sim])
 
         # Patch used to fix potentially unordered dimensions of index 'cfg.idx_drought_code'.
         if vi_code in cfg.idx_codes:
-            ds = ds.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
+            ds = ds.resample(time=const.freq_YS).mean(dim=const.dim_time, keep_attrs=True)
 
         # Select years and adjust units.
         years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
         ds = ds.sel(time=slice(years_str[0], years_str[1]))
-        if cfg.attrs_units in ds[vi_name].attrs:
+        if const.attrs_units in ds[vi_name].attrs:
             if (vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]) and\
-               (ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_K):
-                ds = ds - cfg.d_KC
-                ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_C
+               (ds[vi_name].attrs[const.attrs_units] == const.unit_K):
+                ds = ds - const.d_KC
+                ds[vi_name].attrs[const.attrs_units] = const.unit_C
             elif vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
-                ds = ds * cfg.spd
-                ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_mm
+                ds = ds * const.spd
+                ds[vi_name].attrs[const.attrs_units] = const.unit_mm
             elif vi_name in [vi.v_uas, vi.v_vas, vi.v_sfcwindmax]:
-                ds = ds * cfg.km_h_per_m_s
-                ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_km_h
+                ds = ds * const.km_h_per_m_s
+                ds[vi_name].attrs[const.attrs_units] = const.unit_km_h
 
         if cfg.opt_ra:
 
@@ -177,7 +179,7 @@ def calc_stat(
         # Records values.
         # Simulation data is assumed to be complete.
         if ds[vi_name].time.size == n_time:
-            if (cfg.dim_lon in ds.dims) or (cfg.dim_rlon in ds.dims) or (cfg.dim_longitude in ds.dims):
+            if (const.dim_lon in ds.dims) or (const.dim_rlon in ds.dims) or (const.dim_longitude in ds.dims):
                 vals = ds.squeeze()[vi_name].values.tolist()
             else:
                 vals = ds[vi_name].values.tolist()
@@ -205,7 +207,7 @@ def calc_stat(
                         except:
                             pass
             if cfg.opt_ra and (vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]):
-                vals = [i * cfg.spd for i in vals]
+                vals = [i * const.spd for i in vals]
             arr_vals.append(vals)
 
     # Calculate the mean value of all years.
@@ -218,7 +220,7 @@ def calc_stat(
     arr_vals_t = []
 
     # Collapse to yearly frequency.
-    if (freq_in == cfg.freq_D) and (freq_out == cfg.freq_YS) and cfg.opt_ra:
+    if (freq_in == const.freq_D) and (freq_out == const.freq_YS) and cfg.opt_ra:
         for i_sim in range(n_sim):
             vals_sim = []
             for i_year in range(0, year_n - year_1 + 1):
@@ -260,32 +262,32 @@ def calc_stat(
             da_vals = xr.DataArray(np.array(vals_t))
             vals_t = list(da_vals[(np.isnan(da_vals.values) == False) &
                                   ((vi_name != vi.v_pr) | (sum(da_vals.values) > 0))].values)
-        if (stat == cfg.stat_min) or (q == 0):
+        if (stat == def_stat.code_min) or (q == 0):
             val_stat = np.min(vals_t)
-        elif (stat == cfg.stat_max) or (q == 1):
+        elif (stat == def_stat.code_max) or (q == 1):
             val_stat = np.max(vals_t)
-        elif stat == cfg.stat_mean:
+        elif stat == def_stat.code_mean:
             val_stat = np.mean(vals_t)
-        elif stat == cfg.stat_quantile:
+        elif stat == def_stat.code_quantile:
             val_stat = np.quantile(vals_t, q)
-        elif stat == cfg.stat_sum:
+        elif stat == def_stat.code_sum:
             val_stat = np.sum(vals_t)
         arr_stat.append(val_stat)
 
     # Build dataset.
-    da_stat = xr.DataArray(np.array(arr_stat), name=vi_name, coords=[(cfg.dim_time, np.arange(n_time))])
+    da_stat = xr.DataArray(np.array(arr_stat), name=vi_name, coords=[(const.dim_time, np.arange(n_time))])
     ds_stat = da_stat.to_dataset()
     ds_stat = ds_stat.expand_dims(lon=1, lat=1)
 
     # Adjust coordinates and time.
-    if not(cfg.dim_lon in ds_stat.dims):
-        ds_stat[cfg.dim_lon] = lon
-        ds_stat[cfg.dim_lat] = lat
-    if freq_out == cfg.freq_YS:
-        ds_stat[cfg.dim_time] = utils.reset_calendar(ds_stat, year_1, year_n, freq_out)
+    if not(const.dim_lon in ds_stat.dims):
+        ds_stat[const.dim_lon] = lon
+        ds_stat[const.dim_lat] = lat
+    if freq_out == const.freq_YS:
+        ds_stat[const.dim_time] = utils.reset_calendar(ds_stat, year_1, year_n, freq_out)
 
     # Adjust units.
-    ds_stat[vi_name].attrs[cfg.attrs_units] = units
+    ds_stat[vi_name].attrs[const.attrs_units] = units
 
     return ds_stat
 
@@ -301,7 +303,7 @@ def calc_stats(
     Parameters
     ----------
     cat : str
-        Category: cfg.cat_scen is for climate scenarios or cfg.cat_idx for climate indices.
+        Category: const.cat_scen is for climate scenarios or const.cat_idx for climate indices.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -311,25 +313,25 @@ def calc_stats(
         rcps = rcps + [def_rcp.rcp_xx]
 
     # Data frequency.
-    freq = cfg.freq_D if cat == cfg.cat_scen else cfg.freq_YS
+    freq = const.freq_D if cat == const.cat_scen else const.freq_YS
 
     # Loop through stations.
     stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
     for stn in stns:
 
         # Explode lists of codes and names.
-        idx_names_exploded = cfg.explode_idx_l(cfg.idx_names)
-        idx_codes_exploded = cfg.explode_idx_l(cfg.idx_codes)
+        idx_names_exploded = vi.explode_idx_l(cfg.idx_names)
+        idx_codes_exploded = vi.explode_idx_l(cfg.idx_codes)
 
         # Loop through variables (or indices).
-        vi_name_l = cfg.variables if cat == cfg.cat_scen else idx_names_exploded
+        vi_name_l = cfg.variables if cat == const.cat_scen else idx_names_exploded
         for i_varidx in range(len(vi_name_l)):
             vi_name = vi_name_l[i_varidx]
-            vi_code = vi_name if cat == cfg.cat_scen else idx_codes_exploded[i_varidx]
+            vi_code = vi_name if cat == const.cat_scen else idx_codes_exploded[i_varidx]
             vi_code_grp = vi.get_group(vi_code)
 
             # Skip iteration if the file already exists.
-            p_csv = cfg.get_d_scen(stn, cfg.cat_stat, cat + cfg.sep + vi_code_grp) + vi_code + cfg.f_ext_csv
+            p_csv = cfg.get_d_scen(stn, const.cat_stat, cat + cfg.sep + vi_code_grp) + vi_code + fu.f_ext_csv
             if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
                 continue
 
@@ -347,18 +349,18 @@ def calc_stats(
                 # Select years.
                 if rcp == def_rcp.rcp_ref:
                     hors = [cfg.per_ref]
-                    cat_rcp = cfg.cat_obs
-                    if cat == cfg.cat_scen:
+                    cat_rcp = const.cat_obs
+                    if cat == const.cat_scen:
                         d = os.path.dirname(cfg.get_p_obs(stn, vi_code_grp))
                     else:
                         d = cfg.get_d_idx(stn, vi_code_grp)
                 else:
                     hors = cfg.per_hors
-                    if cat == cfg.cat_scen:
-                        cat_rcp = cfg.cat_scen
-                        d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_grp)
+                    if cat == const.cat_scen:
+                        cat_rcp = const.cat_scen
+                        d = cfg.get_d_scen(stn, const.cat_qqmap, vi_code_grp)
                     else:
-                        cat_rcp = cfg.cat_idx
+                        cat_rcp = const.cat_idx
                         d = cfg.get_d_idx(stn, vi_code_grp)
 
                 if not os.path.isdir(d):
@@ -367,15 +369,15 @@ def calc_stats(
                 idx_desc = vi_name
                 if vi_code_grp != vi_name:
                     idx_desc = vi_code_grp + "." + idx_desc
-                utils.log("Processing: " + stn + ", " + idx_desc + ", " + rcp + "", True)
+                fu.log("Processing: " + stn + ", " + idx_desc + ", " + rcp + "", True)
 
                 # Loop through statistics.
-                stats = [cfg.stat_mean]
-                if cat_rcp != cfg.cat_obs:
-                    stats = stats + [cfg.stat_min, cfg.stat_max, cfg.stat_quantile]
+                stats = [def_stat.code_mean]
+                if cat_rcp != const.cat_obs:
+                    stats = stats + [def_stat.code_min, def_stat.code_max, def_stat.code_quantile]
                 for stat in stats:
                     stat_quantiles = cfg.opt_stat_quantiles
-                    if stat != cfg.stat_quantile:
+                    if stat != def_stat.code_quantile:
                         stat_quantiles = [-1]
                     for q in stat_quantiles:
                         if ((q <= 0) or (q >= 1)) and (q != -1):
@@ -388,8 +390,9 @@ def calc_stats(
                             # The use of boundaries was disabled, because the function cliops.subset does not always
                             # work (different result obtained for different runs with same exact data).
                             ds_stat =\
-                                calc_stat(cat_rcp, freq, cfg.freq_YS, stn, vi_code, rcp, hor,
-                                          (freq == cfg.freq_YS) and (cat == cfg.cat_scen), cfg.opt_stat_clip, stat, q)
+                                calc_stat(cat_rcp, freq, const.freq_YS, stn, vi_code, rcp, hor,
+                                          (freq == const.freq_YS) and (cat == const.cat_scen),
+                                          cfg.opt_stat_clip, stat, q)
                             if ds_stat is None:
                                 continue
 
@@ -409,7 +412,7 @@ def calc_stats(
                             stn_l.append(stn)
                             rcp_l.append(rcp)
                             hor_l.append(str(hor[0]) + "-" + str(hor[1]))
-                            if cat_rcp == cfg.cat_obs:
+                            if cat_rcp == const.cat_obs:
                                 stat = "none"
                             stat_l.append(stat)
                             q_l.append(str(q))
@@ -427,12 +430,12 @@ def calc_stats(
 
                 # Build pandas dataframe.
                 dict_pd =\
-                    {"stn": stn_l, ("var" if cat == cfg.cat_scen else "idx"): [vi_name] * len(stn_l),
+                    {"stn": stn_l, ("var" if cat == const.cat_scen else "idx"): [vi_name] * len(stn_l),
                      "rcp": rcp_l, "hor": hor_l, "stat": stat_l, "q": q_l, "val": val_l}
                 df = pd.DataFrame(dict_pd)
 
                 # Save file.
-                utils.save_csv(df, p_csv)
+                fu.save_csv(df, p_csv)
 
 
 def calc_ts(
@@ -447,7 +450,7 @@ def calc_ts(
     Parameters
     ----------
     cat : str
-        Category: cfg.cat_scen is for climate scenarios or cfg.cat_idx for climate indices.
+        Category: const.cat_scen is for climate scenarios or const.cat_idx for climate indices.
     view_code : str
         View code.
     --------------------------------------------------------------------------------------------------------------------
@@ -458,39 +461,39 @@ def calc_ts(
     for stn in stns:
 
         # Loop through variables.
-        vi_code_l = cfg.variables if cat == cfg.cat_scen else cfg.explode_idx_l(cfg.idx_codes)
+        vi_code_l = cfg.variables if cat == const.cat_scen else vi.explode_idx_l(cfg.idx_codes)
         for vi_code in vi_code_l:
 
             # Extract information about the variable.
             varidx = vi.VarIdx(vi_code)
-            vi_name = varidx.get_name()
+            vi_name = str(varidx.get_name())
             vi_code_grp = vi.get_group(vi_code)
 
             # Status message.
             msg = vi_code
             if vi_code_grp != vi_code:
                 msg = vi_code_grp + "." + msg
-            utils.log("Processing: " + stn + ", " + msg, True)
+            fu.log("Processing: " + stn + ", " + msg, True)
 
             # Path of files to be created.
-            cat_fig = cfg.cat_fig + cfg.sep + cat + cfg.sep + view_code
+            cat_fig = const.cat_fig + cfg.sep + cat + cfg.sep + view_code
             fn = vi_name + "_" + dash_plot.mode_rcp
             # CSV files:
-            p_rcp_csv = cfg.get_d_scen(stn, cat_fig, vi_code_grp + "_" + cfg.f_csv) + fn + cfg.f_ext_csv
+            p_rcp_csv = cfg.get_d_scen(stn, cat_fig, vi_code_grp + "_" + fu.f_csv) + fn + fu.f_ext_csv
             p_sim_csv = p_rcp_csv.replace("_" + dash_plot.mode_rcp, "_" + dash_plot.mode_sim)
-            p_rcp_del_csv = p_rcp_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
-            p_sim_del_csv = p_sim_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
+            p_rcp_del_csv = p_rcp_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
+            p_sim_del_csv = p_sim_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
             # PNG files.
-            p_rcp_png = cfg.get_d_scen(stn, cat_fig, vi_code_grp) + fn + cfg.f_ext_png
-            p_sim_png = p_rcp_png.replace("_" + dash_plot.mode_rcp + cfg.f_ext_png,
-                                          "_" + dash_plot.mode_sim + cfg.f_ext_png)
-            p_rcp_del_png = p_rcp_png.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
-            p_sim_del_png = p_sim_png.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
+            p_rcp_png = cfg.get_d_scen(stn, cat_fig, vi_code_grp) + fn + fu.f_ext_png
+            p_sim_png = p_rcp_png.replace("_" + dash_plot.mode_rcp + fu.f_ext_png,
+                                          "_" + dash_plot.mode_sim + fu.f_ext_png)
+            p_rcp_del_png = p_rcp_png.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
+            p_sim_del_png = p_sim_png.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
 
             # Skip if no work required.
             save_csv = (not os.path.exists(p_rcp_csv) or not os.path.exists(p_sim_csv) or
                         not os.path.exists(p_rcp_del_csv) or not os.path.exists(p_sim_del_csv)) and \
-                       (cfg.opt_save_csv[0 if cat == cfg.cat_scen else 1])
+                       (cfg.opt_save_csv[0 if cat == const.cat_scen else 1])
             save_png = (not os.path.exists(p_rcp_png) or not os.path.exists(p_sim_png) or
                         not os.path.exists(p_rcp_del_png) or not os.path.exists(p_sim_del_png))
             if (not save_csv) and (not save_png) and (not cfg.opt_force_overwrite):
@@ -519,19 +522,19 @@ def calc_ts(
 
             # CSV file format ------------------------------------------------------------------------------------------
 
-            if cfg.opt_save_csv[0 if cat == cfg.cat_scen else 1]:
+            if cfg.opt_save_csv[0 if cat == const.cat_scen else 1]:
                 if (not os.path.exists(p_rcp_csv)) or cfg.opt_force_overwrite:
-                    utils.save_csv(df_rcp, p_rcp_csv)
+                    fu.save_csv(df_rcp, p_rcp_csv)
                 if (not os.path.exists(p_sim_csv)) or cfg.opt_force_overwrite:
-                    utils.save_csv(df_sim, p_sim_csv)
+                    fu.save_csv(df_sim, p_sim_csv)
                 if (not os.path.exists(p_rcp_del_csv)) or cfg.opt_force_overwrite:
-                    utils.save_csv(df_rcp_del, p_rcp_del_csv)
+                    fu.save_csv(df_rcp_del, p_rcp_del_csv)
                 if (not os.path.exists(p_sim_del_csv)) or cfg.opt_force_overwrite:
-                    utils.save_csv(df_sim_del, p_sim_del_csv)
+                    fu.save_csv(df_sim_del, p_sim_del_csv)
 
             # PNG file format ------------------------------------------------------------------------------------------
 
-            if cfg.f_png in cfg.opt_map_formats:
+            if fu.f_png in cfg.opt_map_formats:
 
                 # Loop through modes (rcp|sim).
                 for mode in [dash_plot.mode_rcp, dash_plot.mode_sim]:
@@ -559,7 +562,7 @@ def calc_ts(
                         # Generate plot.
                         if (not os.path.exists(p_png)) or cfg.opt_force_overwrite:
                             fig = dash_plot.gen_ts(cntx, df_mode, mode)
-                            utils.save_plot(fig, p_png)
+                            fu.save_plot(fig, p_png)
 
 
 def calc_ts_prep(
@@ -608,17 +611,17 @@ def calc_ts_prep(
 
             # List files.
             if vi_code in cfg.variables:
-                p_ref = cfg.get_d_stn(vi_code_grp) + vi_code_grp + "_" + stn + cfg.f_ext_nc
+                p_ref = cfg.get_d_stn(vi_code_grp) + vi_code_grp + "_" + stn + fu.f_ext_nc
             else:
-                p_ref = cfg.get_d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + cfg.f_ext_nc
+                p_ref = cfg.get_d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + fu.f_ext_nc
             if rcp == def_rcp.rcp_ref:
                 p_sim_l = [p_ref]
             else:
                 if vi_code in cfg.variables:
-                    d = cfg.get_d_scen(stn, cfg.cat_qqmap, vi_code_grp)
+                    d = cfg.get_d_scen(stn, const.cat_qqmap, vi_code_grp)
                 else:
                     d = cfg.get_d_idx(stn, vi_code_grp)
-                p_sim_l = glob.glob(d + "*_" + ("*" if rcp == def_rcp.rcp_xx else rcp) + cfg.f_ext_nc)
+                p_sim_l = glob.glob(d + "*_" + ("*" if rcp == def_rcp.rcp_xx else rcp) + fu.f_ext_nc)
 
             # Exit if there is no file corresponding to the criteria.
             if (len(p_sim_l) == 0) or ((len(p_sim_l) > 0) and not (os.path.isdir(os.path.dirname(p_sim_l[0])))):
@@ -631,15 +634,15 @@ def calc_ts_prep(
                 if "rcp" not in p_sim_l[i_sim]:
                     sim_code = def_rcp.RCP(def_rcp.rcp_ref).get_desc()
                 else:
-                    tokens = os.path.basename(p_sim_l[i_sim]).replace(cfg.f_ext_nc, "").split("_")
+                    tokens = os.path.basename(p_sim_l[i_sim]).replace(fu.f_ext_nc, "").split("_")
                     sim_code = tokens[1] + "_" + tokens[2] + "_" + tokens[3] + "_" + tokens[4]
 
                 # Calculate dataset.
                 if (view_code == def_view.code_ts_bias) and (vi_name in cfg.variables):
                     p_val = p_sim_l[i_sim]
                     if rcp != def_rcp.rcp_ref:
-                        p_val = p_val.replace(cfg.sep + cfg.cat_qqmap, cfg.sep + cfg.cat_regrid).\
-                            replace(cfg.f_ext_nc, "_4" + cfg.cat_qqmap + cfg.f_ext_nc)
+                        p_val = p_val.replace(cfg.sep + const.cat_qqmap, cfg.sep + const.cat_regrid).\
+                            replace(fu.f_ext_nc, "_4" + const.cat_qqmap + fu.f_ext_nc)
                     ds_val = calc_ts_ds(cntx, p_val)
                     if not delta:
                         ds = ds_val
@@ -657,7 +660,7 @@ def calc_ts_prep(
                         if rcp != def_rcp.rcp_ref:
                             ds_del = calc_ts_ds(cntx, p_ref)
                             ds[vi_name] = ds_val[vi_name] - float(ds_del[vi_name].mean().values)
-                ds[vi_name].attrs[cfg.attrs_units] = ds_val[vi_name].attrs[cfg.attrs_units]
+                ds[vi_name].attrs[const.attrs_units] = ds_val[vi_name].attrs[const.attrs_units]
 
                 # Append to list of datasets.
                 if rcp == def_rcp.rcp_ref:
@@ -777,18 +780,18 @@ def calc_ts_ds(
     vi_name = cntx.varidx.get_name()
 
     # Load dataset.
-    ds = utils.open_netcdf(p).squeeze()
+    ds = fu.open_netcdf(p).squeeze()
     if (def_rcp.rcp_ref in p) and (vi_name in cfg.variables):
         ds = utils.remove_feb29(ds)
         ds = utils.sel_period(ds, cfg.per_ref)
 
     # Records units.
     if cntx.varidx.get_ens() == vi.ens_cordex:
-        units = ds[vi_name].attrs[cfg.attrs_units]
+        units = ds[vi_name].attrs[const.attrs_units]
     else:
-        units = ds.attrs[cfg.attrs_units]
+        units = ds.attrs[const.attrs_units]
     if units == "degree_C":
-        units = cfg.unit_C
+        units = const.unit_C
 
     # Select control point.
     if cfg.opt_ra:
@@ -816,27 +819,27 @@ def calc_ts_ds(
             ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
         else:
             ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
-    n_time = len(ds[cfg.dim_time].values)
+    n_time = len(ds[const.dim_time].values)
     da = xr.DataArray(np.array(ds[vi_name].values), name=vi_name,
-                      coords=[(cfg.dim_time, np.arange(n_time))])
+                      coords=[(const.dim_time, np.arange(n_time))])
 
     # Create dataset.
     ds = da.to_dataset()
-    ds[cfg.dim_time] = utils.reset_calendar_l(list(range(year_1, year_n + 1)))
-    ds[vi_name].attrs[cfg.attrs_units] = units
+    ds[const.dim_time] = utils.reset_calendar_l(list(range(year_1, year_n + 1)))
+    ds[vi_name].attrs[const.attrs_units] = units
 
     # Convert units.
     if vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
-        if ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_K:
-            ds = ds - cfg.d_KC
-            ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_C
+        if ds[vi_name].attrs[const.attrs_units] == const.unit_K:
+            ds = ds - const.d_KC
+            ds[vi_name].attrs[const.attrs_units] = const.unit_C
     elif vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
-        if ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1:
-            ds = ds * cfg.spd
-            ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_mm
+        if ds[vi_name].attrs[const.attrs_units] == const.unit_kg_m2s1:
+            ds = ds * const.spd
+            ds[vi_name].attrs[const.attrs_units] = const.unit_mm
     elif vi_name in [vi.v_uas, vi.v_vas, vi.v_sfcwindmax]:
-        ds = ds * cfg.km_h_per_m_s
-        ds[vi_name].attrs[cfg.attrs_units] = cfg.unit_km_h
+        ds = ds * const.km_h_per_m_s
+        ds[vi_name].attrs[const.attrs_units] = const.unit_km_h
 
     return ds
 
@@ -868,7 +871,7 @@ def calc_stat_mean_min_max(
     ds_mean_min_max = []
 
     # Get years, units and coordinates.
-    units = ds_l[0][vi_name].attrs[cfg.attrs_units]
+    units = ds_l[0][vi_name].attrs[const.attrs_units]
     year_1 = int(str(ds_l[0].time.values[0])[0:4])
     year_n = int(str(ds_l[0].time.values[len(ds_l[0].time.values) - 1])[0:4])
     n_time = year_n - year_1 + 1
@@ -899,10 +902,10 @@ def calc_stat_mean_min_max(
             arr_vals = arr_vals_max
 
         # Build dataset.
-        da = xr.DataArray(np.array(arr_vals), name=vi_name, coords=[(cfg.dim_time, np.arange(n_time))])
+        da = xr.DataArray(np.array(arr_vals), name=vi_name, coords=[(const.dim_time, np.arange(n_time))])
         ds = da.to_dataset()
-        ds[cfg.dim_time] = utils.reset_calendar(ds, year_1, year_n, cfg.freq_YS)
-        ds[vi_name].attrs[cfg.attrs_units] = units
+        ds[const.dim_time] = utils.reset_calendar(ds, year_1, year_n, const.freq_YS)
+        ds[vi_name].attrs[const.attrs_units] = units
 
         ds_mean_min_max.append(ds)
 
@@ -937,23 +940,23 @@ def calc_by_freq(
     ds_l = []
 
     # Extract data for the current month.
-    if cfg.dim_rlon in ds.dims:
-        da_m = ds[var].rename({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-    elif cfg.dim_lon in ds.dims:
-        da_m = ds[var].rename({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
+    if const.dim_rlon in ds.dims:
+        da_m = ds[var].rename({const.dim_rlon: const.dim_longitude, const.dim_rlat: const.dim_latitude})
+    elif const.dim_lon in ds.dims:
+        da_m = ds[var].rename({const.dim_lon: const.dim_longitude, const.dim_lat: const.dim_latitude})
     else:
         da_m = ds[var]
 
     # Grouping frequency.
-    freq_str = "time.month" if freq == cfg.freq_MS else "time.dayofyear"
-    time_str = "M" if freq == cfg.freq_MS else "1D"
+    freq_str = "time.month" if freq == const.freq_MS else "time.dayofyear"
+    time_str = "M" if freq == const.freq_MS else "1D"
 
     # Summarize data per month.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
         if cfg.opt_ra:
-            da_m = da_m.mean(dim={cfg.dim_longitude, cfg.dim_latitude})
-        if freq != cfg.freq_MS:
+            da_m = da_m.mean(dim={const.dim_longitude, const.dim_latitude})
+        if freq != const.freq_MS:
 
             # Extract values.
             if var in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
@@ -979,7 +982,7 @@ def calc_by_freq(
                 if not cfg.opt_ra:
                     ds_m = ds_m.squeeze()
 
-                ds_m[var].attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
+                ds_m[var].attrs[const.attrs_units] = ds[var].attrs[const.attrs_units]
                 ds_l.append(ds_m)
 
         else:
@@ -1002,7 +1005,7 @@ def calc_by_freq(
             dict_pd = {var: arr_all}
             df = pd.DataFrame(dict_pd)
             ds_l = df.to_xarray()
-            ds_l.attrs[cfg.attrs_units] = ds[var].attrs[cfg.attrs_units]
+            ds_l.attrs[const.attrs_units] = ds[var].attrs[const.attrs_units]
 
     return ds_l
 
@@ -1023,14 +1026,14 @@ def calc_map(
     """
 
     # Extract variable name, group and RCPs.
-    cat = cfg.cat_scen if vi_code in cfg.variables else cfg.cat_idx
+    cat = const.cat_scen if vi_code in cfg.variables else const.cat_idx
     varidx = vi.VarIdx(vi_code)
-    vi_name = vi_code if cat == cfg.cat_scen else varidx.get_name()
+    vi_name = vi_code if cat == const.cat_scen else varidx.get_name()
     vi_code_grp = vi.get_group(vi_code)
     rcps = [def_rcp.rcp_ref, def_rcp.rcp_xx] + cfg.rcps
 
     msg = "Calculating maps."
-    utils.log(msg, True)
+    fu.log(msg, True)
 
     # Prepare data -----------------------------------------------------------------------------------------------------
 
@@ -1047,10 +1050,10 @@ def calc_map(
     arr_items = []
 
     # Build arrays for statistics to calculate.
-    arr_stat = [cfg.stat_mean]
+    arr_stat = [def_stat.code_mean]
     arr_q = [-1]
     if cfg.opt_map_quantiles is not None:
-        arr_stat = arr_stat + ([cfg.stat_quantile] * len(cfg.opt_map_quantiles))
+        arr_stat = arr_stat + ([def_stat.code_quantile] * len(cfg.opt_map_quantiles))
         arr_q = arr_q + cfg.opt_map_quantiles
 
     # Reference map (to calculate deltas).
@@ -1086,7 +1089,7 @@ def calc_map(
 
                 # Calculate reference map.
                 if (ds_map_ref is None) and\
-                   (stat == cfg.stat_mean) and (rcp == def_rcp.rcp_xx) and (per_hor == cfg.per_ref):
+                   (stat == def_stat.code_mean) and (rcp == def_rcp.rcp_xx) and (per_hor == cfg.per_ref):
                     ds_map_ref = ds_map
 
                 # Extract values.
@@ -1133,8 +1136,8 @@ def calc_map(
             # Skip if delta map generation if the option is disabled or if it's the reference period.
             if (j == 1) and\
                 ((per_hor == cfg.per_ref) or
-                 ((cat == cfg.cat_scen) and (not cfg.opt_map_delta[0])) or
-                 ((cat == cfg.cat_idx) and (not cfg.opt_map_delta[1]))):
+                 ((cat == const.cat_scen) and (not cfg.opt_map_delta[0])) or
+                 ((cat == const.cat_idx) and (not cfg.opt_map_delta[1]))):
                 continue
 
             # Extract dataset (calculate delta if required).
@@ -1160,27 +1163,26 @@ def calc_map(
                 # PNG and CSV formats ----------------------------------------------------------------------------------
 
                 # Path of PNG file.
-                d_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "map",
+                d_fig = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + cat + cfg.sep + "map",
                                        (vi_code_grp + cfg.sep if vi_code_grp != vi_code else "") +
                                        vi_code + cfg.sep + per_str)
-                if stat in [cfg.stat_mean, cfg.stat_min, cfg.stat_max]:
+                if stat in [def_stat.code_mean, def_stat.code_min, def_stat.code_max]:
                     stat_str = "_" + stat
                 else:
                     stat_str = "_q" + str(int(q*100)).rjust(2, "0")
-                fn_fig = vi_name + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + stat_str +\
-                    cfg.f_ext_png
+                fn_fig = vi_name + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + stat_str + fu.f_ext_png
                 p_fig = d_fig + fn_fig
                 if j == 1:
-                    p_fig = p_fig.replace(cfg.f_ext_png, "_delta" + cfg.f_ext_png)
+                    p_fig = p_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
 
                 # Path of CSV file.
-                d_csv = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cat + cfg.sep + "map",
+                d_csv = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + cat + cfg.sep + "map",
                                        (vi_code_grp + cfg.sep if vi_code_grp != vi_code else "") +
                                        vi_code + "_csv" + cfg.sep + per_str)
-                fn_csv = fn_fig.replace(cfg.f_ext_png, cfg.f_ext_csv)
+                fn_csv = fn_fig.replace(fu.f_ext_png, fu.f_ext_csv)
                 p_csv = d_csv + fn_csv
                 if j == 1:
-                    p_csv = p_csv.replace(cfg.f_ext_csv, "_delta" + cfg.f_ext_csv)
+                    p_csv = p_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
 
                 # Create context.
                 cntx = def_context.Context(def_context.code_script)
@@ -1218,9 +1220,10 @@ def calc_map(
                 if len(cfg.opt_map_col_default) > 0:
                     cntx.opt_map_col_default = cfg.opt_map_col_default
 
-                if (((cat == cfg.cat_scen) and (cfg.opt_map[0])) or ((cat == cfg.cat_idx) and (cfg.opt_map[1]))) and \
+                if (((cat == const.cat_scen) and (cfg.opt_map[0])) or
+                    ((cat == const.cat_idx) and (cfg.opt_map[1]))) and \
                    (cfg.opt_force_overwrite or
-                    ((not os.path.exists(p_fig)) and (cfg.f_png in cfg.opt_map_formats)) or
+                    ((not os.path.exists(p_fig)) and (fu.f_png in cfg.opt_map_formats)) or
                     ((not os.path.exists(p_csv)) and cfg.opt_save_csv)):
 
                     # Create dataframe.
@@ -1232,21 +1235,21 @@ def calc_map(
                             arr_lon.append(da_map.longitude.values[m])
                             arr_lat.append(da_map.latitude.values[n])
                             arr_val.append(da_map.values[n, m])
-                    dict_pd = {cfg.dim_longitude: arr_lon, cfg.dim_latitude: arr_lat, vi_name: arr_val}
+                    dict_pd = {const.dim_longitude: arr_lon, const.dim_latitude: arr_lat, vi_name: arr_val}
                     df = pd.DataFrame(dict_pd)
 
                     # Generate and save plot.
                     fig = dash_plot.gen_map(cntx, df, [z_min, z_max])
-                    utils.save_plot(fig, p_fig)
-                    utils.save_csv(df, p_csv)
+                    fu.save_plot(fig, p_fig)
+                    fu.save_csv(df, p_csv)
 
                 # TIF format -------------------------------------------------------------------------------------------
 
                 # Path of TIF file.
-                p_tif = p_fig.replace(vi_code + cfg.sep, vi_code + "_" + cfg.f_tif + cfg.sep). \
-                    replace(cfg.f_ext_png, cfg.f_ext_tif)
+                p_tif = p_fig.replace(vi_code + cfg.sep, vi_code + "_" + fu.f_tif + cfg.sep). \
+                    replace(fu.f_ext_png, fu.f_ext_tif)
 
-                if (cfg.f_tif in cfg.opt_map_formats) and ((not os.path.exists(p_tif)) or cfg.opt_force_overwrite):
+                if (fu.f_tif in cfg.opt_map_formats) and ((not os.path.exists(p_tif)) or cfg.opt_force_overwrite):
 
                     # TODO: da_tif.rio.reproject is now crashing. It was working in July 2021.
 
@@ -1255,9 +1258,9 @@ def calc_map(
                     if cfg.opt_map_res > 0:
                         lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cfg.opt_map_res)
                         lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cfg.opt_map_res)
-                        da_tif = da_tif.rename({cfg.dim_latitude: cfg.dim_lat, cfg.dim_longitude: cfg.dim_lon})
+                        da_tif = da_tif.rename({const.dim_latitude: const.dim_lat, const.dim_longitude: const.dim_lon})
                         da_grid = xr.Dataset(
-                            {cfg.dim_lat: ([cfg.dim_lat], lat_vals), cfg.dim_lon: ([cfg.dim_lon], lon_vals)})
+                            {const.dim_lat: ([const.dim_lat], lat_vals), const.dim_lon: ([const.dim_lon], lon_vals)})
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=FutureWarning)
                             da_tif = xe.Regridder(da_tif, da_grid, "bilinear")(da_tif)
@@ -1265,10 +1268,10 @@ def calc_map(
                     # Project data.
                     da_tif.rio.set_crs("EPSG:4326")
                     if cfg.opt_map_spat_ref != "EPSG:4326":
-                        da_tif.rio.set_spatial_dims(cfg.dim_lon, cfg.dim_lat, inplace=True)
+                        da_tif.rio.set_spatial_dims(const.dim_lon, const.dim_lat, inplace=True)
                         da_tif = da_tif.rio.reproject(cfg.opt_map_spat_ref)
                         da_tif.values[da_tif.values == -9999] = np.nan
-                        da_tif = da_tif.rename({"y": cfg.dim_lat, "x": cfg.dim_lon})
+                        da_tif = da_tif.rename({"y": const.dim_lat, "x": const.dim_lon})
 
                     # Save.
                     d = os.path.dirname(p_tif)
@@ -1305,14 +1308,14 @@ def calc_map_rcp(
     """
 
     # Extract variable name and group.
-    cat = cfg.cat_scen if vi_code in cfg.variables else cfg.cat_idx
+    cat = const.cat_scen if vi_code in cfg.variables else const.cat_idx
     varidx = vi.VarIdx(vi_code)
-    vi_name = vi_code if cat == cfg.cat_scen else varidx.get_name()
+    vi_name = vi_code if cat == const.cat_scen else varidx.get_name()
     vi_code_grp = vi.get_group(vi_code)
 
-    utils.log("Processing: " + vi_code + ", " +
-              ("q" + str(int(q * 100)).rjust(2, "0") if q >= 0 else stat) + ", " +
-              str(def_rcp.RCP(rcp).get_desc()) + ", " + str(per[0]) + "-" + str(per[1]) + "", True)
+    fu.log("Processing: " + vi_code + ", " +
+           ("q" + str(int(q * 100)).rjust(2, "0") if q >= 0 else stat) + ", " +
+           str(def_rcp.RCP(rcp).get_desc()) + ", " + str(per[0]) + "-" + str(per[1]) + "", True)
 
     # Number of years and stations.
     if rcp == def_rcp.rcp_ref:
@@ -1328,29 +1331,29 @@ def calc_map_rcp(
     if not cfg.opt_ra:
 
         # Get information on stations.
-        p_stn = glob.glob(cfg.get_d_stn(vi.v_tas) + "../*" + cfg.f_ext_csv)[0]
+        p_stn = glob.glob(cfg.get_d_stn(vi.v_tas) + "../*" + fu.f_ext_csv)[0]
         df = pd.read_csv(p_stn, sep=cfg.f_sep)
 
         # Collect values for each station and determine overall boundaries.
-        utils.log("Collecting emissions scenarios at each station.", True)
+        fu.log("Collecting emissions scenarios at each station.", True)
         x_bnds = []
         y_bnds = []
         data_stn = []
         for stn in stns:
 
             # Get coordinates.
-            lon = df[df["station"] == stn][cfg.dim_lon].values[0]
-            lat = df[df["station"] == stn][cfg.dim_lat].values[0]
+            lon = df[df["station"] == stn][const.dim_lon].values[0]
+            lat = df[df["station"] == stn][const.dim_lat].values[0]
 
             # Calculate statistics.
-            ds_stat = calc_stat(cfg.cat_obs if rcp == def_rcp.rcp_ref else cfg.cat_scen, cfg.freq_YS, cfg.freq_YS, stn,
-                                vi_code, rcp, None, False, cfg.opt_map_clip, stat, q)
+            ds_stat = calc_stat(const.cat_obs if rcp == def_rcp.rcp_ref else const.cat_scen, const.freq_YS,
+                                const.freq_YS, stn, vi_code, rcp, None, False, cfg.opt_map_clip, stat, q)
             if ds_stat is None:
                 continue
 
             # Extract data from stations.
             data = [[], [], []]
-            n = ds_stat.dims[cfg.dim_time]
+            n = ds_stat.dims[const.dim_time]
             for year in range(0, n):
 
                 # Collect data.
@@ -1375,7 +1378,7 @@ def calc_map_rcp(
             data_stn.append(data)
 
         # Build the list of x and y locations for which interpolation is needed.
-        utils.log("Collecting the coordinates of stations.", True)
+        fu.log("Collecting the coordinates of stations.", True)
         grid_time = range(0, n_year)
 
         def round_to_nearest_decimal(val_inner, step):
@@ -1394,7 +1397,7 @@ def calc_map_rcp(
         # Perform interpolation.
         # There is a certain flexibility regarding the number of years in a dataset. Ideally, the station should not
         # have been considered in the analysis, unless there is no better option.
-        utils.log("Performing interpolation.", True)
+        fu.log("Performing interpolation.", True)
         new_grid = np.meshgrid(grid_x, grid_y)
         new_grid_data = np.empty((n_year, len(grid_y), len(grid_x)))
         for i_year in range(0, n_year):
@@ -1410,8 +1413,8 @@ def calc_map_rcp(
                 griddata((arr_x, arr_y), np.array(arr_z), (new_grid[0], new_grid[1]), fill_value=np.nan,
                          method="linear")
         da_itp = xr.DataArray(new_grid_data,
-                              coords={cfg.dim_time: grid_time, cfg.dim_lat: grid_y, cfg.dim_lon: grid_x},
-                              dims=[cfg.dim_time, cfg.dim_lat, cfg.dim_lon])
+                              coords={const.dim_time: grid_time, const.dim_lat: grid_y, const.dim_lon: grid_x},
+                              dims=[const.dim_time, const.dim_lat, const.dim_lon])
         ds_res = da_itp.to_dataset(name=vi_name)
 
     # There is no need to interpolate.
@@ -1419,21 +1422,21 @@ def calc_map_rcp(
 
         # Reference period.
         if vi_name in cfg.variables:
-            p_sim_ref = cfg.get_d_scen(cfg.obs_src, cfg.cat_obs, vi_code_grp) +\
-                vi_code_grp + "_" + cfg.obs_src + cfg.f_ext_nc
+            p_sim_ref = cfg.get_d_scen(cfg.obs_src, const.cat_obs, vi_code_grp) +\
+                vi_code_grp + "_" + cfg.obs_src + fu.f_ext_nc
         else:
-            p_sim_ref = cfg.get_d_idx(cfg.obs_src, vi_code_grp) + vi_code_grp + "_ref" + cfg.f_ext_nc
+            p_sim_ref = cfg.get_d_idx(cfg.obs_src, vi_code_grp) + vi_code_grp + "_ref" + fu.f_ext_nc
         if rcp == def_rcp.rcp_ref:
 
             # Open dataset.
             p_sim = p_sim_ref
             if not os.path.exists(p_sim):
                 return xr.Dataset(None)
-            ds_sim = utils.open_netcdf(p_sim)
+            ds_sim = fu.open_netcdf(p_sim)
 
             # TODO: The following patch was added to fix dimensions for cfg.idx_drought_code.
             if vi_code in cfg.idx_codes:
-                ds_sim = ds_sim.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
+                ds_sim = ds_sim.resample(time=const.freq_YS).mean(dim=const.dim_time, keep_attrs=True)
 
             # Select period.
             ds_sim = utils.remove_feb29(ds_sim)
@@ -1441,29 +1444,29 @@ def calc_map_rcp(
 
             # Extract units.
             units = 1
-            if cfg.attrs_units in ds_sim[vi_name].attrs:
-                units = ds_sim[vi_name].attrs[cfg.attrs_units]
-            elif cfg.attrs_units in ds_sim.data_vars:
-                units = ds_sim[cfg.attrs_units]
+            if const.attrs_units in ds_sim[vi_name].attrs:
+                units = ds_sim[vi_name].attrs[const.attrs_units]
+            elif const.attrs_units in ds_sim.data_vars:
+                units = ds_sim[const.attrs_units]
 
             # Calculate mean.
-            ds_res = ds_sim.mean(dim=cfg.dim_time)
+            ds_res = ds_sim.mean(dim=const.dim_time)
             if vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
                 ds_res = ds_res * 365
-            if cat == cfg.cat_scen:
-                ds_res[vi_name].attrs[cfg.attrs_units] = units
+            if cat == const.cat_scen:
+                ds_res[vi_name].attrs[const.attrs_units] = units
             else:
-                ds_res.attrs[cfg.attrs_units] = units
+                ds_res.attrs[const.attrs_units] = units
 
         # Future period.
         else:
 
             # List scenarios or indices for the current RCP.
-            if cat == cfg.cat_scen:
-                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_qqmap, vi_code_grp)
+            if cat == const.cat_scen:
+                d = cfg.get_d_scen(cfg.obs_src, const.cat_qqmap, vi_code_grp)
             else:
-                d = cfg.get_d_scen(cfg.obs_src, cfg.cat_idx, vi_code_grp)
-            p_sim_l = [i for i in glob.glob(d + "*" + cfg.f_ext_nc) if i != p_sim_ref]
+                d = cfg.get_d_scen(cfg.obs_src, const.cat_idx, vi_code_grp)
+            p_sim_l = [i for i in glob.glob(d + "*" + fu.f_ext_nc) if i != p_sim_ref]
 
             # Collect simulations.
             arr_sim = []
@@ -1474,30 +1477,30 @@ def calc_map_rcp(
                 if os.path.exists(p_sim) and ((rcp in p_sim) or (rcp == def_rcp.rcp_xx)):
 
                     # Open dataset.
-                    ds_sim = utils.open_netcdf(p_sim)
+                    ds_sim = fu.open_netcdf(p_sim)
 
                     # TODO: The following patch was added to fix dimensions for cfg.idx_drought_code.
                     if vi_code in cfg.idx_codes:
-                        ds_sim = ds_sim.resample(time=cfg.freq_YS).mean(dim=cfg.dim_time, keep_attrs=True)
+                        ds_sim = ds_sim.resample(time=const.freq_YS).mean(dim=const.dim_time, keep_attrs=True)
 
                     # Extract units.
-                    if cfg.attrs_units in ds_sim[vi_name].attrs:
-                        units = ds_sim[vi_name].attrs[cfg.attrs_units]
-                    elif cfg.attrs_units in ds_sim.data_vars:
-                        units = ds_sim[cfg.attrs_units]
+                    if const.attrs_units in ds_sim[vi_name].attrs:
+                        units = ds_sim[vi_name].attrs[const.attrs_units]
+                    elif const.attrs_units in ds_sim.data_vars:
+                        units = ds_sim[const.attrs_units]
 
                     # Select period.
                     ds_sim = utils.remove_feb29(ds_sim)
                     ds_sim = utils.sel_period(ds_sim, per)
 
                     # Calculate mean and add to array.
-                    ds_sim = ds_sim.mean(dim=cfg.dim_time)
+                    ds_sim = ds_sim.mean(dim=const.dim_time)
                     if vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]:
                         ds_sim = ds_sim * 365
-                    if cat == cfg.cat_scen:
-                        ds_sim[vi_name].attrs[cfg.attrs_units] = units
+                    if cat == const.cat_scen:
+                        ds_sim[vi_name].attrs[const.attrs_units] = units
                     else:
-                        ds_sim.attrs[cfg.attrs_units] = units
+                        ds_sim.attrs[const.attrs_units] = units
                     arr_sim.append(ds_sim)
 
                     # The first dataset will be used to return result.
@@ -1522,9 +1525,9 @@ def calc_map_rcp(
                     vals = []
                     for ds_sim_k in arr_sim:
                         dims_sim = ds_sim_k[vi_name].dims
-                        if cfg.dim_rlat in dims_sim:
+                        if const.dim_rlat in dims_sim:
                             val_sim = float(ds_sim_k[vi_name].isel(rlon=j_lon, rlat=i_lat))
-                        elif cfg.dim_lat in dims_sim:
+                        elif const.dim_lat in dims_sim:
                             val_sim = float(ds_sim_k[vi_name].isel(lon=j_lon, lat=i_lat))
                         else:
                             val_sim = float(ds_sim_k[vi_name].isel(longitude=j_lon, latitude=i_lat))
@@ -1532,50 +1535,50 @@ def calc_map_rcp(
 
                     # Calculate statistic.
                     val = np.nan
-                    if stat == cfg.stat_mean:
+                    if stat == def_stat.code_mean:
                         val = np.mean(vals)
-                    elif stat == cfg.stat_min:
+                    elif stat == def_stat.code_min:
                         val = np.min(vals)
-                    elif stat == cfg.stat_max:
+                    elif stat == def_stat.code_max:
                         val = np.max(vals)
-                    elif stat == cfg.stat_quantile:
+                    elif stat == def_stat.code_quantile:
                         val = np.quantile(vals, q)
 
                     # Record value.
                     ds_res[vi_name][i_lat, j_lon] = val
 
         # Remember units.
-        units = ds_res[vi_name].attrs[cfg.attrs_units] if cat == cfg.cat_scen else ds_res.attrs[cfg.attrs_units]
+        units = ds_res[vi_name].attrs[const.attrs_units] if cat == const.cat_scen else ds_res.attrs[const.attrs_units]
 
         # Convert units.
         if (vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]) and\
-           (ds_res[vi_name].attrs[cfg.attrs_units] == cfg.unit_K):
-            ds_res = ds_res - cfg.d_KC
-            ds_res[vi_name].attrs[cfg.attrs_units] = cfg.unit_C
+           (ds_res[vi_name].attrs[const.attrs_units] == const.unit_K):
+            ds_res = ds_res - const.d_KC
+            ds_res[vi_name].attrs[const.attrs_units] = const.unit_C
         elif (vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]) and \
-             (ds_res[vi_name].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
-            ds_res = ds_res * cfg.spd
-            ds_res[vi_name].attrs[cfg.attrs_units] = cfg.unit_mm
+             (ds_res[vi_name].attrs[const.attrs_units] == const.unit_kg_m2s1):
+            ds_res = ds_res * const.spd
+            ds_res[vi_name].attrs[const.attrs_units] = const.unit_mm
         elif vi_name in [vi.v_uas, vi.v_vas, vi.v_sfcwindmax]:
-            ds_res = ds_res * cfg.km_h_per_m_s
-            ds_res[vi_name].attrs[cfg.attrs_units] = cfg.unit_km_h
+            ds_res = ds_res * const.km_h_per_m_s
+            ds_res[vi_name].attrs[const.attrs_units] = const.unit_km_h
         else:
-            ds_res[vi_name].attrs[cfg.attrs_units] = units
+            ds_res[vi_name].attrs[const.attrs_units] = units
 
         # Adjust coordinate names (required for clipping).
-        if cfg.dim_longitude not in list(ds_res.dims):
-            if cfg.dim_rlon in ds_res.dims:
-                ds_res = ds_res.rename_dims({cfg.dim_rlon: cfg.dim_longitude, cfg.dim_rlat: cfg.dim_latitude})
-                ds_res[cfg.dim_longitude] = ds_res[cfg.dim_rlon]
-                del ds_res[cfg.dim_rlon]
-                ds_res[cfg.dim_latitude] = ds_res[cfg.dim_rlat]
-                del ds_res[cfg.dim_rlat]
+        if const.dim_longitude not in list(ds_res.dims):
+            if const.dim_rlon in ds_res.dims:
+                ds_res = ds_res.rename_dims({const.dim_rlon: const.dim_longitude, const.dim_rlat: const.dim_latitude})
+                ds_res[const.dim_longitude] = ds_res[const.dim_rlon]
+                del ds_res[const.dim_rlon]
+                ds_res[const.dim_latitude] = ds_res[const.dim_rlat]
+                del ds_res[const.dim_rlat]
             else:
-                ds_res = ds_res.rename_dims({cfg.dim_lon: cfg.dim_longitude, cfg.dim_lat: cfg.dim_latitude})
-                ds_res[cfg.dim_longitude] = ds_res[cfg.dim_lon]
-                del ds_res[cfg.dim_lon]
-                ds_res[cfg.dim_latitude] = ds_res[cfg.dim_lat]
-                del ds_res[cfg.dim_lat]
+                ds_res = ds_res.rename_dims({const.dim_lon: const.dim_longitude, const.dim_lat: const.dim_latitude})
+                ds_res[const.dim_longitude] = ds_res[const.dim_lon]
+                del ds_res[const.dim_lon]
+                ds_res[const.dim_latitude] = ds_res[const.dim_lat]
+                del ds_res[const.dim_lat]
 
     return ds_res
 
@@ -1591,7 +1594,7 @@ def conv_nc_csv(
     Parameters
     ----------
     cat : str
-        Category: cfg.cat_scen is for climate scenarios or cfg.cat_idx for climate indices.
+        Category: const.cat_scen is for climate scenarios or const.cat_idx for climate indices.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1600,30 +1603,30 @@ def conv_nc_csv(
     for stn in stns:
 
         # Loop through categories.
-        cat_l = [cfg.cat_obs, cfg.cat_raw, cfg.cat_regrid, cfg.cat_qqmap]
-        if cat == cfg.cat_idx:
-            cat_l = [cfg.cat_idx]
+        cat_l = [const.cat_obs, const.cat_raw, const.cat_regrid, const.cat_qqmap]
+        if cat == const.cat_idx:
+            cat_l = [const.cat_idx]
         for cat in cat_l:
 
             # Explode lists of codes and names.
-            idx_names_exploded = cfg.explode_idx_l(cfg.idx_names)
-            idx_codes_exploded = cfg.explode_idx_l(cfg.idx_codes)
+            idx_names_exploded = vi.explode_idx_l(cfg.idx_names)
+            idx_codes_exploded = vi.explode_idx_l(cfg.idx_codes)
 
             # Loop through variables or indices.
-            vi_name_l = cfg.variables if cat != cfg.cat_idx else idx_names_exploded
+            vi_name_l = cfg.variables if cat != const.cat_idx else idx_names_exploded
             for i_vi_name in range(len(vi_name_l)):
                 vi_name = idx_names_exploded[i_vi_name]
                 vi_code = idx_codes_exploded[i_vi_name]
                 vi_code_grp = vi.get_group(vi_code)
 
                 # List NetCDF files.
-                p_l = list(glob.glob(cfg.get_d_scen(stn, cat, vi_code_grp) + "*" + cfg.f_ext_nc))
+                p_l = list(glob.glob(cfg.get_d_scen(stn, cat, vi_code_grp) + "*" + fu.f_ext_nc))
                 n_files = len(p_l)
                 if n_files == 0:
                     continue
                 p_l.sort()
 
-                utils.log("Processing: " + stn + ", " + vi_code, True)
+                fu.log("Processing: " + stn + ", " + vi_code, True)
 
                 # Scalar processing mode.
                 if cfg.n_proc == 1:
@@ -1638,24 +1641,24 @@ def conv_nc_csv(
 
                         # Calculate the number of files processed (before conversion).
                         n_files_proc_before =\
-                            len(list(glob.glob(cfg.get_d_scen(stn, cat, vi_code) + "*" + cfg.f_ext_csv)))
+                            len(list(glob.glob(cfg.get_d_scen(stn, cat, vi_code) + "*" + fu.f_ext_csv)))
 
                         try:
-                            utils.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
+                            fu.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                             pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(p_l)))
                             func = functools.partial(conv_nc_csv_single, p_l, vi_name)
                             pool.map(func, list(range(n_files)))
-                            utils.log("Work done!", True)
+                            fu.log("Work done!", True)
                             pool.close()
                             pool.join()
-                            utils.log("Fork ended.", True)
+                            fu.log("Fork ended.", True)
                         except Exception as e:
-                            utils.log(str(e))
+                            fu.log(str(e))
                             pass
 
                         # Calculate the number of files processed (after conversion).
                         n_files_proc_after =\
-                            len(list(glob.glob(cfg.get_d_scen(stn, cat, vi_code_grp) + "*" + cfg.f_ext_csv)))
+                            len(list(glob.glob(cfg.get_d_scen(stn, cat, vi_code_grp) + "*" + fu.f_ext_csv)))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cfg.n_proc == 1) or (n_files_proc_before == n_files_proc_after):
@@ -1690,17 +1693,17 @@ def conv_nc_csv_single(
 
     # Paths.
     p = p_l[i_file]
-    p_csv = p.replace(cfg.f_ext_nc, cfg.f_ext_csv).\
+    p_csv = p.replace(fu.f_ext_nc, fu.f_ext_csv).\
         replace(cfg.sep + vi_code_grp + "_", cfg.sep + vi_name + "_").\
-        replace(cfg.sep + vi_code_grp + cfg.sep, cfg.sep + vi_code_grp + "_" + cfg.f_csv + cfg.sep)
+        replace(cfg.sep + vi_code_grp + cfg.sep, cfg.sep + vi_code_grp + "_" + fu.f_csv + cfg.sep)
 
     if os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
         if cfg.n_proc > 1:
-            utils.log("Work done!", True)
+            fu.log("Work done!", True)
         return
 
     # Explode lists of codes and names.
-    idx_names_exploded = cfg.explode_idx_l(cfg.idx_names)
+    idx_names_exploded = vi.explode_idx_l(cfg.idx_names)
 
     # Open dataset.
     ds = xr.open_dataset(p)
@@ -1737,17 +1740,17 @@ def conv_nc_csv_single(
 
     # Convert values to more practical units (if required).
     if (vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]) and\
-       (ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
+       (ds[vi_name].attrs[const.attrs_units] == const.unit_kg_m2s1):
         for i in range(n_time):
-            val_l[i] = val_l[i] * cfg.spd
+            val_l[i] = val_l[i] * const.spd
     elif (vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]) and\
-         (ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_K):
+         (ds[vi_name].attrs[const.attrs_units] == const.unit_K):
         for i in range(n_time):
-            val_l[i] = val_l[i] - cfg.d_KC
+            val_l[i] = val_l[i] - const.d_KC
 
     # Build pandas dataframe.
     if not cfg.opt_ra:
-        dict_pd = {cfg.dim_time: time_l, vi_name: val_l}
+        dict_pd = {const.dim_time: time_l, vi_name: val_l}
     else:
         time_l_1d = []
         lon_l_1d  = []
@@ -1760,14 +1763,14 @@ def conv_nc_csv_single(
                     lon_l_1d.append(lon_l[j])
                     lat_l_1d.append(lat_l[k])
                     val_l_1d.append(list(val_l)[i][j][k])
-        dict_pd = {cfg.dim_time: time_l_1d, cfg.dim_lon: lon_l_1d, cfg.dim_lat: lat_l_1d, vi_name: val_l_1d}
+        dict_pd = {const.dim_time: time_l_1d, const.dim_lon: lon_l_1d, const.dim_lat: lat_l_1d, vi_name: val_l_1d}
     df = pd.DataFrame(dict_pd)
 
     # Save CSV file.
-    utils.save_csv(df, p_csv)
+    fu.save_csv(df, p_csv)
 
     if cfg.n_proc > 1:
-        utils.log("Work done!", True)
+        fu.log("Work done!", True)
 
 
 def calc_cycle(
@@ -1795,7 +1798,7 @@ def calc_cycle(
     per: [int, int]
         Period of interest, for instance, [1981, 2010].
     freq: str
-        Frequency = {cfg.freq_D, cfg.freq_MS}
+        Frequency = {const.freq_D, const.freq_MS}
     title: str
         Plot title.
     i_trial: int
@@ -1807,40 +1810,40 @@ def calc_cycle(
     # Extract data.
     if i_trial == 1:
         ds = utils.sel_period(ds, per)
-        if freq == cfg.freq_D:
+        if freq == const.freq_D:
             ds = utils.remove_feb29(ds)
 
     # Convert units.
-    units = ds[vi_name].attrs[cfg.attrs_units]
+    units = ds[vi_name].attrs[const.attrs_units]
     if (vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]) and \
-       (ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_K):
-        ds = ds - cfg.d_KC
+       (ds[vi_name].attrs[const.attrs_units] == const.unit_K):
+        ds = ds - const.d_KC
     elif (vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]) and \
-         (ds[vi_name].attrs[cfg.attrs_units] == cfg.unit_kg_m2s1):
-        ds = ds * cfg.spd
-    ds[vi_name].attrs[cfg.attrs_units] = units
+         (ds[vi_name].attrs[const.attrs_units] == const.unit_kg_m2s1):
+        ds = ds * const.spd
+    ds[vi_name].attrs[const.attrs_units] = units
 
     # Calculate statistics.
     ds_l = calc_by_freq(ds, vi_name, per, freq)
 
-    n = 12 if freq == cfg.freq_MS else 365
+    n = 12 if freq == const.freq_MS else 365
 
     # Remove February 29th.
-    if (freq == cfg.freq_D) and (len(ds_l[0][vi_name]) > 365):
+    if (freq == const.freq_D) and (len(ds_l[0][vi_name]) > 365):
         for i in range(3):
-            ds_l[i] = ds_l[i].rename_dims({"dayofyear": cfg.dim_time})
-            ds_l[i] = ds_l[i][vi_name][ds_l[i][cfg.dim_time] != 59].to_dataset()
-            ds_l[i][cfg.dim_time] = utils.reset_calendar(ds_l[i], cfg.per_ref[0], cfg.per_ref[0], cfg.freq_D)
-            ds_l[i][vi_name].attrs[cfg.attrs_units] = ds[vi_name].attrs[cfg.attrs_units]
+            ds_l[i] = ds_l[i].rename_dims({"dayofyear": const.dim_time})
+            ds_l[i] = ds_l[i][vi_name][ds_l[i][const.dim_time] != 59].to_dataset()
+            ds_l[i][const.dim_time] = utils.reset_calendar(ds_l[i], cfg.per_ref[0], cfg.per_ref[0], const.freq_D)
+            ds_l[i][vi_name].attrs[const.attrs_units] = ds[vi_name].attrs[const.attrs_units]
 
     # Paths.
-    cat_fig = cfg.cat_fig_cycle_ms if freq == cfg.freq_MS else cfg.cat_fig_cycle_d
-    p_fig = cfg.get_d_scen(stn, cfg.cat_fig + cfg.sep + cfg.cat_scen + cfg.sep + cat_fig, vi_name)
+    cat_fig = const.cat_fig_cycle_ms if freq == const.freq_MS else const.cat_fig_cycle_d
+    p_fig = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + const.cat_scen + cfg.sep + cat_fig, vi_name)
     if vi_name in cfg.idx_names:
-        p_fig = p_fig.replace(cfg.sep + cfg.cat_scen, cfg.sep + cfg.cat_idx)
-    p_fig += title + cfg.f_ext_png
-    p_csv = p_fig.replace(cfg.sep + vi_name + cfg.sep, cfg.sep + vi_name + "_" + cfg.f_csv + cfg.sep).\
-        replace(cfg.f_ext_png, cfg.f_ext_csv)
+        p_fig = p_fig.replace(cfg.sep + const.cat_scen, cfg.sep + const.cat_idx)
+    p_fig += title + fu.f_ext_png
+    p_csv = p_fig.replace(cfg.sep + vi_name + cfg.sep, cfg.sep + vi_name + "_" + fu.f_csv + cfg.sep).\
+        replace(fu.f_ext_png, fu.f_ext_csv)
 
     error = False
 
@@ -1854,11 +1857,11 @@ def calc_cycle(
     if os.path.exists(p_fig) and os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
         return
 
-    if freq == cfg.freq_D:
+    if freq == const.freq_D:
 
         # Create dataframe.
         dict_pd = {
-            ("month" if freq == cfg.freq_MS else "day"): range(1, n + 1),
+            ("month" if freq == const.freq_MS else "day"): range(1, n + 1),
             "mean": list(ds_l[0][vi_name].values),
             "min": list(ds_l[1][vi_name].values),
             "max": list(ds_l[2][vi_name].values), "var": [vi_name] * n
@@ -1885,12 +1888,12 @@ def calc_cycle(
         fig = dash_plot.gen_cycle_ms(cntx, df)
 
     # Save plot.
-    utils.save_plot(fig, p_fig)
+    fu.save_plot(fig, p_fig)
 
     # Generate CSV file.
     if cfg.opt_save_csv[0]:
         try:
-            utils.save_csv(df, p_csv)
+            fu.save_csv(df, p_csv)
         except:
             error = True
 
@@ -1898,10 +1901,10 @@ def calc_cycle(
     if error:
 
         # Log error.
-        msg_err = "Unable to save " + ("daily" if (freq == cfg.freq_D) else "monthly") +\
+        msg_err = "Unable to save " + ("daily" if (freq == const.freq_D) else "monthly") +\
                   " plot data (failed " + str(i_trial) + " time(s)):"
-        utils.log(msg_err, True)
-        utils.log(title, True)
+        fu.log(msg_err, True)
+        fu.log(title, True)
 
         # Attempt the same analysis again.
         if i_trial < 3:

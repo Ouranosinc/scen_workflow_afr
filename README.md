@@ -170,8 +170,8 @@ Implemented features:
 - added information about the climate indices parameters in config.py;
 - now using a dayofyear string (ex: '04-14' for April 14th) instead of dayofyear (ex: 104 for April 14th) as the input
   to climate index functions (also applies to .ini files);
-- adding function 'utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec directory
-  (issue #9);
+- adding function 'file_utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec
+  directory (issue #9);
 - adjusting file separator automatically according to d_exec parameter to ensure compatibility with Windows (issue #5);
 - created a unit testing module that can be enabled using 'opt_unit_tests';
 - increased the performance of 'rain_season*' and 'dry_spell_total_length' indices.

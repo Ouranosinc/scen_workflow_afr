@@ -9,28 +9,21 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import clisops.core.subset as subset
-import config as cfg
+import constants as const
 import datetime
-import glob
 import logging
-import matplotlib.pyplot
 import numpy as np
-import os
 import pandas as pd
 import re
 import time
 import xarray as xr
 import warnings
+from config import cfg
 from cmath import rect, phase
 from collections import defaultdict
-from itertools import compress
 from math import radians, degrees, sqrt
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import Union, List, Tuple
-
-import sys
-sys.path.append("dashboard")
-from dashboard import def_varidx as vi
 
 
 def natural_sort(
@@ -122,7 +115,7 @@ def sfcwind_2_uas_vas(
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
-            sfcwind = sfcwind.resample(time=resample).mean(dim=cfg.dim_time, keep_attrs=True)
+            sfcwind = sfcwind.resample(time=resample).mean(dim=const.dim_time, keep_attrs=True)
 
         # TODO.MAB: Remove nb_per_day and calculate it.
 
@@ -163,111 +156,6 @@ def angle_diff(
     return distance
 
 
-def list_cordex(
-    p_ds: str,
-    rcps: [str]
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-     Lists CORDEX simulations.
-
-    Parameters
-    ----------
-    p_ds : str
-        Path of data_source.
-    rcps : [str]
-        List of RCP scenarios.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    list_f = {}
-
-    # Find all the available simulations for a given RCP.
-    for r in range(len(rcps)):
-
-        d_format = p_ds + "*" + cfg.sep + "*" + cfg.sep + "AFR-*{r}".format(r=rcps[r]) + cfg.sep + "*" +\
-                   cfg.sep + "atmos" + cfg.sep + "*" + cfg.sep
-        d_l = glob.glob(d_format)
-        d_l = [i for i in d_l if "day" in i]
-        d_l.sort()
-
-        # Remove timestep information.
-        for i in range(0, len(d_l)):
-            tokens = d_l[i].split(cfg.sep)
-            d_l[i] = d_l[i].replace(tokens[len(tokens) - 4], "*")
-
-        # Keep only the unique simulation folders (with a * as the timestep).
-        d_l = list(set(d_l))
-        d_l_valid = [True] * len(d_l)
-
-        # Keep only the simulations with all the variables we need.
-        d_l = list(compress(d_l, d_l_valid))
-
-        list_f[rcps[r] + "_historical"] = [w.replace(rcps[r], "historical") for w in d_l]
-        list_f[rcps[r]] = d_l
-
-    return list_f
-
-
-def info_cordex(
-    d_ds: str
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-     Creates an array that contains information about CORDEX simulations.
-     A verification is made to ensure that there is at least one NetCDF file available for each variable.
-
-    Parameters
-    ----------
-    d_ds : str
-        Directory of data_source.
-
-    Return
-    ------
-    sets : [str, str, str, str, [str]]
-        List of simulation sets.
-        sets[0] is the institute that created this simulation.
-        sets[1] is the regional circulation model (RCM).
-        sets[2] is the global circulation model (GCM).
-        sets[3] is the simulation name.
-        sets[4] is a list of variables available.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Results.
-    sets = []
-
-    # List directories containing simulation sets.
-    d_format =\
-        d_ds + "*" + cfg.sep + "*" + cfg.sep + "AFR-*" + cfg.sep + "day" + cfg.sep + "atmos" + cfg.sep + "*" + cfg.sep
-    n_token = len(d_ds.split(cfg.sep)) - 2
-
-    # Loop through simulations sets.
-    for i in glob.glob(d_format):
-        tokens_i = i.split(cfg.sep)
-
-        # Extract institute, RGM, CGM and emission scenario.
-        inst = tokens_i[n_token + 1]
-        rgm  = tokens_i[n_token + 2]
-        cgm  = tokens_i[n_token + 3].split("_")[1]
-        scen = tokens_i[n_token + 3].split("_")[2]
-
-        # Extract variables and ensure that there is at least one NetCDF file available for each  one.
-        vars_i = []
-        for j in glob.glob(i + "*" + cfg.sep):
-            n_netcdf = len(glob.glob(j + "*" + cfg.f_ext_nc))
-            if n_netcdf > 0:
-                tokens_j = j.split(cfg.sep)
-                var      = tokens_j[len(tokens_j) - 2]
-                vars_i.append(var)
-
-        sets.append([inst, rgm, cgm, scen, vars_i])
-
-    return sets
-
-
 def calendar(
     x: Union[xr.Dataset, xr.DataArray],
     n_days_old=360,
@@ -295,7 +183,7 @@ def calendar(
     ts      = x.assign_coords(time=x.time.dt.dayofyear / n_days_old * n_days_new)
     ts_year = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * n_days_new
     ts_time = ts.time.values
-    ts[cfg.dim_time] = ts_year + ts_time
+    ts[const.dim_time] = ts_year + ts_time
 
     nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0]) + 1
     time_new = np.arange(1, (nb_year*n_days_new)+1)
@@ -321,7 +209,7 @@ def calendar(
     ref_365 = ts.interp(time=time_new, kwargs={"fill_value": "extrapolate"}, method="nearest")
 
     # Recreate 365 time series.
-    ref_365[cfg.dim_time] = time_date
+    ref_365[const.dim_time] = time_date
 
     # DEBUG: Plot data.
     # DEBUG: plt.plot(np.arange(1,n_days_new+1),ref_365[:n_days_new].values)
@@ -425,7 +313,7 @@ def reset_calendar(
     ds: Union[xr.Dataset, xr.DataArray],
     year_1=-1,
     year_n=-1,
-    freq=cfg.freq_D
+    freq=const.freq_D
 ) -> pd.DatetimeIndex:
 
     """
@@ -441,7 +329,7 @@ def reset_calendar(
     year_n : int
         Last year.
     freq : str
-        Frequency: cfg.freq_D=daily; cfg.freq_YS=annual
+        Frequency: const.freq_D=daily; const.freq_YS=annual
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -457,8 +345,8 @@ def reset_calendar(
 
     # Exactly the right number of time items.
     n_time = len(ds.time.values)
-    if (freq != cfg.freq_D) or (n_time == ((year_n - year_1 + 1) * 365)):
-        mult = 365 if freq == cfg.freq_D else 1
+    if (freq != const.freq_D) or (n_time == ((year_n - year_1 + 1) * 365)):
+        mult = 365 if freq == const.freq_D else 1
         new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * mult, freq=freq)
     else:
         arr_time = []
@@ -513,48 +401,18 @@ def convert_to_365_calender(
         ds_365 = ds
     else:
         cf = ds.time.values[0].calendar
-        if cf in [cfg.cal_noleap, cfg.cal_365day]:
+        if cf in [const.cal_noleap, const.cal_365day]:
             ds_365 = ds
-        elif cf in [cfg.cal_360day]:
+        elif cf in [const.cal_360day]:
             ds_365 = calendar(ds)
         else:
             ds_365 = None
-            log("Calendar type not recognized", True)
 
     # DEBUG: Plot 365 versus 360 calendar.
     # DEBUG: if cfg.opt_plt_365vs360:
     # DEBUG:     plot.plot_360_vs_365(ds, ds_365, var)
 
     return ds_365
-
-
-def list_files(
-    p: str
-) -> [str]:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Lists files in a directory.
-
-    Parameters
-    ----------
-    p : str
-        Path of directory.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # List.
-    p_l = []
-    # r=root, d=directories, f = files
-    for r, d, f in os.walk(p):
-        for p in f:
-            if cfg.f_ext_nc in p:
-                p_l.append(os.path.join(r, p))
-
-    # Sort.
-    p_l.sort()
-
-    return p_l
 
 
 def create_multi_dict(
@@ -605,8 +463,8 @@ def calc_error(
     error = -1.0
 
     # TODO: Ensure that the length of datasets is the same in both datasets.
-    #       The algorithm is extremely non-efficient. There must be a better way to do it.
-    if len(da_obs[cfg.dim_time]) != len(da_pred[cfg.dim_time]):
+    #       The algorithm is extremely inefficient. There must be a better way to do it.
+    if len(da_obs[const.dim_time]) != len(da_pred[const.dim_time]):
 
         # Extract dates (year, month, day).
         dates_obs  = extract_date_field(da_obs)
@@ -644,19 +502,19 @@ def calc_error(
     if len(values_obs) == len(values_pred):
 
         # Method #1: Coefficient of determination.
-        if cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_r2:
+        if cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_r2:
             error = r2_score(values_obs, values_pred)
 
         # Method #2: Mean absolute error.
-        elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_mae:
+        elif cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_mae:
             error = mean_absolute_error(values_obs, values_pred)
 
         # Method #3: Root mean square error.
-        elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rmse:
+        elif cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_rmse:
             error = sqrt(mean_squared_error(values_obs, values_pred))
 
         # Method #4: Relative root mean square error.
-        elif cfg.opt_calib_bias_meth == cfg.opt_calib_bias_meth_rrmse:
+        elif cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_rrmse:
             if np.std(values_obs) != 0:
                 error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
             else:
@@ -691,320 +549,6 @@ def get_current_time():
     return time.time()
 
 
-def log(
-    msg: str,
-    indent=False
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Log message (to console and into a file.
-
-    Parameters
-    ----------
-    msg : str
-        Message.
-    indent : bool
-        If True, indent text.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    ln = ""
-
-    # Start line with a timestamp, unless this is a divide.
-    if (msg != "-") and (msg != "="):
-        ln = get_datetime_str()
-
-    if indent:
-        ln += " " * cfg.log_n_blank
-    if (msg == "-") or (msg == "="):
-        if indent:
-            ln += msg * cfg.log_sep_len
-        else:
-            ln += msg * (cfg.log_sep_len + cfg.log_n_blank)
-    else:
-        ln += " " + msg
-
-    # Print to console.
-    pid_current = os.getpid()
-    if pid_current == cfg.pid:
-        print(ln)
-
-    # Recursively create directories if the path does not exist.
-    d = os.path.dirname(cfg.p_log)
-    if not (os.path.isdir(d)):
-        os.makedirs(d)
-
-    # Print to file.
-    p_log = cfg.p_log
-    if pid_current != cfg.pid:
-        p_log = p_log.replace(cfg.f_ext_log, "_" + str(pid_current) + cfg.f_ext_log)
-    if p_log != "":
-        f = open(p_log, "a")
-        f.writelines(ln + "\n")
-        f.close()
-
-
-def open_netcdf(
-    p: Union[str, List[str]],
-    drop_variables: [str] = None,
-    chunks: Union[int, dict] = None,
-    combine: str = None,
-    concat_dim: str = None,
-    desc: str = ""
-) -> xr.Dataset:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Open a NetCDF file.
-
-    Parameters
-    ----------
-    p : Union[str, [str]]
-        Path of file to be created.
-    drop_variables : [str]
-        Drop-variables parameter.
-    chunks : Union[int,dict]
-        Chunks parameter
-    combine : str
-        Combine parameter.
-    concat_dim : str
-        Concatenate dimension.
-    desc : str
-        Description.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if desc == "":
-        desc = (os.path.basename(p) if isinstance(p, str) else os.path.basename(p[0]))
-
-    if cfg.opt_trace:
-        log("Opening NetCDF file: " + desc, True)
-
-    if isinstance(p, str):
-
-        # Open file normally.
-        ds = xr.open_dataset(p, drop_variables=drop_variables).load()
-        close_netcdf(ds)
-
-        # Determine the number of chunks.
-        if cfg.use_chunks and (cfg.n_proc == 1) and (chunks is None) and ("scen" in p) and (cfg.dim_time in ds.dims):
-            chunks = {cfg.dim_time: len(ds[cfg.dim_time])}
-
-        # Reopen file using chunks.
-        if chunks is not None:
-            ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks).copy(deep=True).load()
-            close_netcdf(ds)
-    else:
-        ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim)
-
-    if cfg.opt_trace:
-        log("Opened NetCDF file", True)
-
-    return ds
-
-
-def save_netcdf(
-    ds: Union[xr.Dataset, xr.DataArray],
-    p: str,
-    desc: str = ""
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Save a dataset or a data array to a NetCDF file.
-
-    Parameters
-    ----------
-    ds : Union[xr.Dataset, xr.DataArray]
-        Dataset.
-    p : str
-        Path of file to be created.
-    desc : str
-        Description.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if desc == "":
-        desc = os.path.basename(p)
-
-    if cfg.opt_trace:
-        log("Saving NetCDF file: " + desc, True)
-
-    # Recursively create directories if the path does not exist.
-    d = os.path.dirname(p)
-    if not (os.path.exists(d)):
-        os.makedirs(d)
-
-    # Create a temporary file to indicate that writing is in progress.
-    p_inc = p.replace(cfg.f_ext_nc, ".incomplete")
-    if not os.path.exists(p_inc):
-        open(p_inc, 'a').close()
-
-    # Discard file if it already exists.
-    if os.path.exists(p):
-        os.remove(p)
-
-    # Save NetCDF file.
-    ds.to_netcdf(p, "w")
-
-    # Discard the temporary file.
-    if os.path.exists(p_inc):
-        os.remove(p_inc)
-
-    if cfg.opt_trace:
-        log("Saved NetCDF file", True)
-
-
-def clean_netcdf(
-    d: str
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Clean NetCDF files.
-    A .nc file will be removed if there's an .incomplete file with the same name. The .incomplete file is removed as
-    well. This is done to avoid having potentially incomplete NetCDF files, which can result in a crash.
-
-    Parameters
-    ----------
-    d : str
-        Base directory to search from.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    log("Cleaning NetCDF file: " + d, True)
-
-    # List temporary files.
-    if d[len(d) - 1] != cfg.sep:
-        d = d + cfg.sep
-    p_inc_l = glob.glob(d + "**" + cfg.sep + "*.incomplete", recursive=True)
-
-    # Loop through temporary files.
-    for p_inc in p_inc_l:
-
-        # Attempt removing an associated NetCDF file.
-        p_nc = p_inc.replace(".incomplete", cfg.f_ext_nc)
-        if os.path.exists(p_nc):
-            log("Removing: " + p_nc)
-            os.remove(p_nc)
-
-        # Remove the temporary file.
-        if os.path.exists(p_inc):
-            log("Removing: " + p_inc)
-            os.remove(p_inc)
-
-
-def close_netcdf(
-    ds: Union[xr.Dataset, xr.DataArray]
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Close a NetCDF file.
-
-    Parameters
-    ----------
-    ds : Union[xr.Dataset, xr.DataArray]
-        Dataset.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if ds is not None:
-        try:
-            ds.close()
-        except:
-            pass
-
-
-def save_plot(
-    plt: matplotlib.pyplot,
-    p: str,
-    desc=""
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Save a plot to a .png file.
-
-    Parameters
-    ----------
-    plt : matplotlib.pyplot
-        Plot.
-    p : str
-        Path of file to be created.
-    desc : str
-        Description.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if desc == "":
-        desc = os.path.basename(p)
-
-    if cfg.opt_trace:
-        log("Saving plot: " + desc, True)
-
-    # Recursively create directories if the path does not exist.
-    d = os.path.dirname(p)
-    if not (os.path.isdir(d)):
-        os.makedirs(d)
-
-    # Discard file if it already exists.
-    if os.path.exists(p):
-        os.remove(p)
-
-    # Create PNG file.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=UserWarning)
-        plt.savefig(p)
-
-    if cfg.opt_trace:
-        log("Saving plot", True)
-
-
-def save_csv(
-    df: pd.DataFrame,
-    p: str,
-    desc=""
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Save a dataset or a data array to a CSV file.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Dataframe.
-    p : str
-        Path of file to be created.
-    desc : str
-        Description.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if desc == "":
-        desc = os.path.basename(p)
-
-    if cfg.opt_trace:
-        log("Saving CSV file: " + desc, True)
-
-    # Recursively create directories if the path does not exist.
-    d = os.path.dirname(p)
-    if not (os.path.isdir(d)):
-        os.makedirs(d)
-
-    # Discard file if it already exists.
-    if os.path.exists(p):
-        os.remove(p)
-
-    # Save CSV file.
-    df.to_csv(p, index=False)
-
-    if cfg.opt_trace:
-        log("Saved CSV file", True)
-
-
 def squeeze_lon_lat(
     ds: Union[xr.Dataset, xr.Dataset],
     varidx_name: str = ""
@@ -1029,12 +573,12 @@ def squeeze_lon_lat(
     # Squeeze data.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        if cfg.dim_lon in ds.dims:
-            ds_res = ds.mean([cfg.dim_lon, cfg.dim_lat])
-        elif cfg.dim_rlon in ds.dims:
-            ds_res = ds.mean([cfg.dim_rlon, cfg.dim_rlat])
-        elif cfg.dim_longitude in ds.dims:
-            ds_res = ds.mean([cfg.dim_longitude, cfg.dim_latitude])
+        if const.dim_lon in ds.dims:
+            ds_res = ds.mean([const.dim_lon, const.dim_lat])
+        elif const.dim_rlon in ds.dims:
+            ds_res = ds.mean([const.dim_rlon, const.dim_rlat])
+        elif const.dim_longitude in ds.dims:
+            ds_res = ds.mean([const.dim_longitude, const.dim_latitude])
 
     # Transfer units.
     ds_res = copy_attributes(ds, ds_res, varidx_name)
@@ -1066,11 +610,11 @@ def subset_ctrl_pt(
         lon = cfg.ctrl_pt[0]
         lat = cfg.ctrl_pt[1]
     else:
-        if cfg.dim_rlon in ds.dims:
+        if const.dim_rlon in ds.dims:
             if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
                 lon = round(len(ds.rlon) / 2.0)
                 lat = round(len(ds.rlat) / 2.0)
-        elif cfg.dim_lon in ds.dims:
+        elif const.dim_lon in ds.dims:
             if (len(ds.lat) > 1) or (len(ds.lon) > 1):
                 lon = round(len(ds.lon) / 2.0)
                 lat = round(len(ds.lat) / 2.0)
@@ -1080,10 +624,10 @@ def subset_ctrl_pt(
                 lat = round(len(ds.latitude) / 2.0)
 
     # Perform subset.
-    if cfg.dim_rlon in ds.dims:
+    if const.dim_rlon in ds.dims:
         if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
             ds_res = ds.isel(rlon=lon, rlat=lat, drop=True)
-    elif cfg.dim_lon in ds.dims:
+    elif const.dim_lon in ds.dims:
         if (len(ds.lat) > 1) or (len(ds.lon) > 1):
             ds_res = ds.isel(lon=lon, lat=lat, drop=True)
     else:
@@ -1162,7 +706,7 @@ def subset_lon_lat_time(
 
     # Longitude.
     if len(lon) > 0:
-        if cfg.dim_longitude in ds_res.dims:
+        if const.dim_longitude in ds_res.dims:
             lon_min = max(ds_res.longitude.min(), min(lon))
             lon_max = min(ds_res.longitude.max(), max(lon))
             ds_res = ds_res.sel(longitude=slice(lon_min, lon_max))
@@ -1173,7 +717,7 @@ def subset_lon_lat_time(
 
     # Latitude.
     if len(lat) > 0:
-        if cfg.dim_latitude in ds_res.dims:
+        if const.dim_latitude in ds_res.dims:
             lat_min = max(ds_res.latitude.min(), min(lat))
             lat_max = min(ds_res.latitude.max(), max(lat))
             ds_res = ds_res.sel(latitude=slice(lat_min, lat_max))
@@ -1183,7 +727,7 @@ def subset_lon_lat_time(
             ds_res = ds_res.sel(rlat=slice(lat_min, lat_max))
 
     # Time.
-    if (len(time) > 0) and (cfg.dim_time in ds_res.dims):
+    if (len(time) > 0) and (const.dim_time in ds_res.dims):
         time_l = list(np.unique(ds_res.time.dt.year))
         time_min = max(min(time_l), min(time))
         time_max = min(max(time_l), max(time))
@@ -1192,7 +736,7 @@ def subset_lon_lat_time(
     # Adjust grid.
     if (len(lon) > 0) or (len(lat) > 0) or (len(time) > 0):
         try:
-            grid = ds[vi_name].attrs[cfg.attrs_gmap]
+            grid = ds[vi_name].attrs[const.attrs_gmap]
             ds_res[grid] = ds[grid]
         except KeyError:
             pass
@@ -1266,15 +810,15 @@ def get_coordinates(
     """
 
     # Extract longitude and latitude.
-    if cfg.dim_longitude in list(ds.dims):
-        da_lon = ds[cfg.dim_longitude]
-        da_lat = ds[cfg.dim_latitude]
-    elif cfg.dim_lon in list(ds.dims):
-        da_lon = ds[cfg.dim_lon]
-        da_lat = ds[cfg.dim_lat]
+    if const.dim_longitude in list(ds.dims):
+        da_lon = ds[const.dim_longitude]
+        da_lat = ds[const.dim_latitude]
+    elif const.dim_lon in list(ds.dims):
+        da_lon = ds[const.dim_lon]
+        da_lat = ds[const.dim_lat]
     else:
-        da_lon = ds[cfg.dim_rlon]
-        da_lat = ds[cfg.dim_rlat]
+        da_lon = ds[const.dim_rlon]
+        da_lat = ds[const.dim_rlat]
 
     # Need to return an array.
     if array_format:
@@ -1320,15 +864,15 @@ def copy_coordinates(
     lon_vals, lat_vals = get_coordinates(ds_from, True)
 
     # Assign coordinates.
-    if cfg.dim_longitude in list(ds_to.dims):
-        ds_to[cfg.dim_longitude] = lon_vals
-        ds_to[cfg.dim_latitude] = lat_vals
-    elif cfg.dim_rlon in list(ds_to.dims):
-        ds_to[cfg.dim_rlon] = lon_vals
-        ds_to[cfg.dim_rlat] = lat_vals
+    if const.dim_longitude in list(ds_to.dims):
+        ds_to[const.dim_longitude] = lon_vals
+        ds_to[const.dim_latitude] = lat_vals
+    elif const.dim_rlon in list(ds_to.dims):
+        ds_to[const.dim_rlon] = lon_vals
+        ds_to[const.dim_rlat] = lat_vals
     else:
-        ds_to[cfg.dim_lon] = lon_vals
-        ds_to[cfg.dim_lat] = lat_vals
+        ds_to[const.dim_lon] = lon_vals
+        ds_to[const.dim_lat] = lat_vals
 
     return ds_to
 
@@ -1355,11 +899,11 @@ def copy_attributes(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if cfg.attrs_units in ds_from.attrs:
-        ds_to.attrs[cfg.attrs_units] = ds_from.attrs[cfg.attrs_units]
+    if const.attrs_units in ds_from.attrs:
+        ds_to.attrs[const.attrs_units] = ds_from.attrs[const.attrs_units]
     if isinstance(ds_from, xr.Dataset) and (var in ds_from.data_vars):
-        if cfg.attrs_units in ds_from[var].attrs:
-            ds_to[var].attrs[cfg.attrs_units] = ds_from[var].attrs[cfg.attrs_units]
+        if const.attrs_units in ds_from[var].attrs:
+            ds_to[var].attrs[const.attrs_units] = ds_from[var].attrs[const.attrs_units]
 
     return ds_to
 
@@ -1389,11 +933,11 @@ def subset_shape(
         try:
             # Memorize dimension names and attributes.
             dim_lon, dim_lat = get_coord_names(ds_res)
-            if dim_lat != cfg.dim_lat:
-                ds_res = ds_res.rename({dim_lon: cfg.dim_lon, dim_lat: cfg.dim_lat})
+            if dim_lat != const.dim_lat:
+                ds_res = ds_res.rename({dim_lon: const.dim_lon, dim_lat: const.dim_lat})
             if var != "":
-                if cfg.attrs_gmap not in ds_res[var].attrs:
-                    ds_res[var].attrs[cfg.attrs_gmap] = "regular_lon_lat"
+                if const.attrs_gmap not in ds_res[var].attrs:
+                    ds_res[var].attrs[const.attrs_gmap] = "regular_lon_lat"
 
             # Subset by shape.
             logger = logging.getLogger()
@@ -1403,8 +947,8 @@ def subset_shape(
             logger.setLevel(level)
 
             # Recover initial dimension names.
-            if dim_lat != cfg.dim_lat:
-                ds_res = ds_res.rename({cfg.dim_lon: dim_lon, cfg.dim_lat: dim_lat})
+            if dim_lat != const.dim_lat:
+                ds_res = ds_res.rename({const.dim_lon: dim_lon, const.dim_lat: dim_lat})
 
         except (TypeError, ValueError):
             return ds.copy(deep=True)
@@ -1438,15 +982,15 @@ def apply_mask(
 
     # Record units.
     units = None
-    if cfg.attrs_units in da_res.attrs:
-        units = da_res.attrs[cfg.attrs_units]
+    if const.attrs_units in da_res.attrs:
+        units = da_res.attrs[const.attrs_units]
 
     # Rename spatial dimensions.
     if dims_data != dims_mask:
         da_res = da_res.rename({list(dims_data)[0]: list(dims_mask)[0], list(dims_data)[1]: list(dims_mask)[1]})
 
     # Apply mask.
-    n_time = len(da[cfg.dim_time])
+    n_time = len(da[const.dim_time])
     da_res[0:n_time, :, :] = da_res[0:n_time, :, :].values * da_mask.values
 
     # Restore spatial dimensions.
@@ -1455,11 +999,11 @@ def apply_mask(
 
     # Restore units.
     if units is not None:
-        da_res.attrs[cfg.attrs_units] = units
+        da_res.attrs[const.attrs_units] = units
 
     # Drop coordinates.
     try:
-        da_res = da_res.reset_coords(names=cfg.dim_time, drop=True)
+        da_res = da_res.reset_coords(names=const.dim_time, drop=True)
     except:
         pass
 
@@ -1486,20 +1030,20 @@ def get_coord_names(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if cfg.dim_lat in ds_or_da.dims:
-        coord_dict = [cfg.dim_lon, cfg.dim_lat]
-    elif cfg.dim_rlat in ds_or_da.dims:
-        coord_dict = [cfg.dim_rlon, cfg.dim_rlat]
+    if const.dim_lat in ds_or_da.dims:
+        coord_dict = [const.dim_lon, const.dim_lat]
+    elif const.dim_rlat in ds_or_da.dims:
+        coord_dict = [const.dim_rlon, const.dim_rlat]
     else:
-        coord_dict = [cfg.dim_longitude, cfg.dim_latitude]
+        coord_dict = [const.dim_longitude, const.dim_latitude]
 
     return coord_dict
 
 
 def rename_dimensions(
     da: xr.DataArray,
-    lat_name: str = cfg.dim_latitude,
-    lon_name: str = cfg.dim_longitude
+    lat_name: str = const.dim_latitude,
+    lon_name: str = const.dim_longitude
 ) -> xr.DataArray:
 
     """
@@ -1520,16 +1064,16 @@ def rename_dimensions(
     if (lat_name not in da.dims) or (lon_name not in da.dims):
 
         if "dim_0" in list(da.dims):
-            da = da.rename({"dim_0": cfg.dim_time})
+            da = da.rename({"dim_0": const.dim_time})
             da = da.rename({"dim_1": lat_name, "dim_2": lon_name})
-        elif (cfg.dim_lat in list(da.dims)) or (cfg.dim_lon in list(da.dims)):
-            da = da.rename({cfg.dim_lat: lat_name, cfg.dim_lon: lon_name})
-        elif (cfg.dim_rlat in list(da.dims)) or (cfg.dim_rlon in list(da.dims)):
-            da = da.rename({cfg.dim_rlat: lat_name, cfg.dim_rlon: lon_name})
+        elif (const.dim_lat in list(da.dims)) or (const.dim_lon in list(da.dims)):
+            da = da.rename({const.dim_lat: lat_name, const.dim_lon: lon_name})
+        elif (const.dim_rlat in list(da.dims)) or (const.dim_rlon in list(da.dims)):
+            da = da.rename({const.dim_rlat: lat_name, const.dim_rlon: lon_name})
         elif (lat_name not in list(da.dims)) and (lon_name not in list(da.dims)):
-            if lat_name == cfg.dim_latitude:
+            if lat_name == const.dim_latitude:
                 da = da.expand_dims(latitude=1)
-            if lon_name == cfg.dim_longitude:
+            if lon_name == const.dim_longitude:
                 da = da.expand_dims(longitude=1)
 
     return da
@@ -1556,19 +1100,19 @@ def interpolate_na_fix(
     ds_or_da_res = ds_or_da.copy(deep=True)
 
     # Extract coordinates and determine if they are increasing.
-    lon_vals = ds_or_da_res[cfg.dim_longitude]
-    lat_vals = ds_or_da_res[cfg.dim_latitude]
+    lon_vals = ds_or_da_res[const.dim_longitude]
+    lat_vals = ds_or_da_res[const.dim_latitude]
     lon_monotonic_inc = bool(lon_vals[0] < lon_vals[len(lon_vals) - 1])
     lat_monotonic_inc = bool(lat_vals[0] < lat_vals[len(lat_vals) - 1])
 
     # Flip values.
     if not lon_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_longitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(const.dim_longitude, ascending=True)
     if not lat_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_latitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(const.dim_latitude, ascending=True)
 
     # Interpolate, layer by layer (limit=1).
-    for t in range(len(ds_or_da_res[cfg.dim_time])):
+    for t in range(len(ds_or_da_res[const.dim_time])):
         n_i = max(len(ds_or_da_res[t].longitude), len(ds_or_da_res[t].latitude))
         for i in range(n_i):
             df_t = ds_or_da_res[t].to_pandas()
@@ -1587,38 +1131,11 @@ def interpolate_na_fix(
 
     # Unflip values.
     if not lon_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_longitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(const.dim_longitude, ascending=False)
     if not lat_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(cfg.dim_latitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(const.dim_latitude, ascending=False)
 
     return ds_or_da_res
-
-
-def create_mask() -> xr.DataArray:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Calculate a mask, based on climate scenarios for the temperature or precipitation variable.
-    All values with a value are attributed a value of 1. Other values are assigned 'nan'.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    da_mask = None
-
-    f_l = glob.glob(cfg.d_stn + "*/*" + cfg.f_ext_nc)
-    for i in range(len(f_l)):
-
-        # Open NetCDF file.
-        ds = open_netcdf(f_l[i])
-        var = list(ds.data_vars)[0]
-        if var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
-
-            # Create mask.
-            da_mask = ds[var][0] * 0 + 1
-
-            break
-
-    return da_mask
 
 
 def doy_str_to_doy(
@@ -1701,14 +1218,14 @@ def reorder_dims(da_idx: xr.DataArray, ds_or_da_src: Union[xr.DataArray, xr.Data
 
     # Rename dimensions.
     for i in range(len(dims)):
-        dims[i] = dims[i].replace(cfg.dim_rlat, cfg.dim_latitude).replace(cfg.dim_rlon, cfg.dim_longitude)
-        if dims[i] == cfg.dim_lat:
-            dims[i] = cfg.dim_latitude
-        if dims[i] == cfg.dim_lon:
-            dims[i] = cfg.dim_longitude
+        dims[i] = dims[i].replace(const.dim_rlat, const.dim_latitude).replace(const.dim_rlon, const.dim_longitude)
+        if dims[i] == const.dim_lat:
+            dims[i] = const.dim_latitude
+        if dims[i] == const.dim_lon:
+            dims[i] = const.dim_longitude
 
     # Reorder dimensions.
-    if cfg.dim_location in dims:
+    if const.dim_location in dims:
         da_idx_new = da_idx.transpose(dims[0], dims[1]).copy()
     else:
         da_idx_new = da_idx.transpose(dims[0], dims[1], dims[2]).copy()
