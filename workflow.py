@@ -8,6 +8,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import aggregate
+import constants as const
 import download
 import file_utils as fu
 import indices
@@ -83,7 +84,7 @@ def main():
     if cfg.opt_scen:
         for vi_code in cfg.variables:
             fu.clean_netcdf(cfg.d_stn + vi_code + cfg.sep)
-            fu.clean_netcdf(cfg.get_d_scen(cfg.obs_src, "scen" + cfg.sep + "*", vi_code))
+            fu.clean_netcdf(cfg.get_d_scen(cfg.obs_src, const.cat_scen + cfg.sep + "*", vi_code))
     if cfg.opt_idx:
         for vi_code in cfg.idx_codes:
             fu.clean_netcdf(cfg.get_d_idx(cfg.obs_src, str(vi.VarIdx(vi_code).get_name())))
