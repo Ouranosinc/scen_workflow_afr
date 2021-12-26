@@ -65,7 +65,7 @@ def get_sample_data(var: str) -> Union[xr.DataArray, None]:
         return None
 
 
-def generate(
+def gen(
     varidx_name: str,
     start_year: int,
     n_years: int,
@@ -427,7 +427,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 5) and (op == op_max):
                 start_date, end_date = "03-01", "11-30"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], 0)
                 res_expect = [14, 0]
 
@@ -435,7 +435,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 6) and (op == op_max):
                 start_date, end_date = "03-01", "11-30"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 13], 0)
                 res_expect = [0, 0]
 
@@ -443,7 +443,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 7) and (op == op_max):
                 start_date, end_date = "03-01", "11-30"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 7], 0)
                 assign(da_pr, [y1, 3, 9], [y1, 3, 15], 0)
                 res_expect = [0, 0]
@@ -452,7 +452,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 8) and (op == op_max):
                 start_date, end_date = "03-01", "11-30"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 2, 28], [y1, 3, 13], 0)
                 res_expect = [13, 0]
 
@@ -460,7 +460,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 9) and (op == op_max):
                 start_date, end_date = "03-01", "11-30"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 11, 18], [y1, 12, 1], 0)
                 res_expect = [13, 0]
 
@@ -468,7 +468,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 10) and (op == op_max):
                 start_date, end_date = "03-01", "11-30"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], 0)
                 assign(da_pr, [y1, 8, 1], [y1, 8, 14], 0)
                 res_expect = [28, 0]
@@ -477,7 +477,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 11) and (op == op_max):
                 start_date, end_date = "12-01", "02-28"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], 0)
                 res_expect = [0, 0]
 
@@ -485,7 +485,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 12) and (op == op_max):
                 start_date, end_date = "12-01", "02-28"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 13], 0)
                 res_expect = [0, 0]
 
@@ -493,7 +493,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 13) and (op == op_max):
                 start_date, end_date = "12-01", "02-28"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 7], 0)
                 assign(da_pr, [y1, 3, 9], [y1, 3, 15], 0)
                 res_expect = [0, 0]
@@ -502,7 +502,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 14) and (op == op_max) and (algo == 2):
                 start_date, end_date = "12-01", "02-28"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 2, 28], [y1, 3, 13], 0)
                 res_expect = [1, 0]
 
@@ -510,7 +510,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 15) and (op == op_max) and (algo == 2):
                 start_date, end_date = "12-01", "02-28"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 11, 18], [y1, 12, 1], 0)
                 res_expect = [1, 0]
 
@@ -518,7 +518,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 16) and (op == op_max) and (algo == 2):
                 start_date, end_date = "12-01", "02-28"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], 0)
                 assign(da_pr, [y1, 8, 1], [y1, 8, 14], 0)
                 res_expect = [0, 0]
@@ -526,7 +526,7 @@ def dry_spell_total_length() -> bool:
             # Case #17: | T 14x. T | T |
             elif (i == 17) and (op == op_max):
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], 0)
                 res_expect = [14, 0]
 
@@ -534,7 +534,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 18) and (op == op_max):
                 start_date = "03-01"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], 0)
                 res_expect = [14, 0]
 
@@ -542,7 +542,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 19) and (op == op_max):
                 end_date = "11-30"
                 thresh, window   = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], 0)
                 res_expect = [14, 0]
 
@@ -550,7 +550,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 20) and (op == op_max) and (algo == 2):
                 start_date = "03-01"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 2, 22], [y1, 3, 7], 0)
                 res_expect = [7, 0]
 
@@ -558,7 +558,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 21) and (op == op_max) and (algo == 2):
                 end_date = "11-30"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 11, 24], [y1, 12, 7], 0)
                 res_expect = [7, 0]
 
@@ -566,7 +566,7 @@ def dry_spell_total_length() -> bool:
             elif (i == 22) and (op == op_max):
                 start_date, end_date = "12-01", "01-31"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1, 1, 1], [y1, 1, 14], 0)
                 res_expect = [14, 0]
 
@@ -574,14 +574,14 @@ def dry_spell_total_length() -> bool:
             elif (i == 23) and (op == op_max):
                 start_date, end_date = "12-01", "01-31"
                 thresh, window = 1, 14
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 assign(da_pr, [y1 + 1, 12, 18], [y1 + 1, 12, 31], 0)
                 res_expect = [0, 14]
 
             # Case #24: | T 3x<T T 2x<T T 3x<T T | T 3x<T T 2x<T T 3x<T T |
             elif (i == 24) and (op == op_max):
                 thresh, window = 3, 3
-                da_pr = generate(var, y1, n_years, thresh)
+                da_pr = gen(var, y1, n_years, thresh)
                 pr = thresh / window
                 assign(da_pr, [y1, 3, 1], [y1, 3, 3], pr)
                 assign(da_pr, [y1, 6, 1], [y1, 6, 2], pr)
@@ -596,7 +596,7 @@ def dry_spell_total_length() -> bool:
             # Case #25: | . | . |
             elif (i == 25) and (op == op_sum):
                 thresh, window = 14, 14
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 if algo == 1:
                     res_expect = [358, 359]
                 else:
@@ -605,7 +605,7 @@ def dry_spell_total_length() -> bool:
             # Case #26: | . T*13/14 . | . |
             elif (i == 26) and (op == op_sum):
                 thresh, window = 14, 14
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 1], thresh - 1.0)
                 if algo == 1:
                     res_expect = [358, 359]
@@ -615,7 +615,7 @@ def dry_spell_total_length() -> bool:
             # Case #27: | . T . | . |
             elif (i == 27) and (op == op_sum):
                 thresh, window = 14, 14
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 1], thresh)
                 if algo == 1:
                     res_expect = [357, 359]
@@ -625,7 +625,7 @@ def dry_spell_total_length() -> bool:
             # Case #28: | . T/2x3 . | . |
             elif (i == 28) and (op == op_sum):
                 thresh, window = 14, 14
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 3], thresh / 2.0)
                 if algo == 1:
                     res_expect = [357, 359]
@@ -635,7 +635,7 @@ def dry_spell_total_length() -> bool:
             # Case #29: | . 14xT/14 . | . |
             elif (i == 29) and (op == op_sum):
                 thresh, window = 14, 14
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 14], thresh / window)
                 if algo == 1:
                     res_expect = [358, 359]
@@ -645,7 +645,7 @@ def dry_spell_total_length() -> bool:
             # Case #30: | . 7xT/14 | 7xT/14 . |
             elif (i == 30) and (op == op_sum):
                 thresh, window = 14, 14
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 12, 25], [y2, 1, 7], thresh / window)
                 if algo == 1:
                     res_expect = [358, 359]
@@ -655,7 +655,7 @@ def dry_spell_total_length() -> bool:
             # Case #31: | . 7xT | 7xT . |
             elif (i == 31) and (op == op_sum):
                 thresh, window = 14, 14
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 12, 25], [y2, 1, 7], thresh)
                 if algo == 1:
                     res_expect = [352, 351]
@@ -665,7 +665,7 @@ def dry_spell_total_length() -> bool:
             # Case #32: | . 15xT/14 . | . |
             elif (i == 32) and (op == op_sum):
                 thresh, window = 15, 15
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 15], thresh / window * 3)
                 if algo == 1:
                     res_expect = [351, 358]
@@ -675,7 +675,7 @@ def dry_spell_total_length() -> bool:
             # Case #33: | . 9xT/3 . | . |
             elif (i == 33) and (op == op_sum):
                 thresh, window = 3, 3
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 3, 1], [y1, 3, 9], thresh / window)
                 if algo == 1:
                     res_expect = [359, 364]
@@ -772,7 +772,7 @@ def rain_season_start() -> bool:
             # Case #1: | . A . 3xTw/3 10xTd 9x. 11xTd . B | . |
             if (i == 1) and (op == op_synthetic):
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 1, 1], [y1, 3, 31], 1.01)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], 5.01)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
@@ -803,7 +803,7 @@ def rain_season_start() -> bool:
             # Case #3: | . A . 3xTw/3 30xTd . B | . |
             elif (i == 3) and is_synthetic:
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 5, 3], thresh_dry)
                 res_expect = [91, np.nan]
@@ -811,7 +811,7 @@ def rain_season_start() -> bool:
             # Case #4: | . A . 3xTw/3 10xTd 9x. 11xTd . B | . |
             elif (i == 4) and is_synthetic:
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 13], thresh_dry)
                 assign(da_pr, [y1, 4, 23], [y1, 5, 3], thresh_dry)
@@ -820,7 +820,7 @@ def rain_season_start() -> bool:
             # Case #5: | . A . 3xTw/3 10xTd 10x. 10xTd . B | . |
             elif (i == 5) and is_synthetic:
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 13], thresh_dry)
                 assign(da_pr, [y1, 4, 24], [y1, 5, 3], thresh_dry)
@@ -829,7 +829,7 @@ def rain_season_start() -> bool:
             # Case #6: | . A . 2xTw*2/3 . 10xTd 9x. 11xTd . B | . |
             elif (i == 6) and is_synthetic:
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 2], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 13], thresh_dry)
                 assign(da_pr, [y1, 4, 23], [y1, 5, 3], thresh_dry)
@@ -838,7 +838,7 @@ def rain_season_start() -> bool:
             # Case #7: | . A . 3xTw/3 25xTd . B | . |
             elif (i == 7) and is_synthetic:
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 28], thresh_dry)
                 res_expect = [91, np.nan]
@@ -846,7 +846,7 @@ def rain_season_start() -> bool:
             # Case #8: | . A . 3xTw/3 5xTd 5x. 10xTd 5x. 5xTd . B | . |
             elif (i == 8) and is_synthetic:
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 8], thresh_dry)
                 assign(da_pr, [y1, 4, 14], [y1, 4, 23], thresh_dry)
@@ -856,7 +856,7 @@ def rain_season_start() -> bool:
             # Case #9: | . A . 2xTw/3 . 30xTd . 3xTw/3 30xTd . B | . |
             elif (i == 9) and is_synthetic:
                 start_date, end_date = "03-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 2], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 5, 3], thresh_dry)
                 assign(da_pr, [y1, 6, 1], [y1, 6, 3], thresh_wet / window_wet)
@@ -866,7 +866,7 @@ def rain_season_start() -> bool:
             # Case #10: | . 3xTw/3 A 30xTd . B | . |
             elif (i == 10) and is_synthetic:
                 start_date, end_date = "04-04", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 5, 3], thresh_dry)
                 res_expect = [np.nan, np.nan]
@@ -874,7 +874,7 @@ def rain_season_start() -> bool:
             # Case #11: | . A . 3xTw/3 30xTd . | . B . |
             elif (i == 11) and is_synthetic:
                 start_date, end_date = "09-01", "06-30"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 10, 1], [y1, 10, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 10, 4], [y1, 11, 2], thresh_dry)
                 res_expect = [274, np.nan]
@@ -964,7 +964,7 @@ def rain_season_end() -> bool:
             # Case #1: | . T A T 4T/5 3T/5 2T/5 1T/5 . B . | . |
             if (i == 1) and (op in [op_max, op_sum, op_etp]):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 1, 1], [y1, 3, 31], 1.01)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], 5.01)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
@@ -1019,13 +1019,13 @@ def rain_season_end() -> bool:
             # Case #3: | . A . | . B . |
             elif (i == 3) and (op in [op_max, op_sum, op_etp]):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 res_expect = [np.nan, np.nan]
 
             # Case #4: | T/14 A T/14 | T/14 B T/14 |
             elif (i == 4) and (op in [op_max, op_sum, op_etp]):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, pr_rate)
+                da_pr = gen(var, y1, n_years, pr_rate)
                 res_expect = [np.nan, np.nan]
 
             # Additional cases with {op} = "etp" -----------------------------------------------------------------------
@@ -1033,14 +1033,14 @@ def rain_season_end() -> bool:
             # Case #5: | . A 30xT/14 . B | . |
             elif (i == 5) and (op == op_etp):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate)
                 res_expect = [287, np.nan]
 
             # Case #6: | . A 30xT/14 T/28 B | . |
             elif (i == 6) and (op == op_etp):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate)
                 assign(da_pr, [y1, 10, 1], [y1, 12, 31], pr_rate / 2)
                 res_expect = [301, np.nan]
@@ -1049,7 +1049,7 @@ def rain_season_end() -> bool:
             elif (i == 7) and (op == op_etp):
                 etp_rate_i = 0.0
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate)
                 res_expect = [np.nan, np.nan]
 
@@ -1057,7 +1057,7 @@ def rain_season_end() -> bool:
             elif (i == 8) and (op == op_etp):
                 etp_rate_i = 2 * etp_rate
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate)
                 res_expect = [280, np.nan]
 
@@ -1065,7 +1065,7 @@ def rain_season_end() -> bool:
             elif (i == 9) and (op == op_etp):
                 etp_rate_i = 2 * etp_rate
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate)
                 assign(da_pr, [y1, 10, 3], [y1, 10, 4], 2 * pr_rate)
                 res_expect = [284, np.nan]
@@ -1073,7 +1073,7 @@ def rain_season_end() -> bool:
             # Case #10: | . A 15xT/14 | 15xT/14 . B . |
             elif (i == 10) and (op == op_etp):
                 start_date, end_date = "06-01", "03-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 10, 1], [y1, 12, 16], pr_rate)
                 assign(da_pr, [y2, 1, 1], [y2, 1, 15], pr_rate)
                 res_expect = [np.nan, 29]
@@ -1083,28 +1083,28 @@ def rain_season_end() -> bool:
             # Case #11: | . T A 30xT . B | . |
             elif (i == 11) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate)
                 res_expect = [273, np.nan]
 
             # Case #12: | . T A . B | . |
             elif (i == 12) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 8, 31], pr_rate)
                 res_expect = [np.nan, np.nan]
 
             # Case #13: | . T/2 A 30xT/2 . B | . |
             elif (i == 13) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate / 2)
                 res_expect = [244, np.nan]
 
             # Case #14: | . T A 15xT . B | . |
             elif (i == 14) and (op == op_max):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 10, 15], pr_rate)
                 res_expect = [288, np.nan]
 
@@ -1112,7 +1112,7 @@ def rain_season_end() -> bool:
             elif (i == 15) and (op == op_max):
                 etp_rate_i = etp_rate
                 start_date, end_date = "09-01", "12-16"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 8, 31], pr_rate)
                 assign(da_pr, [y1, 12, 17], [y1, 12, 31], pr_rate)
                 res_expect = [np.nan, np.nan]
@@ -1120,7 +1120,7 @@ def rain_season_end() -> bool:
             # Case #16: | . T A 24xT/14 7x. | 6x. T . B . |
             elif (i == 16) and (op == op_max):
                 start_date, end_date = "06-01", "03-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 12, 24], pr_rate)
                 assign(da_pr, [y2, 1, 7], [y2, 1, 7], pr_rate)
                 res_expect = [np.nan, 7]
@@ -1130,14 +1130,14 @@ def rain_season_end() -> bool:
             # Case #17: | . T A 30xT . B | . |
             elif (i == 17) and (op == op_sum):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate * window)
                 res_expect = [273, np.nan]
 
             # Case #18: | . T A 30xT T . B | . |
             elif (i == 18) and (op == op_sum):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate * window)
                 assign(da_pr, [y1, 10, 1], [y1, 10, 1], pr_rate * window)
                 res_expect = [274, np.nan]
@@ -1145,7 +1145,7 @@ def rain_season_end() -> bool:
             # Case #19: | . T A 30xT 7x. T . B | . |
             elif (i == 19) and (op == op_sum):
                 start_date, end_date = "09-01", "12-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 9, 30], pr_rate * window)
                 assign(da_pr, [y1, 10, 8], [y1, 10, 8], pr_rate * window)
                 res_expect = [281, np.nan]
@@ -1153,14 +1153,14 @@ def rain_season_end() -> bool:
             # Case #20: | . T A 24xT 7x. | . B . |
             elif (i == 20) and (op == op_sum):
                 start_date, end_date = "06-01", "03-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 12, 24], pr_rate * window)
                 res_expect = [358, np.nan]
 
             # Case #21: | . T A 24xT/14 7x. | 6x. T . B . |
             elif (i == 21) and (op == op_sum):
                 start_date, end_date = "06-01", "03-31"  # A, B
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 12, 24], pr_rate * window)
                 assign(da_pr, [y2, 1, 7], [y2, 1, 7], pr_rate * window)
                 res_expect = [np.nan, 7]
@@ -1227,7 +1227,7 @@ def rain_season_length_prcptot() -> bool:
     for i in range(1, n_cases + 1):
 
         # Parameters.
-        da_pr = generate(var, y1, n_years, 1.0)
+        da_pr = gen(var, y1, n_years, 1.0)
 
         for op in [op_synthetic, op_data]:
             is_synthetic = (op == op_synthetic)
@@ -1236,7 +1236,7 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #1: | . A1 . 3xTw/3 10xTd 9x. 11xTd . T A2 T 4T/5 3T/5 2T/5 1T/5 . B1=B2 | . |
             if (i == 1) and (op == op_synthetic):
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 1, 1], [y1, 3, 31], 1.01)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], 5.01)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
@@ -1247,9 +1247,9 @@ def rain_season_length_prcptot() -> bool:
                 assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.01)
                 assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.01)
                 assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.01)
-                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 288)
                 res_expect_length = [198, np.nan]
                 res_expect_prcptot = [871, np.nan]
@@ -1260,12 +1260,12 @@ def rain_season_length_prcptot() -> bool:
             elif (i == 2) and (op == op_data):
                 da_pr = get_sample_data(vi.v_pr)
                 locations = list(xr.DataArray(da_pr).location.values)
-                da_start = generate(vi.i_rain_season_start, 1990, 4, np.nan, "YS", locations)
+                da_start = gen(vi.i_rain_season_start, 1990, 4, np.nan, "YS", locations)
                 assign(da_start, [], [], [89, 61, 66, 63], locations[0])
                 assign(da_start, [], [], [92, 97, 70, 90], locations[1])
                 assign(da_start, [], [], [np.nan, 115, 130, np.nan], locations[3])
                 assign(da_start, [], [], [np.nan, 60, 106, 62], locations[4])
-                da_end = generate(vi.i_rain_season_end, 1990, 4, np.nan, "YS", locations)
+                da_end = gen(vi.i_rain_season_end, 1990, 4, np.nan, "YS", locations)
                 assign(da_end, [], [], [190, 152, 256, 217], locations[0])
                 assign(da_end, [], [], [204, 152, 202, 179], locations[1])
                 assign(da_end, [], [], [176, 152, 152, 152], locations[2])
@@ -1286,45 +1286,45 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #3: | . A1 . B1 . | . A2 . B2 . |
             elif (i == 3) and (op == op_synthetic):
-                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_start, y1 + j, y1 + j, 91 + j)
-                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_end, y1 + j, y1 + j, 273 - j)
                 res_expect_length = res_expect_prcptot = [273 - 91 + 1, 272 - 92 + 1]
 
             # Case #4: | . A1 . | . B1 . |
             elif (i == 4) and (op == op_synthetic):
-                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 273)
-                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y2, y2, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #5: | . B0 . A1 . | . B1 . A2 . |
             elif (i == 5) and (op == op_synthetic):
-                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_start, y, y, 273)
-                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_end, y, y, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #6: | . B1 . | . A2 . |
             elif (i == 6) and (op == op_synthetic):
-                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y2, y2, 91)
-                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 273)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
             # Case #7: | . B1 A1 . | . |
             elif (i == 7) and (op == op_synthetic):
-                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 90)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
@@ -1427,7 +1427,7 @@ def rain_season() -> bool:
                 e_etp_rate   = 5
                 e_start_date = "09-01"
                 e_end_date   = "12-31"
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 1, 1], [y1, 3, 31], 1.01)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], 5.01)
                 assign(da_pr, [y1, 4, 4], [y1, 4, 13], 1.01)
@@ -1489,11 +1489,11 @@ def rain_season() -> bool:
             elif (i in [3, 4]) and (e_op == e_op_sum):
                 s_start_date, s_end_date = "03-01", "12-31"  # A, B
                 e_start_date, e_end_date = "09-01", "12-31"  # C, D
-                da_pr = generate(var, y1, n_years, 0.0)
+                da_pr = gen(var, y1, n_years, 0.0)
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], s_thresh_wet / s_window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 9, 30], s_thresh_dry)
                 if i == 2:
-                    da_start_next = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                    da_start_next = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                     assign(da_start_next, y1, y1, utils.doy_str_to_doy("09-05"))
                 res_expect_start = [91, np.nan]
                 if i == 1:

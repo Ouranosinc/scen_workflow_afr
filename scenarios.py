@@ -31,6 +31,7 @@ import warnings
 from config import cfg
 from quantile_mapping import train, predict
 from scipy.interpolate import griddata
+from typing import List, Optional
 
 import sys
 sys.path.append("dashboard")
@@ -1238,7 +1239,7 @@ def init_calib_params():
             fu.log("Calibration file created or updated.", True)
 
 
-def generate():
+def gen():
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -1357,16 +1358,16 @@ def generate():
                 # Scalar mode.
                 if cfg.n_proc == 1:
                     for i_sim in range(n_sim):
-                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, False, i_sim)
+                        gen_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, False, i_sim)
 
                 # Parallel processing mode.
                 else:
 
                     # Perform extraction.
-                    # A first call to generate_single is required for the extraction to be done in scalar mode (before
+                    # A first call to gen_single is required for the extraction to be done in scalar mode (before
                     # forking) because of the incompatibility of xr.open_mfdataset with parallel processing.
                     for i_sim in range(n_sim):
-                        generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, True, i_sim)
+                        gen_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, True, i_sim)
 
                     # Loop until all simulations have been processed.
                     while True:
@@ -1379,8 +1380,7 @@ def generate():
                         # Scalar processing mode.
                         if cfg.n_proc == 1:
                             for i_sim in range(n_sim):
-                                generate_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, False,
-                                                i_sim)
+                                gen_single(list_cordex_ref, list_cordex_fut, ds_stn, d_raw, var, stn, rcp, False, i_sim)
 
                         # Parallel processing mode.
                         else:
@@ -1388,7 +1388,7 @@ def generate():
                             try:
                                 fu.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
                                 pool = multiprocessing.Pool(processes=min(cfg.n_proc, len(list_cordex_ref)))
-                                func = functools.partial(generate_single, list_cordex_ref, list_cordex_fut, ds_stn,
+                                func = functools.partial(gen_single, list_cordex_ref, list_cordex_fut, ds_stn,
                                                          d_raw, var, stn, rcp, False)
                                 pool.map(func, list(range(n_sim)))
                                 pool.close()
@@ -1412,7 +1412,7 @@ def generate():
                     bias_adj(stn, var, sim_name, True)
 
 
-def generate_single(
+def gen_single(
     list_cordex_ref: [str],
     list_cordex_fut: [str],
     ds_stn: xr.Dataset,
@@ -1594,6 +1594,179 @@ def generate_single(
         fu.log("Work done!", True)
 
 
+def gen_per_var(
+    func_name: str,
+    view_code: Optional[str] = ""
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate diagnostic and cycle plots.
+
+    func_name: str
+        Name of function to be called.
+    view_code: Optional[str]
+        View code.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Number of variables to process.
+    n_var = len(cfg.variables)
+
+    # Scalar mode.
+    if cfg.n_proc == 1:
+        for i_var in range(n_var):
+            if func_name == "calc_diag_cycle":
+                calc_diag_cycle(cfg.variables, i_var)
+            elif func_name == "stats.calc_map":
+                stats.calc_map(cfg.variables, i_var)
+            elif func_name == "stats.calc_ts":
+                stats.calc_ts(view_code, cfg.variables, i_var)
+            else:
+                stats.calc_stats(cfg.variables, i_var)
+
+    # Parallel processing mode.
+    else:
+
+        for i in range(math.ceil(n_var / cfg.n_proc)):
+
+            # Select variables to process in the current loop.
+            i_first = i * cfg.n_proc
+            i_last = min((i + 1) * cfg.n_proc, n_var - 1)
+            n_proc = i_last - i_first + 1
+            variables = cfg.variables[i_first, i_last]
+
+            try:
+                fu.log("Splitting work between " + str(n_proc) + " threads.", True)
+                pool = multiprocessing.Pool(processes=n_proc)
+                if func_name == "calc_diag_cycle":
+                    func = functools.partial(calc_diag_cycle, variables)
+                elif func_name == "stats.calc_map":
+                    func = functools.partial(stats.calc_map, variables)
+                elif func_name == "stats.calc_ts":
+                    func = functools.partial(stats.calc_ts, view_code, variables)
+                else:
+                    func = functools.partial(stats.calc_stats, variables)
+                pool.map(func, list(range(variables)))
+                pool.close()
+                pool.join()
+                fu.log("Fork ended.", True)
+
+            except Exception as e:
+                fu.log(str(e))
+                pass
+
+
+def calc_diag_cycle(
+    variables: List[str],
+    i_var_proc: int
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate diagnostic and cycle plots (single variable).
+
+    variables: List[str],
+        Variables.
+    i_var_proc: int
+        Rank of variable to process.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Get variable.
+    var = variables[i_var_proc]
+
+    # Loop through stations.
+    stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
+    for stn in stns:
+
+        fu.log("Processing: " + var + ", " + stn, True)
+
+        # Path ofo NetCDF file containing station data.
+        p_obs = cfg.get_p_obs(stn, var)
+
+        # Loop through raw NetCDF files.
+        p_raw_l = list(glob.glob(cfg.get_d_scen(stn, const.cat_raw, var) + "*" + fu.f_ext_nc))
+        for i in range(len(p_raw_l)):
+            p_raw = p_raw_l[i]
+
+            # Path of NetCDF files.
+            p_regrid = p_raw.replace(const.cat_raw, const.cat_regrid)
+            p_qqmap = p_raw.replace(const.cat_raw, const.cat_qqmap)
+            p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + const.cat_qqmap + fu.f_ext_nc
+            p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + const.cat_qqmap + fu.f_ext_nc
+
+            # Calibration parameters.
+            sim_name = os.path.basename(p_raw).replace(var + "_", "").replace(fu.f_ext_nc, "")
+            df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
+                                      (cfg.df_calib["stn"] == stn) &
+                                      (cfg.df_calib["var"] == var)]
+            nq = float(df_sel["nq"])
+            up_qmf = float(df_sel["up_qmf"])
+            time_win = float(df_sel["time_win"])
+
+            # File name.
+            fn_fig = p_regrid_fut.split(cfg.sep)[-1]. \
+                replace("_4qqmap" + fu.f_ext_nc, "_" + const.cat_fig_postprocess + fu.f_ext_png)
+
+            # Generate diagnostic plots.
+            if cfg.opt_diagnostic[0] and (len(cfg.opt_diagnostic_format) > 0):
+
+                # This creates one file:
+                #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
+                title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+                d = const.cat_fig + cfg.sep + const.cat_scen + cfg.sep + const.cat_fig_postprocess
+                p_fig = cfg.get_d_scen(stn, d, var) + fn_fig
+                if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
+                    plot.plot_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
+
+                # This creates one file:
+                #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
+                d = const.cat_fig + cfg.sep + const.cat_scen + cfg.sep + const.cat_fig_workflow
+                p_fig = cfg.get_d_scen(stn, d, var) + \
+                    p_regrid_fut.split(cfg.sep)[-1].replace("4qqmap" + fu.f_ext_nc,
+                                                            const.cat_fig_workflow + fu.f_ext_png)
+                if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
+                    plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+
+            # Generate monthly and daily plots.
+            if cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0):
+
+                ds_qqmap = fu.open_netcdf(p_qqmap)
+                for per in cfg.per_hors:
+                    per_str = str(per[0]) + "_" + str(per[1])
+
+                    # This creates 2 files:
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
+                    title = fn_fig[:-4].replace(const.cat_fig_postprocess, per_str + "_" +
+                                                const.cat_fig_cycle_ms)
+                    stats.calc_cycle(ds_qqmap, stn, var, per, const.freq_MS, title)
+
+                    # This creates 2 files:
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/*.png
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
+                    title = fn_fig[:-4].replace(const.cat_fig_postprocess, per_str + "_" +
+                                                const.cat_fig_cycle_d)
+                    stats.calc_cycle(ds_qqmap, stn, var, per, const.freq_D, title)
+
+        if os.path.exists(p_obs) and cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0):
+            ds_obs = fu.open_netcdf(p_obs)
+            per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
+
+            # This creates 2 files:
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>_csv/*.csv
+            title = var + "_" + per_str + "_" + const.cat_fig_cycle_ms
+            stats.calc_cycle(ds_obs, stn, var, cfg.per_ref, const.freq_MS, title)
+
+            # This creates 2 files:
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/*.png
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen_cycle_d/<var>_csv/*.csv
+            title = var + "_" + per_str + "_" + const.cat_fig_cycle_d
+            stats.calc_cycle(ds_obs, stn, var, cfg.per_ref, const.freq_D, title)
+
+
 def run():
 
     """
@@ -1610,24 +1783,17 @@ def run():
     msg = "Step #2-5 Calculating scenarios"
     if cfg.opt_scen:
         fu.log(msg)
-        generate()
+        gen()
     else:
         fu.log(msg + not_req)
 
     # Statistics -------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    msg = "Step #7   Exporting results (scenarios)"
-    if cfg.opt_stat[0] or cfg.opt_save_csv[0]:
-        fu.log(msg)
-    else:
-        fu.log(msg + not_req)
-
-    fu.log("-")
     msg = "Step #7a  Calculating statistics (scenarios)"
     if cfg.opt_stat[0]:
         fu.log(msg)
-        stats.calc_stats(const.cat_scen)
+        gen_per_var("stats.calc_stats")
     else:
         fu.log(msg + not_req)
 
@@ -1643,118 +1809,19 @@ def run():
     # Plots ------------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    msg = "Step #8   Generating plots and maps (scenarios)"
-    if cfg.opt_diagnostic[0] or cfg.opt_map[0]:
-        fu.log(msg)
-    else:
-        fu.log(msg + not_req)
-
-    # Generate diagnostic and bias plots (daily and monthly).
+    fu.log("Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)")
     if (cfg.opt_diagnostic[0] and (len(cfg.opt_diagnostic_format) > 0)) or\
        (cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0)):
-
-        fu.log("-")
-        fu.log("Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)")
-
-        # Loop through variables.
-        for var in cfg.variables:
-
-            # Loop through stations.
-            stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
-            for stn in stns:
-
-                fu.log("Processing: " + var + ", " + stn, True)
-
-                # Path ofo NetCDF file containing station data.
-                p_obs = cfg.get_p_obs(stn, var)
-
-                # Loop through raw NetCDF files.
-                p_raw_l = list(glob.glob(cfg.get_d_scen(stn, const.cat_raw, var) + "*" + fu.f_ext_nc))
-                for i in range(len(p_raw_l)):
-                    p_raw = p_raw_l[i]
-
-                    # Path of NetCDF files.
-                    p_regrid     = p_raw.replace(const.cat_raw, const.cat_regrid)
-                    p_qqmap      = p_raw.replace(const.cat_raw, const.cat_qqmap)
-                    p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + const.cat_qqmap + fu.f_ext_nc
-                    p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + const.cat_qqmap + fu.f_ext_nc
-
-                    # Calibration parameters.
-                    sim_name = os.path.basename(p_raw).replace(var + "_", "").replace(fu.f_ext_nc, "")
-                    df_sel = cfg.df_calib.loc[(cfg.df_calib["sim_name"] == sim_name) &
-                                              (cfg.df_calib["stn"] == stn) &
-                                              (cfg.df_calib["var"] == var)]
-                    nq = float(df_sel["nq"])
-                    up_qmf = float(df_sel["up_qmf"])
-                    time_win = float(df_sel["time_win"])
-
-                    # File name.
-                    fn_fig = p_regrid_fut.split(cfg.sep)[-1]. \
-                        replace("_4qqmap" + fu.f_ext_nc, "_" + const.cat_fig_postprocess + fu.f_ext_png)
-
-                    # Generate diagnostic plots.
-                    if cfg.opt_diagnostic[0] and (len(cfg.opt_diagnostic_format) > 0):
-
-                        # This creates one file:
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
-                        title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                        d = const.cat_fig + cfg.sep + const.cat_scen + cfg.sep + const.cat_fig_postprocess
-                        p_fig = cfg.get_d_scen(stn, d, var) + fn_fig
-                        if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
-                            plot.plot_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
-
-                        # This creates one file:
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
-                        d = const.cat_fig + cfg.sep + const.cat_scen + cfg.sep + const.cat_fig_workflow
-                        p_fig = cfg.get_d_scen(stn, d, var) + \
-                            p_regrid_fut.split(cfg.sep)[-1].replace("4qqmap" + fu.f_ext_nc,
-                                                                    const.cat_fig_workflow + fu.f_ext_png)
-                        if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
-                            plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
-
-                    # Generate monthly and daily plots.
-                    if cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0):
-
-                        ds_qqmap = fu.open_netcdf(p_qqmap)
-                        for per in cfg.per_hors:
-                            per_str = str(per[0]) + "_" + str(per[1])
-
-                            # This creates 2 files:
-                            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
-                            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
-                            title = fn_fig[:-4].replace(const.cat_fig_postprocess, per_str + "_" +
-                                                        const.cat_fig_cycle_ms)
-                            stats.calc_cycle(ds_qqmap, stn, var, per, const.freq_MS, title)
-
-                            # This creates 2 files:
-                            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/*.png
-                            #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
-                            title = fn_fig[:-4].replace(const.cat_fig_postprocess, per_str + "_" +
-                                                        const.cat_fig_cycle_d)
-                            stats.calc_cycle(ds_qqmap, stn, var, per, const.freq_D, title)
-
-                if os.path.exists(p_obs) and cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0):
-
-                    ds_obs = fu.open_netcdf(p_obs)
-                    per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
-
-                    # This creates 2 files:
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>_csv/*.csv
-                    title = var + "_" + per_str + "_" + const.cat_fig_cycle_ms
-                    stats.calc_cycle(ds_obs, stn, var, cfg.per_ref, const.freq_MS, title)
-
-                    # This creates 2 files:
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/*.png
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen_cycle_d/<var>_csv/*.csv
-                    title = var + "_" + per_str + "_" + const.cat_fig_cycle_d
-                    stats.calc_cycle(ds_obs, stn, var, cfg.per_ref, const.freq_D, title)
+        fu.log(msg)
+        gen_per_var("calc_diag_cycle")
+    else:
+        fu.log(msg + not_req)
 
     fu.log("-")
     msg = "Step #8b  Generating time series (scenarios, bias-adjusted values)"
     if cfg.opt_ts[0] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
-        stats.calc_ts(const.cat_scen, def_view.code_ts)
+        gen_per_var("stats.calc_ts", def_view.code_ts)
     else:
         fu.log(msg + not_req)
 
@@ -1762,25 +1829,15 @@ def run():
     msg = "Step #8c  Generating time series (scenarios, raw values and bias)"
     if cfg.opt_ts_bias[0] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
-        stats.calc_ts(const.cat_scen, def_view.code_ts_bias)
+        gen_per_var("stats.calc_ts", def_view.code_ts_bias)
     else:
         fu.log(msg + not_req)
 
-    # Generate maps.
-    # Maps are not generated from data at stations:
-    # - the result is not good with a limited number of stations;
-    # - calculation is very slow.
     fu.log("-")
-    msg = "Step #8d  Generating heat maps (scenarios)"
+    msg = "Step #8d  Generating maps (scenarios)"
     if cfg.opt_ra and cfg.opt_map[0] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
-
-        # Loop through variables.
-        for i in range(len(cfg.variables)):
-
-            # Generate maps.
-            stats.calc_map(cfg.variables[i])
-
+        gen_per_var("stats.calc_map")
     else:
         fu.log(msg + " (not required)")
 

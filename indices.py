@@ -23,230 +23,228 @@ import xclim.indices as indices
 import xclim.indices.generic as indices_gen
 import warnings
 from config import cfg
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from xclim.indices import run_length as rl
 from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to, declare_units, rate2amount, to_agg_units
 
 import sys
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi, def_rcp, def_rcp
+from dashboard import def_varidx as vi, def_rcp, def_view
 
 
-def generate(
-    vi_code: str
-):
+def gen():
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Calculate a time series.
-
-    Parameters:
-    idx_code : str
-        Index code (contains 'vi_name' and an identifier).
+    Calculate climate indices.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Extract index name and parameters.
-    varidx    = vi.VarIdx(vi_code)
-    vi_name   = str(varidx.get_name())
-    vi_params = cfg.idx_params[cfg.idx_codes.index(vi_code)]
+    # Loop through indices.
+    for i_idx in range(0, len(cfg.idx_codes)):
 
-    # Emission scenarios.
-    rcps = [def_rcp.rcp_ref] + cfg.rcps
+        # Extract index code, name and parameters.
+        vi_code = cfg.idx_codes[i_idx]
+        varidx    = vi.VarIdx(vi_code)
+        vi_name   = str(varidx.get_name())
+        vi_params = cfg.idx_params[cfg.idx_codes.index(vi_code)]
 
-    # Data preparation -------------------------------------------------------------------------------------------------
+        # Emission scenarios.
+        rcps = [def_rcp.rcp_ref] + cfg.rcps
 
-    fu.log("Selecting variables and indices.", True)
+        # Data preparation ---------------------------------------------------------------------------------------------
 
-    # Select required variables.
-    vi_code_l = []
+        fu.log("Selecting variables and indices.", True)
 
-    # Temperature.
-    if vi_name in [vi.i_tnx, vi.i_tng, vi.i_tropical_nights, vi.i_tng_months_below, vi.i_heat_wave_max_length,
-                   vi.i_heat_wave_total_length, vi.i_tgg, vi.i_etr, vi.i_tn_days_below]:
-        vi_code_l.append(vi.v_tasmin)
+        # Select required variables.
+        vi_code_l = []
 
-    if vi_name in [vi.i_tx90p, vi.i_tx_days_above, vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_txg,
-                   vi.i_txx, vi.i_wsdi, vi.i_heat_wave_max_length, vi.i_heat_wave_total_length, vi.i_tgg, vi.i_etr]:
-        vi_code_l.append(vi.v_tasmax)
+        # Temperature.
+        if vi_name in [vi.i_tnx, vi.i_tng, vi.i_tropical_nights, vi.i_tng_months_below, vi.i_heat_wave_max_length,
+                       vi.i_heat_wave_total_length, vi.i_tgg, vi.i_etr, vi.i_tn_days_below]:
+            vi_code_l.append(vi.v_tasmin)
 
-    # Precipitation.
-    if vi_name in [vi.i_rx1day, vi.i_rx5day, vi.i_cwd, vi.i_cdd, vi.i_sdii, vi.i_prcptot, vi.i_r10mm, vi.i_r20mm,
-                   vi.i_rnnmm, vi.i_wet_days, vi.i_dry_days, vi.i_rain_season_start, vi.i_rain_season_end,
-                   vi.i_rain_season_prcptot, vi.i_dry_spell_total_length, vi.i_rain_season]:
-        vi_code_l.append(vi.v_pr)
+        if vi_name in [vi.i_tx90p, vi.i_tx_days_above, vi.i_hot_spell_frequency, vi.i_hot_spell_max_length, vi.i_txg,
+                       vi.i_txx, vi.i_wsdi, vi.i_heat_wave_max_length, vi.i_heat_wave_total_length, vi.i_tgg, vi.i_etr]:
+            vi_code_l.append(vi.v_tasmax)
 
-        if vi_name in [vi.i_rain_season_end, vi.i_rain_season]:
-            if vi.v_evspsblpot in cfg.variables:
-                vi_code_l.append(vi.v_evspsblpot)
-            elif vi.v_evspsbl in cfg.variables:
-                vi_code_l.append(vi.v_evspsbl)
-            else:
+        # Precipitation.
+        if vi_name in [vi.i_rx1day, vi.i_rx5day, vi.i_cwd, vi.i_cdd, vi.i_sdii, vi.i_prcptot, vi.i_r10mm, vi.i_r20mm,
+                       vi.i_rnnmm, vi.i_wet_days, vi.i_dry_days, vi.i_rain_season_start, vi.i_rain_season_end,
+                       vi.i_rain_season_prcptot, vi.i_dry_spell_total_length, vi.i_rain_season]:
+            vi_code_l.append(vi.v_pr)
+
+            if vi_name in [vi.i_rain_season_end, vi.i_rain_season]:
+                if vi.v_evspsblpot in cfg.variables:
+                    vi_code_l.append(vi.v_evspsblpot)
+                elif vi.v_evspsbl in cfg.variables:
+                    vi_code_l.append(vi.v_evspsbl)
+                else:
+                    vi_code_l.append("nan")
+
+            if vi_name in [vi.i_rain_season_end, vi.i_rain_season_length, vi.i_rain_season_prcptot]:
+                vi_code_l.append(vi_code.replace(vi_name, vi.i_rain_season_start))
+
+            if vi_name == vi.i_rain_season:
                 vi_code_l.append("nan")
 
-        if vi_name in [vi.i_rain_season_end, vi.i_rain_season_length, vi.i_rain_season_prcptot]:
-            vi_code_l.append(vi_code.replace(vi_name, vi.i_rain_season_start))
+            if vi_name in [vi.i_rain_season_end, vi.i_rain_season]:
+                vi_code_l.append(str(vi_params[len(vi_params) - 1]))
 
-        if vi_name == vi.i_rain_season:
-            vi_code_l.append("nan")
+            if vi_name in [vi.i_rain_season_length, vi.i_rain_season_prcptot]:
+                vi_code_l.append(vi_code.replace(vi_name, vi.i_rain_season_end))
 
-        if vi_name in [vi.i_rain_season_end, vi.i_rain_season]:
-            vi_code_l.append(str(vi_params[len(vi_params) - 1]))
+        # Temperature-precipitation.
+        if vi_name == vi.i_drought_code:
+            vi_code_l.append(vi.v_tas)
+            vi_code_l.append(vi.v_pr)
 
-        if vi_name in [vi.i_rain_season_length, vi.i_rain_season_prcptot]:
-            vi_code_l.append(vi_code.replace(vi_name, vi.i_rain_season_end))
+        # Wind.
+        if vi_name == vi.i_wg_days_above:
+            vi_code_l.append(vi.v_uas)
+            vi_code_l.append(vi.v_vas)
 
-    # Temperature-precipitation.
-    if vi_name == vi.i_drought_code:
-        vi_code_l.append(vi.v_tas)
-        vi_code_l.append(vi.v_pr)
+        elif vi_name == vi.i_wx_days_above:
+            vi_code_l.append(vi.v_sfcwindmax)
 
-    # Wind.
-    if vi_name == vi.i_wg_days_above:
-        vi_code_l.append(vi.v_uas)
-        vi_code_l.append(vi.v_vas)
+        # Loop through stations.
+        stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
+        for stn in stns:
 
-    elif vi_name == vi.i_wx_days_above:
-        vi_code_l.append(vi.v_sfcwindmax)
-
-    # Loop through stations.
-    stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
-    for stn in stns:
-
-        # Verify if this variable or index is available for the current station.
-        fu.log("Verifying data availability (based on directories).", True)
-        vi_code_l_avail = True
-        for vi_code_i in vi_code_l:
-            ens = vi.VarIdx(vi_code_i).get_ens()
-            if (vi_code_i != "nan") and \
-               (((ens == vi.ens_cordex) and not os.path.isdir(cfg.get_d_scen(stn, const.cat_qqmap, vi_code_i))) or
-                ((ens != vi.ens_cordex) and not os.path.isdir(cfg.get_d_idx(stn, vi_code_i)))):
-                vi_code_l_avail = False
-                break
-        if not vi_code_l_avail:
-            continue
-
-        # Create mask.
-        da_mask = None
-        if stn == vi.ens_era5_land:
-            da_mask = fu.create_mask()
-
-        # Loop through emissions scenarios.
-        for rcp in rcps:
-
-            fu.log("Processing: " + vi_code + ", " + stn + ", " + str(def_rcp.RCP(rcp).get_desc()) + "", True)
-
-            # List simulation files for the first variable. As soon as there is no file for one variable, the analysis
-            # for the current RCP needs to abort.
-            fu.log("Collecting simulation files.", True)
-            varidx_0 = vi.VarIdx(vi_code_l[0])
-            if rcp == def_rcp.rcp_ref:
-                if varidx_0.get_ens() in vi.ens_cordex:
-                    p_sim = cfg.get_d_stn(vi_code_l[0]) + varidx_0.get_name() + "_" + stn + fu.f_ext_nc
-                else:
-                    p_sim = cfg.get_d_idx(cfg.obs_src, vi_code_l[0]) + varidx_0.get_name() + "_ref" + fu.f_ext_nc
-                if os.path.exists(p_sim) and (type(p_sim) is str):
-                    p_sim = [p_sim]
-            else:
-                if varidx_0.get_ens() == vi.ens_cordex:
-                    d = cfg.get_d_scen(stn, const.cat_qqmap, vi_code_l[0])
-                else:
-                    d = cfg.get_d_idx(stn, vi_code_l[0])
-                p_sim = glob.glob(d + "*_" + rcp + fu.f_ext_nc)
-            if not p_sim:
+            # Verify if this variable or index is available for the current station.
+            fu.log("Verifying data availability (based on directories).", True)
+            vi_code_l_avail = True
+            for vi_code_i in vi_code_l:
+                ens = vi.VarIdx(vi_code_i).get_ens()
+                if (vi_code_i != "nan") and \
+                   (((ens == vi.ens_cordex) and not os.path.isdir(cfg.get_d_scen(stn, const.cat_qqmap, vi_code_i))) or
+                    ((ens != vi.ens_cordex) and not os.path.isdir(cfg.get_d_idx(stn, vi_code_i)))):
+                    vi_code_l_avail = False
+                    break
+            if not vi_code_l_avail:
                 continue
 
-            # Remove simulations that are included in the exceptions lists.
-            p_sim_filter = []
-            for p in p_sim:
-                found = False
-                # List of simulation exceptions.
-                for e in cfg.sim_excepts:
-                    if e.replace(fu.f_ext_nc, "") in p:
-                        found = True
-                        break
-                # List of variable-simulation exceptions.
-                for e in cfg.var_sim_excepts:
-                    if e.replace(fu.f_ext_nc, "") in p:
-                        found = True
-                        break
-                # Add simulation.
-                if not found:
-                    p_sim_filter.append(p)
-            p_sim = p_sim_filter
+            # Create mask.
+            da_mask = None
+            if stn == vi.ens_era5_land:
+                da_mask = fu.create_mask()
 
-            # Ensure that simulations are available for other variables than the first one.
-            fu.log("Verifying data availability (based on NetCDF files).", True)
-            if len(vi_code_l) > 1:
-                p_sim_fix = []
-                for p_sim_i in p_sim:
-                    missing = False
-                    for vi_code_j in vi_code_l[1:]:
-                        if vi_code_j != "nan":
-                            p_sim_j = cfg.get_equivalent_idx_path(p_sim_i, vi_code_l[0], vi_code_j, stn, rcp)
-                            if not os.path.exists(p_sim_j):
-                                missing = True
-                                break
-                    if not missing:
-                        p_sim_fix.append(p_sim_i)
-                p_sim = p_sim_fix
+            # Loop through emissions scenarios.
+            for rcp in rcps:
 
-            # Calculation ---------------------------------------------------------------------------------------------
+                fu.log("Processing: " + vi_code + ", " + stn + ", " + str(def_rcp.RCP(rcp).get_desc()) + "", True)
 
-            fu.log("Calculating climate indices", True)
-
-            n_sim = len(p_sim)
-            d_idx = cfg.get_d_idx(stn, vi_code)
-
-            # Scalar mode.
-            if cfg.n_proc == 1:
-                for i_sim in range(n_sim):
-                    generate_single(vi_code, vi_params, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
-
-            # Parallel processing mode.
-            else:
-
-                # Loop until all simulations have been processed.
-                while True:
-
-                    # Calculate the number of processed files (before generation).
-                    # This verification is based on the index NetCDF file.
-                    n_sim_proc_before = len(list(glob.glob(d_idx + "*" + fu.f_ext_nc)))
-
-                    # Scalar processing mode.
-                    scalar_required = False
-                    if vi_name == vi.i_prcptot:
-                        scalar_required = not str(vi_params[0]).isdigit()
-                    if (cfg.n_proc == 1) or scalar_required:
-                        for i_sim in range(n_sim):
-                            generate_single(vi_code, vi_params, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
-
-                    # Parallel processing mode.
+                # List simulation files for the first variable. As soon as there is no file for one variable, the
+                # analysis for the current RCP needs to abort.
+                fu.log("Collecting simulation files.", True)
+                varidx_0 = vi.VarIdx(vi_code_l[0])
+                if rcp == def_rcp.rcp_ref:
+                    if varidx_0.get_ens() in vi.ens_cordex:
+                        p_sim = cfg.get_d_stn(vi_code_l[0]) + varidx_0.get_name() + "_" + stn + fu.f_ext_nc
                     else:
+                        p_sim = cfg.get_d_idx(cfg.obs_src, vi_code_l[0]) + varidx_0.get_name() + "_ref" + fu.f_ext_nc
+                    if os.path.exists(p_sim) and (type(p_sim) is str):
+                        p_sim = [p_sim]
+                else:
+                    if varidx_0.get_ens() == vi.ens_cordex:
+                        d = cfg.get_d_scen(stn, const.cat_qqmap, vi_code_l[0])
+                    else:
+                        d = cfg.get_d_idx(stn, vi_code_l[0])
+                    p_sim = glob.glob(d + "*_" + rcp + fu.f_ext_nc)
+                if not p_sim:
+                    continue
 
-                        try:
-                            fu.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
-                            pool = multiprocessing.Pool(processes=min(cfg.n_proc, n_sim))
-                            func = functools.partial(generate_single, vi_code, vi_params, vi_code_l, p_sim,
-                                                     stn, rcp, da_mask)
-                            pool.map(func, list(range(n_sim)))
-                            pool.close()
-                            pool.join()
-                            fu.log("Fork ended.", True)
-                        except Exception as e:
-                            fu.log(str(e))
-                            pass
+                # Remove simulations that are included in the exceptions lists.
+                p_sim_filter = []
+                for p in p_sim:
+                    found = False
+                    # List of simulation exceptions.
+                    for e in cfg.sim_excepts:
+                        if e.replace(fu.f_ext_nc, "") in p:
+                            found = True
+                            break
+                    # List of variable-simulation exceptions.
+                    for e in cfg.var_sim_excepts:
+                        if e.replace(fu.f_ext_nc, "") in p:
+                            found = True
+                            break
+                    # Add simulation.
+                    if not found:
+                        p_sim_filter.append(p)
+                p_sim = p_sim_filter
 
-                    # Calculate the number of processed files (after generation).
-                    n_sim_proc_after = len(list(glob.glob(d_idx + "*" + fu.f_ext_nc)))
+                # Ensure that simulations are available for other variables than the first one.
+                fu.log("Verifying data availability (based on NetCDF files).", True)
+                if len(vi_code_l) > 1:
+                    p_sim_fix = []
+                    for p_sim_i in p_sim:
+                        missing = False
+                        for vi_code_j in vi_code_l[1:]:
+                            if vi_code_j != "nan":
+                                p_sim_j = cfg.get_equivalent_idx_path(p_sim_i, vi_code_l[0], vi_code_j, stn, rcp)
+                                if not os.path.exists(p_sim_j):
+                                    missing = True
+                                    break
+                        if not missing:
+                            p_sim_fix.append(p_sim_i)
+                    p_sim = p_sim_fix
 
-                    # If no simulation has been processed during a loop iteration, this means that the work is done.
-                    if (cfg.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
-                        break
+                # Calculation ------------------------------------------------------------------------------------------
+
+                fu.log("Calculating climate indices", True)
+
+                n_sim = len(p_sim)
+                d_idx = cfg.get_d_idx(stn, vi_code)
+
+                # Scalar mode.
+                if cfg.n_proc == 1:
+                    for i_sim in range(n_sim):
+                        gen_single(vi_code, vi_params, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
+
+                # Parallel processing mode.
+                else:
+
+                    # Loop until all simulations have been processed.
+                    while True:
+
+                        # Calculate the number of processed files (before generation).
+                        # This verification is based on the index NetCDF file.
+                        n_sim_proc_before = len(list(glob.glob(d_idx + "*" + fu.f_ext_nc)))
+
+                        # Scalar processing mode.
+                        scalar_required = False
+                        if vi_name == vi.i_prcptot:
+                            scalar_required = not str(vi_params[0]).isdigit()
+                        if (cfg.n_proc == 1) or scalar_required:
+                            for i_sim in range(n_sim):
+                                gen_single(vi_code, vi_params, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
+
+                        # Parallel processing mode.
+                        else:
+
+                            try:
+                                fu.log("Splitting work between " + str(cfg.n_proc) + " threads.", True)
+                                pool = multiprocessing.Pool(processes=min(cfg.n_proc, n_sim))
+                                func = functools.partial(gen_single, vi_code, vi_params, vi_code_l, p_sim,
+                                                         stn, rcp, da_mask)
+                                pool.map(func, list(range(n_sim)))
+                                pool.close()
+                                pool.join()
+                                fu.log("Fork ended.", True)
+                            except Exception as e:
+                                fu.log(str(e))
+                                pass
+
+                        # Calculate the number of processed files (after generation).
+                        n_sim_proc_after = len(list(glob.glob(d_idx + "*" + fu.f_ext_nc)))
+
+                        # If no simulation has been processed during a loop iteration, this means that the work is done.
+                        if (cfg.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
+                            break
 
 
-def generate_single(
+def gen_single(
     vi_code: str,
     vi_params,
     vi_code_l: [str],
@@ -1884,6 +1882,135 @@ def w_days_above(
     return da_w_days_above
 
 
+def gen_per_idx(
+    func_name: str,
+    view_code: Optional[str] = ""
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate diagnostic and cycle plots.
+
+    func_name: str
+        Name of function to be called.
+    view_code: Optional[str]
+        View code.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Number of indices to process.
+    n_idx = len(cfg.idx_codes)
+
+    # Scalar mode.
+    if cfg.n_proc == 1:
+        for i_idx in range(n_idx):
+            if func_name == "calc_diag_cycle":
+                calc_diag_cycle(cfg.idx_codes, i_idx)
+            elif func_name == "stats.calc_map":
+                stats.calc_map(cfg.idx_codes, i_idx)
+            elif func_name == "stats.calc_ts":
+                stats.calc_ts(view_code, cfg.idx_codes, i_idx)
+            else:
+                stats.calc_stats(cfg.idx_codes, i_idx)
+
+    # Parallel processing mode.
+    else:
+
+        for i in range(math.ceil(n_idx / cfg.n_proc)):
+
+            # Select indices to process in the current loop.
+            i_first = i * cfg.n_proc
+            i_last = min((i + 1) * cfg.n_proc, n_idx - 1)
+            n_proc = i_last - i_first + 1
+            idx_codes = cfg.idx_codes[i_first, i_last]
+
+            try:
+                fu.log("Splitting work between " + str(n_proc) + " threads.", True)
+                pool = multiprocessing.Pool(processes=n_proc)
+                if func_name == "calc_diag_cycle":
+                    func = functools.partial(calc_diag_cycle, idx_codes)
+                elif func_name == "stats.calc_map":
+                    func = functools.partial(stats.calc_map, idx_codes)
+                elif func_name == "stats.calc_ts":
+                    func = functools.partial(stats.calc_ts, view_code, idx_codes)
+                else:
+                    func = functools.partial(stats.calc_stats, idx_codes)
+                pool.map(func, list(range(idx_codes)))
+                pool.close()
+                pool.join()
+                fu.log("Fork ended.", True)
+
+            except Exception as e:
+                fu.log(str(e))
+                pass
+
+
+def calc_diag_cycle(
+    idx_codes: List[str],
+    i_idx_proc: int
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate diagnostic and cycle plots.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Get index code and name.
+    idx_code = idx_codes[i_idx_proc]
+    idx_name = str(vi.VarIdx(idx_code).get_name())
+
+    # Loop through stations.
+    stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
+    for stn in stns:
+
+        fu.log("Processing: " + idx_code + ", " + stn, True)
+
+        # Path ofo NetCDF file containing station data.
+        p_obs = cfg.get_p_obs(stn, idx_code)
+
+        # Loop through raw NetCDF files.
+        p_l = list(glob.glob(cfg.get_d_idx(stn, idx_code) + "*" + fu.f_ext_nc))
+        for i in range(len(p_l)):
+            p = p_l[i]
+
+            # File name.
+            fn_fig = p.split(cfg.sep)[-1].replace(fu.f_ext_nc, fu.f_ext_png)
+
+            # Generate monthly and daily plots.
+            ds = fu.open_netcdf(p)
+            for per in cfg.per_hors:
+                per_str = str(per[0]) + "_" + str(per[1])
+
+                # This creates 2 files:
+                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
+                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
+                title = fn_fig[:-4] + per_str + "_" + const.cat_fig_cycle_ms
+                stats.calc_cycle(ds, stn, idx_name, per, const.freq_MS, title)
+
+                # This creates 2 files:
+                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
+                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
+                title = fn_fig[:-4] + per_str + "_" + const.cat_fig_cycle_d
+                stats.calc_cycle(ds, stn, idx_name, per, const.freq_D, title)
+
+        if os.path.exists(p_obs):
+            ds_obs = fu.open_netcdf(p_obs)
+            per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
+
+            # This creates 2 files:
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
+            title = idx_name + "_" + per_str + "_" + const.cat_fig_cycle_ms
+            stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, const.freq_MS, title)
+
+            # This creates 2 files:
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
+            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
+            title = idx_name + "_" + per_str + "_" + const.cat_fig_cycle_d
+            stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, const.freq_D, title)
+
+
 def run():
 
     """
@@ -1894,9 +2021,6 @@ def run():
 
     not_req = " (not required)"
 
-    # Explode the list of index codes.
-    idx_codes_exploded = vi.explode_idx_l(cfg.idx_codes)
-
     # Indices ----------------------------------------------------------------------------------------------------------
 
     # Calculate indices.
@@ -1904,25 +2028,17 @@ def run():
     msg = "Step #6   Calculating indices"
     if cfg.opt_idx:
         fu.log(msg)
-        for i in range(0, len(cfg.idx_codes)):
-            generate(cfg.idx_codes[i])
+        gen()
     else:
         fu.log(msg + not_req)
 
     # Statistics -------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    msg = "Step #7   Exporting results (indices)"
-    if cfg.opt_stat[1] or cfg.opt_save_csv[1]:
-        fu.log(msg)
-    else:
-        fu.log(msg + not_req)
-
-    fu.log("-")
     msg = "Step #7a  Calculating statistics (indices)"
     if cfg.opt_stat[1]:
         fu.log(msg)
-        stats.calc_stats(const.cat_idx)
+        gen_per_idx("stats.calc_stats")
     else:
         fu.log(msg + not_req)
 
@@ -1938,97 +2054,28 @@ def run():
     # Plots ------------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    msg = "Step #8   Generating plots and maps (indices)"
-    if cfg.opt_map[1]:
+    fu.log("Step #8a  Generating daily and monthly plots (indices)")
+    if cfg.opt_cycle[1] and (len(cfg.opt_cycle_format) > 0):
         fu.log(msg)
+        gen_per_idx("calc_diag_cycle")
     else:
         fu.log(msg + not_req)
-
-    # Generate daily and monthly plots.
-    if cfg.opt_cycle[1] and (len(cfg.opt_cycle_format) > 0):
-
-        fu.log("-")
-        fu.log("Step #8a  Generating daily and monthly plots (indices)")
-
-        # Loop through variables.
-        for idx_code in cfg.idx_codes:
-            idx_name = str(vi.VarIdx(idx_code).get_name())
-
-            # Loop through stations.
-            stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
-            for stn in stns:
-
-                fu.log("Processing: " + idx_code + ", " + stn, True)
-
-                # Path ofo NetCDF file containing station data.
-                p_obs = cfg.get_p_obs(stn, idx_code)
-
-                # Loop through raw NetCDF files.
-                p_l = list(glob.glob(cfg.get_d_idx(stn, idx_code) + "*" + fu.f_ext_nc))
-                for i in range(len(p_l)):
-                    p = p_l[i]
-
-                    # File name.
-                    fn_fig = p.split(cfg.sep)[-1].replace(fu.f_ext_nc, fu.f_ext_png)
-
-                    # Generate monthly and daily plots.
-                    ds = fu.open_netcdf(p)
-                    for per in cfg.per_hors:
-                        per_str = str(per[0]) + "_" + str(per[1])
-
-                        # This creates 2 files:
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
-                        title = fn_fig[:-4] + per_str + "_" + const.cat_fig_cycle_ms
-                        stats.calc_cycle(ds, stn, idx_name, per, const.freq_MS, title)
-
-                        # This creates 2 files:
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
-                        #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
-                        title = fn_fig[:-4] + per_str + "_" + const.cat_fig_cycle_d
-                        stats.calc_cycle(ds, stn, idx_name, per, const.freq_D, title)
-
-                if os.path.exists(p_obs):
-
-                    ds_obs = fu.open_netcdf(p_obs)
-                    per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
-
-                    # This creates 2 files:
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
-                    title = idx_name + "_" + per_str + "_" + const.cat_fig_cycle_ms
-                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, const.freq_MS, title)
-
-                    # This creates 2 files:
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
-                    title = idx_name + "_" + per_str + "_" + const.cat_fig_cycle_d
-                    stats.calc_cycle(ds_obs, stn, idx_name, cfg.per_ref, const.freq_D, title)
 
     # Generate plots.
     fu.log("-")
     msg = "Step #8b  Generating time series (indices)"
     if cfg.opt_ts[1] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
-        stats.calc_ts(const.cat_idx)
+        gen_per_idx("stats.calc_ts", def_view.code_ts)
     else:
         fu.log(msg + not_req)
 
     # Generate maps.
-    # Heat maps are not generated from data at stations:
-    # - the result is not good with a limited number of stations;
-    # - calculation is very slow (something is wrong).
     fu.log("-")
-    msg = "Step #8c  Generating heat maps (indices)"
+    msg = "Step #8c  Generating maps (indices)"
     if cfg.opt_ra and cfg.opt_map[1] and (len(cfg.opt_map_format) > 0):
         fu.log(msg)
-
-        # Loop through indices.
-        for i in range(len(idx_codes_exploded)):
-
-            # Generate maps.
-            stats.calc_map(idx_codes_exploded[i])
-
+        gen_per_idx("stats.calc_map")
     else:
         fu.log(msg + " (not required)")
 

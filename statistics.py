@@ -293,7 +293,8 @@ def calc_stat(
 
 
 def calc_stats(
-    cat: str
+    vi_code_l: List[str],
+    i_vi_proc: int,
 ):
 
     """
@@ -302,10 +303,23 @@ def calc_stats(
 
     Parameters
     ----------
-    cat : str
-        Category: const.cat_scen is for climate scenarios or const.cat_idx for climate indices.
+    vi_code_l: List[str],
+        Variables or index codes.
+    i_vi_proc: int
+        Rank of variable or index to process.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Get variable or index code.
+    vi_code = vi_code_l[i_vi_proc]
+
+    cat = const.cat_scen if vi_code in cfg.variables else const.cat_idx
+    if cat == const.cat_scen:
+        vi_code_l = [vi_code]
+        vi_name_l = [vi_code]
+    else:
+        vi_code_l = vi.explode_idx_l([vi_code])
+        vi_name_l = vi.explode_idx_l(vi.VarIdx(vi_code).get_name())
 
     # List emission scenarios.
     rcps = [def_rcp.rcp_ref] + cfg.rcps
@@ -319,15 +333,11 @@ def calc_stats(
     stns = (cfg.stns if not cfg.opt_ra else [cfg.obs_src])
     for stn in stns:
 
-        # Explode lists of codes and names.
-        idx_names_exploded = vi.explode_idx_l(cfg.idx_names)
-        idx_codes_exploded = vi.explode_idx_l(cfg.idx_codes)
-
-        # Loop through variables (or indices).
-        vi_name_l = cfg.variables if cat == const.cat_scen else idx_names_exploded
-        for i_varidx in range(len(vi_name_l)):
-            vi_name = vi_name_l[i_varidx]
-            vi_code = vi_name if cat == const.cat_scen else idx_codes_exploded[i_varidx]
+        # Loop through variables or indices.
+        # There should be a single item in the list, unless 'vi_code' is a group of indices.
+        for i_vi in range(len(vi_name_l)):
+            vi_code = vi_code_l[i_vi]
+            vi_name = vi_name_l[i_vi]
             vi_code_grp = vi.get_group(vi_code)
 
             # Skip iteration if the file already exists.
@@ -439,8 +449,9 @@ def calc_stats(
 
 
 def calc_ts(
-    cat: str,
-    view_code: str = def_view.code_ts
+    view_code: str,
+    vi_code_l: List[str],
+    i_vi_proc: int,
 ):
 
     """
@@ -449,120 +460,123 @@ def calc_ts(
 
     Parameters
     ----------
-    cat : str
-        Category: const.cat_scen is for climate scenarios or const.cat_idx for climate indices.
     view_code : str
         View code.
+    vi_code_l: List[str],
+        Variables or index codes.
+    i_vi_proc: int
+        Rank of variable or index to process.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Get variable or index code.
+    vi_code = vi_code_l[i_vi_proc]
+
+    cat = const.cat_scen if vi_code in cfg.variables else const.cat_idx
 
     # Loop through stations.
     stns = cfg.stns if not cfg.opt_ra else [cfg.obs_src]
     for stn in stns:
 
-        # Loop through variables.
-        vi_code_l = cfg.variables if cat == const.cat_scen else vi.explode_idx_l(cfg.idx_codes)
-        for vi_code in vi_code_l:
+        # Extract information about the variable of index.
+        varidx = vi.VarIdx(vi_code)
+        vi_name = str(varidx.get_name())
+        vi_code_grp = vi.get_group(vi_code)
 
-            # Extract information about the variable.
-            varidx = vi.VarIdx(vi_code)
-            vi_name = str(varidx.get_name())
-            vi_code_grp = vi.get_group(vi_code)
+        # Status message.
+        msg = vi_code
+        if vi_code_grp != vi_code:
+            msg = vi_code_grp + "." + msg
+        fu.log("Processing: " + stn + ", " + msg, True)
 
-            # Status message.
-            msg = vi_code
-            if vi_code_grp != vi_code:
-                msg = vi_code_grp + "." + msg
-            fu.log("Processing: " + stn + ", " + msg, True)
+        # Path of files to be created.
+        cat_fig = const.cat_fig + cfg.sep + cat + cfg.sep + view_code
+        fn = vi_name + "_" + dash_plot.mode_rcp
+        # CSV files:
+        p_rcp_csv = cfg.get_d_scen(stn, cat_fig, vi_code_grp + "_" + fu.f_csv) + fn + fu.f_ext_csv
+        p_sim_csv = p_rcp_csv.replace("_" + dash_plot.mode_rcp, "_" + dash_plot.mode_sim)
+        p_rcp_del_csv = p_rcp_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
+        p_sim_del_csv = p_sim_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
+        # PNG files.
+        p_rcp_fig = cfg.get_d_scen(stn, cat_fig, vi_code_grp) + fn + fu.f_ext_png
+        p_sim_fig = p_rcp_fig.replace("_" + dash_plot.mode_rcp + fu.f_ext_png,
+                                      "_" + dash_plot.mode_sim + fu.f_ext_png)
+        p_rcp_del_fig = p_rcp_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
+        p_sim_del_fig = p_sim_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
 
-            # Path of files to be created.
-            cat_fig = const.cat_fig + cfg.sep + cat + cfg.sep + view_code
-            fn = vi_name + "_" + dash_plot.mode_rcp
-            # CSV files:
-            p_rcp_csv = cfg.get_d_scen(stn, cat_fig, vi_code_grp + "_" + fu.f_csv) + fn + fu.f_ext_csv
-            p_sim_csv = p_rcp_csv.replace("_" + dash_plot.mode_rcp, "_" + dash_plot.mode_sim)
-            p_rcp_del_csv = p_rcp_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
-            p_sim_del_csv = p_sim_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
-            # PNG files.
-            p_rcp_fig = cfg.get_d_scen(stn, cat_fig, vi_code_grp) + fn + fu.f_ext_png
-            p_sim_fig = p_rcp_fig.replace("_" + dash_plot.mode_rcp + fu.f_ext_png,
-                                          "_" + dash_plot.mode_sim + fu.f_ext_png)
-            p_rcp_del_fig = p_rcp_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
-            p_sim_del_fig = p_sim_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
+        # Skip if no work required.
+        save_csv = (not os.path.exists(p_rcp_csv) or not os.path.exists(p_sim_csv) or
+                    not os.path.exists(p_rcp_del_csv) or not os.path.exists(p_sim_del_csv)) and \
+                   (cfg.opt_save_csv[0 if cat == const.cat_scen else 1])
+        save_fig = (not os.path.exists(p_rcp_fig) or not os.path.exists(p_sim_fig) or
+                    not os.path.exists(p_rcp_del_fig) or not os.path.exists(p_sim_del_fig))
+        if (not save_csv) and (not save_fig) and (not cfg.opt_force_overwrite):
+            continue
 
-            # Skip if no work required.
-            save_csv = (not os.path.exists(p_rcp_csv) or not os.path.exists(p_sim_csv) or
-                        not os.path.exists(p_rcp_del_csv) or not os.path.exists(p_sim_del_csv)) and \
-                       (cfg.opt_save_csv[0 if cat == const.cat_scen else 1])
-            save_fig = (not os.path.exists(p_rcp_fig) or not os.path.exists(p_sim_fig) or
-                        not os.path.exists(p_rcp_del_fig) or not os.path.exists(p_sim_del_fig))
-            if (not save_csv) and (not save_fig) and (not cfg.opt_force_overwrite):
-                continue
+        # Create context.
+        cntx = def_context.Context(def_context.code_script)
+        cntx.view = def_view.View(view_code)
+        cntx.lib = def_lib.Lib(def_lib.mode_mat)
+        cntx.varidx = vi.VarIdx(vi_code)
+        cntx.rcps = def_rcp.RCPs(cfg.rcps)
+        cntx.rcp = def_rcp.RCP("")
+        cntx.sim = def_sim.Sim("")
 
-            # Create context.
-            cntx = def_context.Context(def_context.code_script)
-            cntx.view = def_view.View(view_code)
-            cntx.lib = def_lib.Lib(def_lib.mode_mat)
-            cntx.varidx = vi.VarIdx(vi_code)
-            cntx.rcps = def_rcp.RCPs(cfg.rcps)
-            cntx.rcp = def_rcp.RCP("")
-            cntx.sim = def_sim.Sim("")
+        # Attempt loading CSV files into dataframes.
+        if os.path.exists(p_rcp_csv) and os.path.exists(p_sim_csv) and \
+           os.path.exists(p_rcp_del_csv) and os.path.exists(p_sim_del_csv):
+            df_rcp = pd.read_csv(p_rcp_csv)
+            df_sim = pd.read_csv(p_sim_csv)
+            df_rcp_del = pd.read_csv(p_rcp_del_csv)
+            df_sim_del = pd.read_csv(p_sim_del_csv)
 
-            # Attempt loading CSV files into dataframes.
-            if os.path.exists(p_rcp_csv) and os.path.exists(p_sim_csv) and \
-               os.path.exists(p_rcp_del_csv) and os.path.exists(p_sim_del_csv):
-                df_rcp = pd.read_csv(p_rcp_csv)
-                df_sim = pd.read_csv(p_sim_csv)
-                df_rcp_del = pd.read_csv(p_rcp_del_csv)
-                df_sim_del = pd.read_csv(p_sim_del_csv)
+        # Generate dataframes.
+        else:
+            df_rcp, df_sim, df_rcp_del, df_sim_del = calc_ts_prep(cntx, stn)
 
-            # Generate dataframes.
-            else:
-                df_rcp, df_sim, df_rcp_del, df_sim_del = calc_ts_prep(cntx, stn)
+        # CSV file format ------------------------------------------------------------------------------------------
 
-            # CSV file format ------------------------------------------------------------------------------------------
+        if fu.f_csv in cfg.opt_ts_format:
+            if (not os.path.exists(p_rcp_csv)) or cfg.opt_force_overwrite:
+                fu.save_csv(df_rcp, p_rcp_csv)
+            if (not os.path.exists(p_sim_csv)) or cfg.opt_force_overwrite:
+                fu.save_csv(df_sim, p_sim_csv)
+            if (not os.path.exists(p_rcp_del_csv)) or cfg.opt_force_overwrite:
+                fu.save_csv(df_rcp_del, p_rcp_del_csv)
+            if (not os.path.exists(p_sim_del_csv)) or cfg.opt_force_overwrite:
+                fu.save_csv(df_sim_del, p_sim_del_csv)
 
-            if fu.f_csv in cfg.opt_ts_format:
-                if (not os.path.exists(p_rcp_csv)) or cfg.opt_force_overwrite:
-                    fu.save_csv(df_rcp, p_rcp_csv)
-                if (not os.path.exists(p_sim_csv)) or cfg.opt_force_overwrite:
-                    fu.save_csv(df_sim, p_sim_csv)
-                if (not os.path.exists(p_rcp_del_csv)) or cfg.opt_force_overwrite:
-                    fu.save_csv(df_rcp_del, p_rcp_del_csv)
-                if (not os.path.exists(p_sim_del_csv)) or cfg.opt_force_overwrite:
-                    fu.save_csv(df_sim_del, p_sim_del_csv)
+        # PNG file format ------------------------------------------------------------------------------------------
 
-            # PNG file format ------------------------------------------------------------------------------------------
+        if fu.f_png in cfg.opt_ts_format:
 
-            if fu.f_png in cfg.opt_ts_format:
+            # Loop through modes (rcp|sim).
+            for mode in [dash_plot.mode_rcp, dash_plot.mode_sim]:
 
-                # Loop through modes (rcp|sim).
-                for mode in [dash_plot.mode_rcp, dash_plot.mode_sim]:
+                # Loop through delta.
+                for delta in [False, True]:
+                    cntx.delta = def_delta.Del(delta)
 
-                    # Loop through delta.
-                    for delta in [False, True]:
-                        cntx.delta = def_delta.Del(delta)
-
-                        # Select dataset and output file name.
-                        if mode == dash_plot.mode_rcp:
-                            if not delta:
-                                df_mode = df_rcp
-                                p_fig = p_rcp_fig
-                            else:
-                                df_mode = df_rcp_del
-                                p_fig = p_rcp_del_fig
+                    # Select dataset and output file name.
+                    if mode == dash_plot.mode_rcp:
+                        if not delta:
+                            df_mode = df_rcp
+                            p_fig = p_rcp_fig
                         else:
-                            if not delta:
-                                df_mode  = df_sim
-                                p_fig = p_sim_fig
-                            else:
-                                df_mode = df_sim_del
-                                p_fig = p_sim_del_fig
+                            df_mode = df_rcp_del
+                            p_fig = p_rcp_del_fig
+                    else:
+                        if not delta:
+                            df_mode  = df_sim
+                            p_fig = p_sim_fig
+                        else:
+                            df_mode = df_sim_del
+                            p_fig = p_sim_del_fig
 
-                        # Generate plot.
-                        if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
-                            fig = dash_plot.gen_ts(cntx, df_mode, mode)
-                            fu.save_plot(fig, p_fig)
+                    # Generate plot.
+                    if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
+                        fig = dash_plot.gen_ts(cntx, df_mode, mode)
+                        fu.save_plot(fig, p_fig)
 
 
 def calc_ts_prep(
@@ -1011,7 +1025,8 @@ def calc_by_freq(
 
 
 def calc_map(
-    vi_code: str
+    vi_code_l: List[str],
+    i_vi_proc: int
 ):
 
     """
@@ -1020,10 +1035,15 @@ def calc_map(
 
     Parameters
     ----------
-    vi_code: str
-        Climate index code.
+    vi_code_l: List[str],
+        Variables or indices.
+    i_vi_proc: int
+        Rank of variable or index to process.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Get variable or index.
+    vi_code = vi_code_l[i_vi_proc]
 
     # Extract variable name, group and RCPs.
     cat = const.cat_scen if vi_code in cfg.variables else const.cat_idx

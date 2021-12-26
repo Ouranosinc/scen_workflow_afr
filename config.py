@@ -682,6 +682,9 @@ class Config(def_context.Context):
         # Other variables and indices.
         self.opt_map_col_default = []
 
+        # Number of processes
+        self.n_proc = 1
+
     def load(
         self,
         p_ini: str
