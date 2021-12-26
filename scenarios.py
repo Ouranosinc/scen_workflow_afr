@@ -1650,7 +1650,8 @@ def run():
         fu.log(msg + not_req)
 
     # Generate diagnostic and bias plots (daily and monthly).
-    if cfg.opt_diagnostic[0] or cfg.opt_cycle[0]:
+    if (cfg.opt_diagnostic[0] and (len(cfg.opt_diagnostic_format) > 0)) or\
+       (cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0)):
 
         fu.log("-")
         fu.log("Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)")
@@ -1692,7 +1693,7 @@ def run():
                         replace("_4qqmap" + fu.f_ext_nc, "_" + const.cat_fig_postprocess + fu.f_ext_png)
 
                     # Generate diagnostic plots.
-                    if cfg.opt_diagnostic[0]:
+                    if cfg.opt_diagnostic[0] and (len(cfg.opt_diagnostic_format) > 0):
 
                         # This creates one file:
                         #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
@@ -1712,7 +1713,7 @@ def run():
                             plot.plot_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
                     # Generate monthly and daily plots.
-                    if cfg.opt_cycle[0]:
+                    if cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0):
 
                         ds_qqmap = fu.open_netcdf(p_qqmap)
                         for per in cfg.per_hors:
@@ -1732,7 +1733,7 @@ def run():
                                                         const.cat_fig_cycle_d)
                             stats.calc_cycle(ds_qqmap, stn, var, per, const.freq_D, title)
 
-                if os.path.exists(p_obs) and cfg.opt_cycle[0]:
+                if os.path.exists(p_obs) and cfg.opt_cycle[0] and (len(cfg.opt_cycle_format) > 0):
 
                     ds_obs = fu.open_netcdf(p_obs)
                     per_str = str(cfg.per_ref[0]) + "_" + str(cfg.per_ref[1])
@@ -1751,7 +1752,7 @@ def run():
 
     fu.log("-")
     msg = "Step #8b  Generating time series (scenarios, bias-adjusted values)"
-    if cfg.opt_ts[0]:
+    if cfg.opt_ts[0] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
         stats.calc_ts(const.cat_scen, def_view.code_ts)
     else:
@@ -1759,21 +1760,19 @@ def run():
 
     fu.log("-")
     msg = "Step #8c  Generating time series (scenarios, raw values and bias)"
-    if cfg.opt_ts_bias[0]:
+    if cfg.opt_ts_bias[0] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
         stats.calc_ts(const.cat_scen, def_view.code_ts_bias)
     else:
         fu.log(msg + not_req)
 
-    # Heat maps --------------------------------------------------------------------------------------------------------
-
     # Generate maps.
-    # Heat maps are not generated from data at stations:
+    # Maps are not generated from data at stations:
     # - the result is not good with a limited number of stations;
-    # - calculation is very slow (something is wrong).
+    # - calculation is very slow.
     fu.log("-")
     msg = "Step #8d  Generating heat maps (scenarios)"
-    if cfg.opt_ra and cfg.opt_map[0]:
+    if cfg.opt_ra and cfg.opt_map[0] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
 
         # Loop through variables.

@@ -27,7 +27,9 @@ cat_fig_postprocess = "postprocess"     # Figures (postprocess).
 cat_fig_workflow    = "workflow"        # Figures (workflow).
 cat_fig_cycle_ms    = "cycle_ms"        # Figures (annual cycle, monthly).
 cat_fig_cycle_d     = "cycle_d"         # Figures (annual cycle, daily).
+cat_fig_ts          = "ts"              # Figures (time series).
 cat_fig_ts_bias     = "ts_bias"         # Figures (time series, bias).
+cat_fig_map         = "map"             # Figures (map).
 
 # Conversion coefficients.
 spd                 = 86400             # Number of seconds per day.

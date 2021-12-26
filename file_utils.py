@@ -379,7 +379,7 @@ def save_plot(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Save a plot to a .png file.
+    Save a plot to a file.
 
     Parameters
     ----------
@@ -407,7 +407,7 @@ def save_plot(
     if os.path.exists(p):
         os.remove(p)
 
-    # Create PNG file.
+    # Save file.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=UserWarning)
         plt.savefig(p)

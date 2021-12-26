@@ -59,14 +59,14 @@ Implemented features:
 - compatibility with gridded data (not only at a station);
 - generation of maps for climate variables (interpolation);
 - implementation of parallel processing for computationally expensive steps;
-- clipping of scenario and index results if region boundaries are specified (in a .geojson file);
-- calculation of statistics based on region boundaries (.geojson file) if reanalysis data is provided;
-- conversion of NetCDF files to .csv files (only if the analysis is based on observations).
+- clipping of scenario and index results if region boundaries are specified (in a GEOJSON file);
+- calculation of statistics based on region boundaries (GEOJSON file) if reanalysis data is provided;
+- conversion of NetCDF files to CSV files (only if the analysis is based on observations).
 
 ### v1.1.1
 
 Implemented features:
-- conversion of heat maps and time series to .csv;
+- conversion of heat maps and time series to CSV;
 - heat maps of wind variables now use a blue-white-red color bar with white corresponding to zero.
 
 Other change made:

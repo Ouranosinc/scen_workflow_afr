@@ -28,7 +28,7 @@ from config import cfg
 from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
 from streamlit import caching
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Optional
 
 import sys
 sys.path.append("dashboard")
@@ -484,19 +484,19 @@ def calc_ts(
             p_rcp_del_csv = p_rcp_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
             p_sim_del_csv = p_sim_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
             # PNG files.
-            p_rcp_png = cfg.get_d_scen(stn, cat_fig, vi_code_grp) + fn + fu.f_ext_png
-            p_sim_png = p_rcp_png.replace("_" + dash_plot.mode_rcp + fu.f_ext_png,
+            p_rcp_fig = cfg.get_d_scen(stn, cat_fig, vi_code_grp) + fn + fu.f_ext_png
+            p_sim_fig = p_rcp_fig.replace("_" + dash_plot.mode_rcp + fu.f_ext_png,
                                           "_" + dash_plot.mode_sim + fu.f_ext_png)
-            p_rcp_del_png = p_rcp_png.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
-            p_sim_del_png = p_sim_png.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
+            p_rcp_del_fig = p_rcp_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
+            p_sim_del_fig = p_sim_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
 
             # Skip if no work required.
             save_csv = (not os.path.exists(p_rcp_csv) or not os.path.exists(p_sim_csv) or
                         not os.path.exists(p_rcp_del_csv) or not os.path.exists(p_sim_del_csv)) and \
                        (cfg.opt_save_csv[0 if cat == const.cat_scen else 1])
-            save_png = (not os.path.exists(p_rcp_png) or not os.path.exists(p_sim_png) or
-                        not os.path.exists(p_rcp_del_png) or not os.path.exists(p_sim_del_png))
-            if (not save_csv) and (not save_png) and (not cfg.opt_force_overwrite):
+            save_fig = (not os.path.exists(p_rcp_fig) or not os.path.exists(p_sim_fig) or
+                        not os.path.exists(p_rcp_del_fig) or not os.path.exists(p_sim_del_fig))
+            if (not save_csv) and (not save_fig) and (not cfg.opt_force_overwrite):
                 continue
 
             # Create context.
@@ -522,7 +522,7 @@ def calc_ts(
 
             # CSV file format ------------------------------------------------------------------------------------------
 
-            if cfg.opt_save_csv[0 if cat == const.cat_scen else 1]:
+            if fu.f_csv in cfg.opt_ts_format:
                 if (not os.path.exists(p_rcp_csv)) or cfg.opt_force_overwrite:
                     fu.save_csv(df_rcp, p_rcp_csv)
                 if (not os.path.exists(p_sim_csv)) or cfg.opt_force_overwrite:
@@ -534,7 +534,7 @@ def calc_ts(
 
             # PNG file format ------------------------------------------------------------------------------------------
 
-            if fu.f_png in cfg.opt_map_formats:
+            if fu.f_png in cfg.opt_ts_format:
 
                 # Loop through modes (rcp|sim).
                 for mode in [dash_plot.mode_rcp, dash_plot.mode_sim]:
@@ -547,28 +547,28 @@ def calc_ts(
                         if mode == dash_plot.mode_rcp:
                             if not delta:
                                 df_mode = df_rcp
-                                p_png = p_rcp_png
+                                p_fig = p_rcp_fig
                             else:
                                 df_mode = df_rcp_del
-                                p_png = p_rcp_del_png
+                                p_fig = p_rcp_del_fig
                         else:
                             if not delta:
                                 df_mode  = df_sim
-                                p_png = p_sim_png
+                                p_fig = p_sim_fig
                             else:
                                 df_mode = df_sim_del
-                                p_png = p_sim_del_png
+                                p_fig = p_sim_del_fig
 
                         # Generate plot.
-                        if (not os.path.exists(p_png)) or cfg.opt_force_overwrite:
+                        if (not os.path.exists(p_fig)) or cfg.opt_force_overwrite:
                             fig = dash_plot.gen_ts(cntx, df_mode, mode)
-                            fu.save_plot(fig, p_png)
+                            fu.save_plot(fig, p_fig)
 
 
 def calc_ts_prep(
     cntx: def_context.Context,
     stn: str
-) -> Tuple[Union[DataFrame, None], Union[DataFrame, None], Union[DataFrame, None], Union[DataFrame, None]]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -583,7 +583,7 @@ def calc_ts_prep(
 
     Returns
     -------
-    Tuple[Union[DataFrame, None], Union[DataFrame, None], Union[DataFrame, None], Union[DataFrame, None]]
+    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
         Two dataframes (rcp|sim).
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -1032,18 +1032,62 @@ def calc_map(
     vi_code_grp = vi.get_group(vi_code)
     rcps = [def_rcp.rcp_ref, def_rcp.rcp_xx] + cfg.rcps
 
+    stn = "stns" if not cfg.opt_ra else cfg.obs_src
+
     msg = "Calculating maps."
     fu.log(msg, True)
+
+    # Get statistic string.
+    def get_stat_str(
+        _stat: str,
+        _q: float
+    ):
+
+        if _stat in [def_stat.code_mean, def_stat.code_min, def_stat.code_max]:
+            _stat_str = "_" + _stat
+        else:
+            _stat_str = "_q" + str(int(_q * 100)).rjust(2, "0")
+
+        return _stat_str
+
+    # Get the path of the CSV and PNG files.
+    def get_p_csv_fig(
+        _per: List[int],
+        _per_str: str,
+        _stat: str,
+        _delta: Optional[bool] = False
+    ) -> Tuple[str, str]:
+
+        # PNG file.
+        _d_fig =\
+            cfg.get_d_scen(stn, const.cat_fig + cfg.sep + cat + cfg.sep + const.cat_fig_map,
+                           (vi_code_grp + cfg.sep if vi_code_grp != vi_code else "") + vi_code + cfg.sep + _per_str)
+        _stat_str = get_stat_str(stat, q)
+        _fn_fig = vi_name + "_" + rcp + "_" + str(_per[0]) + "_" + str(_per[1]) + _stat_str + fu.f_ext_png
+        _p_fig = _d_fig + _fn_fig
+        if _delta:
+            _p_fig = _p_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
+
+        # CSV file.
+        _d_csv = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + cat + cfg.sep + "map",
+                                (vi_code_grp + cfg.sep if vi_code_grp != vi_code else "") +
+                                vi_code + "_csv" + cfg.sep + _per_str)
+        _fn_csv = _fn_fig.replace(fu.f_ext_png, fu.f_ext_csv)
+        _p_csv = _d_csv + _fn_csv
+        if _delta:
+            _p_csv = _p_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
+
+        return _p_csv, _p_fig
 
     # Prepare data -----------------------------------------------------------------------------------------------------
 
     # Calculate the overall minimum and maximum values (considering all maps for the current 'varidx').
     # There is one z-value per period.
-    n_per_hors = len(cfg.per_hors)
-    z_min_net = [np.nan] * n_per_hors
-    z_max_net = [np.nan] * n_per_hors
-    z_min_del = [np.nan] * n_per_hors
-    z_max_del = [np.nan] * n_per_hors
+    n_per = len(cfg.per_hors)
+    z_min_net = [np.nan] * n_per
+    z_max_net = [np.nan] * n_per
+    z_min_del = [np.nan] * n_per
+    z_max_del = [np.nan] * n_per
 
     # Calculated datasets and item description.
     arr_ds_maps = []
@@ -1069,53 +1113,72 @@ def calc_map(
             rcp = rcps[j]
 
             # Loop through horizons.
-            if j == 0:
-                per_hors = [cfg.per_ref]
-            else:
-                per_hors = cfg.per_hors
-            for k_per_hor in range(len(per_hors)):
-                per_hor = per_hors[k_per_hor]
+            pers = [cfg.per_ref] if (j == 0) else cfg.per_hors
+            for k_per in range(len(pers)):
+                per = pers[k_per]
+                per_str = str(per[0]) + "-" + str(per[1])
 
-                # Current map.
-                ds_map = calc_map_rcp(vi_code, rcp, per_hor, stat, q)
+                # Path of CSV and PNG files.
+                p_csv, p_fig = get_p_csv_fig(per, per_str, stat)
 
-                # Clip to geographic boundaries.
-                if cfg.opt_map_clip and (cfg.p_bounds != ""):
-                    ds_map = utils.subset_shape(ds_map)
+                if os.path.exists(p_csv) and not cfg.opt_force_overwrite:
+
+                    # Load data.
+                    df = pd.read_csv(p_csv)
+
+                    # Convert to DataArray.
+                    df = pd.DataFrame(df, columns=["longitude", "latitude", vi_code])
+                    df = df.sort_values(by=["latitude", "longitude"])
+                    lat = list(set(df["latitude"]))
+                    lat.sort()
+                    lon = list(set(df["longitude"]))
+                    lon.sort()
+                    arr = np.reshape(list(df[vi_code]), (len(lat), len(lon)))
+                    da = xr.DataArray(data=arr, dims=["latitude", "longitude"],
+                                      coords=[("latitude", lat), ("longitude", lon)])
+                    da.name = vi_name
+                    ds_map = da.to_dataset()
+
+                else:
+
+                    # Calculate map.
+                    ds_map = calc_map_rcp(vi_code, rcp, per, stat, q)
+
+                    # Clip to geographic boundaries.
+                    if cfg.opt_map_clip and (cfg.p_bounds != ""):
+                        ds_map = utils.subset_shape(ds_map)
 
                 # Record current map, statistic and quantile, RCP and period.
                 arr_ds_maps.append(ds_map)
-                arr_items.append([stat, q, rcp, per_hor])
+                arr_items.append([stat, q, rcp, per])
 
                 # Calculate reference map.
                 if (ds_map_ref is None) and\
-                   (stat == def_stat.code_mean) and (rcp == def_rcp.rcp_xx) and (per_hor == cfg.per_ref):
+                   (stat == def_stat.code_mean) and (rcp == def_rcp.rcp_xx) and (per == cfg.per_ref):
                     ds_map_ref = ds_map
 
                 # Extract values.
                 vals_net = ds_map[vi_name].values
                 vals_del = None
-                if per_hor != cfg.per_ref:
+                if per != cfg.per_ref:
                     vals_del = ds_map[vi_name].values - ds_map_ref[vi_name].values
 
                 # Record mean absolute values.
                 z_min_j = np.nanmin(vals_net)
                 z_max_j = np.nanmax(vals_net)
-                z_min_net[k_per_hor] = z_min_j if np.isnan(z_min_net[k_per_hor]) else min(z_min_net[k_per_hor], z_min_j)
-                z_max_net[k_per_hor] = z_max_j if np.isnan(z_max_net[k_per_hor]) else max(z_max_net[k_per_hor], z_max_j)
+                z_min_net[k_per] = z_min_j if np.isnan(z_min_net[k_per]) else min(z_min_net[k_per], z_min_j)
+                z_max_net[k_per] = z_max_j if np.isnan(z_max_net[k_per]) else max(z_max_net[k_per], z_max_j)
 
                 # Record mean delta values.
                 if vals_del is not None:
                     z_min_del_j = np.nanmin(vals_del)
                     z_max_del_j = np.nanmax(vals_del)
-                    z_min_del[k_per_hor] = z_min_del_j if np.isnan(z_min_del[k_per_hor])\
-                        else min(z_min_del[k_per_hor], z_min_del_j)
-                    z_max_del[k_per_hor] = z_max_del_j if np.isnan(z_max_del[k_per_hor])\
-                        else max(z_max_del[k_per_hor], z_max_del_j)
+                    z_min_del[k_per] = z_min_del_j if np.isnan(z_min_del[k_per])\
+                        else min(z_min_del[k_per], z_min_del_j)
+                    z_max_del[k_per] = z_max_del_j if np.isnan(z_max_del[k_per])\
+                        else max(z_max_del[k_per], z_max_del_j)
 
     # Generate maps ----------------------------------------------------------------------------------------------------
-
-    stn = "stns" if not cfg.opt_ra else cfg.obs_src
 
     # Loop through maps.
     for i in range(len(arr_ds_maps)):
@@ -1124,18 +1187,18 @@ def calc_map(
         ds_map = arr_ds_maps[i]
 
         # Current RCP and horizon.
-        stat      = arr_items[i][0]
-        q         = arr_items[i][1]
-        rcp       = arr_items[i][2]
-        per_hor   = arr_items[i][3]
-        i_per_hor = cfg.per_hors.index(per_hor)
+        stat  = arr_items[i][0]
+        q     = arr_items[i][1]
+        rcp   = arr_items[i][2]
+        per   = arr_items[i][3]
+        i_per = cfg.per_hors.index(per)
 
         # Perform twice (for values, then for deltas).
         for j in range(2):
 
             # Skip if delta map generation if the option is disabled or if it's the reference period.
             if (j == 1) and\
-                ((per_hor == cfg.per_ref) or
+                ((per == cfg.per_ref) or
                  ((cat == const.cat_scen) and (not cfg.opt_map_delta[0])) or
                  ((cat == const.cat_idx) and (not cfg.opt_map_delta[1]))):
                 continue
@@ -1151,9 +1214,9 @@ def calc_map(
 
                 # Specific period.
                 if k == 0:
-                    per_str = str(per_hor[0]) + "-" + str(per_hor[1])
-                    z_min = z_min_net[i_per_hor] if j == 0 else z_min_del[i_per_hor]
-                    z_max = z_max_net[i_per_hor] if j == 0 else z_max_del[i_per_hor]
+                    per_str = str(per[0]) + "-" + str(per[1])
+                    z_min = z_min_net[i_per] if j == 0 else z_min_del[i_per]
+                    z_max = z_max_net[i_per] if j == 0 else z_max_del[i_per]
                 # All periods combined.
                 else:
                     per_str = str(cfg.per_ref[0]) + "-" + str(cfg.per_hors[len(cfg.per_hors) - 1][1])
@@ -1162,27 +1225,8 @@ def calc_map(
 
                 # PNG and CSV formats ----------------------------------------------------------------------------------
 
-                # Path of PNG file.
-                d_fig = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + cat + cfg.sep + "map",
-                                       (vi_code_grp + cfg.sep if vi_code_grp != vi_code else "") +
-                                       vi_code + cfg.sep + per_str)
-                if stat in [def_stat.code_mean, def_stat.code_min, def_stat.code_max]:
-                    stat_str = "_" + stat
-                else:
-                    stat_str = "_q" + str(int(q*100)).rjust(2, "0")
-                fn_fig = vi_name + "_" + rcp + "_" + str(per_hor[0]) + "_" + str(per_hor[1]) + stat_str + fu.f_ext_png
-                p_fig = d_fig + fn_fig
-                if j == 1:
-                    p_fig = p_fig.replace(fu.f_ext_png, "_delta" + fu.f_ext_png)
-
-                # Path of CSV file.
-                d_csv = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + cat + cfg.sep + "map",
-                                       (vi_code_grp + cfg.sep if vi_code_grp != vi_code else "") +
-                                       vi_code + "_csv" + cfg.sep + per_str)
-                fn_csv = fn_fig.replace(fu.f_ext_png, fu.f_ext_csv)
-                p_csv = d_csv + fn_csv
-                if j == 1:
-                    p_csv = p_csv.replace(fu.f_ext_csv, "_delta" + fu.f_ext_csv)
+                # Path of output files.
+                p_csv, p_fig = get_p_csv_fig(per, per_str, stat, j == 1)
 
                 # Create context.
                 cntx = def_context.Context(def_context.code_script)
@@ -1194,8 +1238,8 @@ def calc_map(
                 cntx.varidx      = vi.VarIdx(vi_name)
                 cntx.project.set_quantiles("x", cntx, cfg.opt_map_quantiles)
                 cntx.RCP         = def_rcp.RCP(rcp)
-                cntx.hor         = def_hor.Hor(per_hor)
-                cntx.stat        = def_stat.Stat(stat_str.replace("_", ""))
+                cntx.hor         = def_hor.Hor(per)
+                cntx.stat        = def_stat.Stat(get_stat_str(stat, q).replace("_", ""))
                 cntx.delta       = def_delta.Del(j == 1)
 
                 # Update colors.
@@ -1220,36 +1264,38 @@ def calc_map(
                 if len(cfg.opt_map_col_default) > 0:
                     cntx.opt_map_col_default = cfg.opt_map_col_default
 
-                if (((cat == const.cat_scen) and (cfg.opt_map[0])) or
-                    ((cat == const.cat_idx) and (cfg.opt_map[1]))) and \
-                   (cfg.opt_force_overwrite or
-                    ((not os.path.exists(p_fig)) and (fu.f_png in cfg.opt_map_formats)) or
-                    ((not os.path.exists(p_csv)) and cfg.opt_save_csv)):
+                # Determine if PNG and CSV files need to be saved.
+                save_fig = cfg.opt_force_overwrite or \
+                           ((not os.path.exists(p_fig)) and (fu.f_png in cfg.opt_map_format))
+                save_csv = cfg.opt_force_overwrite or \
+                           ((not os.path.exists(p_csv)) and (fu.f_csv in cfg.opt_map_format))
 
-                    # Create dataframe.
-                    arr_lon = []
-                    arr_lat = []
-                    arr_val = []
-                    for m in range(len(da_map.longitude.values)):
-                        for n in range(len(da_map.latitude.values)):
-                            arr_lon.append(da_map.longitude.values[m])
-                            arr_lat.append(da_map.latitude.values[n])
-                            arr_val.append(da_map.values[n, m])
-                    dict_pd = {const.dim_longitude: arr_lon, const.dim_latitude: arr_lat, vi_name: arr_val}
-                    df = pd.DataFrame(dict_pd)
+                # Create dataframe.
+                arr_lon, arr_lat, arr_val = [], [], []
+                for m in range(len(da_map.longitude.values)):
+                    for n in range(len(da_map.latitude.values)):
+                        arr_lon.append(da_map.longitude.values[m])
+                        arr_lat.append(da_map.latitude.values[n])
+                        arr_val.append(da_map.values[n, m])
+                dict_pd = {const.dim_longitude: arr_lon, const.dim_latitude: arr_lat, vi_name: arr_val}
+                df = pd.DataFrame(dict_pd)
 
-                    # Generate and save plot.
+                # Generate plot and save PNG file.
+                if save_fig:
                     fig = dash_plot.gen_map(cntx, df, [z_min, z_max])
                     fu.save_plot(fig, p_fig)
+
+                # Save CSV file.
+                if save_csv:
                     fu.save_csv(df, p_csv)
 
                 # TIF format -------------------------------------------------------------------------------------------
 
                 # Path of TIF file.
-                p_tif = p_fig.replace(vi_code + cfg.sep, vi_code + "_" + fu.f_tif + cfg.sep). \
+                p_tif = p_fig.replace(vi_code + cfg.sep, vi_code + "_" + fu.f_tif + cfg.sep).\
                     replace(fu.f_ext_png, fu.f_ext_tif)
 
-                if (fu.f_tif in cfg.opt_map_formats) and ((not os.path.exists(p_tif)) or cfg.opt_force_overwrite):
+                if (fu.f_tif in cfg.opt_map_format) and ((not os.path.exists(p_tif)) or cfg.opt_force_overwrite):
 
                     # TODO: da_tif.rio.reproject is now crashing. It was working in July 2021.
 
@@ -1434,7 +1480,7 @@ def calc_map_rcp(
                 return xr.Dataset(None)
             ds_sim = fu.open_netcdf(p_sim)
 
-            # TODO: The following patch was added to fix dimensions for cfg.idx_drought_code.
+            # TODO: The following patch was added to fix dimensions for vi.i_drought_code.
             if vi_code in cfg.idx_codes:
                 ds_sim = ds_sim.resample(time=const.freq_YS).mean(dim=const.dim_time, keep_attrs=True)
 
@@ -1479,7 +1525,7 @@ def calc_map_rcp(
                     # Open dataset.
                     ds_sim = fu.open_netcdf(p_sim)
 
-                    # TODO: The following patch was added to fix dimensions for cfg.idx_drought_code.
+                    # TODO: The following patch was added to fix dimensions for vi.i_drought_code.
                     if vi_code in cfg.idx_codes:
                         ds_sim = ds_sim.resample(time=const.freq_YS).mean(dim=const.dim_time, keep_attrs=True)
 
@@ -1790,7 +1836,7 @@ def calc_cycle(
     Parameters
     ----------
     ds: xr.Dataset
-        Dataset containing data.
+        Dataset.
     stn: str
         Station.
     vi_name: str
@@ -1807,35 +1853,6 @@ def calc_cycle(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Extract data.
-    if i_trial == 1:
-        ds = utils.sel_period(ds, per)
-        if freq == const.freq_D:
-            ds = utils.remove_feb29(ds)
-
-    # Convert units.
-    units = ds[vi_name].attrs[const.attrs_units]
-    if (vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]) and \
-       (ds[vi_name].attrs[const.attrs_units] == const.unit_K):
-        ds = ds - const.d_KC
-    elif (vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]) and \
-         (ds[vi_name].attrs[const.attrs_units] == const.unit_kg_m2s1):
-        ds = ds * const.spd
-    ds[vi_name].attrs[const.attrs_units] = units
-
-    # Calculate statistics.
-    ds_l = calc_by_freq(ds, vi_name, per, freq)
-
-    n = 12 if freq == const.freq_MS else 365
-
-    # Remove February 29th.
-    if (freq == const.freq_D) and (len(ds_l[0][vi_name]) > 365):
-        for i in range(3):
-            ds_l[i] = ds_l[i].rename_dims({"dayofyear": const.dim_time})
-            ds_l[i] = ds_l[i][vi_name][ds_l[i][const.dim_time] != 59].to_dataset()
-            ds_l[i][const.dim_time] = utils.reset_calendar(ds_l[i], cfg.per_ref[0], cfg.per_ref[0], const.freq_D)
-            ds_l[i][vi_name].attrs[const.attrs_units] = ds[vi_name].attrs[const.attrs_units]
-
     # Paths.
     cat_fig = const.cat_fig_cycle_ms if freq == const.freq_MS else const.cat_fig_cycle_d
     p_fig = cfg.get_d_scen(stn, const.cat_fig + cfg.sep + const.cat_scen + cfg.sep + cat_fig, vi_name)
@@ -1845,53 +1862,92 @@ def calc_cycle(
     p_csv = p_fig.replace(cfg.sep + vi_name + cfg.sep, cfg.sep + vi_name + "_" + fu.f_csv + cfg.sep).\
         replace(fu.f_ext_png, fu.f_ext_csv)
 
-    error = False
-
-    # Create context.
-    cntx = def_context.Context(def_context.code_script)
-    cntx.p_locations = cfg.p_locations
-    cntx.p_bounds = cfg.p_bounds
-    cntx.lib = def_lib.Lib(def_lib.mode_mat)
-    cntx.varidx = vi.VarIdx(vi_name)
-
-    if os.path.exists(p_fig) and os.path.exists(p_csv) and (not cfg.opt_force_overwrite):
+    # Determine if the analysis is required.
+    cat = const.cat_scen if (vi_name in cfg.variables) else const.cat_idx
+    analysis_enabled = ((cat == const.cat_scen) and cfg.opt_cycle[0]) or ((cat == const.cat_idx) and cfg.opt_cycle[1])
+    save_fig = (cfg.opt_force_overwrite or ((not os.path.exists(p_fig)) and (fu.f_png in cfg.opt_cycle_format)))
+    save_csv = (cfg.opt_force_overwrite or ((not os.path.exists(p_csv)) and (fu.f_csv in cfg.opt_cycle_format)))
+    if not (analysis_enabled and (save_fig or save_csv)):
         return
 
-    if freq == const.freq_D:
+    # Load existing CSV file.
+    if (not cfg.opt_force_overwrite) and os.path.exists(p_csv):
+        df = pd.read_csv(p_csv)
 
-        # Create dataframe.
-        dict_pd = {
-            ("month" if freq == const.freq_MS else "day"): range(1, n + 1),
-            "mean": list(ds_l[0][vi_name].values),
-            "min": list(ds_l[1][vi_name].values),
-            "max": list(ds_l[2][vi_name].values), "var": [vi_name] * n
-        }
-        df = pd.DataFrame(dict_pd)
-
-        # Generate plot.
-        fig = dash_plot.gen_cycle_d(cntx, df)
-
+    # Prepare data.
     else:
 
+        # Extract data.
+        if i_trial == 1:
+            ds = utils.sel_period(ds, per)
+            if freq == const.freq_D:
+                ds = utils.remove_feb29(ds)
+
+        # Convert units.
+        units = ds[vi_name].attrs[const.attrs_units]
+        if (vi_name in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]) and \
+           (ds[vi_name].attrs[const.attrs_units] == const.unit_K):
+            ds = ds - const.d_KC
+        elif (vi_name in [vi.v_pr, vi.v_evspsbl, vi.v_evspsblpot]) and \
+             (ds[vi_name].attrs[const.attrs_units] == const.unit_kg_m2s1):
+            ds = ds * const.spd
+        ds[vi_name].attrs[const.attrs_units] = units
+
+        # Calculate statistics.
+        ds_l = calc_by_freq(ds, vi_name, per, freq)
+
+        n = 12 if freq == const.freq_MS else 365
+
+        # Remove February 29th.
+        if (freq == const.freq_D) and (len(ds_l[0][vi_name]) > 365):
+            for i in range(3):
+                ds_l[i] = ds_l[i].rename_dims({"dayofyear": const.dim_time})
+                ds_l[i] = ds_l[i][vi_name][ds_l[i][const.dim_time] != 59].to_dataset()
+                ds_l[i][const.dim_time] = utils.reset_calendar(ds_l[i], cfg.per_ref[0], cfg.per_ref[0], const.freq_D)
+                ds_l[i][vi_name].attrs[const.attrs_units] = ds[vi_name].attrs[const.attrs_units]
+
         # Create dataframe.
-        year_l = list(range(per[0], per[1] + 1))
-        dict_pd = {
-            "year": year_l,
-            "1": ds_l[vi_name].values[0], "2": ds_l[vi_name].values[1], "3": ds_l[vi_name].values[2],
-            "4": ds_l[vi_name].values[3], "5": ds_l[vi_name].values[4], "6": ds_l[vi_name].values[5],
-            "7": ds_l[vi_name].values[6], "8": ds_l[vi_name].values[7], "9": ds_l[vi_name].values[8],
-            "10": ds_l[vi_name].values[9], "11": ds_l[vi_name].values[10], "12": ds_l[vi_name].values[11]
-        }
-        df = pd.DataFrame(dict_pd)
+        if freq == const.freq_D:
+            dict_pd = {
+                ("month" if freq == const.freq_MS else "day"): range(1, n + 1),
+                "mean": list(ds_l[0][vi_name].values),
+                "min": list(ds_l[1][vi_name].values),
+                "max": list(ds_l[2][vi_name].values), "var": [vi_name] * n
+            }
+            df = pd.DataFrame(dict_pd)
+        else:
+            year_l = list(range(per[0], per[1] + 1))
+            dict_pd = {
+                "year": year_l,
+                "1": ds_l[vi_name].values[0], "2": ds_l[vi_name].values[1], "3": ds_l[vi_name].values[2],
+                "4": ds_l[vi_name].values[3], "5": ds_l[vi_name].values[4], "6": ds_l[vi_name].values[5],
+                "7": ds_l[vi_name].values[6], "8": ds_l[vi_name].values[7], "9": ds_l[vi_name].values[8],
+                "10": ds_l[vi_name].values[9], "11": ds_l[vi_name].values[10], "12": ds_l[vi_name].values[11]
+            }
+            df = pd.DataFrame(dict_pd)
+
+    # Generate and save plot.
+    if save_fig:
+
+        # Create context.
+        cntx = def_context.Context(def_context.code_script)
+        cntx.p_locations = cfg.p_locations
+        cntx.p_bounds = cfg.p_bounds
+        cntx.lib = def_lib.Lib(def_lib.mode_mat)
+        cntx.varidx = vi.VarIdx(vi_name)
 
         # Generate plot.
-        fig = dash_plot.gen_cycle_ms(cntx, df)
+        if freq == const.freq_D:
+            fig = dash_plot.gen_cycle_d(cntx, df)
+        else:
+            fig = dash_plot.gen_cycle_ms(cntx, df)
 
-    # Save plot.
-    fu.save_plot(fig, p_fig)
+        # Save plot.
+        fu.save_plot(fig, p_fig)
 
-    # Generate CSV file.
-    if cfg.opt_save_csv[0]:
+    # Save CSV file.
+    error = False
+    if save_csv:
         try:
             fu.save_csv(df, p_csv)
         except:

@@ -1247,9 +1247,9 @@ def rain_season_length_prcptot() -> bool:
                 assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.01)
                 assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.01)
                 assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.01)
-                da_start = generate(cfg.idx_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = generate(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = generate(cfg.idx_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = generate(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 288)
                 res_expect_length = [198, np.nan]
                 res_expect_prcptot = [871, np.nan]
@@ -1260,12 +1260,12 @@ def rain_season_length_prcptot() -> bool:
             elif (i == 2) and (op == op_data):
                 da_pr = get_sample_data(vi.v_pr)
                 locations = list(xr.DataArray(da_pr).location.values)
-                da_start = generate(cfg.idx_rain_season_start, 1990, 4, np.nan, "YS", locations)
+                da_start = generate(vi.i_rain_season_start, 1990, 4, np.nan, "YS", locations)
                 assign(da_start, [], [], [89, 61, 66, 63], locations[0])
                 assign(da_start, [], [], [92, 97, 70, 90], locations[1])
                 assign(da_start, [], [], [np.nan, 115, 130, np.nan], locations[3])
                 assign(da_start, [], [], [np.nan, 60, 106, 62], locations[4])
-                da_end = generate(cfg.idx_rain_season_end, 1990, 4, np.nan, "YS", locations)
+                da_end = generate(vi.i_rain_season_end, 1990, 4, np.nan, "YS", locations)
                 assign(da_end, [], [], [190, 152, 256, 217], locations[0])
                 assign(da_end, [], [], [204, 152, 202, 179], locations[1])
                 assign(da_end, [], [], [176, 152, 152, 152], locations[2])

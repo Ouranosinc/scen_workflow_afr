@@ -1945,7 +1945,7 @@ def run():
         fu.log(msg + not_req)
 
     # Generate daily and monthly plots.
-    if cfg.opt_cycle[1]:
+    if cfg.opt_cycle[1] and (len(cfg.opt_cycle_format) > 0):
 
         fu.log("-")
         fu.log("Step #8a  Generating daily and monthly plots (indices)")
@@ -2008,7 +2008,7 @@ def run():
     # Generate plots.
     fu.log("-")
     msg = "Step #8b  Generating time series (indices)"
-    if cfg.opt_ts[1]:
+    if cfg.opt_ts[1] and (len(cfg.opt_ts_format) > 0):
         fu.log(msg)
         stats.calc_ts(const.cat_idx)
     else:
@@ -2020,7 +2020,7 @@ def run():
     # - calculation is very slow (something is wrong).
     fu.log("-")
     msg = "Step #8c  Generating heat maps (indices)"
-    if cfg.opt_ra and cfg.opt_map[1]:
+    if cfg.opt_ra and cfg.opt_map[1] and (len(cfg.opt_map_format) > 0):
         fu.log(msg)
 
         # Loop through indices.

@@ -102,12 +102,12 @@ class Config(def_context.Context):
         self.d_ra_raw = ""
 
         # Path of .geogjson file comprising political boundaries.
-        # This file is only used to compute statistics; this includes .csv files in the 'stat' directory and time series
-        # (.png and .csv). The idea behind this is to export maps (.png and .csv) that cover values included in the box
+        # This file is only used to compute statistics; this includes CSV files in the 'stat' directory and time series
+        # (PNG and CSV). The idea behind this is to export maps (PNG and CSV) that cover values included in the box
         # defined by 'lon_bnds' and 'lat_bnds'.
         self.p_bounds = ""
 
-        # Path of .csv file comprising locations.
+        # Path of CSV file comprising locations.
         self.p_locations = ""
 
         # Directory of reference data (observations or reanalysis) are located in:
@@ -126,7 +126,7 @@ class Config(def_context.Context):
         # Directory separator (default corresponds to Linux/Unix).
         self.sep = "/"
 
-        # Columns separator (only in .csv files containing observations).
+        # Columns separator (only in CSV files containing observations).
         self.f_sep = ","
 
         # Tells whether files will be overwritten/recalculated.
@@ -579,7 +579,7 @@ class Config(def_context.Context):
         # Enable/disable clipping according to 'p_bounds'.
         self.opt_stat_clip = False
 
-        # Enabe/disable saving results to .csv files for [scenarios, indices].
+        # Enabe/disable saving results to CSV files for [scenarios, indices].
         self.opt_save_csv = [False] * 2
 
         """
@@ -589,14 +589,23 @@ class Config(def_context.Context):
         # Enable/disable diagnostic plots (related to bias adjustment).
         self.opt_diagnostic = [True] * 2
 
-        # Enable/diasble generation of time series for [scenarios, indices].
-        self.opt_ts = [True] * 2
+        # Format of diagnostic plots.
+        self.opt_diagnostic_format = ["png", "csv"]
 
         # Enable/disable generation of annual and monthly cycle plots for [scenarios, indices].
         self.opt_cycle = [True] * 2
 
+        # Format of cycle plots.
+        self.opt_cycle_format = ["png", "csv"]
+
+        # Enable/diasble generation of time series for [scenarios, indices].
+        self.opt_ts = [True] * 2
+
         # Enable/disable generation of bias plots for [scenarios].
         self.opt_ts_bias = [True]
+
+        # Format of time series.
+        self.opt_ts_format = ["png", "csv"]
 
         # Enable/disable generation of maps [for scenarios, for indices].
         self.opt_map = [False] * 2
@@ -610,8 +619,8 @@ class Config(def_context.Context):
         # Quantiles for which a map is required.
         self.opt_map_quantiles = []
 
-        # Map formats.
-        self.opt_map_formats = ["png"]
+        # Format of maps.
+        self.opt_map_format = ["png", "csv"]
 
         # Spatial reference (starts with: EPSG).
         self.opt_map_spat_ref = ""
@@ -758,7 +767,7 @@ class Config(def_context.Context):
                 elif key == "region":
                     self.region = ast.literal_eval(value)
 
-                # DATA:
+                # Data:
                 elif key == "opt_download":
                     self.opt_download = ast.literal_eval(value)
                 elif key == "variables_download":
@@ -830,15 +839,21 @@ class Config(def_context.Context):
                 elif key == "opt_save_csv":
                     self.opt_save_csv = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
 
-                # VISUALIZATION:
+                # Visualization:
                 elif key == "opt_diagnostic":
                     self.opt_diagnostic = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
-                elif key == "opt_ts":
-                    self.opt_ts = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                elif key == "opt_diagnostic_format":
+                    self.opt_diagnostic_format = convert_to_1d(value, str)
                 elif key == "opt_cycle":
                     self.opt_cycle = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                elif key == "opt_cycle_format":
+                    self.opt_cycle_format = convert_to_1d(value, str)
+                elif key == "opt_ts":
+                    self.opt_ts = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
                 elif key == "opt_ts_bias":
                     self.opt_ts_bias = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                elif key == "opt_ts_format":
+                    self.opt_ts_format = convert_to_1d(value, str)
                 elif key == "opt_map":
                     self.opt_map = [False, False]
                     if self.opt_ra:
@@ -856,8 +871,8 @@ class Config(def_context.Context):
                     self.opt_map_quantiles = convert_to_1d(value, float)
                     if str(self.opt_map_quantiles).replace("['']", "") == "":
                         self.opt_map_quantiles = None
-                elif key == "opt_map_formats":
-                    self.opt_map_formats = convert_to_1d(value, str)
+                elif key == "opt_map_format":
+                    self.opt_map_format = convert_to_1d(value, str)
                 elif key == "opt_map_spat_ref":
                     self.opt_map_spat_ref = ast.literal_eval(value)
                 elif key == "opt_map_res":
