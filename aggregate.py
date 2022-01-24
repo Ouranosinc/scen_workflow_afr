@@ -8,27 +8,31 @@
 # (C) 2020 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import constants as const
+# External libraries.
 import clisops.core.subset as subset
 import datetime
-import file_utils as fu
 import glob
 import os
-import plot as plot
 import xarray as xr
 import warnings
-from config import cfg
 
+# Workflow libraries.
+import file_utils as fu
+import plot
+from def_constant import const as c
+from def_context import cntx
+
+# Dashboard libraries.
 import sys
 sys.path.append("dashboard")
-from dashboard import def_stat, def_varidx as vi
+from dashboard import def_varidx as vi
 
 
 def aggregate(
     p_hour: str,
     p_day: str,
-    set_name: str,
-    var: str
+    ens: str,
+    var: vi.VarIdx
 ):
 
     """
@@ -37,13 +41,13 @@ def aggregate(
 
     Parameters
     ----------
-    p_hour : str
+    p_hour: str
         Path of a NetCDF file containing hourly data (read).
-    p_day : str
+    p_day: str
         Path of a NetCDF file containing daily data (written).
-    set_name : str
-        Set name.
-    var : str
+    ens: str
+        Ensemble.
+    var: vi.VarIdx
         Variable (reanalysis).
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -51,68 +55,68 @@ def aggregate(
     # DEBUG: Select the date that will be used to visualize data.
     opt_debug = False
     dbg_date = ""
-    if set_name == vi.ens_era5:
+    if ens == c.ens_era5:
         dbg_date = "1979-01-01"
-    elif set_name == vi.ens_era5_land:
+    elif ens == c.ens_era5_land:
         dbg_date = "1981-01-01"
     dbg_latitude  = 0
     dbg_longitude = 0
 
     # Hourly data.
-    ds_hour = fu.open_netcdf(p_hour)[var]
+    ds_hour = fu.open_netcdf(p_hour)[var.name]
 
     # Daily data.
-    dir_day = os.path.dirname(p_day) + cfg.sep
+    dir_day = os.path.dirname(p_day) + cntx.sep
     fn_day  = os.path.basename(p_day)
 
     # Loop through statistics.
-    for stat in [def_stat.code_mean, def_stat.code_min, def_stat.code_max, def_stat.code_sum]:
+    for stat in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
 
         # Output file name.
-        var_stat = var + stat
-        if (var in [vi.v_era5_t2m, vi.v_era5_u10, vi.v_era5_v10, vi.v_era5_uv10]) and\
-           (stat in [def_stat.code_min, def_stat.code_max]):
-            p_day_stat = dir_day + var_stat + cfg.sep + fn_day.replace(var + "_", var_stat + "_")
+        var_stat = var.name + stat
+        if (var.name in [c.v_era5_t2m, c.v_era5_u10, c.v_era5_v10, c.v_era5_uv10]) and\
+           (stat in [c.stat_min, c.stat_max]):
+            p_day_stat = dir_day + var_stat + cntx.sep + fn_day.replace(var.name + "_", var_stat + "_")
         else:
-            p_day_stat = dir_day + var + cfg.sep + fn_day
+            p_day_stat = dir_day + var.name + cntx.sep + fn_day
 
         # Aggregate only if output file does not exist.
-        if (not os.path.exists(p_day_stat)) or cfg.opt_force_overwrite:
+        if (not os.path.exists(p_day_stat)) or cntx.opt_force_overwrite:
 
             # Aggregation.
             ds_day = None
             save = False
-            if stat == def_stat.code_mean:
-                if (var in [vi.v_era5_d2m, vi.v_era5_sh]) or\
-                   ((var == vi.v_era5_t2m) and (vi.v_tas in cfg.variables)) or\
-                   (var == vi.v_era5_u10) or (var == vi.v_era5_v10):
+            if stat == c.stat_mean:
+                if (var.name in [c.v_era5_d2m, c.v_era5_sh]) or\
+                   ((var.name == c.v_era5_t2m) and (c.v_tas in cntx.vars.code_l)) or\
+                   (var.name == c.v_era5_u10) or (var.name == c.v_era5_v10):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
-                        ds_day = ds_hour.resample(time=const.freq_D).mean()
+                        ds_day = ds_hour.resample(time=c.freq_D).mean()
                     save = True
-            elif stat == def_stat.code_min:
-                if (var == vi.v_era5_t2m) and (vi.v_tasmin in cfg.variables):
+            elif stat == c.stat_min:
+                if (var.name == c.v_era5_t2m) and (c.v_tasmin in cntx.vars.code_l):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
-                        ds_day = ds_hour.resample(time=const.freq_D).min()
+                        ds_day = ds_hour.resample(time=c.freq_D).min()
                     save = True
-            elif stat == def_stat.code_max:
-                if ((var == vi.v_era5_t2m) and (vi.v_tasmax in cfg.variables)) or\
-                   ((var == vi.v_era5_uv10) and (vi.v_sfcwindmax in cfg.variables)):
+            elif stat == c.stat_max:
+                if ((var.name == c.v_era5_t2m) and (c.v_tasmax in cntx.vars.code_l)) or\
+                   ((var.name == c.v_era5_uv10) and (c.v_sfcwindmax in cntx.vars.code_l)):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=Warning)
-                        ds_day = ds_hour.resample(time=const.freq_D).max()
+                        ds_day = ds_hour.resample(time=c.freq_D).max()
                     save = True
-            elif stat == def_stat.code_sum:
-                if (var in [vi.v_era5_tp, vi.v_era5_e, vi.v_era5_pev]) or (var == vi.v_era5_ssrd):
-                    if cfg.obs_src == vi.ens_era5:
+            elif stat == c.stat_sum:
+                if (var.name in [c.v_era5_tp, c.v_era5_e, c.v_era5_pev]) or (var.name == c.v_era5_ssrd):
+                    if cntx.obs_src == c.ens_era5:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=Warning)
-                            ds_day = ds_hour.resample(time=const.freq_D).sum()
+                            ds_day = ds_hour.resample(time=c.freq_D).sum()
                     else:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=Warning)
-                            ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=const.freq_D).sum()
+                            ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=c.freq_D).sum()
                     save = True
 
             # Save NetCDF file.
@@ -122,7 +126,7 @@ def aggregate(
         # Numerical test and plot for a given day of year.
         if opt_debug and os.path.exists(p_day_stat):
 
-            ds_day = fu.open_netcdf(p_day_stat)[var]
+            ds_day = fu.open_netcdf(p_day_stat)[var.name]
 
             # Plot #1: Time-series.
             # Hourly data.
@@ -130,14 +134,6 @@ def aggregate(
             # Daily data.
             ds_day_sel = subset.subset_gridpoint(ds_day, lat=dbg_latitude, lon=dbg_longitude, tolerance=10 * 1000)
             plot.plot_year(ds_hour_sel, ds_day_sel, var)
-
-            # Verify values.
-            # Hourly data.
-            # DEBUG: ds_hour_sel = ds_hour.sel(time=dbg_date, latitude=dbg_latitude, longitude=dbg_longitude)
-            # DEBUG: val_hour = ds_hour_sel.data.mean()
-            # Daily data.
-            # DEBUG: ds_day_sel = ds_day.sel(time=dbg_date, latitude=dbg_latitude, longitude=dbg_longitude)
-            # DEBUG: val_day    = ds_day_sel.data.mean()
 
             # Plot #2: Map.
             plot.plot_dayofyear(ds_day, var, dbg_date)
@@ -195,7 +191,7 @@ def calc_spec_humidity(
     """
 
     # Calculate vapour pressure (hPa).
-    da_vp = calc_vapour_pressure(da_tas)
+    da_vp = xr.DataArray(calc_vapour_pressure(da_tas))
 
     # Calculate specific humidity.
     da_sh = (0.622 * da_vp) / (da_ps - 0.378 * da_vp)
@@ -228,18 +224,18 @@ def gen_dataset_sh(
     """
 
     # Load datasets.
-    da_d2m = fu.open_netcdf(p_d2m, chunks={const.dim_time: n_years})[vi.v_era5_d2m]
-    da_sp  = fu.open_netcdf(p_sp, chunks={const.dim_time: n_years})[vi.v_era5_sp]
+    da_d2m = fu.open_netcdf(p_d2m, chunks={c.dim_time: n_years})[c.v_era5_d2m]
+    da_sp  = fu.open_netcdf(p_sp, chunks={c.dim_time: n_years})[c.v_era5_sp]
 
     # Calculate specific humidity values.
-    da_sh = calc_spec_humidity(da_d2m - const.d_KC, da_sp / 100.0)
+    da_sh = xr.DataArray(calc_spec_humidity(da_d2m - c.d_KC, da_sp / 100.0))
 
     # Update meta information.
-    da_sh.name = vi.v_era5_sh
-    da_sh.attrs[const.attrs_lname] = "specific humidity"
-    da_sh.attrs[const.attrs_units] = const.unit_1
-    da_sh.attrs[const.attrs_lname] = "specific humidity"
-    da_sh.attrs[const.attrs_units] = const.unit_1
+    da_sh.name = c.v_era5_sh
+    da_sh.attrs[c.attrs_lname] = "specific humidity"
+    da_sh.attrs[c.attrs_units] = c.unit_1
+    da_sh.attrs[c.attrs_lname] = "specific humidity"
+    da_sh.attrs[c.attrs_units] = c.unit_1
 
     # Save NetCDF file.
     fu.save_netcdf(da_sh, p_sh)
@@ -270,18 +266,18 @@ def gen_dataset_uv10(
     """
 
     # Load datasets.
-    da_u10 = fu.open_netcdf(p_u10, chunks={const.dim_time: n_years})[vi.v_era5_u10]
-    da_v10  = fu.open_netcdf(p_v10, chunks={const.dim_time: n_years})[vi.v_era5_v10]
+    da_u10 = fu.open_netcdf(p_u10, chunks={c.dim_time: n_years})[c.v_era5_u10]
+    da_v10  = fu.open_netcdf(p_v10, chunks={c.dim_time: n_years})[c.v_era5_v10]
 
     # Calculate specific humidity values.
     da_uv10 = ((da_u10 ** 2) + (da_v10 ** 2)) ** 0.5
 
     # Update meta information.
-    da_uv10.name = vi.v_era5_uv10
-    da_uv10.attrs[const.attrs_lname] = "wind"
-    da_uv10.attrs[const.attrs_units] = const.unit_m_s
-    da_uv10.attrs[const.attrs_lname] = "wind"
-    da_uv10.attrs[const.attrs_units] = const.unit_m_s
+    da_uv10.name = c.v_era5_uv10
+    da_uv10.attrs[c.attrs_lname] = "wind"
+    da_uv10.attrs[c.attrs_units] = c.unit_m_s
+    da_uv10.attrs[c.attrs_lname] = "wind"
+    da_uv10.attrs[c.attrs_units] = c.unit_m_s
 
     # Save NetCDF file.
     fu.save_netcdf(da_uv10, p_uv10)
@@ -296,70 +292,70 @@ def run():
     """
 
     # List variables.
-    var_l = []
-    for var in cfg.variables:
-        if var == vi.v_huss:
-            var_l.append(vi.v_era5_d2m)
-            var_l.append(vi.v_era5_sp)
-        elif var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
-            if vi.v_era5_t2m not in var_l:
-                var_l.append(vi.v_era5_t2m)
-        elif var == vi.v_sfcwindmax:
-            var_l.append(vi.v_era5_u10)
-            var_l.append(vi.v_era5_v10)
+    var_name_l = []
+    for var in cntx.vars.items:
+        if var.name == c.v_huss:
+            var_name_l.append(c.v_era5_d2m)
+            var_name_l.append(c.v_era5_sp)
+        elif var.name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
+            if c.v_era5_t2m not in var_name_l:
+                var_name_l.append(c.v_era5_t2m)
+        elif var.name == c.v_sfcwindmax:
+            var_name_l.append(c.v_era5_u10)
+            var_name_l.append(c.v_era5_v10)
         else:
-            var_ra = vi.VarIdx(var).convert_name(vi.ens_era5)
-            if var_ra is not None:
-                var_l.append(var_ra)
+            var_ra_name = vi.VarIdx(var.name).convert_name(c.ens_era5)
+            if var_ra_name is not None:
+                var_name_l.append(var_ra_name)
 
     # Loop through variables.
-    for var in var_l:
+    for var_name in var_name_l:
 
         # Loop through files.
-        p_raw_lst = glob.glob(cfg.d_ra_raw + var + cfg.sep + "*" + fu.f_ext_nc)
+        p_raw_lst = glob.glob(cntx.d_ra_raw + var_name + cntx.sep + "*" + c.f_ext_nc)
         p_raw_lst.sort()
         n_years = len(p_raw_lst)
         for i_raw in range(len(p_raw_lst)):
             p_raw = p_raw_lst[i_raw]
-            p_day = cfg.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
+            p_day = cntx.d_ra_day + os.path.basename(p_raw).replace("hour", "day")
 
             fu.log("Processing: " + p_raw, True)
 
             # Perform aggregation.
-            if (not os.path.exists(p_day)) or cfg.opt_force_overwrite:
-                aggregate(p_raw, p_day, cfg.obs_src, var)
+            if (not os.path.exists(p_day)) or cntx.opt_force_overwrite:
+                aggregate(p_raw, p_day, cntx.obs_src, vi.VarIdx(var_name))
 
             # Calculate specific humidity.
-            if (var == vi.v_era5_d2m) or (var == vi.v_era5_sp):
-                if var == vi.v_era5_d2m:
+            if var_name in [c.v_era5_d2m, c.v_era5_sp]:
+                if var_name == c.v_era5_d2m:
                     p_raw_d2m = p_raw
-                    p_raw_sp  = p_raw.replace(vi.v_era5_d2m, vi.v_era5_sp)
+                    p_raw_sp  = p_raw.replace(c.v_era5_d2m, c.v_era5_sp)
                 else:
                     p_raw_sp  = p_raw
-                    p_raw_d2m = p_raw.replace(vi.v_era5_sp, vi.v_era5_d2m)
-                p_raw_sh = p_raw_sp.replace(vi.v_era5_sp, vi.v_era5_sh)
-                p_day_sh = cfg.d_ra_day + os.path.basename(p_raw_sh).replace("hour", "day")
+                    p_raw_d2m = p_raw.replace(c.v_era5_sp, c.v_era5_d2m)
+                p_raw_sh = p_raw_sp.replace(c.v_era5_sp, c.v_era5_sh)
+                p_day_sh = cntx.d_ra_day + os.path.basename(p_raw_sh).replace("hour", "day")
                 if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and\
-                   ((not os.path.exists(p_raw_sh)) or cfg.opt_force_overwrite):
+                   ((not os.path.exists(p_raw_sh)) or cntx.opt_force_overwrite):
                     gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
-                if os.path.exists(p_raw_sh) and (not os.path.exists(p_day_sh) or cfg.opt_force_overwrite):
-                    aggregate(p_raw_sh, p_day_sh, cfg.obs_src, vi.v_era5_sh)
+                if os.path.exists(p_raw_sh) and (not os.path.exists(p_day_sh) or cntx.opt_force_overwrite):
+                    aggregate(p_raw_sh, p_day_sh, cntx.obs_src, vi.VarIdx(c.v_era5_sh))
 
             # Calculate wind speed.
-            if (var == vi.v_era5_u10) or (var == vi.v_era5_v10):
-                if var == vi.v_era5_u10:
+            if var_name in [c.v_era5_u10, c.v_era5_v10]:
+                if var_name == c.v_era5_u10:
                     p_raw_u10 = p_raw
-                    p_raw_v10 = p_raw.replace(vi.v_era5_u10, vi.v_era5_v10)
+                    p_raw_v10 = p_raw.replace(c.v_era5_u10, c.v_era5_v10)
                 else:
                     p_raw_v10 = p_raw
-                    p_raw_u10 = p_raw.replace(vi.v_era5_v10, vi.v_era5_u10)
-                p_raw_uv10 = p_raw_v10.replace(vi.v_era5_v10, vi.v_era5_uv10)
-                p_day_uv10 = cfg.d_ra_day + os.path.basename(p_raw_uv10).replace("hour", "day")
+                    p_raw_u10 = p_raw.replace(c.v_era5_v10, c.v_era5_u10)
+                p_raw_uv10 = p_raw_v10.replace(c.v_era5_v10, c.v_era5_uv10)
+                p_day_uv10 = cntx.d_ra_day + os.path.basename(p_raw_uv10).replace("hour", "day")
                 if os.path.exists(p_raw_u10) and os.path.exists(p_raw_v10) and\
-                   ((not os.path.exists(p_raw_uv10)) or cfg.opt_force_overwrite):
+                   ((not os.path.exists(p_raw_uv10)) or cntx.opt_force_overwrite):
                     gen_dataset_uv10(p_raw_u10, p_raw_v10, p_raw_uv10, n_years)
-                if os.path.exists(p_raw_uv10) and (not os.path.exists(p_day_uv10) or cfg.opt_force_overwrite):
-                    aggregate(p_raw_uv10, p_day_uv10, cfg.obs_src, vi.v_era5_uv10)
+                if os.path.exists(p_raw_uv10) and (not os.path.exists(p_day_uv10) or cntx.opt_force_overwrite):
+                    aggregate(p_raw_uv10, p_day_uv10, cntx.obs_src, vi.VarIdx(c.v_era5_uv10))
 
 
 if __name__ == "__main__":

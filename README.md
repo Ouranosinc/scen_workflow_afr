@@ -152,7 +152,7 @@ Implemented features:
 
 Bugs fixed:
 - reordering dimensions after calculating climate indices (required for drought code, or 'dc');
-- the function utils.get_coord_names was returning a set (rather than an array), and the fact that the order was not
+- the function utils.coord_names was returning a set (rather than an array), and the fact that the order was not
   always the same from one run to another had consequences on the subsequent analyses,
 - added options 'opt_stat_clip' and 'opt_map_clip' to clip according to a polygon (default is False) when calculating 
   statistics or generating a map.
@@ -173,7 +173,7 @@ Implemented features:
 - adding function 'file_utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec
   directory (issue #9);
 - adjusting file separator automatically according to d_exec parameter to ensure compatibility with Windows (issue #5);
-- created a unit testing module that can be enabled using 'opt_unit_tests';
+- created a unit testing module that can be enabled using 'opt_test';
 - increased the performance of 'rain_season*' and 'dry_spell_total_length' indices.
 
 ### v1.3.6 (under development)
@@ -181,7 +181,7 @@ Implemented features:
 Implemented features:
 - relocated plotting functions within a distinct Github project (see note in the introduction);
 - added compatibility with ENACTS reanalysis data;
-- restructured code to make it easier to maintain. 
+- restructured code to make it easier to maintain (object-oriented). 
 
 ## Contributing
 

@@ -4,7 +4,7 @@
 #
 # Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2021 Ouranos Inc., Canada
+# (C) 2020-2022 Ouranos Inc., Canada
 #
 # Legend (case description):
 #   |  = Year separator
@@ -16,28 +16,32 @@
 #   Td = dry threshold
 # ----------------------------------------------------------------------------------------------------------------------
 
-import constants as const
+# External libraries.
 import copy
 import datetime
-import file_utils as fu
-import indices
 import numpy as np
 import pandas as pd
-import utils
+import sys
 import xarray as xr
-import xclim.indices as xindices
-import xclim.testing._utils as xutils
-from config import cfg
 from typing import List, Union
+
+# xclim libraries.
+import xclim.testing._utils as xutils
 from xclim.testing.tests import test_indices, test_precip, test_locales
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
-import sys
+# Workflow libraries.
+import file_utils as fu
+import indices
+import utils
+from def_constant import const as c
+
+# Dashboard libraries.
 sys.path.append("dashboard")
 from dashboard import def_varidx as vi
 
 
-def get_sample_data(var: str) -> Union[xr.DataArray, None]:
+def sample_data(var: str) -> Union[xr.DataArray, None]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -56,7 +60,7 @@ def get_sample_data(var: str) -> Union[xr.DataArray, None]:
     """
 
     path = ""
-    if var == vi.v_pr:
+    if var == c.v_pr:
         path = "ERA5/daily_surface_cancities_1990-1993.nc"
 
     if path != "":
@@ -107,23 +111,23 @@ def gen(
 
     # Description and units.
     varidx = vi.VarIdx(varidx_name)
-    desc = varidx.get_desc()
-    units = varidx.get_unit()
+    desc = varidx.desc
+    units = varidx.unit
 
     # Coordinates.
     if n_loc == 0:
-        dims = [const.dim_longitude, const.dim_latitude, const.dim_time]
+        dims = [c.dim_longitude, c.dim_latitude, c.dim_time]
         longitude = [0]
         latitude = [0]
         coords = dict(
-            longitude=([const.dim_longitude], longitude),
-            latitude=([const.dim_latitude], latitude),
+            longitude=([c.dim_longitude], longitude),
+            latitude=([c.dim_latitude], latitude),
             time=time
         )
     else:
-        dims = [const.dim_location, const.dim_time]
+        dims = [c.dim_location, c.dim_time]
         coords = dict(
-            location=([const.dim_location], locations),
+            location=([c.dim_location], locations),
             time=time
         )
 
@@ -140,13 +144,13 @@ def gen(
 
     # Reorder dimensions.
     if n_loc == 0:
-        da = da.transpose(const.dim_time, const.dim_latitude, const.dim_longitude)
+        da = da.transpose(c.dim_time, c.dim_latitude, c.dim_longitude)
     else:
-        da = da.transpose(const.dim_location, const.dim_time)
+        da = da.transpose(c.dim_location, c.dim_time)
 
     # Assign values.
     da = xr.ones_like(da).astype(bool) * val
-    da.attrs[const.attrs_units] = units
+    da.attrs[c.attrs_units] = units
 
     return da
 
@@ -186,10 +190,10 @@ def assign(
     """
 
     def extract_year_doy(date_str: str):
-        date = datetime.datetime.strptime(date_str, "%Y-%m-%d").timetuple()
-        year = date.tm_year
-        doy = date.tm_yday
-        return year, doy
+        _date = datetime.datetime.strptime(date_str, "%Y-%m-%d").timetuple()
+        _year = _date.tm_year
+        _doy  = _date.tm_yday
+        return _year, _doy
 
     if loc == "":
 
@@ -209,7 +213,7 @@ def assign(
         year_n, doy_n = extract_year_doy(end_str)
         t1 = (year_1 - int(da["time"].dt.year.min())) * n + (doy_1 - 1)
         tn = (year_n - int(da["time"].dt.year.min())) * n + (doy_n - 1)
-        da.loc[slice(da[const.dim_time][t1], da[const.dim_time][tn])] = vals
+        da.loc[slice(da[c.dim_time][t1], da[c.dim_time][tn])] = vals
 
     else:
         da[da.location == loc] = vals
@@ -326,7 +330,7 @@ def dry_spell_total_length() -> bool:
     algo = 2
 
     # Variable.
-    var = vi.v_pr
+    var = c.v_pr
 
     # Operators.
     op_max = "max"
@@ -393,7 +397,7 @@ def dry_spell_total_length() -> bool:
             # Case #4: real data.
             elif (i == 4) and (op in [op_max_data, op_sum_data]):
                 thresh, window = 3, 7
-                da_pr = get_sample_data(vi.v_pr)
+                da_pr = sample_data(c.v_pr)
                 if op == op_sum_data:
                     if algo == 1:
                         res_expect = [[50, 60, 73, 65],
@@ -689,8 +693,8 @@ def dry_spell_total_length() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / const.spd
-                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
+                da_pr = da_pr / c.spd
+                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
             else:
                 op = op_sum if op == op_sum_data else op_max
 
@@ -704,16 +708,17 @@ def dry_spell_total_length() -> bool:
                 pram = rate2amount(da_pr, out_units="mm")
                 thresh = convert_units_to(str(thresh) + " mm", pram)
                 if op == op_max:
-                    mask = (pram.rolling(time=window, center=True).max() < thresh)
+                    mask = pd.DataFrame(pram.rolling(time=window, center=True).max() < thresh)
                 else:
-                    mask = (pram.rolling(time=window, center=True).sum() < thresh)
+                    mask = pd.DataFrame(pram.rolling(time=window, center=True).sum() < thresh)
                 out = (mask.rolling(time=window, center=True).sum() >= 1).resample(time=freq).sum()
                 da_idx = to_agg_units(out, pram, "count")
 
             # Calculate indices using the new algorithm.
             else:
-                da_idx =\
-                    indices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, freq, start_date, end_date)
+                date_bounds = None if ((start_date == "") or (end_date == "")) else (start_date, end_date)
+                da_idx = indices.dry_spell_total_length_20220120(da_pr, str(thresh) + " mm", window, op, freq,
+                                                                 date_bounds=date_bounds)
 
             # Reorder dimensions.
             if len(list(da_idx.dims)) > 1:
@@ -741,7 +746,7 @@ def rain_season_start() -> bool:
     """
 
     # Variable.
-    var = vi.v_pr
+    var = c.v_pr
 
     # Years.
     n_years = 2
@@ -791,7 +796,7 @@ def rain_season_start() -> bool:
             elif (i == 2) and (op == op_data):
                 start_date, end_date = "03-01", "05-31"  # A, B
                 thresh_wet = 25  # Tw
-                da_pr = get_sample_data(vi.v_pr)
+                da_pr = sample_data(c.v_pr)
                 res_expect = [[89, 61, 66, 63],
                               [92, 97, 70, 90],
                               [np.nan, np.nan, np.nan, np.nan],
@@ -886,8 +891,8 @@ def rain_season_start() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / const.spd
-                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
+                da_pr = da_pr / c.spd
+                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
 
             # Calculate index.
             da_start = indices.rain_season_start(da_pr, str(thresh_wet) + " mm", window_wet,
@@ -919,7 +924,7 @@ def rain_season_end() -> bool:
     """
 
     # Variable.
-    var = vi.v_pr
+    var = c.v_pr
 
     # Methods.
     op_max      = "max"
@@ -994,7 +999,7 @@ def rain_season_end() -> bool:
                 else:
                     thresh = 20.0  # T
                 window = 10
-                da_pr = get_sample_data(vi.v_pr)
+                da_pr = sample_data(c.v_pr)
                 if op == op_max_data:
                     res_expect = [[190, 152, 256, 217],
                                   [204, 152, 202, 179],
@@ -1172,11 +1177,11 @@ def rain_season_end() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / const.spd
-                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
+                da_pr = da_pr / c.spd
+                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
                 if da_etp is not None:
-                    da_etp = da_etp / const.spd
-                    da_etp.attrs[const.attrs_units] = const.unit_kg_m2s1
+                    da_etp = da_etp / c.spd
+                    da_etp.attrs[c.attrs_units] = c.unit_kg_m2s1
             else:
                 op = op_max if op == op_max_data else op_sum if op == op_sum_data else op_etp
 
@@ -1210,7 +1215,7 @@ def rain_season_length_prcptot() -> bool:
     """
 
     # Variable.
-    var = vi.v_pr
+    var = c.v_pr
 
     # Years.
     n_years = 2
@@ -1247,9 +1252,9 @@ def rain_season_length_prcptot() -> bool:
                 assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.01)
                 assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.01)
                 assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.01)
-                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 288)
                 res_expect_length = [198, np.nan]
                 res_expect_prcptot = [871, np.nan]
@@ -1258,14 +1263,14 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #2: real data.
             elif (i == 2) and (op == op_data):
-                da_pr = get_sample_data(vi.v_pr)
+                da_pr = sample_data(c.v_pr)
                 locations = list(xr.DataArray(da_pr).location.values)
-                da_start = gen(vi.i_rain_season_start, 1990, 4, np.nan, "YS", locations)
+                da_start = gen(c.i_rain_season_start, 1990, 4, np.nan, "YS", locations)
                 assign(da_start, [], [], [89, 61, 66, 63], locations[0])
                 assign(da_start, [], [], [92, 97, 70, 90], locations[1])
                 assign(da_start, [], [], [np.nan, 115, 130, np.nan], locations[3])
                 assign(da_start, [], [], [np.nan, 60, 106, 62], locations[4])
-                da_end = gen(vi.i_rain_season_end, 1990, 4, np.nan, "YS", locations)
+                da_end = gen(c.i_rain_season_end, 1990, 4, np.nan, "YS", locations)
                 assign(da_end, [], [], [190, 152, 256, 217], locations[0])
                 assign(da_end, [], [], [204, 152, 202, 179], locations[1])
                 assign(da_end, [], [], [176, 152, 152, 152], locations[2])
@@ -1286,45 +1291,45 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #3: | . A1 . B1 . | . A2 . B2 . |
             elif (i == 3) and (op == op_synthetic):
-                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_start, y1 + j, y1 + j, 91 + j)
-                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_end, y1 + j, y1 + j, 273 - j)
                 res_expect_length = res_expect_prcptot = [273 - 91 + 1, 272 - 92 + 1]
 
             # Case #4: | . A1 . | . B1 . |
             elif (i == 4) and (op == op_synthetic):
-                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 273)
-                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y2, y2, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #5: | . B0 . A1 . | . B1 . A2 . |
             elif (i == 5) and (op == op_synthetic):
-                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_start, y, y, 273)
-                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_end, y, y, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #6: | . B1 . | . A2 . |
             elif (i == 6) and (op == op_synthetic):
-                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y2, y2, 91)
-                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 273)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
             # Case #7: | . B1 A1 . | . |
             elif (i == 7) and (op == op_synthetic):
-                da_start = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = gen(vi.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 90)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
@@ -1335,12 +1340,12 @@ def rain_season_length_prcptot() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / const.spd
-                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
+                da_pr = da_pr / c.spd
+                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
 
             # Calculate indices.
-            da_length = indices.rain_season_length(da_start, da_end)
-            da_prcptot = indices.rain_season_prcptot(da_pr, da_start, da_end)
+            da_length = xr.DataArray(indices.rain_season_length(da_start, da_end))
+            da_prcptot = xr.DataArray(indices.rain_season_prcptot(da_pr, da_start, da_end))
 
             # Reorder dimensions.
             if len(list(da_length.dims)) > 1:
@@ -1372,7 +1377,7 @@ def rain_season() -> bool:
     """
 
     # Variable.
-    var = vi.v_pr
+    var = c.v_pr
 
     # Methods.
     e_op_max = "max"
@@ -1459,7 +1464,7 @@ def rain_season() -> bool:
                 e_etp_rate   = 5
                 e_start_date = "06-01"
                 e_end_date   = "09-30"
-                da_pr = get_sample_data(vi.v_pr)
+                da_pr = sample_data(c.v_pr)
                 res_expect_start = [[89, 61, 66, 63],
                                     [92, 97, 70, 90],
                                     [213, 230, 190, 187],
@@ -1493,7 +1498,7 @@ def rain_season() -> bool:
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], s_thresh_wet / s_window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 9, 30], s_thresh_dry)
                 if i == 2:
-                    da_start_next = gen(vi.i_rain_season_start, y1, n_years, np.nan, "YS")
+                    da_start_next = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
                     assign(da_start_next, y1, y1, utils.doy_str_to_doy("09-05"))
                 res_expect_start = [91, np.nan]
                 if i == 1:
@@ -1511,11 +1516,11 @@ def rain_season() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / const.spd
-                da_pr.attrs[const.attrs_units] = const.unit_kg_m2s1
+                da_pr = da_pr / c.spd
+                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
                 if da_etp is not None:
-                    da_etp = da_etp / const.spd
-                    da_etp.attrs[const.attrs_units] = const.unit_kg_m2s1
+                    da_etp = xr.DataArray(da_etp) / c.spd
+                    da_etp.attrs[c.attrs_units] = c.unit_kg_m2s1
 
             # Calculate indices.
             da_start, da_end, da_length, da_prcptot =\

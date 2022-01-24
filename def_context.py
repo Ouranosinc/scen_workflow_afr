@@ -4,24 +4,96 @@
 #
 # Contributors:
 # 1. rousseau.yannick@ouranos.ca
-# (C) 2020 Ouranos Inc., Canada
+# (C) 2020-2022 Ouranos Inc., Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+# External libraries.
 import ast
 import configparser
-import constants as const
 import datetime
-import file_utils as fu
 import os
 import os.path
-from typing import Union, Type, List
-
+import pandas as pd
 import sys
+
+# Workflow libraries.
+from def_constant import const as c
+
+# Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_context, def_rcp, def_varidx as vi
+from dashboard import def_context
+
+"""
+------------------------------------------------------------------------------------------------------------------------
+File dependencies:
+
+workflow
+|
++- def_constant, def_context, def_varidx
+|
++- aggregate
+|
++- download
+|  +- def_constant, def_context, def_varidx, file_utils*
+|
++- file_utils*
+|
++- indices <-----------------------------------------------------------------------------+
+|  +- def_constant, def_context, def_varidx, def_rcp, file_utils*, statistics, utils*    |
+|                                                                     |                  |
++- scenarios                                                          |                  |
+|  |                                                                  |                  |
+|  +- def_constant, def_context, def_varidx, file_utils*, plot ------ | ----+            |
+|  |                                                                  |     |            |
+|  +- quantile_mapping                                                |     |            |
+|  |  +- def_constant                                                 |     |            |
+|  |                                                                  |     |            |
+|  +- statistics <----------------------------------------------------+     |            |
+|  |  +- def_constant, def_context, def_delta, def_project,                 |            |
+|  |  |  def_hor, def_lib, def_rcp, def_sim, def_stat,                      |            |
+|  |  |  def_varidx, dev_view, dash_plot, file_utils*                       |            |
+|  |  |                                                                     |            |
+|  |  +- plot <-------------------------------------------------------------+            |
+|  |  |  +- def_constant, def_context, def_varidx, file_utils*, utils*                   |
+|  |  |                                                                                  |
+|  |  +- utils*                                                                          |
+|  |                                                                                     |
+|  +- utils*                                    +----------------------------------------+
+|                                               |
++- test                                         |
+|  +- def_constant, def_varidx, file_utils*, indices, utils*
+|
++- utils
+   +- def_constant, def_context, file_utils*
+   
+def_context
+|
++- def_constant, def_context(dash)
+
+def_constant
+|
++- def_constant(dash)
+   
+file_utils
+|
++- def_constant, def_context, utils*
+
+------------------------------------------------------------------------------------------------------------------------
+Class hierarchy:
+
++- Context
+|  |
+|  +- Context(dash)
+|
++- Constant
+   |
+   +- Constant(dash)
+   
+------------------------------------------------------------------------------------------------------------------------
+"""
 
 
-class Config(def_context.Context):
+class Context(def_context.Context):
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -39,7 +111,7 @@ class Config(def_context.Context):
         ----------------------------------------
         """
 
-        super(Config, self).__init__(code)
+        super(Context, self).__init__(code)
 
         """
         Context ------------------------------------
@@ -55,7 +127,7 @@ class Config(def_context.Context):
         self.region = ""
 
         # Emission scenarios to be considered.
-        self.rcps = [def_rcp.rcp_26, def_rcp.rcp_45, def_rcp.rcp_85]
+        self.rcps = [c.rcp26, c.rcp45, c.rcp85]
 
         # Reference period.
         self.per_ref = [1981, 2010]
@@ -85,11 +157,12 @@ class Config(def_context.Context):
 
         # Variables (based on CORDEX names).
         self.variables = []
+        self.vars = None
 
         # Variables (based on the names in the reanalysis ensemble).
-        self.variables_ra = []
+        self.vars_ra = None
 
-        self.priority_timestep = ["day"] * len(self.variables)
+        self.priority_timestep = ["day"] * 0
 
         """
         File system --------------------------------
@@ -100,15 +173,6 @@ class Config(def_context.Context):
 
         # Directory of reanalysis set (default frequency, usually hourly).
         self.d_ra_raw = ""
-
-        # Path of .geogjson file comprising political boundaries.
-        # This file is only used to compute statistics; this includes CSV files in the 'stat' directory and time series
-        # (PNG and CSV). The idea behind this is to export maps (PNG and CSV) that cover values included in the box
-        # defined by 'lon_bnds' and 'lat_bnds'.
-        self.p_bounds = ""
-
-        # Path of CSV file comprising locations.
-        self.p_locations = ""
 
         # Directory of reference data (observations or reanalysis) are located in:
         # /exec/<user_name>/<country>/<project>/stn/<obs_src>/<var>/*.csv
@@ -151,7 +215,7 @@ class Config(def_context.Context):
         self.pid = os.getpid()
 
         # Enable/disable unit tests.
-        self.opt_unit_tests = False
+        self.opt_test = False
 
         """
         Download and aggregation -------------------
@@ -162,6 +226,7 @@ class Config(def_context.Context):
 
         # Variables to download.
         self.variables_download = []
+        self.vars_download = None
 
         # Boundaries.
         self.lon_bnds_download = [0, 0]
@@ -227,14 +292,14 @@ class Config(def_context.Context):
         d. Run the script.
            This will adjust bias for each combination of three parameter values.
         e. Examine the plots that were generated under the following directory:
-           get_d_scen(<station_name>, "fig")/calibration/
+           d_scen(<station_name>, "fig")/calibration/
            and select the parameter values that produce the best fit between simulations and observations.
            There is one parameter value per simulation, per station, per variable.
         f. Set values for the following parameters:
-           nq_default       = <value in cfg.nq_calib producing the best fit>
-           up_qmf_default   = <value in cfg.up_qmf_calib producing the best fit>
-           time_win_default = <value in cfg.time_win_calib producing the best fit>
-           bias_err_default = <value in cfg.bias_err_calib producing the best fit>
+           nq_default       = <value in cntx.nq_calib producing the best fit>
+           up_qmf_default   = <value in cntx.up_qmf_calib producing the best fit>
+           time_win_default = <value in cntx.time_win_calib producing the best fit>
+           bias_err_default = <value in cntx.bias_err_calib producing the best fit>
         g. Set the following options:
            opt_calib      = False
            opt_calib_auto = False
@@ -267,7 +332,7 @@ class Config(def_context.Context):
         # Enable/disable bias adjustment.
         self.opt_calib_bias = True
 
-        # Error quantification method (see the other options in constants.py).
+        # Error quantification method (see the other options in def_constant.py).
         self.opt_calib_bias_meth = "rrmse"
 
         # Enable/disable the calculation of qqmap.
@@ -557,14 +622,8 @@ class Config(def_context.Context):
         # Spatial resolution for mapping.
         self.idx_resol = 0.05
 
-        # Codes of climate indices.
-        self.idx_codes = []
-
-        # Names of climate indices.
-        self.idx_names = []
-
-        # Parameters associated with climate indices.
-        self.idx_params = []
+        # Indices.
+        self.idxs = None
 
         """
         Statistics -----------------------------
@@ -621,6 +680,9 @@ class Config(def_context.Context):
 
         # Format of maps.
         self.opt_map_format = ["png", "csv"]
+
+        # Map locations (pd.DataFrame).
+        self.opt_map_locations = None
 
         # Spatial reference (starts with: EPSG).
         self.opt_map_spat_ref = ""
@@ -687,7 +749,7 @@ class Config(def_context.Context):
 
     def load(
         self,
-        p_ini: str
+        p_ini: str = "config.ini"
     ):
 
         """
@@ -726,8 +788,8 @@ class Config(def_context.Context):
                 # Observations or reanalysis.
                 elif key == "obs_src":
                     self.obs_src = ast.literal_eval(value)
-                    self.opt_ra = (self.obs_src == vi.ens_era5) or (self.obs_src == vi.ens_era5_land) or \
-                                  (self.obs_src == vi.ens_merra2) or (self.obs_src == vi.ens_enacts)
+                    self.opt_ra = (self.obs_src == c.ens_era5) or (self.obs_src == c.ens_era5_land) or \
+                                  (self.obs_src == c.ens_merra2) or (self.obs_src == c.ens_enacts)
                 elif key == "obs_src_username":
                     self.obs_src_username = ast.literal_eval(value)
                 elif key == "obs_src_password":
@@ -735,38 +797,33 @@ class Config(def_context.Context):
                 elif key == "file_sep":
                     self.f_sep = ast.literal_eval(value)
                 elif key == "stns":
-                    self.stns = convert_to_1d(value, str)
+                    self.stns = def_context.str_to_arr_1d(value, str)
 
                 # Context.
                 elif key == "rcps":
                     self.rcps = ast.literal_eval(value)
                 elif key == "per_ref":
-                    self.per_ref = convert_to_1d(value, int)
+                    self.per_ref = def_context.str_to_arr_1d(value, int)
                     if per_hors_read:
                         self.per_hors = [self.per_ref] + self.per_hors
                     per_ref_read = True
                 elif key == "per_fut":
-                    self.per_fut = convert_to_1d(value, int)
+                    self.per_fut = def_context.str_to_arr_1d(value, int)
                 elif key == "per_hors":
-                    self.per_hors = convert_to_2d(value, int)
+                    self.per_hors = def_context.str_to_arr_2d(value, int)
                     if per_ref_read:
                         self.per_hors = [self.per_ref] + self.per_hors
                     per_hors_read = True
                 elif key == "lon_bnds":
-                    self.lon_bnds = convert_to_1d(value, float)
+                    self.lon_bnds = def_context.str_to_arr_1d(value, float)
                 elif key == "lat_bnds":
-                    self.lat_bnds = convert_to_1d(value, float)
+                    self.lat_bnds = def_context.str_to_arr_1d(value, float)
                 elif key == "ctrl_pt":
-                    self.ctrl_pt = convert_to_1d(value, float)
+                    self.ctrl_pt = def_context.str_to_arr_1d(value, float)
                 elif key == "variables":
-                    self.variables = convert_to_1d(value, str)
-                    if self.obs_src in [vi.ens_era5, vi.ens_era5_land, vi.ens_enacts]:
-                        for var in self.variables:
-                            self.variables_ra.append(vi.VarIdx(var).convert_name(self.obs_src))
+                    self.variables = def_context.str_to_arr_1d(value, str)
                 elif key == "p_bounds":
                     self.p_bounds = ast.literal_eval(value)
-                elif key == "p_locations":
-                    self.p_locations = ast.literal_eval(value)
                 elif key == "region":
                     self.region = ast.literal_eval(value)
 
@@ -774,11 +831,11 @@ class Config(def_context.Context):
                 elif key == "opt_download":
                     self.opt_download = ast.literal_eval(value)
                 elif key == "variables_download":
-                    self.variables_download = convert_to_1d(value, str)
+                    self.vars_download = def_context.str_to_arr_1d(value, str)
                 elif key == "lon_bnds_download":
-                    self.lon_bnds_download = convert_to_1d(value, float)
+                    self.lon_bnds_download = def_context.str_to_arr_1d(value, float)
                 elif key == "lat_bnds_download":
-                    self.lat_bnds_download = convert_to_1d(value, float)
+                    self.lat_bnds_download = def_context.str_to_arr_1d(value, float)
                 elif key == "opt_aggregate":
                     self.opt_aggregate = ast.literal_eval(value)
 
@@ -788,9 +845,9 @@ class Config(def_context.Context):
                 elif key == "radius":
                     self.radius = float(value)
                 elif key == "sim_excepts":
-                    self.sim_excepts = convert_to_1d(value, str)
+                    self.sim_excepts = def_context.str_to_arr_1d(value, str)
                 elif key == "var_sim_excepts":
-                    self.var_sim_excepts = convert_to_1d(value, str)
+                    self.var_sim_excepts = def_context.str_to_arr_1d(value, str)
 
                 # Bias adjustment:
                 elif key == "opt_calib":
@@ -804,9 +861,9 @@ class Config(def_context.Context):
                 elif key == "opt_calib_qqmap":
                     self.opt_calib_qqmap = ast.literal_eval(value)
                 elif key == "opt_calib_perturb":
-                    self.opt_calib_perturb = convert_to_2d(value, float)
+                    self.opt_calib_perturb = def_context.str_to_arr_2d(value, float)
                 elif key == "opt_calib_quantiles":
-                    self.opt_calib_quantiles = convert_to_1d(value, float)
+                    self.opt_calib_quantiles = def_context.str_to_arr_1d(value, float)
                 elif key == "nq_default":
                     self.nq_default = int(value)
                     self.nq_calib = [self.nq_default]
@@ -821,61 +878,71 @@ class Config(def_context.Context):
                 elif key == "opt_idx":
                     self.opt_idx = ast.literal_eval(value)
                 elif key == "idx_codes":
-                    self.idx_codes = convert_to_1d(value, str)
-                    for i in range(len(self.idx_codes)):
-                        self.idx_names.append(vi.VarIdx(str(self.idx_codes[i])))
+                    self.idx_codes = def_context.str_to_arr_1d(value, str)
                 elif key == "idx_params":
-                    self.idx_params = convert_to_2d(value, float)
-                    for i in range(len(self.idx_names)):
-                        if self.idx_names[i] == vi.i_r10mm:
-                            self.idx_params[i] = [10]
-                        elif self.idx_names[i] == vi.i_r20mm:
-                            self.idx_params[i] = [20]
+                    idx_params_tmp = def_context.str_to_arr_2d(value, float)
+                    for i in range(len(self.idx_codes)):
+                        if self.idx_codes[i] == c.i_r10mm:
+                            self.idx_params.append([10])
+                        elif self.idx_codes[i] == c.i_r20mm:
+                            self.idx_params.append([20])
+                        else:
+                            self.idx_params.append(idx_params_tmp[i])
 
                 # Statistics.
                 elif key == "opt_stat":
-                    self.opt_stat = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                    self.opt_stat = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_stat_quantiles":
-                    self.opt_stat_quantiles = convert_to_1d(value, float)
+                    self.opt_stat_quantiles = def_context.str_to_arr_1d(value, float)
                 elif key == "opt_stat_clip":
                     self.opt_stat_clip = ast.literal_eval(value)
                 elif key == "opt_save_csv":
-                    self.opt_save_csv = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                    self.opt_save_csv = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
 
                 # Visualization:
                 elif key == "opt_diagnostic":
-                    self.opt_diagnostic = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                    self.opt_diagnostic = ast.literal_eval(value)\
+                        if "," not in value else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_diagnostic_format":
-                    self.opt_diagnostic_format = convert_to_1d(value, str)
+                    self.opt_diagnostic_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_cycle":
-                    self.opt_cycle = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                    self.opt_cycle = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_cycle_format":
-                    self.opt_cycle_format = convert_to_1d(value, str)
+                    self.opt_cycle_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_ts":
-                    self.opt_ts = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                    self.opt_ts = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_ts_bias":
-                    self.opt_ts_bias = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                    self.opt_ts_bias = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_ts_format":
-                    self.opt_ts_format = convert_to_1d(value, str)
+                    self.opt_ts_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map":
                     self.opt_map = [False, False]
                     if self.opt_ra:
-                        self.opt_map = ast.literal_eval(value) if ("," not in value) else convert_to_1d(value, bool)
+                        self.opt_map = ast.literal_eval(value)\
+                            if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_map_delta":
                     self.opt_map_delta = [False, False]
                     if self.opt_ra:
                         if "," not in value:
                             self.opt_map_delta = ast.literal_eval(value)
                         else:
-                            self.opt_map_delta = convert_to_1d(value, bool)
+                            self.opt_map_delta = def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_map_clip":
                     self.opt_map_clip = ast.literal_eval(value)
                 elif key == "opt_map_quantiles":
-                    self.opt_map_quantiles = convert_to_1d(value, float)
+                    self.opt_map_quantiles = def_context.str_to_arr_1d(value, float)
                     if str(self.opt_map_quantiles).replace("['']", "") == "":
                         self.opt_map_quantiles = None
                 elif key == "opt_map_format":
-                    self.opt_map_format = convert_to_1d(value, str)
+                    self.opt_map_format = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_map_locations":
+                    self.opt_map_locations = pd.DataFrame(def_context.str_to_arr_2d(value, float),
+                                                          columns=["longitude", "latitude", "desc"])
                 elif key == "opt_map_spat_ref":
                     self.opt_map_spat_ref = ast.literal_eval(value)
                 elif key == "opt_map_res":
@@ -883,25 +950,25 @@ class Config(def_context.Context):
                 elif key == "opt_map_discrete":
                     self.opt_map_discrete = ast.literal_eval(value)
                 elif key == "opt_map_col_temp_var":
-                    self.opt_map_col_temp_var = convert_to_1d(value, str)
+                    self.opt_map_col_temp_var = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_temp_idx_1":
-                    self.opt_map_col_temp_idx_1 = convert_to_1d(value, str)
+                    self.opt_map_col_temp_idx_1 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_temp_idx_2":
-                    self.opt_map_col_temp_idx_2 = convert_to_1d(value, str)
+                    self.opt_map_col_temp_idx_2 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_prec_var":
-                    self.opt_map_col_prec_var = convert_to_1d(value, str)
+                    self.opt_map_col_prec_var = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_prec_idx_1":
-                    self.opt_map_col_prec_idx_1 = convert_to_1d(value, str)
+                    self.opt_map_col_prec_idx_1 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_prec_idx_2":
-                    self.opt_map_col_prec_idx_2 = convert_to_1d(value, str)
+                    self.opt_map_col_prec_idx_2 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_prec_idx_3":
-                    self.opt_map_col_prec_idx_3 = convert_to_1d(value, str)
+                    self.opt_map_col_prec_idx_3 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_wind_var":
-                    self.opt_map_col_wind_var = convert_to_1d(value, str)
+                    self.opt_map_col_wind_var = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_wind_idx_1":
-                    self.opt_map_col_wind_idx_1 = convert_to_1d(value, str)
+                    self.opt_map_col_wind_idx_1 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_default":
-                    self.opt_map_col_default = convert_to_1d(value, str)
+                    self.opt_map_col_default = def_context.str_to_arr_1d(value, str)
 
                 # Environment.
                 elif key == "n_proc":
@@ -928,23 +995,21 @@ class Config(def_context.Context):
                     self.opt_force_overwrite = ast.literal_eval(value)
 
                 # Unit tests.
-                elif key == "opt_unit_tests":
-                    self.opt_unit_tests = ast.literal_eval(value)
+                elif key == "opt_test":
+                    self.opt_test = ast.literal_eval(value)
 
-        # Variables.
+        # Time step.
         self.priority_timestep = ["day"] * len(self.variables)
 
         # Directories and paths.
         d_base = self.d_exec + self.country + self.sep + self.project + self.sep
         obs_src_region = self.obs_src + ("_" + self.region if (self.region != "") and self.opt_ra else "")
-        self.d_stn = d_base + const.cat_stn + self.sep + obs_src_region + self.sep
+        self.d_stn = d_base + c.cat_stn + self.sep + obs_src_region + self.sep
         self.d_res = self.d_exec + "sim_climat" + self.sep + self.country + self.sep + self.project + self.sep
 
         # Boundaries and locations.
         if self.p_bounds != "":
             self.p_bounds = d_base + "gis" + self.sep + self.p_bounds
-        if self.p_locations != "":
-            self.p_locations = d_base + "gis" + self.sep + self.p_locations
 
         # Log file.
         dt = datetime.datetime.now()
@@ -955,9 +1020,9 @@ class Config(def_context.Context):
         # Calibration file.
         self.p_calib = self.d_res + "stn" + self.sep + obs_src_region + self.sep + self.p_calib
 
-    def get_d_stn(
+    def d_stn(
         self,
-        var: str
+        var_name: str
     ):
 
         """
@@ -966,20 +1031,20 @@ class Config(def_context.Context):
 
         Parameters
         ----------
-        var : str
-            Variable.
+        var_name: str
+            Variable name.
         ----------------------------------------
         """
 
         d = ""
-        if var != "":
-            d = self.d_stn + var + self.sep
+        if var_name != "":
+            d = self.d_stn + var_name + self.sep
 
         return d
 
-    def get_p_stn(
+    def p_stn(
         self,
-        var: str,
+        var_name: str,
         stn: str
     ):
 
@@ -989,22 +1054,22 @@ class Config(def_context.Context):
 
         Parameters
         ----------
-        var : str
-            Variable.
-        stn : str
+        var_name: str
+            Variable name.
+        stn: str
             Station.
         ----------------------------------------
         """
 
-        p = self.d_stn + var + self.sep + var + "_" + stn + fu.f_ext_nc
+        p = self.d_stn + var_name + self.sep + var_name + "_" + stn + c.f_ext_nc
 
         return p
 
-    def get_d_scen(
+    def d_scen(
         self,
         stn: str,
         cat: str,
-        var: str = ""
+        var_name: str = ""
     ):
 
         """
@@ -1013,29 +1078,29 @@ class Config(def_context.Context):
 
         Parameters
         ----------
-        stn : str
+        stn: str
             Station.
-        cat : str
+        cat: str
             Category.
-        var : str, optional
+        var_name: str, optional
             Variable.
         ----------------------------------------
         """
 
         d = self.d_res
         if stn != "":
-            d = d + const.cat_stn + self.sep + stn + ("_" + self.region if self.region != "" else "") + self.sep
+            d = d + c.cat_stn + self.sep + stn + ("_" + self.region if self.region != "" else "") + self.sep
         if cat != "":
             d = d
-            if cat in [const.cat_obs, const.cat_raw, const.cat_regrid, const.cat_qqmap, const.cat_qmf, "*"]:
-                d = d + const.cat_scen + self.sep
+            if cat in [c.cat_obs, c.cat_raw, c.cat_regrid, c.cat_qqmap, c.cat_qmf, "*"]:
+                d = d + c.cat_scen + self.sep
             d = d + cat + self.sep
-        if var != "":
-            d = d + var + self.sep
+        if var_name != "":
+            d = d + var_name + self.sep
 
         return d
 
-    def get_d_idx(
+    def d_idx(
         self,
         stn: str,
         idx_name: str = ""
@@ -1056,17 +1121,17 @@ class Config(def_context.Context):
 
         d = self.d_res
         if stn != "":
-            d = d + const.cat_stn + self.sep + stn + ("_" + self.region if self.region != "" else "") + self.sep
-        d = d + const.cat_idx + self.sep
+            d = d + c.cat_stn + self.sep + stn + ("_" + self.region if self.region != "" else "") + self.sep
+        d = d + c.cat_idx + self.sep
         if idx_name != "":
             d = d + idx_name + self.sep
 
         return d
 
-    def get_p_obs(
+    def p_obs(
         self,
         stn_name: str,
-        var: str,
+        var_name: str,
         cat: str = ""
     ):
 
@@ -1076,84 +1141,23 @@ class Config(def_context.Context):
 
         Parameters
         ----------
-        stn_name : str
+        stn_name: str
             Localisation.
-        var : str
-            Variable.
-        cat : str, optional
+        var_name: str
+            Variable name.
+        cat: str, optional
             Category.
         ----------------------------------------
         """
 
-        p = self.get_d_scen(stn_name, const.cat_obs) + var + self.sep + var + "_" + stn_name
+        p = self.d_scen(stn_name, c.cat_obs) + var_name + self.sep + var_name + "_" + stn_name
         if cat != "":
             p = p + "_4qqmap"
-        p = p + fu.f_ext_nc
+        p = p + c.f_ext_nc
 
         return p
 
-    def get_equivalent_idx_path(
-        self,
-        p: str,
-        vi_code_a: str,
-        vi_code_b: str,
-        stn: str,
-        rcp: str
-    ) -> str:
-
-        """
-        ----------------------------------------
-        Determine the equivalent path for another variable or index.
-
-        Parameters
-        ----------
-        p : str
-            Path associated with 'vi_code_a'.
-        vi_code_a : str
-            Climate variable or index to be replaced.
-        vi_code_b : str
-            Climate variable or index to replace with.
-        stn : str
-            Station name.
-        rcp : str
-            Emission scenario.
-        ----------------------------------------
-        """
-
-        # Determine if we have variables or indices.
-        vi_a = vi.VarIdx(vi_code_a)
-        vi_b = vi.VarIdx(vi_code_b)
-        a_is_var = vi_a.get_name() in self.variables
-        b_is_var = vi_b.get_name() in self.variables
-        fn = os.path.basename(p)
-
-        # No conversion required.
-        if vi_code_a != vi_code_b:
-
-            # Variable->Variable or Index->Index.
-            if (a_is_var and b_is_var) or (not a_is_var and not b_is_var):
-                p = p.replace(str(vi_a.get_name()), str(vi_b.get_name()))
-
-            # Variable->Index (or the opposite)
-            else:
-                # Variable->Index.
-                if a_is_var and not b_is_var:
-                    p = self.get_d_idx(stn, vi_code_b)
-                # Index->Variable.
-                else:
-                    if rcp == def_rcp.rcp_ref:
-                        p = self.get_d_stn(vi_code_b)
-                    else:
-                        p = self.get_d_scen(stn, const.cat_qqmap, vi_code_b)
-                # Both.
-                if rcp == def_rcp.rcp_ref:
-                    p += str(vi_b.get_name()) + "_" + def_rcp.rcp_ref + fu.f_ext_nc
-                else:
-                    p += fn.replace(str(vi_a.get_name()) + "_", str(vi_b.get_name()) + "_")
-
-        return p
-
-    def get_rank_inst(
+    def rank_inst(
         self
     ) -> int:
 
@@ -1170,7 +1174,7 @@ class Config(def_context.Context):
 
         return len(self.d_proj.split(self.sep))
 
-    def get_rank_gcm(
+    def rank_gcm(
         self
     ) -> int:
 
@@ -1185,117 +1189,9 @@ class Config(def_context.Context):
         ----------------------------------------
         """
 
-        return self.get_rank_inst() + 1
-
-
-def replace_right(
-    s: str,
-    str_a: str,
-    str_b: str,
-    n_occurrence: int
-) -> str:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Replace the right-most instance of a string 'str_a' with a string 'str_b' within a string 's'.
-
-    Parameters
-    ----------
-    s : str
-        String that will be altered.
-    str_a : str
-        String to be replaced in 's'.
-    str_b : str
-        String to replace with in 's'.
-    n_occurrence : int
-        Number of occurences.
-
-    Returns
-    -------
-    str
-        Altered string.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    li = s.rsplit(str_a, n_occurrence)
-
-    return str_b.join(li)
-
-
-def convert_to_1d(
-    vals: str,
-    to_type: Union[Type[bool], Type[int], Type[float], Type[str]]
-) -> List[Union[Type[bool], Type[int], Type[float], Type[str]]]:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Convert values to a 1D-array of the selected type.
-
-    Parameters
-    ----------
-    vals : str
-        Values.
-    to_type: Union[Type[bool], Type[int], Type[float], Type[str]]
-        Type to convert to.
-
-    Returns
-    -------
-    List[Union[Type[bool], Type[int], Type[float], Type[str]]]
-        1D-array of the selected type.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    if to_type == str:
-        vals = ast.literal_eval(vals)
-    elif to_type == bool:
-        vals = str(replace_right(vals.replace("[", "", 1), "]", "", 1)).split(",")
-        vals = [True if val == 'True' else False for val in vals]
-    else:
-        vals = str(replace_right(vals.replace("[", "", 1), "]", "", 1)).split(",")
-        for i_val in range(len(vals)):
-            try:
-                vals[i_val] = int(vals[i_val])
-            except ValueError:
-                try:
-                    vals[i_val] = float(vals[i_val])
-                except ValueError:
-                    pass
-
-    return vals
-
-
-def convert_to_2d(
-    vals: str,
-    to_type: Union[Type[bool], Type[int], Type[float], Type[str]]
-) -> List[List[Union[Type[bool], Type[int], Type[float], Type[str]]]]:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Convert values to a 2D-array of the selected type.
-
-    Parameters
-    ----------
-    vals : str
-        Values.
-    to_type: Union[Type[bool], Type[int], Type[float], Type[str]]
-        Type to convert to.
-
-    Returns
-    -------
-    List[List[Union[Type[bool], Type[int], Type[float], Type[str]]]]
-        2D-array of the selected type.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    vals_new = []
-    vals = vals[1:(len(vals) - 1)].split("],")
-    for i_val in range(len(vals)):
-        val_i = convert_to_1d(vals[i_val], to_type)
-        vals_new.append(val_i)
-
-    return vals_new
+        return self.rank_inst() + 1
 
 
 # Configuration instance.
-cfg = Config("script")
-cfg.load("config.ini")
+cntx = Context("script")
+cntx.load()

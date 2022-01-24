@@ -5,11 +5,11 @@
 # Contact information:
 # 1. bourgault.marcandre@ouranos.ca (original author)
 # 2. rousseau.yannick@ouranos.ca (pimping agent)
-# (C) 2020 Ouranos, Canada
+# (C) 2020-2022 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
+# External libraries.
 import clisops.core.subset as subset
-import constants as const
 import datetime
 import logging
 import numpy as np
@@ -18,12 +18,16 @@ import re
 import time
 import xarray as xr
 import warnings
-from config import cfg
 from cmath import rect, phase
 from collections import defaultdict
 from math import radians, degrees, sqrt
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import Union, List, Tuple
+
+# Workflow libraries.
+import file_utils as fu
+from def_constant import const as c
+from def_context import cntx
 
 
 def natural_sort(
@@ -115,7 +119,7 @@ def sfcwind_2_uas_vas(
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
-            sfcwind = sfcwind.resample(time=resample).mean(dim=const.dim_time, keep_attrs=True)
+            sfcwind = sfcwind.resample(time=resample).mean(dim=c.dim_time, keep_attrs=True)
 
         # TODO.MAB: Remove nb_per_day and calculate it.
 
@@ -183,7 +187,7 @@ def calendar(
     ts      = x.assign_coords(time=x.time.dt.dayofyear / n_days_old * n_days_new)
     ts_year = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * n_days_new
     ts_time = ts.time.values
-    ts[const.dim_time] = ts_year + ts_time
+    ts[c.dim_time] = ts_year + ts_time
 
     nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0]) + 1
     time_new = np.arange(1, (nb_year*n_days_new)+1)
@@ -209,7 +213,7 @@ def calendar(
     ref_365 = ts.interp(time=time_new, kwargs={"fill_value": "extrapolate"}, method="nearest")
 
     # Recreate 365 time series.
-    ref_365[const.dim_time] = time_date
+    ref_365[c.dim_time] = time_date
 
     # DEBUG: Plot data.
     # DEBUG: plt.plot(np.arange(1,n_days_new+1),ref_365[:n_days_new].values)
@@ -238,7 +242,8 @@ def extract_date(
         year = val.year
         month = val.month
         day = val.day
-    except:
+    except Exception as e:
+        fu.log(str(e))
         year = int(str(val)[0:4])
         month = int(str(val)[5:7])
         day = int(str(val)[8:10])
@@ -276,7 +281,8 @@ def extract_date_field(
             month = time_l[i].month
             day   = time_l[i].day
             doy   = time_l[i].dayofyear
-        except:
+        except Exception as e:
+            fu.log(str(e))
             year  = int(str(time_l[i])[0:4])
             month = int(str(time_l[i])[5:7])
             day   = int(str(time_l[i])[8:10])
@@ -313,7 +319,7 @@ def reset_calendar(
     ds: Union[xr.Dataset, xr.DataArray],
     year_1=-1,
     year_n=-1,
-    freq=const.freq_D
+    freq=c.freq_D
 ) -> pd.DatetimeIndex:
 
     """
@@ -345,8 +351,8 @@ def reset_calendar(
 
     # Exactly the right number of time items.
     n_time = len(ds.time.values)
-    if (freq != const.freq_D) or (n_time == ((year_n - year_1 + 1) * 365)):
-        mult = 365 if freq == const.freq_D else 1
+    if (freq != c.freq_D) or (n_time == ((year_n - year_1 + 1) * 365)):
+        mult = 365 if freq == c.freq_D else 1
         new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * mult, freq=freq)
     else:
         arr_time = []
@@ -401,16 +407,12 @@ def convert_to_365_calender(
         ds_365 = ds
     else:
         cf = ds.time.values[0].calendar
-        if cf in [const.cal_noleap, const.cal_365day]:
+        if cf in [c.cal_noleap, c.cal_365day]:
             ds_365 = ds
-        elif cf in [const.cal_360day]:
+        elif cf in [c.cal_360day]:
             ds_365 = calendar(ds)
         else:
             ds_365 = None
-
-    # DEBUG: Plot 365 versus 360 calendar.
-    # DEBUG: if cfg.opt_plt_365vs360:
-    # DEBUG:     plot.plot_360_vs_365(ds, ds_365, var)
 
     return ds_365
 
@@ -464,7 +466,7 @@ def calc_error(
 
     # TODO: Ensure that the length of datasets is the same in both datasets.
     #       The algorithm is extremely inefficient. There must be a better way to do it.
-    if len(da_obs[const.dim_time]) != len(da_pred[const.dim_time]):
+    if len(da_obs[c.dim_time]) != len(da_pred[c.dim_time]):
 
         # Extract dates (year, month, day).
         dates_obs  = extract_date_field(da_obs)
@@ -502,19 +504,19 @@ def calc_error(
     if len(values_obs) == len(values_pred):
 
         # Method #1: Coefficient of determination.
-        if cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_r2:
+        if cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_r2:
             error = r2_score(values_obs, values_pred)
 
         # Method #2: Mean absolute error.
-        elif cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_mae:
+        elif cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_mae:
             error = mean_absolute_error(values_obs, values_pred)
 
         # Method #3: Root mean square error.
-        elif cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_rmse:
+        elif cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_rmse:
             error = sqrt(mean_squared_error(values_obs, values_pred))
 
         # Method #4: Relative root mean square error.
-        elif cfg.opt_calib_bias_meth == const.opt_calib_bias_meth_rrmse:
+        elif cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_rrmse:
             if np.std(values_obs) != 0:
                 error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
             else:
@@ -523,7 +525,7 @@ def calc_error(
     return error
 
 
-def get_datetime_str() -> str:
+def datetime_str() -> str:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -538,7 +540,7 @@ def get_datetime_str() -> str:
     return dt_str
 
 
-def get_current_time():
+def current_time():
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -573,12 +575,12 @@ def squeeze_lon_lat(
     # Squeeze data.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        if const.dim_lon in ds.dims:
-            ds_res = ds.mean([const.dim_lon, const.dim_lat])
-        elif const.dim_rlon in ds.dims:
-            ds_res = ds.mean([const.dim_rlon, const.dim_rlat])
-        elif const.dim_longitude in ds.dims:
-            ds_res = ds.mean([const.dim_longitude, const.dim_latitude])
+        if c.dim_lon in ds.dims:
+            ds_res = ds.mean([c.dim_lon, c.dim_lat])
+        elif c.dim_rlon in ds.dims:
+            ds_res = ds.mean([c.dim_rlon, c.dim_rlat])
+        elif c.dim_longitude in ds.dims:
+            ds_res = ds.mean([c.dim_longitude, c.dim_latitude])
 
     # Transfer units.
     ds_res = copy_attributes(ds, ds_res, varidx_name)
@@ -604,17 +606,17 @@ def subset_ctrl_pt(
     ds_res = None
 
     # Determine control point.
-    lon = np.mean(cfg.lon_bnds)
-    lat = np.mean(cfg.lat_bnds)
-    if cfg.ctrl_pt is not None:
-        lon = cfg.ctrl_pt[0]
-        lat = cfg.ctrl_pt[1]
+    lon = np.mean(cntx.lon_bnds)
+    lat = np.mean(cntx.lat_bnds)
+    if cntx.ctrl_pt is not None:
+        lon = cntx.ctrl_pt[0]
+        lat = cntx.ctrl_pt[1]
     else:
-        if const.dim_rlon in ds.dims:
+        if c.dim_rlon in ds.dims:
             if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
                 lon = round(len(ds.rlon) / 2.0)
                 lat = round(len(ds.rlat) / 2.0)
-        elif const.dim_lon in ds.dims:
+        elif c.dim_lon in ds.dims:
             if (len(ds.lat) > 1) or (len(ds.lon) > 1):
                 lon = round(len(ds.lon) / 2.0)
                 lat = round(len(ds.lat) / 2.0)
@@ -624,10 +626,10 @@ def subset_ctrl_pt(
                 lat = round(len(ds.latitude) / 2.0)
 
     # Perform subset.
-    if const.dim_rlon in ds.dims:
+    if c.dim_rlon in ds.dims:
         if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
             ds_res = ds.isel(rlon=lon, rlat=lat, drop=True)
-    elif const.dim_lon in ds.dims:
+    elif c.dim_lon in ds.dims:
         if (len(ds.lat) > 1) or (len(ds.lon) > 1):
             ds_res = ds.isel(lon=lon, lat=lat, drop=True)
     else:
@@ -706,7 +708,7 @@ def subset_lon_lat_time(
 
     # Longitude.
     if len(lon) > 0:
-        if const.dim_longitude in ds_res.dims:
+        if c.dim_longitude in ds_res.dims:
             lon_min = max(ds_res.longitude.min(), min(lon))
             lon_max = min(ds_res.longitude.max(), max(lon))
             ds_res = ds_res.sel(longitude=slice(lon_min, lon_max))
@@ -717,7 +719,7 @@ def subset_lon_lat_time(
 
     # Latitude.
     if len(lat) > 0:
-        if const.dim_latitude in ds_res.dims:
+        if c.dim_latitude in ds_res.dims:
             lat_min = max(ds_res.latitude.min(), min(lat))
             lat_max = min(ds_res.latitude.max(), max(lat))
             ds_res = ds_res.sel(latitude=slice(lat_min, lat_max))
@@ -727,7 +729,7 @@ def subset_lon_lat_time(
             ds_res = ds_res.sel(rlat=slice(lat_min, lat_max))
 
     # Time.
-    if (len(time) > 0) and (const.dim_time in ds_res.dims):
+    if (len(time) > 0) and (c.dim_time in ds_res.dims):
         time_l = list(np.unique(ds_res.time.dt.year))
         time_min = max(min(time_l), min(time))
         time_max = min(max(time_l), max(time))
@@ -736,7 +738,7 @@ def subset_lon_lat_time(
     # Adjust grid.
     if (len(lon) > 0) or (len(lat) > 0) or (len(time) > 0):
         try:
-            grid = ds[vi_name].attrs[const.attrs_gmap]
+            grid = ds[vi_name].attrs[c.attrs_gmap]
             ds_res[grid] = ds[grid]
         except KeyError:
             pass
@@ -791,7 +793,7 @@ def sel_period(
     return ds_res
 
 
-def get_coordinates(
+def coords(
     ds: Union[xr.Dataset, xr.DataArray],
     array_format: bool = False
 ) -> Tuple[Union[List[float], xr.DataArray], Union[List[float], xr.DataArray]]:
@@ -810,15 +812,15 @@ def get_coordinates(
     """
 
     # Extract longitude and latitude.
-    if const.dim_longitude in list(ds.dims):
-        da_lon = ds[const.dim_longitude]
-        da_lat = ds[const.dim_latitude]
-    elif const.dim_lon in list(ds.dims):
-        da_lon = ds[const.dim_lon]
-        da_lat = ds[const.dim_lat]
+    if c.dim_longitude in list(ds.dims):
+        da_lon = ds[c.dim_longitude]
+        da_lat = ds[c.dim_latitude]
+    elif c.dim_lon in list(ds.dims):
+        da_lon = ds[c.dim_lon]
+        da_lat = ds[c.dim_lat]
     else:
-        da_lon = ds[const.dim_rlon]
-        da_lat = ds[const.dim_rlat]
+        da_lon = ds[c.dim_rlon]
+        da_lat = ds[c.dim_rlat]
 
     # Need to return an array.
     if array_format:
@@ -842,7 +844,7 @@ def get_coordinates(
     return lon_vals, lat_vals
 
 
-def copy_coordinates(
+def copy_coords(
     ds_from: Union[xr.Dataset, xr.DataArray],
     ds_to: Union[xr.Dataset, xr.DataArray]
 ) -> Union[xr.Dataset, xr.DataArray]:
@@ -861,18 +863,18 @@ def copy_coordinates(
     """
 
     # Extract longitude and latitude values.
-    lon_vals, lat_vals = get_coordinates(ds_from, True)
+    lon_vals, lat_vals = coords(ds_from, True)
 
     # Assign coordinates.
-    if const.dim_longitude in list(ds_to.dims):
-        ds_to[const.dim_longitude] = lon_vals
-        ds_to[const.dim_latitude] = lat_vals
-    elif const.dim_rlon in list(ds_to.dims):
-        ds_to[const.dim_rlon] = lon_vals
-        ds_to[const.dim_rlat] = lat_vals
+    if c.dim_longitude in list(ds_to.dims):
+        ds_to[c.dim_longitude] = lon_vals
+        ds_to[c.dim_latitude] = lat_vals
+    elif c.dim_rlon in list(ds_to.dims):
+        ds_to[c.dim_rlon] = lon_vals
+        ds_to[c.dim_rlat] = lat_vals
     else:
-        ds_to[const.dim_lon] = lon_vals
-        ds_to[const.dim_lat] = lat_vals
+        ds_to[c.dim_lon] = lon_vals
+        ds_to[c.dim_lat] = lat_vals
 
     return ds_to
 
@@ -899,11 +901,11 @@ def copy_attributes(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if const.attrs_units in ds_from.attrs:
-        ds_to.attrs[const.attrs_units] = ds_from.attrs[const.attrs_units]
+    if c.attrs_units in ds_from.attrs:
+        ds_to.attrs[c.attrs_units] = ds_from.attrs[c.attrs_units]
     if isinstance(ds_from, xr.Dataset) and (var in ds_from.data_vars):
-        if const.attrs_units in ds_from[var].attrs:
-            ds_to[var].attrs[const.attrs_units] = ds_from[var].attrs[const.attrs_units]
+        if c.attrs_units in ds_from[var].attrs:
+            ds_to[var].attrs[c.attrs_units] = ds_from[var].attrs[c.attrs_units]
 
     return ds_to
 
@@ -928,27 +930,27 @@ def subset_shape(
 
     ds_res = ds.copy(deep=True)
 
-    if cfg.p_bounds != "":
+    if cntx.p_bounds != "":
 
         try:
             # Memorize dimension names and attributes.
-            dim_lon, dim_lat = get_coord_names(ds_res)
-            if dim_lat != const.dim_lat:
-                ds_res = ds_res.rename({dim_lon: const.dim_lon, dim_lat: const.dim_lat})
+            dim_lon, dim_lat = coord_names(ds_res)
+            if dim_lat != c.dim_lat:
+                ds_res = ds_res.rename({dim_lon: c.dim_lon, dim_lat: c.dim_lat})
             if var != "":
-                if const.attrs_gmap not in ds_res[var].attrs:
-                    ds_res[var].attrs[const.attrs_gmap] = "regular_lon_lat"
+                if c.attrs_gmap not in ds_res[var].attrs:
+                    ds_res[var].attrs[c.attrs_gmap] = "regular_lon_lat"
 
             # Subset by shape.
             logger = logging.getLogger()
             level = logger.level
             logger.setLevel(logging.CRITICAL)
-            ds_res = subset.subset_shape(ds_res, cfg.p_bounds)
+            ds_res = subset.subset_shape(ds_res, cntx.p_bounds)
             logger.setLevel(level)
 
             # Recover initial dimension names.
-            if dim_lat != const.dim_lat:
-                ds_res = ds_res.rename({const.dim_lon: dim_lon, const.dim_lat: dim_lat})
+            if dim_lat != c.dim_lat:
+                ds_res = ds_res.rename({c.dim_lon: dim_lon, c.dim_lat: dim_lat})
 
         except (TypeError, ValueError):
             return ds.copy(deep=True)
@@ -977,20 +979,20 @@ def apply_mask(
     da_res = da.copy(deep=True)
 
     # Get coordinates names.
-    dims_data = get_coord_names(da_res)
-    dims_mask = get_coord_names(da_mask)
+    dims_data = coord_names(da_res)
+    dims_mask = coord_names(da_mask)
 
     # Record units.
     units = None
-    if const.attrs_units in da_res.attrs:
-        units = da_res.attrs[const.attrs_units]
+    if c.attrs_units in da_res.attrs:
+        units = da_res.attrs[c.attrs_units]
 
     # Rename spatial dimensions.
     if dims_data != dims_mask:
         da_res = da_res.rename({list(dims_data)[0]: list(dims_mask)[0], list(dims_data)[1]: list(dims_mask)[1]})
 
     # Apply mask.
-    n_time = len(da[const.dim_time])
+    n_time = len(da[c.dim_time])
     da_res[0:n_time, :, :] = da_res[0:n_time, :, :].values * da_mask.values
 
     # Restore spatial dimensions.
@@ -999,18 +1001,18 @@ def apply_mask(
 
     # Restore units.
     if units is not None:
-        da_res.attrs[const.attrs_units] = units
+        da_res.attrs[c.attrs_units] = units
 
     # Drop coordinates.
     try:
-        da_res = da_res.reset_coords(names=const.dim_time, drop=True)
-    except:
+        da_res = da_res.reset_coords(names=c.dim_time, drop=True)
+    finally:
         pass
 
     return da_res
 
 
-def get_coord_names(
+def coord_names(
     ds_or_da: Union[xr.Dataset, xr.DataArray]
 ) -> List[str]:
 
@@ -1030,20 +1032,20 @@ def get_coord_names(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if const.dim_lat in ds_or_da.dims:
-        coord_dict = [const.dim_lon, const.dim_lat]
-    elif const.dim_rlat in ds_or_da.dims:
-        coord_dict = [const.dim_rlon, const.dim_rlat]
+    if c.dim_lat in ds_or_da.dims:
+        coord_dict = [c.dim_lon, c.dim_lat]
+    elif c.dim_rlat in ds_or_da.dims:
+        coord_dict = [c.dim_rlon, c.dim_rlat]
     else:
-        coord_dict = [const.dim_longitude, const.dim_latitude]
+        coord_dict = [c.dim_longitude, c.dim_latitude]
 
     return coord_dict
 
 
 def rename_dimensions(
     da: xr.DataArray,
-    lat_name: str = const.dim_latitude,
-    lon_name: str = const.dim_longitude
+    lat_name: str = c.dim_latitude,
+    lon_name: str = c.dim_longitude
 ) -> xr.DataArray:
 
     """
@@ -1064,16 +1066,16 @@ def rename_dimensions(
     if (lat_name not in da.dims) or (lon_name not in da.dims):
 
         if "dim_0" in list(da.dims):
-            da = da.rename({"dim_0": const.dim_time})
+            da = da.rename({"dim_0": c.dim_time})
             da = da.rename({"dim_1": lat_name, "dim_2": lon_name})
-        elif (const.dim_lat in list(da.dims)) or (const.dim_lon in list(da.dims)):
-            da = da.rename({const.dim_lat: lat_name, const.dim_lon: lon_name})
-        elif (const.dim_rlat in list(da.dims)) or (const.dim_rlon in list(da.dims)):
-            da = da.rename({const.dim_rlat: lat_name, const.dim_rlon: lon_name})
+        elif (c.dim_lat in list(da.dims)) or (c.dim_lon in list(da.dims)):
+            da = da.rename({c.dim_lat: lat_name, c.dim_lon: lon_name})
+        elif (c.dim_rlat in list(da.dims)) or (c.dim_rlon in list(da.dims)):
+            da = da.rename({c.dim_rlat: lat_name, c.dim_rlon: lon_name})
         elif (lat_name not in list(da.dims)) and (lon_name not in list(da.dims)):
-            if lat_name == const.dim_latitude:
+            if lat_name == c.dim_latitude:
                 da = da.expand_dims(latitude=1)
-            if lon_name == const.dim_longitude:
+            if lon_name == c.dim_longitude:
                 da = da.expand_dims(longitude=1)
 
     return da
@@ -1100,19 +1102,19 @@ def interpolate_na_fix(
     ds_or_da_res = ds_or_da.copy(deep=True)
 
     # Extract coordinates and determine if they are increasing.
-    lon_vals = ds_or_da_res[const.dim_longitude]
-    lat_vals = ds_or_da_res[const.dim_latitude]
+    lon_vals = ds_or_da_res[c.dim_longitude]
+    lat_vals = ds_or_da_res[c.dim_latitude]
     lon_monotonic_inc = bool(lon_vals[0] < lon_vals[len(lon_vals) - 1])
     lat_monotonic_inc = bool(lat_vals[0] < lat_vals[len(lat_vals) - 1])
 
     # Flip values.
     if not lon_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(const.dim_longitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(c.dim_longitude, ascending=True)
     if not lat_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(const.dim_latitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(c.dim_latitude, ascending=True)
 
     # Interpolate, layer by layer (limit=1).
-    for t in range(len(ds_or_da_res[const.dim_time])):
+    for t in range(len(ds_or_da_res[c.dim_time])):
         n_i = max(len(ds_or_da_res[t].longitude), len(ds_or_da_res[t].latitude))
         for i in range(n_i):
             df_t = ds_or_da_res[t].to_pandas()
@@ -1131,9 +1133,9 @@ def interpolate_na_fix(
 
     # Unflip values.
     if not lon_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(const.dim_longitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(c.dim_longitude, ascending=False)
     if not lat_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(const.dim_latitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(c.dim_latitude, ascending=False)
 
     return ds_or_da_res
 
@@ -1218,14 +1220,14 @@ def reorder_dims(da_idx: xr.DataArray, ds_or_da_src: Union[xr.DataArray, xr.Data
 
     # Rename dimensions.
     for i in range(len(dims)):
-        dims[i] = dims[i].replace(const.dim_rlat, const.dim_latitude).replace(const.dim_rlon, const.dim_longitude)
-        if dims[i] == const.dim_lat:
-            dims[i] = const.dim_latitude
-        if dims[i] == const.dim_lon:
-            dims[i] = const.dim_longitude
+        dims[i] = dims[i].replace(c.dim_rlat, c.dim_latitude).replace(c.dim_rlon, c.dim_longitude)
+        if dims[i] == c.dim_lat:
+            dims[i] = c.dim_latitude
+        if dims[i] == c.dim_lon:
+            dims[i] = c.dim_longitude
 
     # Reorder dimensions.
-    if const.dim_location in dims:
+    if c.dim_location in dims:
         da_idx_new = da_idx.transpose(dims[0], dims[1]).copy()
     else:
         da_idx_new = da_idx.transpose(dims[0], dims[1], dims[2]).copy()

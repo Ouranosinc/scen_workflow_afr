@@ -4,37 +4,23 @@
 #
 # Contact information:
 # 1. rousseau.yannick@ouranos.ca (pimping agent)
-# (C) 2020 Ouranos, Canada
+# (C) 2020-2022 Ouranos, Canada
 # ----------------------------------------------------------------------------------------------------------------------
 
-import constants as const
+# External libraries.
 import glob
 import matplotlib.pyplot
 import os
 import pandas as pd
-import utils
 import xarray as xr
 import warnings
-from config import cfg
 from itertools import compress
 from typing import Union, List
 
-import sys
-sys.path.append("dashboard")
-from dashboard import def_varidx as vi
-
-# Files.
-f_csv     = "csv"         # CSV file type (comma-separated values).
-f_png     = "png"         # PNG file type (image).
-f_tif     = "tif"         # TIF file type (image, potentially georeferenced).
-f_nc      = "nc"          # NetCDF file type.
-f_nc4     = "nc4"         # NetCDF v4 file type.
-f_ext_csv = "." + f_csv   # CSV file extension.
-f_ext_png = "." + f_png   # PNG file extension.
-f_ext_tif = "." + f_tif   # TIF file extension.
-f_ext_nc  = "." + f_nc    # NetCDF file extension.
-f_ext_nc4 = "." + f_nc4   # NetCDF v4 file extension.
-f_ext_log = ".log"        # LOG file extension.
+# Workflow libraries.
+import utils
+from def_constant import const as c
+from def_context import cntx
 
 
 def list_cordex(
@@ -48,9 +34,9 @@ def list_cordex(
 
     Parameters
     ----------
-    p_ds : str
+    p_ds: str
         Path of data_source.
-    rcps : [str]
+    rcps: [str]
         List of RCP scenarios.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -60,15 +46,15 @@ def list_cordex(
     # Find all the available simulations for a given RCP.
     for r in range(len(rcps)):
 
-        d_format = p_ds + "*" + cfg.sep + "*" + cfg.sep + "AFR-*{r}".format(r=rcps[r]) + cfg.sep + "*" +\
-                   cfg.sep + "atmos" + cfg.sep + "*" + cfg.sep
+        d_format = p_ds + "*" + cntx.sep + "*" + cntx.sep + "AFR-*{r}".format(r=rcps[r]) + cntx.sep + "*" +\
+                   cntx.sep + "atmos" + cntx.sep + "*" + cntx.sep
         d_l = glob.glob(d_format)
         d_l = [i for i in d_l if "day" in i]
         d_l.sort()
 
         # Remove timestep information.
         for i in range(0, len(d_l)):
-            tokens = d_l[i].split(cfg.sep)
+            tokens = d_l[i].split(cntx.sep)
             d_l[i] = d_l[i].replace(tokens[len(tokens) - 4], "*")
 
         # Keep only the unique simulation folders (with a * as the timestep).
@@ -95,7 +81,7 @@ def info_cordex(
 
     Parameters
     ----------
-    d_ds : str
+    d_ds: str
         Directory of data_source.
 
     Return
@@ -114,13 +100,13 @@ def info_cordex(
     sets = []
 
     # List directories containing simulation sets.
-    d_format =\
-        d_ds + "*" + cfg.sep + "*" + cfg.sep + "AFR-*" + cfg.sep + "day" + cfg.sep + "atmos" + cfg.sep + "*" + cfg.sep
-    n_token = len(d_ds.split(cfg.sep)) - 2
+    d_format = d_ds + "*" + cntx.sep + "*" + cntx.sep + "AFR-*" + cntx.sep + "day" + cntx.sep + "atmos" + cntx.sep +\
+        "*" + cntx.sep
+    n_token = len(d_ds.split(cntx.sep)) - 2
 
     # Loop through simulations sets.
     for i in glob.glob(d_format):
-        tokens_i = i.split(cfg.sep)
+        tokens_i = i.split(cntx.sep)
 
         # Extract institute, RGM, CGM and emission scenario.
         inst = tokens_i[n_token + 1]
@@ -130,10 +116,10 @@ def info_cordex(
 
         # Extract variables and ensure that there is at least one NetCDF file available for each  one.
         vars_i = []
-        for j in glob.glob(i + "*" + cfg.sep):
-            n_netcdf = len(glob.glob(j + "*" + f_ext_nc))
+        for j in glob.glob(i + "*" + cntx.sep):
+            n_netcdf = len(glob.glob(j + "*" + c.f_ext_nc))
             if n_netcdf > 0:
-                tokens_j = j.split(cfg.sep)
+                tokens_j = j.split(cntx.sep)
                 var      = tokens_j[len(tokens_j) - 2]
                 vars_i.append(var)
 
@@ -152,7 +138,7 @@ def list_files(
 
     Parameters
     ----------
-    p : str
+    p: str
         Path of directory.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -162,7 +148,7 @@ def list_files(
     # r=root, d=directories, f = files
     for r, d, f in os.walk(p):
         for p in f:
-            if f_ext_nc in p:
+            if c.f_ext_nc in p:
                 p_l.append(os.path.join(r, p))
 
     # Sort.
@@ -183,13 +169,13 @@ def create_mask(
 
     da_mask = None
 
-    f_l = glob.glob(cfg.d_stn + "*/*" + f_ext_nc)
+    f_l = glob.glob(cntx.d_stn + "*/*" + c.f_ext_nc)
     for i in range(len(f_l)):
 
         # Open NetCDF file.
         ds = open_netcdf(f_l[i])
         var = list(ds.data_vars)[0]
-        if var in [vi.v_tas, vi.v_tasmin, vi.v_tasmax]:
+        if var in [c.v_tas, c.v_tasmin, c.v_tasmax]:
 
             # Create mask.
             da_mask = ds[var][0] * 0 + 1
@@ -214,17 +200,17 @@ def open_netcdf(
 
     Parameters
     ----------
-    p : Union[str, [str]]
+    p: Union[str, [str]]
         Path of file to be created.
-    drop_variables : [str]
+    drop_variables: [str]
         Drop-variables parameter.
-    chunks : Union[int,dict]
+    chunks: Union[int,dict]
         Chunks parameter
-    combine : str
+    combine: str
         Combine parameter.
-    concat_dim : str
+    concat_dim: str
         Concatenate dimension.
-    desc : str
+    desc: str
         Description.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -232,7 +218,7 @@ def open_netcdf(
     if desc == "":
         desc = (os.path.basename(p) if isinstance(p, str) else os.path.basename(p[0]))
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Opening NetCDF file: " + desc, True)
 
     if isinstance(p, str):
@@ -242,8 +228,8 @@ def open_netcdf(
         close_netcdf(ds)
 
         # Determine the number of chunks.
-        if cfg.use_chunks and (cfg.n_proc == 1) and (chunks is None) and ("scen" in p) and (const.dim_time in ds.dims):
-            chunks = {const.dim_time: len(ds[const.dim_time])}
+        if cntx.use_chunks and (cntx.n_proc == 1) and (chunks is None) and ("scen" in p) and (c.dim_time in ds.dims):
+            chunks = {c.dim_time: len(ds[c.dim_time])}
 
         # Reopen file using chunks.
         if chunks is not None:
@@ -252,7 +238,7 @@ def open_netcdf(
     else:
         ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim)
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Opened NetCDF file", True)
 
     return ds
@@ -270,11 +256,11 @@ def save_netcdf(
 
     Parameters
     ----------
-    ds : Union[xr.Dataset, xr.DataArray]
+    ds: Union[xr.Dataset, xr.DataArray]
         Dataset.
-    p : str
+    p: str
         Path of file to be created.
-    desc : str
+    desc: str
         Description.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -282,7 +268,7 @@ def save_netcdf(
     if desc == "":
         desc = os.path.basename(p)
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Saving NetCDF file: " + desc, True)
 
     # Recursively create directories if the path does not exist.
@@ -291,7 +277,7 @@ def save_netcdf(
         os.makedirs(d)
 
     # Create a temporary file to indicate that writing is in progress.
-    p_inc = p.replace(f_ext_nc, ".incomplete")
+    p_inc = p.replace(c.f_ext_nc, ".incomplete")
     if not os.path.exists(p_inc):
         open(p_inc, 'a').close()
 
@@ -306,7 +292,7 @@ def save_netcdf(
     if os.path.exists(p_inc):
         os.remove(p_inc)
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Saved NetCDF file", True)
 
 
@@ -320,7 +306,7 @@ def close_netcdf(
 
     Parameters
     ----------
-    ds : Union[xr.Dataset, xr.DataArray]
+    ds: Union[xr.Dataset, xr.DataArray]
         Dataset.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -328,7 +314,7 @@ def close_netcdf(
     if ds is not None:
         try:
             ds.close()
-        except:
+        finally:
             pass
 
 
@@ -344,7 +330,7 @@ def clean_netcdf(
 
     Parameters
     ----------
-    d : str
+    d: str
         Base directory to search from.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -352,15 +338,15 @@ def clean_netcdf(
     log("Cleaning NetCDF file: " + d, True)
 
     # List temporary files.
-    if d[len(d) - 1] != cfg.sep:
-        d = d + cfg.sep
-    p_inc_l = glob.glob(d + "**" + cfg.sep + "*.incomplete", recursive=True)
+    if d[len(d) - 1] != cntx.sep:
+        d = d + cntx.sep
+    p_inc_l = glob.glob(d + "**" + cntx.sep + "*.incomplete", recursive=True)
 
     # Loop through temporary files.
     for p_inc in p_inc_l:
 
         # Attempt removing an associated NetCDF file.
-        p_nc = p_inc.replace(".incomplete", f_ext_nc)
+        p_nc = p_inc.replace(".incomplete", c.f_ext_nc)
         if os.path.exists(p_nc):
             log("Removing: " + p_nc)
             os.remove(p_nc)
@@ -374,7 +360,7 @@ def clean_netcdf(
 def save_plot(
     plt: matplotlib.pyplot,
     p: str,
-    desc=""
+    desc: str = ""
 ):
 
     """
@@ -383,11 +369,11 @@ def save_plot(
 
     Parameters
     ----------
-    plt : matplotlib.pyplot
+    plt: matplotlib.pyplot
         Plot.
-    p : str
+    p: str
         Path of file to be created.
-    desc : str
+    desc: str
         Description.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -395,7 +381,7 @@ def save_plot(
     if desc == "":
         desc = os.path.basename(p)
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Saving plot: " + desc, True)
 
     # Recursively create directories if the path does not exist.
@@ -412,7 +398,7 @@ def save_plot(
         warnings.simplefilter("ignore", category=UserWarning)
         plt.savefig(p)
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Saving plot", True)
 
 
@@ -428,11 +414,11 @@ def save_csv(
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df: pd.DataFrame
         Dataframe.
-    p : str
+    p: str
         Path of file to be created.
-    desc : str
+    desc: str
         Description.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -440,7 +426,7 @@ def save_csv(
     if desc == "":
         desc = os.path.basename(p)
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Saving CSV file: " + desc, True)
 
     # Recursively create directories if the path does not exist.
@@ -455,7 +441,7 @@ def save_csv(
     # Save CSV file.
     df.to_csv(p, index=False)
 
-    if cfg.opt_trace:
+    if cntx.opt_trace:
         log("Saved CSV file", True)
 
 
@@ -470,9 +456,9 @@ def log(
 
     Parameters
     ----------
-    msg : str
+    msg: str
         Message.
-    indent : bool
+    indent: bool
         If True, indent text.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -481,32 +467,32 @@ def log(
 
     # Start line with a timestamp, unless this is a divide.
     if (msg != "-") and (msg != "="):
-        ln = utils.get_datetime_str()
+        ln = utils.datetime_str()
 
     if indent:
-        ln += " " * const.log_n_blank
+        ln += " " * c.log_n_blank
     if (msg == "-") or (msg == "="):
         if indent:
-            ln += msg * const.log_sep_len
+            ln += msg * c.log_sep_len
         else:
-            ln += msg * (const.log_sep_len + const.log_n_blank)
+            ln += msg * (c.log_sep_len + c.log_n_blank)
     else:
         ln += " " + msg
 
     # Print to console.
     pid_current = os.getpid()
-    if pid_current == cfg.pid:
+    if pid_current == cntx.pid:
         print(ln)
 
     # Recursively create directories if the path does not exist.
-    d = os.path.dirname(cfg.p_log)
+    d = os.path.dirname(cntx.p_log)
     if not (os.path.isdir(d)):
         os.makedirs(d)
 
     # Print to file.
-    p_log = cfg.p_log
-    if pid_current != cfg.pid:
-        p_log = p_log.replace(f_ext_log, "_" + str(pid_current) + f_ext_log)
+    p_log = cntx.p_log
+    if pid_current != cntx.pid:
+        p_log = p_log.replace(c.f_ext_log, "_" + str(pid_current) + c.f_ext_log)
     if p_log != "":
         f = open(p_log, "a")
         f.writelines(ln + "\n")
