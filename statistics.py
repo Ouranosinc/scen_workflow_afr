@@ -643,7 +643,7 @@ def calc_ts_prep(
                 if "rcp" not in p_sim_l[i_sim]:
                     sim_code = def_rcp.RCP(c.ref).desc
                 else:
-                    tokens = os.path.basename(p_sim_l[i_sim]).replace(fu.f_ext_nc, "").split("_")
+                    tokens = os.path.basename(p_sim_l[i_sim]).replace(c.f_ext_nc, "").split("_")
                     sim_code = tokens[1] + "_" + tokens[2] + "_" + tokens[3] + "_" + tokens[4]
 
                 # Calculate dataset.
@@ -651,7 +651,7 @@ def calc_ts_prep(
                     p_val = p_sim_l[i_sim]
                     if rcp != c.ref:
                         p_val = p_val.replace(cntx.sep + c.cat_qqmap, cntx.sep + c.cat_regrid).\
-                            replace(fu.f_ext_nc, "_4" + c.cat_qqmap + fu.f_ext_nc)
+                            replace(c.f_ext_nc, "_4" + c.cat_qqmap + c.f_ext_nc)
                     ds_val = calc_ts_ds(p_val)
                     if not delta:
                         ds = ds_val
@@ -1274,9 +1274,9 @@ def calc_map(
 
                 # Determine if PNG and CSV files need to be saved.
                 save_fig = cntx.opt_force_overwrite or\
-                    ((not os.path.exists(p_fig)) and (fu.f_png in cntx.opt_map_format))
+                    ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_map_format))
                 save_csv = cntx.opt_force_overwrite or\
-                    ((not os.path.exists(p_csv)) and (fu.f_csv in cntx.opt_map_format))
+                    ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_map_format))
 
                 # Create dataframe.
                 arr_lon, arr_lat, arr_val = [], [], []
@@ -1300,10 +1300,10 @@ def calc_map(
                 # TIF format -------------------------------------------------------------------------------------------
 
                 # Path of TIF file.
-                p_tif = p_fig.replace(varidx.code + cntx.sep, varidx.code + "_" + fu.f_tif + cntx.sep).\
-                    replace(fu.f_ext_png, fu.f_ext_tif)
+                p_tif = p_fig.replace(varidx.code + cntx.sep, varidx.code + "_" + c.f_tif + cntx.sep).\
+                    replace(c.f_ext_png, c.f_ext_tif)
 
-                if (fu.f_tif in cntx.opt_map_format) and ((not os.path.exists(p_tif)) or cntx.opt_force_overwrite):
+                if (c.f_tif in cntx.opt_map_format) and ((not os.path.exists(p_tif)) or cntx.opt_force_overwrite):
 
                     # TODO: da_tif.rio.reproject is now crashing. It was working in July 2021.
 
@@ -1977,18 +1977,11 @@ def calc_cycle(
             calc_cycle(ds, stn, varidx, per, freq, title, i_trial + 1)
 
 
-def calc_clusters(
-    stn: str
-):
+def calc_clusters():
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Generate cluster plot.
-
-    Parameters
-    ----------
-    stn: str
-        Station.
     --------------------------------------------------------------------------------------------------------------------
     """
 
