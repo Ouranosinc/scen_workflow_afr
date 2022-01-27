@@ -503,11 +503,16 @@ def calc_ts(
         p_sim_del_fig = p_sim_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
 
         # Skip if no work required.
-        save_csv = (not os.path.exists(p_rcp_csv) or not os.path.exists(p_sim_csv) or
-                    not os.path.exists(p_rcp_del_csv) or not os.path.exists(p_sim_del_csv)) and \
-                   (cntx.opt_save_csv[0 if cat == c.cat_scen else 1])
-        save_fig = (not os.path.exists(p_rcp_fig) or not os.path.exists(p_sim_fig) or
-                    not os.path.exists(p_rcp_del_fig) or not os.path.exists(p_sim_del_fig))
+        save_csv = ((not os.path.exists(p_rcp_csv) or
+                     not os.path.exists(p_sim_csv) or
+                     not os.path.exists(p_rcp_del_csv) or
+                     not os.path.exists(p_sim_del_csv)) and
+                    (c.f_csv in cntx.opt_ts_format))
+        save_fig = ((not os.path.exists(p_rcp_fig) or
+                     not os.path.exists(p_sim_fig) or
+                     not os.path.exists(p_rcp_del_fig) or
+                     not os.path.exists(p_sim_del_fig)) and
+                    (c.f_png in cntx.opt_ts_format))
         if (not save_csv) and (not save_fig) and (not cntx.opt_force_overwrite):
             continue
 

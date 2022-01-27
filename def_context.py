@@ -638,8 +638,8 @@ class Context(def_context.Context):
         # Enable/disable clipping according to 'p_bounds'.
         self.opt_stat_clip = False
 
-        # Enabe/disable saving results to CSV files for [scenarios, indices].
-        self.opt_save_csv = [False] * 2
+        # Enabe/disable exporting NetCDF to CSV files for [scenarios, indices].
+        self.export_nc_to_csv = [False] * 2
 
         """
         Visualization --------------------------
@@ -907,8 +907,8 @@ class Context(def_context.Context):
                     self.opt_stat_quantiles = def_context.str_to_arr_1d(value, float)
                 elif key == "opt_stat_clip":
                     self.opt_stat_clip = ast.literal_eval(value)
-                elif key == "opt_save_csv":
-                    self.opt_save_csv = ast.literal_eval(value)\
+                elif key == "export_nc_to_csv":
+                    self.export_nc_to_csv = ast.literal_eval(value)\
                         if ("," not in value) else def_context.str_to_arr_1d(value, bool)
 
                 # Visualization:

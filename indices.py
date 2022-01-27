@@ -2100,7 +2100,7 @@ def run():
 
     fu.log("-")
     msg = "Step #7b  Converting NetCDF to CSV files (indices)"
-    if cntx.opt_save_csv[1] and not cntx.opt_ra:
+    if cntx.export_nc_to_csv[1] and not cntx.opt_ra:
         fu.log(msg)
         fu.log("-")
         stats.conv_nc_csv(c.cat_idx)

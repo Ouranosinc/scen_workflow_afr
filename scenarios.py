@@ -1096,9 +1096,9 @@ def bias_adj(
 
                         msg = "nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + ", time_win=" + str(time_win)
                         if not(os.path.exists(p_fig)) or \
-                           (not(os.path.exists(p_fig_csv)) and cntx.opt_save_csv[0]) or\
+                           (not(os.path.exists(p_fig_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or\
                            not(os.path.exists(p_fig_ts)) or \
-                           (not (os.path.exists(p_fig_ts_csv)) and cntx.opt_save_csv[0]) or \
+                           (not (os.path.exists(p_fig_ts_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or \
                            not(os.path.exists(p_qqmap)) or not(os.path.exists(p_qmf)) or cntx.opt_force_overwrite:
                             fu.log(msg, True)
 
@@ -1781,7 +1781,7 @@ def run():
 
     fu.log("-")
     msg = "Step #7b  Converting NetCDF to CSV files (scenarios)"
-    if cntx.opt_save_csv[0] and not cntx.opt_ra:
+    if cntx.export_nc_to_csv[0] and not cntx.opt_ra:
         fu.log(msg)
         fu.log("-")
         stats.conv_nc_csv(c.cat_scen)
