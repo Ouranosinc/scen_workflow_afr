@@ -1959,7 +1959,7 @@ def gen_per_idx(
             elif func_name == "stats.calc_ts":
                 stats.calc_ts(view_code, cntx.idxs.code_l, i_idx)
             else:
-                stats.calc_stats(cntx.idxs.code_l, i_idx)
+                stats.calc_stat_tbl(cntx.idxs.code_l, i_idx)
 
     # Parallel processing mode.
     else:
@@ -1982,7 +1982,7 @@ def gen_per_idx(
                 elif func_name == "stats.calc_ts":
                     func = functools.partial(stats.calc_ts, view_code, idx_codes)
                 else:
-                    func = functools.partial(stats.calc_stats, idx_codes)
+                    func = functools.partial(stats.calc_stat_tbl, idx_codes)
                 pool.map(func, list(range(idx_codes)))
                 pool.close()
                 pool.join()
@@ -2094,7 +2094,7 @@ def run():
     msg = "Step #7a  Calculating statistics (indices)"
     if cntx.opt_stat[1]:
         fu.log(msg)
-        gen_per_idx("stats.calc_stats")
+        gen_per_idx("stats.calc_stat_tbl")
     else:
         fu.log(msg + not_req)
 

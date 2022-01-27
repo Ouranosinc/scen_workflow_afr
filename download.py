@@ -214,7 +214,8 @@ def run():
     # Area: [North, West, South, East, ]
     # Ex1: Africa      = [47, -29, -50, 65, ]
     # Ex2: West Africa = [40, -30, -15, 30, ]
-    area = [cntx.lat_bnds_download[1], cntx.lon_bnds_download[1], cntx.lat_bnds_download[0], cntx.lon_bnds_download[0]]
+    area = [cntx.opt_download_lat_bnds[1], cntx.opt_download_lon_bnds[1],
+            cntx.opt_download_lat_bnds[0], cntx.opt_download_lon_bnds[0]]
 
     # Path of input data.
     d_prefix = os.path.dirname(cntx.d_ra_raw) + cntx.sep
@@ -230,7 +231,7 @@ def run():
             years = range(1979, 2019 + 1)
 
         # Loop through variable codes.
-        for var in cntx.vars_download.code_l:
+        for var in cntx.opt_download_vars.code_l:
 
             # Need to loop until all files were generated.
             done = False

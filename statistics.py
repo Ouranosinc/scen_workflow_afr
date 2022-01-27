@@ -37,7 +37,7 @@ from def_context import cntx
 # Dashboard libraries.
 sys.path.append("dashboard")
 from dashboard import def_delta, def_project, def_hor, def_lib, def_rcp, def_sim, def_stat, def_varidx as vi, def_view,\
-    dash_plot
+    dash_plot, dash_statistics as dash_stats, dash_utils
 
 
 def calc_stat(
@@ -297,7 +297,7 @@ def calc_stat(
     return ds_stat
 
 
-def calc_stats(
+def calc_stat_tbl(
     vi_code_l: List[str],
     i_vi_proc: int,
 ):
@@ -1872,8 +1872,8 @@ def calc_cycle(
 
     # Determine if the analysis is required.
     cat = c.cat_scen if varidx.is_var() else c.cat_idx
-    analysis_enabled = ((cat == c.cat_scen) and
-                        cntx.opt_cycle[0]) or ((cat == c.cat_idx) and cntx.opt_cycle[1])
+    analysis_enabled = ((cat == c.cat_scen) and cntx.opt_cycle[0]) or\
+                       ((cat == c.cat_idx) and cntx.opt_cycle[1])
     save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_cycle_format)))
     save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_cycle_format)))
     if not (analysis_enabled and (save_fig or save_csv)):
@@ -1977,6 +1977,77 @@ def calc_cycle(
             calc_cycle(ds, stn, varidx, per, freq, title, i_trial + 1)
 
 
+def calc_clusters(
+    stn: str
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generate cluster plot.
+
+    Parameters
+    ----------
+    stn: str
+        Station.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Loop through stations.
+    stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
+    for stn in stns:
+
+        fu.log("Processing: " + stn, True)
+
+        # Determine the maximum number of clusters.
+        p_csv_ts = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.cat_fig, c.view_ts) +\
+            c.view_ts + c.f_ext_csv
+        n_cluster_max = len(dash_utils.get_shared_sims(p_csv_ts))
+
+        # Loop through all combinations of
+        for n_cluster in range(1, n_cluster_max):
+
+            # Paths.
+            p_fig = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.cat_fig, c.view_cluster) + \
+                c.view_cluster + "_" + str(n_cluster) + c.f_ext_png
+            p_csv = p_fig.replace(c.f_ext_png, c.f_ext_csv)
+
+            # Determine if the analysis is required.
+            analysis_enabled = cntx.opt_cluster
+            save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_cluster_format)))
+            save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_cluster_format)))
+            if not (analysis_enabled and (save_fig or save_csv)):
+                continue
+
+            # Load existing CSV file.
+            if (not cntx.opt_force_overwrite) and os.path.exists(p_csv):
+                df = pd.read_csv(p_csv)
+
+            # Prepare data.
+            else:
+                df = dash_stats.calc_clusters(n_cluster, False)
+
+            # Save CSV file.
+            if save_csv:
+                try:
+                    fu.save_csv(df, p_csv)
+                except Exception as e:
+                    fu.log(str(e))
+
+            # Generate and save plot.
+            if save_fig:
+
+                # Update context.
+                cntx.code   = c.platform_script
+                cntx.lib    = def_lib.Lib(c.lib_mat)
+
+                # Generate plot.
+
+                fig = dash_plot.gen_cluster_plot(n_cluster)
+
+                # Save plot.
+                fu.save_plot(fig, p_fig)
+
+
 def calc_postprocess(
     p_ref: str,
     p_sim: str,
@@ -2010,14 +2081,12 @@ def calc_postprocess(
     vi_name = varidx.name
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + fu.f_csv + cntx.sep). \
-        replace(fu.f_ext_png, fu.f_ext_csv)
+    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.f_csv + cntx.sep). \
+        replace(c.f_ext_png, c.f_ext_csv)
 
     # Determine if the analysis is required.
-    save_fig = (cntx.opt_force_overwrite or
-                ((not os.path.exists(p_fig)) and (fu.f_png in cntx.opt_diagnostic_format)))
-    save_csv = (cntx.opt_force_overwrite or
-                ((not os.path.exists(p_csv)) and (fu.f_csv in cntx.opt_diagnostic_format)))
+    save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_diagnostic_format)))
+    save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format)))
     if not (save_fig or save_csv):
         return
 
@@ -2129,12 +2198,12 @@ def calc_workflow(
     vi_name = varidx.name
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + fu.f_csv + cntx.sep). \
-        replace(fu.f_ext_png, fu.f_ext_csv)
+    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.f_csv + cntx.sep). \
+        replace(c.f_ext_png, c.f_ext_csv)
 
     # Determine if the analysis is required.
-    save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (fu.f_png in cntx.opt_diagnostic_format)))
-    save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (fu.f_csv in cntx.opt_diagnostic_format)))
+    save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_diagnostic_format)))
+    save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format)))
     if not (save_fig or save_csv):
         return
 
@@ -2184,7 +2253,7 @@ def calc_workflow(
 
     # Generate and save plot.
     if save_fig:
-        title = os.path.basename(p_fig).replace(fu.f_ext_png, "") +\
+        title = os.path.basename(p_fig).replace(c.f_ext_png, "") +\
             "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
         fig = plot.plot_workflow(df, varidx, units, title)
         fu.save_plot(fig, p_fig)

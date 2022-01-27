@@ -49,8 +49,11 @@ def main():
                 variables_ra.append(var.convert_name(cntx.obs_src))
             cntx.vars_ra = vi.VarIdxs(variables_ra)
 
-    if len(cntx.variables_download) > 0:
-        cntx.vars_download = vi.VarIdxs(cntx.variables_download)
+    if len(cntx.opt_download_variables) > 0:
+        cntx.opt_download_vars = vi.VarIdxs(cntx.opt_download_variables)
+
+    if len(cntx.opt_cluster_variables) > 0:
+        cntx.cluster_vars = vi.VarIdxs(cntx.opt_cluster_variables)
 
     # Indices.
     cntx.idxs = vi.VarIdxs()

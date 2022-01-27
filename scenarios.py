@@ -988,7 +988,7 @@ def postprocess(
 
             # Generate time series only.
             plot.plot_calib_ts(da_stn_xy, da_sim_xy, da_sim_adj_xy, var, title,
-                               p_fig.replace(fu.f_ext_png, "_ts" + fu.f_ext_png))
+                               p_fig.replace(c.f_ext_png, "_ts" + c.f_ext_png))
 
     return ds_sim_adj if (p_fig == "") else None
 
@@ -1029,7 +1029,7 @@ def bias_adj(
     # Loop through simulation sets.
     for i in range(len(p_regrid_l)):
         p_regrid_tokens = p_regrid_l[i].split(cntx.sep)
-        sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var.name + "_", "").replace(fu.f_ext_nc, "")
+        sim_name_i = p_regrid_tokens[len(p_regrid_tokens) - 1].replace(var.name + "_", "").replace(c.f_ext_nc, "")
 
         # Skip iteration if it does not correspond to the specified simulation name.
         if (sim_name != "") and (sim_name != sim_name_i):
@@ -1360,7 +1360,7 @@ def gen():
                         # Calculate the number of processed files (before generation).
                         # This quick verification is based on the QQMAP NetCDF file, but there are several other
                         # files that are generated. The 'completeness' verification is more complete in scalar mode.
-                        n_sim_proc_before = len(list(glob.glob(d_qqmap + "*" + fu.f_ext_nc)))
+                        n_sim_proc_before = len(list(glob.glob(d_qqmap + "*" + c.f_ext_nc)))
 
                         # Scalar processing mode.
                         if cntx.n_proc == 1:
@@ -1385,7 +1385,7 @@ def gen():
                                 pass
 
                         # Calculate the number of processed files (after generation).
-                        n_sim_proc_after = len(list(glob.glob(d_qqmap + "*" + fu.f_ext_nc)))
+                        n_sim_proc_after = len(list(glob.glob(d_qqmap + "*" + c.f_ext_nc)))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cntx.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
@@ -1609,7 +1609,7 @@ def gen_per_var(
             elif func_name == "stats.calc_ts":
                 stats.calc_ts(view_code, cntx.vars.code_l, i_var)
             else:
-                stats.calc_stats(cntx.vars.code_l, i_var)
+                stats.calc_stat_tbl(cntx.vars.code_l, i_var)
 
     # Parallel processing mode.
     else:
@@ -1632,7 +1632,7 @@ def gen_per_var(
                 elif func_name == "stats.calc_ts":
                     func = functools.partial(stats.calc_ts, view_code, var_name_l)
                 else:
-                    func = functools.partial(stats.calc_stats, var_name_l)
+                    func = functools.partial(stats.calc_stat_tbl, var_name_l)
                 pool.map(func, list(range(var_name_l)))
                 pool.close()
                 pool.join()
@@ -1775,7 +1775,7 @@ def run():
     msg = "Step #7a  Calculating statistics (scenarios)"
     if cntx.opt_stat[0]:
         fu.log(msg)
-        gen_per_var("stats.calc_stats")
+        gen_per_var("stats.calc_stat_tbl")
     else:
         fu.log(msg + not_req)
 
@@ -1820,6 +1820,14 @@ def run():
     if cntx.opt_ra and cntx.opt_map[0] and (len(cntx.opt_ts_format) > 0):
         fu.log(msg)
         gen_per_var("stats.calc_map")
+    else:
+        fu.log(msg + " (not required)")
+
+    fu.log("-")
+    msg = "Step #8e  Generating cluster plots (scenarios)"
+    if cntx.opt_cluster and (len(cntx.opt_cluster_format) > 0):
+        fu.log(msg)
+        stats.calc_clusters()
     else:
         fu.log(msg + " (not required)")
 

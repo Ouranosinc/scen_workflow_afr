@@ -225,12 +225,12 @@ class Context(def_context.Context):
         self.opt_download = False
 
         # Variables to download.
-        self.variables_download = []
-        self.vars_download = None
+        self.opt_download_variables = []
+        self.opt_download_vars = None
 
         # Boundaries.
-        self.lon_bnds_download = [0, 0]
-        self.lat_bnds_download = [0, 0]
+        self.opt_download_lon_bnds = [0, 0]
+        self.opt_download_lat_bnds = [0, 0]
 
         # Enable/disable data aggregation.
         self.opt_aggregate = False
@@ -693,6 +693,16 @@ class Context(def_context.Context):
         # Tells whether discrete color scale are used maps (rather than continuous).
         self.opt_map_discrete = False
 
+        # Enable/diasble generation of cluster plots (only applicable to scenarios).
+        self.opt_cluster = False
+
+        # Variables used for clustering.
+        self.opt_cluster_variables = []
+        self.opt_cluster_vars = None
+
+        # Format of cluster plots.
+        self.opt_cluster_format = ["png", "csv"]
+
         """
         Color maps apply to categories of variables and indices.
     
@@ -830,12 +840,12 @@ class Context(def_context.Context):
                 # Data:
                 elif key == "opt_download":
                     self.opt_download = ast.literal_eval(value)
-                elif key == "variables_download":
-                    self.vars_download = def_context.str_to_arr_1d(value, str)
-                elif key == "lon_bnds_download":
-                    self.lon_bnds_download = def_context.str_to_arr_1d(value, float)
-                elif key == "lat_bnds_download":
-                    self.lat_bnds_download = def_context.str_to_arr_1d(value, float)
+                elif key == "opt_download_variables":
+                    self.opt_download_vars = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_download_lon_bnds":
+                    self.opt_download_lon_bnds = def_context.str_to_arr_1d(value, float)
+                elif key == "opt_download_lat_bnds":
+                    self.opt_download_lat_bnds = def_context.str_to_arr_1d(value, float)
                 elif key == "opt_aggregate":
                     self.opt_aggregate = ast.literal_eval(value)
 
@@ -969,6 +979,12 @@ class Context(def_context.Context):
                     self.opt_map_col_wind_idx_1 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_default":
                     self.opt_map_col_default = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_cluster":
+                    self.opt_cluster = ast.literal_eval(value)
+                elif key == "opt_cluster_variables":
+                    self.opt_cluster_variables = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_cluster_format":
+                    self.opt_cluster_format = def_context.str_to_arr_1d(value, str)
 
                 # Environment.
                 elif key == "n_proc":
