@@ -1245,7 +1245,6 @@ def calc_map(
 
                 # Create context.
                 cntx.code              = c.platform_script
-                cntx.project           = def_project.Project("x")
                 cntx.view              = def_view.View(c.view_map)
                 cntx.lib               = def_lib.Lib(c.lib_mat)
                 cntx.varidx            = vi.VarIdx(vi_name)
@@ -1987,8 +1986,19 @@ def calc_clusters():
     """
     --------------------------------------------------------------------------------------------------------------------
     Generate cluster plot.
+
+    One plot each generated from each possible cluster size.
+    All simulations are considered (no matter the RCP).
+    The only tested variable combination is the one entered in the configuration file.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Update context.
+    cntx.view    = def_view.View(c.view_cluster)
+    cntx.lib     = def_lib.Lib(c.lib_mat)
+    cntx.project.load_quantiles()
+    cntx.varidxs = cntx.cluster_vars
+    cntx.rcp     = def_rcp.RCP(c.rcpxx)
 
     # Loop through stations.
     stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
@@ -1997,17 +2007,20 @@ def calc_clusters():
         fu.log("Processing: " + stn, True)
 
         # Determine the maximum number of clusters.
-        p_csv_ts = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.cat_fig, c.view_ts) +\
-            c.view_ts + c.f_ext_csv
-        n_cluster_max = len(dash_utils.get_shared_sims(p_csv_ts))
+        p_csv_ts_l = []
+        for var in cntx.varidxs.items:
+            p_i = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.view_ts,
+                              var.code + "_" + c.f_csv) + var.code + "_sim" + c.f_ext_csv
+            p_csv_ts_l.append(p_i)
+        n_cluster_max = len(dash_utils.get_shared_sims(p_csv_ts_l))
 
         # Loop through all combinations of
         for n_cluster in range(1, n_cluster_max):
 
             # Paths.
-            p_fig = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.cat_fig, c.view_cluster) + \
-                c.view_cluster + "_" + str(n_cluster) + c.f_ext_png
-            p_csv = p_fig.replace(c.f_ext_png, c.f_ext_csv)
+            p_csv = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen, c.view_cluster) +\
+                    c.view_cluster + "_" + c.f_csv + cntx.sep + c.view_cluster + "_" + str(n_cluster) + c.f_ext_csv
+            p_fig = p_csv.replace("_" + c.f_csv, "").replace(c.f_ext_csv, c.f_ext_png)
 
             # Determine if the analysis is required.
             analysis_enabled = cntx.opt_cluster
@@ -2022,7 +2035,7 @@ def calc_clusters():
 
             # Prepare data.
             else:
-                df = dash_stats.calc_clusters(n_cluster, False)
+                df = dash_stats.calc_clusters(n_cluster, p_csv_ts_l)
 
             # Save CSV file.
             if save_csv:
@@ -2034,13 +2047,8 @@ def calc_clusters():
             # Generate and save plot.
             if save_fig:
 
-                # Update context.
-                cntx.code   = c.platform_script
-                cntx.lib    = def_lib.Lib(c.lib_mat)
-
                 # Generate plot.
-
-                fig = dash_plot.gen_cluster_plot(n_cluster)
+                fig = dash_plot.gen_cluster_plot(n_cluster, p_csv_ts_l)
 
                 # Save plot.
                 fu.save_plot(fig, p_fig)

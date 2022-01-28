@@ -25,7 +25,7 @@ from def_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard import def_project, def_varidx as vi
 
 
 def main():
@@ -36,9 +36,13 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Step #0: Structure variables and indices.
+    # Step #0: Structure: project, variables and indices.
 
-    # Variables.
+    # Project.
+    cntx.code = c.platform_script
+    cntx.project = def_project.Project(str(cntx.project))
+
+    # Variables .
     if len(cntx.variables) > 0:
         cntx.vars = vi.VarIdxs(cntx.variables)
 
@@ -48,10 +52,8 @@ def main():
             for var in cntx.vars.items:
                 variables_ra.append(var.convert_name(cntx.obs_src))
             cntx.vars_ra = vi.VarIdxs(variables_ra)
-
     if len(cntx.opt_download_variables) > 0:
         cntx.opt_download_vars = vi.VarIdxs(cntx.opt_download_variables)
-
     if len(cntx.opt_cluster_variables) > 0:
         cntx.cluster_vars = vi.VarIdxs(cntx.opt_cluster_variables)
 
@@ -72,7 +74,7 @@ def main():
     # Display configuration.
     fu.log("=")
     fu.log("Country                : " + cntx.country)
-    fu.log("Project                : " + cntx.project)
+    fu.log("Project                : " + cntx.project.code)
     fu.log("Variables (CORDEX)     : " + str(cntx.vars.code_l).replace("'", ""))
     for i in range(cntx.idxs.count):
         params_i =\
