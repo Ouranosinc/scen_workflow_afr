@@ -8,8 +8,10 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 # External libraries.
+import altair as alt
 import glob
-import matplotlib.pyplot
+import holoviews as hv
+import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import xarray as xr
@@ -358,7 +360,7 @@ def clean_netcdf(
 
 
 def save_plot(
-    plt: matplotlib.pyplot,
+    plot: Union[alt.Chart, any, plt.Figure],
     p: str,
     desc: str = ""
 ):
@@ -369,7 +371,7 @@ def save_plot(
 
     Parameters
     ----------
-    plt: matplotlib.pyplot
+    plot: Union[alt.Chart, any, plt.Figure]
         Plot.
     p: str
         Path of file to be created.
@@ -396,7 +398,22 @@ def save_plot(
     # Save file.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=UserWarning)
-        plt.savefig(p)
+
+        # Library: matplot.
+        if isinstance(plot, plt.Figure):
+            plot.savefig(p)
+
+        # Library: altair (not tested).
+        elif isinstance(plot, alt.Chart):
+            plot.save(p)
+
+        # Library: hvplot (not working).
+        # This requires:
+        # - conda install selenium
+        # - conda install -c conda-forge firefox geckodriver
+        # else:
+        #     from bokeh.io import export_png
+        #     export_png(plot, p)
 
     if cntx.opt_trace:
         log("Saving plot", True)

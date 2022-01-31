@@ -703,6 +703,9 @@ class Context(def_context.Context):
         # Format of cluster plots.
         self.opt_cluster_format = ["png", "csv"]
 
+        # Color scale of cluster plots.
+        self.opt_cluster_col = "Dark2"
+
         """
         Color maps apply to categories of variables and indices.
     
@@ -985,6 +988,8 @@ class Context(def_context.Context):
                     self.opt_cluster_variables = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_cluster_format":
                     self.opt_cluster_format = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_cluster_col":
+                    self.opt_cluster_col = ast.literal_eval(value)
 
                 # Environment.
                 elif key == "n_proc":

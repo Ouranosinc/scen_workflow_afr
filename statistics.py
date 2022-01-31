@@ -2000,6 +2000,15 @@ def calc_clusters():
     cntx.varidxs = cntx.cluster_vars
     cntx.rcp     = def_rcp.RCP(c.rcpxx)
 
+    # Assemble a string representing the combination of (sorted) variable codes.
+    vars_str = ""
+    var_code_l = cntx.varidxs.code_l
+    var_code_l.sort()
+    for i in range(len(var_code_l)):
+        if i > 0:
+            vars_str += "_"
+        vars_str += var_code_l[i]
+
     # Loop through stations.
     stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
     for stn in stns:
@@ -2019,7 +2028,7 @@ def calc_clusters():
 
             # Paths.
             p_csv = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen, c.view_cluster) +\
-                    c.view_cluster + "_" + c.f_csv + cntx.sep + c.view_cluster + "_" + str(n_cluster) + c.f_ext_csv
+                vars_str + "_" + c.f_csv + cntx.sep + vars_str + "_" + str(n_cluster) + c.f_ext_csv
             p_fig = p_csv.replace("_" + c.f_csv, "").replace(c.f_ext_csv, c.f_ext_png)
 
             # Determine if the analysis is required.
