@@ -1809,7 +1809,7 @@ def run():
 
     fu.log("-")
     msg = "Step #8c  Generating time series (scenarios, raw values and bias)"
-    if cntx.opt_ts_bias[0] and (len(cntx.opt_ts_format) > 0):
+    if cntx.opt_ts_bias and (len(cntx.opt_ts_format) > 0):
         fu.log(msg)
         gen_per_var("stats.calc_ts", c.view_ts_bias)
     else:

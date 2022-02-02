@@ -662,7 +662,7 @@ class Context(def_context.Context):
         self.opt_ts = [True] * 2
 
         # Enable/disable generation of bias plots for [scenarios].
-        self.opt_ts_bias = [True]
+        self.opt_ts_bias = True
 
         # Format of time series.
         self.opt_ts_format = ["png", "csv"]
@@ -928,8 +928,7 @@ class Context(def_context.Context):
                     self.opt_ts = ast.literal_eval(value)\
                         if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_ts_bias":
-                    self.opt_ts_bias = ast.literal_eval(value)\
-                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
+                    self.opt_ts_bias = ast.literal_eval(value)
                 elif key == "opt_ts_format":
                     self.opt_ts_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map":
