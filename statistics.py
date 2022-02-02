@@ -91,19 +91,20 @@ def calc_stat(
     varidx = vi.VarIdx(vi_code)
 
     # Extract name and group.
-    cat = c.cat_scen if varidx.is_var() else c.cat_idx
+    cat = c.cat_scen if varidx.is_var else c.cat_idx
     vi_name = vi_code if cat == c.cat_scen else varidx.name
     vi_code_grp = vi.group(vi_code)
+    vi_name_grp = vi.group(vi_name)
 
     # List files.
     if data_type == c.cat_obs:
-        if varidx.is_var():
-            p_sim_l = [cntx.d_scen(stn, c.cat_obs, vi_name) + vi_name + "_" + stn + c.f_ext_nc]
+        if varidx.is_var:
+            p_sim_l = [cntx.d_scen(stn, c.cat_obs, vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
         else:
-            p_sim_l = [cntx.d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + c.f_ext_nc]
+            p_sim_l = [cntx.d_idx(stn, vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
     else:
-        if varidx.is_var():
-            d = cntx.d_scen(stn, c.cat_qqmap, vi_name)
+        if varidx.is_var:
+            d = cntx.d_scen(stn, c.cat_qqmap, vi_code_grp)
         else:
             d = cntx.d_idx(stn, vi_code_grp)
         p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp == c.rcpxx else rcp) + c.f_ext_nc)
@@ -317,7 +318,7 @@ def calc_stat_tbl(
 
     varidx = vi.VarIdx(vi_code_l[i_vi_proc])
 
-    cat = c.cat_scen if varidx.is_var() else c.cat_idx
+    cat = c.cat_scen if varidx.is_var else c.cat_idx
     if cat == c.cat_scen:
         vi_code_l = [varidx.code]
         vi_name_l = [varidx.code]
@@ -345,7 +346,7 @@ def calc_stat_tbl(
             vi_code_grp = str(vi.group(vi_code))
 
             # Skip iteration if the file already exists.
-            p_csv = cntx.d_scen(stn, c.cat_stat, cat + cntx.sep + vi_code_grp) + vi_code + c.f_ext_csv
+            p_csv = cntx.d_scen(stn, c.cat_stat, cat + cntx.sep + vi_code_grp) + vi_name + c.f_ext_csv
             if os.path.exists(p_csv) and (not cntx.opt_force_overwrite):
                 continue
 
@@ -380,8 +381,8 @@ def calc_stat_tbl(
                 if not os.path.isdir(d):
                     continue
 
-                idx_desc = vi_name
-                if vi_code_grp != vi_name:
+                idx_desc = vi_code
+                if vi_code_grp != vi_code:
                     idx_desc = vi_code_grp + "." + idx_desc
                 fu.log("Processing: " + stn + ", " + idx_desc + ", " + rcp + "", True)
 
@@ -474,9 +475,9 @@ def calc_ts(
     """
 
     varidx = vi.VarIdx(vi_code_l[i_vi_proc])
-    vi_code_grp = vi.group(varidx.code)
+    vi_code_grp = str(vi.group(varidx.code))
 
-    cat = c.cat_scen if varidx.is_var() else c.cat_idx
+    cat = c.cat_scen if varidx.is_var else c.cat_idx
 
     # Loop through stations.
     stns = cntx.stns if not cntx.opt_ra else [cntx.obs_src]
@@ -624,14 +625,14 @@ def calc_ts_prep(
         for rcp in rcps:
 
             # List files.
-            if cntx.varidx.is_var():
+            if cntx.varidx.is_var:
                 p_ref = cntx.d_stn(vi_code_grp) + vi_code_grp + "_" + stn + c.f_ext_nc
             else:
                 p_ref = cntx.d_idx(stn, vi_code_grp) + vi_code_grp + "_ref" + c.f_ext_nc
             if rcp == c.ref:
                 p_sim_l = [p_ref]
             else:
-                if cntx.varidx.is_var():
+                if cntx.varidx.is_var:
                     d = cntx.d_scen(stn, c.cat_qqmap, vi_code_grp)
                 else:
                     d = cntx.d_idx(stn, vi_code_grp)
@@ -652,7 +653,7 @@ def calc_ts_prep(
                     sim_code = tokens[1] + "_" + tokens[2] + "_" + tokens[3] + "_" + tokens[4]
 
                 # Calculate dataset.
-                if (view_code == c.view_ts_bias) and cntx.varidx.is_var():
+                if (view_code == c.view_ts_bias) and cntx.varidx.is_var:
                     p_val = p_sim_l[i_sim]
                     if rcp != c.ref:
                         p_val = p_val.replace(cntx.sep + c.cat_qqmap, cntx.sep + c.cat_regrid).\
@@ -792,7 +793,7 @@ def calc_ts_ds(
 
     # Load dataset.
     ds = fu.open_netcdf(p).squeeze()
-    if (c.ref in p) and cntx.varidx.is_var():
+    if (c.ref in p) and cntx.varidx.is_var:
         ds = utils.remove_feb29(ds)
         ds = utils.sel_period(ds, cntx.per_ref)
 
@@ -1041,7 +1042,7 @@ def calc_map(
     varidx = vi.VarIdx(vi_code_l[i_vi_proc])
 
     # Extract variable name, group and RCPs.
-    cat = c.cat_scen if varidx.is_var() else c.cat_idx
+    cat = c.cat_scen if varidx.is_var else c.cat_idx
     varidx = vi.VarIdx(varidx.code)
     vi_name = varidx.code if cat == c.cat_scen else varidx.name
     vi_code_grp = vi.group(varidx.code)
@@ -1367,7 +1368,7 @@ def calc_map_rcp(
 
     # Extract variable name and group.
     varidx = vi.VarIdx(vi_code)
-    cat = c.cat_scen if varidx.is_var() else c.cat_idx
+    cat = c.cat_scen if varidx.is_var else c.cat_idx
     vi_name = vi_code if cat == c.cat_scen else varidx.name
     vi_code_grp = vi.group(vi_code)
 
@@ -1479,7 +1480,7 @@ def calc_map_rcp(
     else:
 
         # Reference period.
-        if varidx.is_var():
+        if varidx.is_var:
             p_sim_ref = cntx.d_scen(cntx.obs_src, c.cat_obs, vi_code_grp) +\
                 vi_code_grp + "_" + cntx.obs_src + c.f_ext_nc
         else:
@@ -1746,7 +1747,7 @@ def conv_nc_csv_single(
 
     # Extract variable name and group.
     varidx = vi.VarIdx(vi_code)
-    vi_name = vi_code if varidx.is_var() else varidx.name
+    vi_name = vi_code if varidx.is_var else varidx.name
     vi_code_grp = vi.group(vi_code)
 
     # Paths.
@@ -1868,14 +1869,14 @@ def calc_cycle(
     # Paths.
     cat_fig = c.view_cycle_ms if freq == c.freq_MS else c.view_cycle_d
     p_fig = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + cat_fig, varidx.name)
-    if varidx.name in cntx.idx.name_l:
+    if varidx.name in cntx.idxs.name_l:
         p_fig = p_fig.replace(cntx.sep + c.cat_scen, cntx.sep + c.cat_idx)
     p_fig += title + c.f_ext_png
     p_csv = p_fig.replace(cntx.sep + varidx.name + cntx.sep, cntx.sep + varidx.name + "_" + c.f_csv + cntx.sep).\
         replace(c.f_ext_png, c.f_ext_csv)
 
     # Determine if the analysis is required.
-    cat = c.cat_scen if varidx.is_var() else c.cat_idx
+    cat = c.cat_scen if varidx.is_var else c.cat_idx
     analysis_enabled = ((cat == c.cat_scen) and cntx.opt_cycle[0]) or\
                        ((cat == c.cat_idx) and cntx.opt_cycle[1])
     save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_cycle_format)))
