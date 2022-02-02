@@ -144,14 +144,14 @@ def gen():
                 fu.log("Collecting simulation files.", True)
                 varidx_0 = vi.VarIdx(vi_code_l[0])
                 if rcp == c.ref:
-                    if varidx_0.ens in c.ens_cordex:
-                        p_sim_l = cntx.d_stn(vi_code_l[0]) + varidx_0.name + "_" + stn + c.f_ext_nc
+                    if varidx_0.is_var:
+                        p_sim_l = cntx.d_scen(stn, c.cat_obs, vi_code_l[0]) + varidx_0.name + "_" + stn + c.f_ext_nc
                     else:
                         p_sim_l = cntx.d_idx(cntx.obs_src, vi_code_l[0]) + varidx_0.name + "_ref" + c.f_ext_nc
                     if type(p_sim_l) is str:
                         p_sim_l = [p_sim_l]
                 else:
-                    if varidx_0.ens == c.ens_cordex:
+                    if varidx_0.is_var:
                         d = cntx.d_scen(stn, c.cat_qqmap, vi_code_l[0])
                     else:
                         d = cntx.d_idx(stn, vi_code_l[0])
@@ -2041,9 +2041,7 @@ def gen_per_idx(
     # Scalar mode.
     if cntx.n_proc == 1:
         for i_idx in range(n_idx):
-            if func_name == "calc_diag_cycle":
-                calc_diag_cycle(cntx.idxs.code_l, i_idx)
-            elif func_name == "stats.calc_map":
+            if func_name == "stats.calc_map":
                 stats.calc_map(cntx.idxs.code_l, i_idx)
             elif func_name == "stats.calc_ts":
                 stats.calc_ts(view_code, cntx.idxs.code_l, i_idx)
@@ -2064,9 +2062,7 @@ def gen_per_idx(
             try:
                 fu.log("Splitting work between " + str(n_proc) + " threads.", True)
                 pool = multiprocessing.Pool(processes=n_proc)
-                if func_name == "calc_diag_cycle":
-                    func = functools.partial(calc_diag_cycle, idx_codes)
-                elif func_name == "stats.calc_map":
+                if func_name == "stats.calc_map":
                     func = functools.partial(stats.calc_map, idx_codes)
                 elif func_name == "stats.calc_ts":
                     func = functools.partial(stats.calc_ts, view_code, idx_codes)
@@ -2080,80 +2076,6 @@ def gen_per_idx(
             except Exception as e:
                 fu.log(str(e))
                 pass
-
-
-def calc_diag_cycle(
-    idx_codes: List[str],
-    i_idx_proc: int
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Generate diagnostic and cycle plots.
-
-    Parameters
-    ----------
-    idx_codes: List[str]
-        Index codes.
-    i_idx_proc: int
-        Rank of process.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Get index code and name.
-    idx_code = idx_codes[i_idx_proc]
-    varidx = vi.VarIdx(idx_code)
-    idx_name = varidx.name
-
-    # Loop through stations.
-    stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
-    for stn in stns:
-
-        fu.log("Processing: " + idx_code + ", " + stn, True)
-
-        # Path ofo NetCDF file containing station data.
-        p_obs = cntx.p_obs(stn, idx_code)
-
-        # Loop through raw NetCDF files.
-        p_l = list(glob.glob(cntx.d_idx(stn, idx_code) + "*" + c.f_ext_nc))
-        for i in range(len(p_l)):
-            p = p_l[i]
-
-            # File name.
-            fn_fig = p.split(cntx.sep)[-1].replace(c.f_ext_nc, c.f_ext_png)
-
-            # Generate monthly and daily plots.
-            ds = fu.open_netcdf(p)
-            for per in cntx.per_hors:
-                per_str = str(per[0]) + "_" + str(per[1])
-
-                # This creates 2 files:
-                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
-                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
-                title = fn_fig[:-4] + per_str + "_" + c.view_cycle_ms
-                stats.calc_cycle(ds, stn, varidx, per, c.freq_MS, title)
-
-                # This creates 2 files:
-                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
-                #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
-                title = fn_fig[:-4] + per_str + "_" + c.view_cycle_d
-                stats.calc_cycle(ds, stn, varidx, per, c.freq_D, title)
-
-        if os.path.exists(p_obs):
-            ds_obs = fu.open_netcdf(p_obs)
-            per_str = str(cntx.per_ref[0]) + "_" + str(cntx.per_ref[1])
-
-            # This creates 2 files:
-            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>/*.png
-            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_ms/<var>_csv/*.csv
-            title = idx_name + "_" + per_str + "_" + c.view_cycle_ms
-            stats.calc_cycle(ds_obs, stn, varidx, cntx.per_ref, c.freq_MS, title)
-
-            # This creates 2 files:
-            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>/*.png
-            #     ~/sim_climat/<country>/<project>/<stn>/fig/idx/cycle_d/<var>_csv/*.csv
-            title = idx_name + "_" + per_str + "_" + c.view_cycle_d
-            stats.calc_cycle(ds_obs, stn, varidx, cntx.per_ref, c.freq_D, title)
 
 
 def run():
@@ -2198,14 +2120,6 @@ def run():
 
     # Plots ------------------------------------------------------------------------------------------------------------
 
-    fu.log("=")
-    msg = "Step #8a  Generating daily and monthly plots (indices)"
-    if cntx.opt_cycle[1] and (len(cntx.opt_cycle_format) > 0):
-        fu.log(msg)
-        gen_per_idx("calc_diag_cycle")
-    else:
-        fu.log(msg + not_req)
-
     # Generate plots.
     fu.log("-")
     msg = "Step #8b  Generating time series (indices)"
@@ -2217,7 +2131,7 @@ def run():
 
     # Generate maps.
     fu.log("-")
-    msg = "Step #8c  Generating maps (indices)"
+    msg = "Step #8d  Generating maps (indices)"
     if cntx.opt_ra and cntx.opt_map[1] and (len(cntx.opt_map_format) > 0):
         fu.log(msg)
         gen_per_idx("stats.calc_map")

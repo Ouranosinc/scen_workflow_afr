@@ -647,13 +647,13 @@ class Context(def_context.Context):
         """
 
         # Enable/disable diagnostic plots (related to bias adjustment).
-        self.opt_diagnostic = [True] * 2
+        self.opt_diagnostic = True
 
         # Format of diagnostic plots.
         self.opt_diagnostic_format = ["png", "csv"]
 
         # Enable/disable generation of annual and monthly cycle plots for [scenarios, indices].
-        self.opt_cycle = [True] * 2
+        self.opt_cycle = True
 
         # Format of cycle plots.
         self.opt_cycle_format = ["png", "csv"]
@@ -917,13 +917,11 @@ class Context(def_context.Context):
 
                 # Visualization:
                 elif key == "opt_diagnostic":
-                    self.opt_diagnostic = ast.literal_eval(value)\
-                        if "," not in value else def_context.str_to_arr_1d(value, bool)
+                    self.opt_diagnostic = ast.literal_eval(value)
                 elif key == "opt_diagnostic_format":
                     self.opt_diagnostic_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_cycle":
-                    self.opt_cycle = ast.literal_eval(value)\
-                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
+                    self.opt_cycle = ast.literal_eval(value)
                 elif key == "opt_cycle_format":
                     self.opt_cycle_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_ts":

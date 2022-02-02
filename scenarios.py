@@ -980,7 +980,7 @@ def postprocess(
                 da_sim_adj_ref_xy = utils.squeeze_lon_lat(da_sim_adj_ref_xy)
                 da_qmf_xy       = utils.squeeze_lon_lat(da_qmf_xy)
 
-        if cntx.opt_diagnostic[0]:
+        if cntx.opt_diagnostic:
 
             # Generate summary plot.
             plot.plot_calib(da_stn_xy, da_obs_xy, da_sim_xy, da_sim_adj_xy, da_sim_adj_ref_xy, da_qmf_xy,
@@ -1697,7 +1697,7 @@ def calc_diag_cycle(
                 replace("_4qqmap" + c.f_ext_nc, "_" + c.cat_fig_postprocess + c.f_ext_png)
 
             # Generate diagnostic plots.
-            if cntx.opt_diagnostic[0] and (len(cntx.opt_diagnostic_format) > 0):
+            if cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0):
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
@@ -1714,7 +1714,7 @@ def calc_diag_cycle(
                 stats.calc_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
             # Generate monthly and daily plots.
-            if cntx.opt_cycle[0] and (len(cntx.opt_cycle_format) > 0):
+            if cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
 
                 ds_qqmap = fu.open_netcdf(p_qqmap)
                 for per in cntx.per_hors:
@@ -1732,7 +1732,7 @@ def calc_diag_cycle(
                     title = fn_fig[:-4].replace(c.cat_fig_postprocess, per_str + "_" + c.view_cycle_d)
                     stats.calc_cycle(ds_qqmap, stn, var, per, c.freq_D, title)
 
-        if os.path.exists(p_obs) and cntx.opt_cycle[0] and (len(cntx.opt_cycle_format) > 0):
+        if os.path.exists(p_obs) and cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
             ds_obs = fu.open_netcdf(p_obs)
             per_str = str(cntx.per_ref[0]) + "_" + str(cntx.per_ref[1])
 
@@ -1792,8 +1792,8 @@ def run():
 
     fu.log("=")
     fu.log("Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)")
-    if (cntx.opt_diagnostic[0] and (len(cntx.opt_diagnostic_format) > 0)) or\
-       (cntx.opt_cycle[0] and (len(cntx.opt_cycle_format) > 0)):
+    if (cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0)) or\
+       (cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0)):
         fu.log(msg)
         gen_per_var("calc_diag_cycle")
     else:

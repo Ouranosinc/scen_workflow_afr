@@ -99,7 +99,7 @@ def calc_stat(
     # List files.
     if data_type == c.cat_obs:
         if varidx.is_var:
-            p_sim_l = [cntx.d_scen(stn, c.cat_obs, vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
+            p_sim_l = [cntx.d_scen(stn, c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
         else:
             p_sim_l = [cntx.d_idx(stn, vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
     else:
@@ -180,6 +180,10 @@ def calc_stat(
 
                 # Calculate mean value.
                 ds = utils.squeeze_lon_lat(ds)
+
+        # Skip simulation if there is no data.
+        if len(ds[c.dim_time]) == 0:
+            continue
 
         # Records values.
         # Simulation data is assumed to be complete.
@@ -1876,12 +1880,9 @@ def calc_cycle(
         replace(c.f_ext_png, c.f_ext_csv)
 
     # Determine if the analysis is required.
-    cat = c.cat_scen if varidx.is_var else c.cat_idx
-    analysis_enabled = ((cat == c.cat_scen) and cntx.opt_cycle[0]) or\
-                       ((cat == c.cat_idx) and cntx.opt_cycle[1])
     save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_cycle_format)))
     save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_cycle_format)))
-    if not (analysis_enabled and (save_fig or save_csv)):
+    if not (cntx.opt_cycle and (save_fig or save_csv)):
         return
 
     # Load existing CSV file.
@@ -1892,14 +1893,13 @@ def calc_cycle(
     else:
 
         # Extract data.
+        # Exit if there is not at leat one year of data for the current period.
         if i_trial == 1:
             ds = utils.sel_period(ds, per)
+            if len(ds[c.dim_time]) == 0:
+                return
             if freq == c.freq_D:
                 ds = utils.remove_feb29(ds)
-
-        # Exit if there is not at leat one year of data for the current period.
-        if len(ds[c.dim_time]) == 0:
-            return
 
         # Convert units.
         units = ds[varidx.name].attrs[c.attrs_units]
