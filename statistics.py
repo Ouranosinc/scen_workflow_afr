@@ -323,7 +323,7 @@ def calc_stat_tbl(
         vi_name_l = [varidx.code]
     else:
         vi_code_l = vi.explode_idx_l([varidx.code])
-        vi_name_l = vi.explode_idx_l(varidx.name)
+        vi_name_l = vi.explode_idx_l([varidx.name])
 
     # List emission scenarios.
     rcps = [c.ref] + cntx.rcps
@@ -342,7 +342,7 @@ def calc_stat_tbl(
         for i_vi in range(len(vi_name_l)):
             vi_code = vi_code_l[i_vi]
             vi_name = vi_name_l[i_vi]
-            vi_code_grp = vi.group(vi_code)
+            vi_code_grp = str(vi.group(vi_code))
 
             # Skip iteration if the file already exists.
             p_csv = cntx.d_scen(stn, c.cat_stat, cat + cntx.sep + vi_code_grp) + vi_code + c.f_ext_csv

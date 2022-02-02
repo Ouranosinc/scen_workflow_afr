@@ -302,6 +302,8 @@ def gen_single(
     for i_varidx in range(0, len(vi_code_l)):
         vi_code_i = vi_code_l[i_varidx]
         varidx_i = vi.VarIdx(idx.name)
+        if vi_code_i == "nan":
+            continue
 
         try:
             # Open dataset.
@@ -663,10 +665,10 @@ def gen_single(
                 elif c.v_evspsbl in cntx.vars.code_l:
                     da_etp = ds_vi_l[1][c.v_evspsbl]
             da_start = None
-            if ds_vi_l[2] is not None:
+            if (len(ds_vi_l) > 2) and (ds_vi_l[2] is not None):
                 da_start = ds_vi_l[2][c.i_rain_season_start]
             da_start_next = None
-            if ds_vi_l[3] is not None:
+            if (len(ds_vi_l) > 3) and (ds_vi_l[3] is not None):
                 da_start_next = ds_vi_l[3][c.i_rain_season_start]
             op         = params_str[0]
             thresh     = params_str[1] + " mm"
@@ -1586,21 +1588,33 @@ def rain_season_end(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Rename dimensions of climate indices (da_a) to have the same ones as the variables (da_b).
-    def rename(da_a: xr.DataArray, da_b: xr.DataArray) -> xr.DataArray:
-        dims_b = list(da_b.dims)
-        lon_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lon" in s][0]]
-        lat_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lat" in s][0]]
-        dims_a = list(da_a.dims)
-        lon_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lon" in s][0]]
-        lat_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lat" in s][0]]
-        if lon_a != lon_b:
+    # Get the dimension name associated with a coordinate name.
+    def dim_name(
+        da: xr.DataArray,
+        coord_name: str
+    ) -> str:
+        dims = list(da.dims)
+        index = [idx for idx, s in enumerate(dims) if coord_name in s]
+        return "" if len(index) == 0 else dims[index[0]]
+
+    # Copy dimension names from a DataArray of variables (da_b) to a DataArray of climate indices (da_a).
+    def copy_dim_names(
+        da_a: xr.DataArray,
+        da_b: xr.DataArray
+    ) -> xr.DataArray:
+        lon_b, lat_b = dim_name(da_b, "lon"), dim_name(da_b, "lat")
+        lon_a, lat_a = dim_name(da_a, "lon"), dim_name(da_a, "lat")
+        if (lon_b not in ["", lon_a]) and (lon_a != ""):
             da_a = da_a.rename({lon_a: lon_b})
-        if lat_a != lat_b:
+        if (lat_b not in ["", lat_a]) and (lat_a != ""):
             da_a = da_a.rename({lat_a: lat_b})
         return da_a
-    start = rename(start, pr)
-    start_next = rename(start_next, pr)
+
+    # Copy dimension names.
+    if start is not None:
+        start = copy_dim_names(start, pr)
+    if start_next is not None:
+        start_next = copy_dim_names(start_next, pr)
 
     # Unit conversion.
     pram = rate2amount(pr, out_units="mm")
@@ -1719,6 +1733,9 @@ def rain_season_end(
         else:
             end_loc = end[end.location == loc].squeeze()
             pram_loc = pram[pram.location == loc].squeeze()
+        day = pram_loc.astype(int)
+        for t in range(len(day["time"])):
+            day[t] = t
         n_days = 0
         for t in range(len(end_loc.time)):
             n_days_t = int(xr.DataArray(pram_loc.time.dt.year == end_loc[t].time.dt.year).astype(int).sum())
@@ -1727,25 +1744,26 @@ def rain_season_end(
                 # pos_end = int(end_loc[t]) + n_days - 1
                 pos_end = end_loc[t].astype(int) + n_days - 1
                 if op in ["max", "sum"]:
-                    pos_win_1 = pos_end + 1
+                    pos_win_1 = pos_end
                     # pos_win_2 = min(pos_win_1 + window, n_days_t + n_days)
                     pos_win_2 = xr.ufuncs.minimum(pos_win_1 + window, n_days_t + n_days)
                 else:
-                    pos_win_2 = pos_end + 1
+                    pos_win_2 = pos_end
                     # pos_win_1 = max(0, pos_end - window)
                     pos_win_1 = xr.ufuncs.maximum(0, pos_end - window)
-                # pos_range = [min(pos_win_1, pos_win_2), max(pos_win_1, pos_win_2
-                # pos_range = [int(xr.ufuncs.minimum(pos_win_1, pos_win_2).min().values),
-                #              int(xr.ufuncs.maximum(pos_win_1, pos_win_2).max().values)]
-                pos_range = [xr.ufuncs.minimum(pos_win_1, pos_win_2),
-                             xr.ufuncs.maximum(pos_win_1, pos_win_2)]
-                # conda_a = pram_loc.isel(time=slice(pos_range[0], pos_range[1])).sum(dim="time") > 0
+                # pos_range = [min(pos_win_1, pos_win_2), max(pos_win_1, pos_win_2)]
+                pos_range = [xr.ufuncs.minimum(pos_win_1, pos_win_2), xr.ufuncs.maximum(pos_win_1, pos_win_2)]
+                # Condition A: the windows comprises rainy days.
+                # cond_a = pram_loc.isel(time=slice(pos_range[0], pos_range[1])).sum(dim="time") > 0
+                mask_a = xr.DataArray((day >= pos_range[0]) & (day <= pos_range[1])).astype(int)
+                cond_a = xr.DataArray((pram_loc * mask_a).resample(time="YS").sum(dim="time") > 0).astype(int)
+                # Condition B: the last day is rainy.
                 # cond_b = pram_loc.isel(time=pos_end) > 0
-                cond_a = (pram_loc[t] >= pos_range[0]) & (pram_loc[t] <= pos_range[1]).sum() > 0
-                cond_b = (pram_loc[t] == pos_end).sum() > 0
+                mask_b = xr.DataArray(day == pos_end).astype(int)
+                cond_b = xr.DataArray((pram_loc * mask_b).resample(time="YS").sum(dim="time") > 0).astype(int)
                 # if (cond_a | cond_b) == False:
                 #     end_loc[t] = np.nan
-                end_loc[t] = xr.where(cond_a | cond_b == False, np.nan, end_loc[t])
+                end_loc[t] = xr.where(cond_a + cond_b == 0, np.nan, end_loc)[t]
             n_days += n_days_t
         return end_loc
     if "location" not in pram.dims:
@@ -1843,21 +1861,31 @@ def rain_season_prcptot(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Rename dimensions of climate indices (da_a) to have the same ones as the variables (da_b).
-    def rename(da_a: xr.DataArray, da_b: xr.DataArray) -> xr.DataArray:
-        dims_b = list(da_b.dims)
-        lon_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lon" in s][0]]
-        lat_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lat" in s][0]]
-        dims_a = list(da_a.dims)
-        lon_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lon" in s][0]]
-        lat_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lat" in s][0]]
-        if lon_a != lon_b:
+    # Get the dimension name associated with a coordinate name.
+    def dim_name(
+        da: xr.DataArray,
+        coord_name: str
+    ) -> str:
+        dims = list(da.dims)
+        index = [idx for idx, s in enumerate(dims) if coord_name in s]
+        return "" if len(index) == 0 else dims[index[0]]
+
+    # Copy dimension names from a DataArray of variables (da_b) to a DataArray of climate indices (da_a).
+    def copy_dim_names(
+        da_a: xr.DataArray,
+        da_b: xr.DataArray
+    ) -> xr.DataArray:
+        lon_b, lat_b = dim_name(da_b, "lon"), dim_name(da_b, "lat")
+        lon_a, lat_a = dim_name(da_a, "lon"), dim_name(da_a, "lat")
+        if (lon_b not in ["", lon_a]) and (lon_a != ""):
             da_a = da_a.rename({lon_a: lon_b})
-        if lat_a != lat_b:
+        if (lat_b not in ["", lat_a]) and (lat_a != ""):
             da_a = da_a.rename({lat_a: lat_b})
         return da_a
-    start = rename(start, pr)
-    end = rename(end, pr)
+
+    # Adjust dimension names.
+    start = copy_dim_names(start, pr)
+    end = copy_dim_names(end, pr)
 
     # Unit conversion.
     pram = rate2amount(pr, out_units="mm")
@@ -1866,16 +1894,23 @@ def rain_season_prcptot(
     prcptot = xr.zeros_like(start) * np.nan
 
     # Calculate the sum between two dates for a given year.
-    # def calc_sum(year: int, start_doy: int, end_doy: int):
-    def calc_sum(year: int, start_doy: Union[int, xr.DataArray], end_doy: Union[int, xr.DataArray]):
+    def calc_sum(
+        loc: str,
+        year: int,
+        start_doy: Union[int, xr.DataArray],
+        end_doy: Union[int, xr.DataArray]
+    ) -> xr.DataArray:
         sel = (pram.time.dt.year == year) & \
               (pram.time.dt.dayofyear >= start_doy) &\
               (pram.time.dt.dayofyear <= end_doy)
-        # return xr.where(sel, pram, 0).sum()
+        if loc != "":
+            sel = sel & (pram["location"] == loc)
         return xr.where(sel, pram, 0).sum(dim="time")
 
     # Calculate the index.
-    def calc_idx(loc: str = ""):
+    def calc_idx(
+        loc: str = ""
+    ) -> xr.DataArray:
         if loc == "":
             prcptot_loc = prcptot
             start_loc = start
@@ -1885,23 +1920,29 @@ def rain_season_prcptot(
             start_loc = start[start.location == loc].squeeze()
             end_loc = end[end.location == loc].squeeze()
 
-        end_shift = None
-        for t in range(len(start.time.dt.year)):
-            year = int(start.time.dt.year[t])
+        end_shift_loc = None
+        for y in range(len(start.time.dt.year)):
+            year = int(start.time.dt.year[y])
 
             # Start and end dates in the same calendar year.
             if start_loc.mean() <= end_loc.mean():
-                if (np.isnan(start_loc[t]).astype(bool) == 0) and (np.isnan(end_loc[t]).astype(bool) == 0):
-                    prcptot_loc[t] = calc_sum(year, int(start_loc[t]), int(end_loc[t]))
+                mask = xr.DataArray(start_loc[y].isnull().astype(int) +
+                                    end_loc[y].isnull().astype(int) == 0).astype(int)
+                mask = xr.where(mask == 0, np.nan, mask)
+                sum_y = calc_sum(loc, year, start_loc[y].astype(int), end_loc[y].astype(int)) * mask
 
             # Start and end dates not in the same year (left shift required).
             else:
-                end_shift = end_loc.shift(time=-1, fill_value=np.nan) if t == 0 else end_shift
-                # if (np.isnan(start_loc[t]).astype(bool) == 0) and (np.isnan(end_shift[t]).astype(bool) == 0):
-                # if (start_loc[t].isnull().astype(int) + end_shift[t].isnull().astype(int)) == 0:
-                    # prcptot_loc[t] = calc_sum(year, int(start_loc[t]), 365) + calc_sum(year, 1, int(end_shift[t]))
-                prcptot_loc[t] =\
-                    calc_sum(year, start_loc[t].astype(int), 365) + calc_sum(year, 1, end_shift[t].astype(int))
+                end_shift_loc = end_loc.shift(time=-1, fill_value=np.nan) if y == 0 else end_shift_loc
+                mask = xr.DataArray(start_loc[y].isnull().astype(int) +
+                                    end_shift_loc[y].isnull().astype(int) == 0).astype(int)
+                mask = xr.where(mask == 0, np.nan, mask)
+                sum_y = (calc_sum(loc, year, start_loc[y].astype(int), 365) +
+                         calc_sum(loc, year, 1, end_shift_loc[y].astype(int))) * mask
+
+            # Update result.
+            if sum_y is not None:
+                prcptot_loc[y] = sum_y if loc == "" else float(sum_y[sum_y["location"] == loc])
 
         return prcptot_loc
 
