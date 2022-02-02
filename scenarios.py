@@ -312,7 +312,7 @@ def load_reanalysis(
 
     # Paths.
     p_stn_l = list(glob.glob(cntx.d_ra_day + var_ra.name + cntx.sep + "*" + c.f_ext_nc))
-    p_stn = cntx.d_stn + var_name + cntx.sep + var_name + "_" + cntx.obs_src + c.f_ext_nc
+    p_stn = cntx.d_stn(var_name) + var_name + "_" + cntx.obs_src + c.f_ext_nc
     d_stn = os.path.dirname(p_stn)
     if not (os.path.isdir(d_stn)):
         os.makedirs(d_stn)
@@ -1278,7 +1278,7 @@ def gen():
             p_stn_l = glob.glob(d_stn + "*" + c.f_ext_nc)
             p_stn_l.sort()
         else:
-            p_stn_l = [cntx.d_stn + var.name + cntx.sep + var.name + "_" + cntx.obs_src + c.f_ext_nc]
+            p_stn_l = [cntx.d_stn(var.name) + var.name + "_" + cntx.obs_src + c.f_ext_nc]
 
         # Loop through stations.
         for i_stn in range(0, len(p_stn_l)):

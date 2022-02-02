@@ -171,7 +171,7 @@ def create_mask(
 
     da_mask = None
 
-    f_l = glob.glob(cntx.d_stn + "*/*" + c.f_ext_nc)
+    f_l = glob.glob(cntx.d_stn() + "*/*" + c.f_ext_nc)
     for i in range(len(f_l)):
 
         # Open NetCDF file.

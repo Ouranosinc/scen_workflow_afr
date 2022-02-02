@@ -18,7 +18,7 @@ import os.path
 import sys
 import xarray as xr
 import warnings
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 
 # xclim libraries.
 import xclim.indices as indices
@@ -74,8 +74,10 @@ def gen():
         # Precipitation.
         if idx.name in [c.i_rx1day, c.i_rx5day, c.i_cwd, c.i_cdd, c.i_sdii, c.i_prcptot, c.i_r10mm, c.i_r20mm,
                         c.i_rnnmm, c.i_wet_days, c.i_dry_days, c.i_rain_season_start, c.i_rain_season_end,
-                        c.i_rain_season_prcptot, c.i_dry_spell_total_length, c.i_rain_season]:
-            vi_code_l.append(c.v_pr)
+                        c.i_rain_season_prcptot, c.i_rain_season_length, c.i_dry_spell_total_length, c.i_rain_season]:
+
+            if idx.name != c.i_rain_season_length:
+                vi_code_l.append(c.v_pr)
 
             if idx.name in [c.i_rain_season_end, c.i_rain_season]:
                 if c.v_evspsblpot in cntx.vars.code_l:
@@ -118,12 +120,12 @@ def gen():
             fu.log("Verifying data availability (based on directories).", True)
             vi_code_l_avail = True
             for vi_code_i in vi_code_l:
-                ens = vi.VarIdx(vi_code_i).ens
-                if (vi_code_i != "nan") and \
-                   (((ens == c.ens_cordex) and not os.path.isdir(cntx.d_scen(stn, c.cat_qqmap, vi_code_i))) or
-                    ((ens != c.ens_cordex) and not os.path.isdir(cntx.d_idx(stn, vi_code_i)))):
-                    vi_code_l_avail = False
-                    break
+                if vi_code_i != "nan":
+                    ens = vi.VarIdx(vi_code_i).ens
+                    if ((ens == c.ens_cordex) and not os.path.isdir(cntx.d_scen(stn, c.cat_qqmap, vi_code_i))) or\
+                       ((ens != c.ens_cordex) and not os.path.isdir(cntx.d_idx(stn, vi_code_i))):
+                        vi_code_l_avail = False
+                        break
             if not vi_code_l_avail:
                 continue
 
@@ -143,23 +145,23 @@ def gen():
                 varidx_0 = vi.VarIdx(vi_code_l[0])
                 if rcp == c.ref:
                     if varidx_0.ens in c.ens_cordex:
-                        p_sim = cntx.d_stn(vi_code_l[0]) + varidx_0.name + "_" + stn + c.f_ext_nc
+                        p_sim_l = cntx.d_stn(vi_code_l[0]) + varidx_0.name + "_" + stn + c.f_ext_nc
                     else:
-                        p_sim = cntx.d_idx(cntx.obs_src, vi_code_l[0]) + varidx_0.name + "_ref" + c.f_ext_nc
-                    if os.path.exists(p_sim) and (type(p_sim) is str):
-                        p_sim = [p_sim]
+                        p_sim_l = cntx.d_idx(cntx.obs_src, vi_code_l[0]) + varidx_0.name + "_ref" + c.f_ext_nc
+                    if type(p_sim_l) is str:
+                        p_sim_l = [p_sim_l]
                 else:
                     if varidx_0.ens == c.ens_cordex:
                         d = cntx.d_scen(stn, c.cat_qqmap, vi_code_l[0])
                     else:
                         d = cntx.d_idx(stn, vi_code_l[0])
-                    p_sim = glob.glob(d + "*_" + rcp + c.f_ext_nc)
-                if not p_sim:
+                    p_sim_l = glob.glob(d + "*_" + rcp + c.f_ext_nc)
+                if not p_sim_l:
                     continue
 
                 # Remove simulations that are included in the exceptions lists.
                 p_sim_filter = []
-                for p in p_sim:
+                for p in p_sim_l:
                     found = False
                     # List of simulation exceptions.
                     for e in cntx.sim_excepts:
@@ -174,13 +176,13 @@ def gen():
                     # Add simulation.
                     if not found:
                         p_sim_filter.append(p)
-                p_sim = p_sim_filter
+                p_sim_l = p_sim_filter
 
                 # Ensure that simulations are available for other variables than the first one.
                 fu.log("Verifying data availability (based on NetCDF files).", True)
                 if len(vi_code_l) > 1:
-                    p_sim_fix = []
-                    for p_sim_i in p_sim:
+                    p_sim_fix_l = []
+                    for p_sim_i in p_sim_l:
                         missing = False
                         for vi_code_j in vi_code_l[1:]:
                             if vi_code_j != "nan":
@@ -189,20 +191,20 @@ def gen():
                                     missing = True
                                     break
                         if not missing:
-                            p_sim_fix.append(p_sim_i)
-                    p_sim = p_sim_fix
+                            p_sim_fix_l.append(p_sim_i)
+                    p_sim_l = p_sim_fix_l
 
                 # Calculation ------------------------------------------------------------------------------------------
 
                 fu.log("Calculating climate indices", True)
 
-                n_sim = len(p_sim)
+                n_sim = len(p_sim_l)
                 d_idx = cntx.d_idx(stn, idx.code)
 
                 # Scalar mode.
                 if cntx.n_proc == 1:
                     for i_sim in range(n_sim):
-                        gen_single(idx, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
+                        gen_single(idx, vi_code_l, p_sim_l, stn, rcp, da_mask, i_sim)
 
                 # Parallel processing mode.
                 else:
@@ -220,7 +222,7 @@ def gen():
                             scalar_required = not str(idx.params[0]).isdigit()
                         if (cntx.n_proc == 1) or scalar_required:
                             for i_sim in range(n_sim):
-                                gen_single(idx, vi_code_l, p_sim, stn, rcp, da_mask, i_sim)
+                                gen_single(idx, vi_code_l, p_sim_l, stn, rcp, da_mask, i_sim)
 
                         # Parallel processing mode.
                         else:
@@ -228,7 +230,7 @@ def gen():
                             try:
                                 fu.log("Splitting work between " + str(cntx.n_proc) + " threads.", True)
                                 pool = multiprocessing.Pool(processes=min(cntx.n_proc, n_sim))
-                                func = functools.partial(gen_single, idx, vi_code_l, p_sim, stn, rcp, da_mask)
+                                func = functools.partial(gen_single, idx, vi_code_l, p_sim_l, stn, rcp, da_mask)
                                 pool.map(func, list(range(n_sim)))
                                 pool.close()
                                 pool.join()
@@ -248,7 +250,7 @@ def gen():
 def gen_single(
     idx: vi.VarIdx,
     vi_code_l: [str],
-    p_sim: [str],
+    p_sim_l: [str],
     stn: str,
     rcp: str,
     da_mask: xr.DataArray,
@@ -265,7 +267,7 @@ def gen_single(
         Climate index.
     vi_code_l : [str]
         List of climate variables or indices.
-    p_sim : [str]
+    p_sim_l : [str]
         List of simulation files.
     stn : str
         Station name.
@@ -287,7 +289,7 @@ def gen_single(
         p_idx = cntx.d_idx(stn, idx.code) + idx.name + "_ref" + c.f_ext_nc
     else:
         p_idx = cntx.d_scen(stn, c.cat_idx, idx.code) +\
-                os.path.basename(p_sim[i_sim]).replace(vi_name_0, idx.name)
+                os.path.basename(p_sim_l[i_sim]).replace(vi_name_0, idx.name)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
     if (rcp != c.ref) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite):
@@ -303,7 +305,7 @@ def gen_single(
 
         try:
             # Open dataset.
-            p_sim_j = vi.VarIdx(vi_code_l[0]).equi_path(p_sim[i_sim], vi.group(vi_code_i), stn, rcp)
+            p_sim_j = vi.VarIdx(vi_code_l[0]).equi_path(p_sim_l[i_sim], vi_code_i, stn, rcp)
             ds = fu.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.
@@ -319,8 +321,7 @@ def gen_single(
                     ds[vi_code_i][c.attrs_units] = c.unit_C
                 ds[vi_code_i].attrs[c.attrs_units] = c.unit_C
 
-        except Exception as e:
-            fu.log(str(e))
+        except KeyError as e:
             ds = None
 
         # Add dataset.
@@ -762,7 +763,7 @@ def gen_single(
                 end_date = str(params_str[4])
 
             # Calculate index.
-            da_idx = xr.DataArray(dry_spell_total_length(da_pr, thresh, window, op, start_date, end_date))
+            da_idx = xr.DataArray(dry_spell_total_length(da_pr, thresh, window, op, "YS", start_date, end_date))
 
             # Add to list.
             da_idx_l.append(da_idx)
@@ -1224,7 +1225,6 @@ def dry_spell_total_length_20220120(
 
 @declare_units(
     pr="[precipitation]",
-    etp="[evapotranspiration]",
     s_thresh_wet="[length]",
     s_thresh_dry="[length]",
     e_thresh="[length]"
@@ -1490,7 +1490,6 @@ def rain_season_start(
 
 @declare_units(
     pr="[precipitation]",
-    etp="[evapotranspiration]",
     thresh="[length]",
     etp_rate="[length]"
 )
@@ -1586,6 +1585,22 @@ def rain_season_end(
     This includes countries such as Burkina Faso, Senegal, Mauritania, Gambia, Guinea and Bissau.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Rename dimensions of climate indices (da_a) to have the same ones as the variables (da_b).
+    def rename(da_a: xr.DataArray, da_b: xr.DataArray) -> xr.DataArray:
+        dims_b = list(da_b.dims)
+        lon_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lon" in s][0]]
+        lat_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lat" in s][0]]
+        dims_a = list(da_a.dims)
+        lon_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lon" in s][0]]
+        lat_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lat" in s][0]]
+        if lon_a != lon_b:
+            da_a = da_a.rename({lon_a: lon_b})
+        if lat_a != lat_b:
+            da_a = da_a.rename({lat_a: lat_b})
+        return da_a
+    start = rename(start, pr)
+    start_next = rename(start_next, pr)
 
     # Unit conversion.
     pram = rate2amount(pr, out_units="mm")
@@ -1707,18 +1722,30 @@ def rain_season_end(
         n_days = 0
         for t in range(len(end_loc.time)):
             n_days_t = int(xr.DataArray(pram_loc.time.dt.year == end_loc[t].time.dt.year).astype(int).sum())
-            if not np.isnan(end_loc[t]):
-                pos_end = int(end_loc[t]) + n_days - 1
+            # if not np.isnan(end_loc[t]):
+            if not end_loc[t].isnull().all():
+                # pos_end = int(end_loc[t]) + n_days - 1
+                pos_end = end_loc[t].astype(int) + n_days - 1
                 if op in ["max", "sum"]:
                     pos_win_1 = pos_end + 1
-                    pos_win_2 = min(pos_win_1 + window, n_days_t + n_days)
+                    # pos_win_2 = min(pos_win_1 + window, n_days_t + n_days)
+                    pos_win_2 = xr.ufuncs.minimum(pos_win_1 + window, n_days_t + n_days)
                 else:
                     pos_win_2 = pos_end + 1
-                    pos_win_1 = max(0, pos_end - window)
-                pos_range = [min(pos_win_1, pos_win_2), max(pos_win_1, pos_win_2)]
-                if not ((pram_loc.isel(time=slice(pos_range[0], pos_range[1])).sum(dim="time") > 0) or
-                        (pram_loc.isel(time=pos_end) > 0)):
-                    end_loc[t] = np.nan
+                    # pos_win_1 = max(0, pos_end - window)
+                    pos_win_1 = xr.ufuncs.maximum(0, pos_end - window)
+                # pos_range = [min(pos_win_1, pos_win_2), max(pos_win_1, pos_win_2
+                # pos_range = [int(xr.ufuncs.minimum(pos_win_1, pos_win_2).min().values),
+                #              int(xr.ufuncs.maximum(pos_win_1, pos_win_2).max().values)]
+                pos_range = [xr.ufuncs.minimum(pos_win_1, pos_win_2),
+                             xr.ufuncs.maximum(pos_win_1, pos_win_2)]
+                # conda_a = pram_loc.isel(time=slice(pos_range[0], pos_range[1])).sum(dim="time") > 0
+                # cond_b = pram_loc.isel(time=pos_end) > 0
+                cond_a = (pram_loc[t] >= pos_range[0]) & (pram_loc[t] <= pos_range[1]).sum() > 0
+                cond_b = (pram_loc[t] == pos_end).sum() > 0
+                # if (cond_a | cond_b) == False:
+                #     end_loc[t] = np.nan
+                end_loc[t] = xr.where(cond_a | cond_b == False, np.nan, end_loc[t])
             n_days += n_days_t
         return end_loc
     if "location" not in pram.dims:
@@ -1731,17 +1758,17 @@ def rain_season_end(
     # Adjust or discard rain end values that are not compatible with the current or next season start values.
     # If the season ends before or on start day, discard rain end.
     if start is not None:
-        sel = (np.isnan(start).astype(int) == 0) &\
-              (np.isnan(end).astype(int) == 0) &\
-              (end <= start)
+        sel = np.array(start.isnull().astype(int) == 0) &\
+              np.array(end.isnull().astype(int) == 0) &\
+              (end.values <= start.values)
         end = xr.where(sel, np.nan, end)
 
     # If the season ends after or on start day of the next season, the end day of the current season becomes the day
     # before the next season.
     if start_next is not None:
-        sel = (np.isnan(start_next).astype(int) == 0) &\
-              (np.isnan(end).astype(int) == 0) &\
-              (end >= start_next)
+        sel = np.array(start_next.isnull().astype(int) == 0) &\
+              np.array(end.isnull().astype(int) == 0) &\
+              (end.values >= start_next.values)
         end = xr.where(sel, start_next - 1, end)
         end = xr.where(end < 1, 365, end)
     end.attrs["units"] = "1"
@@ -1816,6 +1843,22 @@ def rain_season_prcptot(
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Rename dimensions of climate indices (da_a) to have the same ones as the variables (da_b).
+    def rename(da_a: xr.DataArray, da_b: xr.DataArray) -> xr.DataArray:
+        dims_b = list(da_b.dims)
+        lon_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lon" in s][0]]
+        lat_b = dims_b[[idx for idx, s in enumerate(dims_b) if "lat" in s][0]]
+        dims_a = list(da_a.dims)
+        lon_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lon" in s][0]]
+        lat_a = dims_a[[idx for idx, s in enumerate(dims_a) if "lat" in s][0]]
+        if lon_a != lon_b:
+            da_a = da_a.rename({lon_a: lon_b})
+        if lat_a != lat_b:
+            da_a = da_a.rename({lat_a: lat_b})
+        return da_a
+    start = rename(start, pr)
+    end = rename(end, pr)
+
     # Unit conversion.
     pram = rate2amount(pr, out_units="mm")
 
@@ -1823,11 +1866,13 @@ def rain_season_prcptot(
     prcptot = xr.zeros_like(start) * np.nan
 
     # Calculate the sum between two dates for a given year.
-    def calc_sum(year: int, start_doy: int, end_doy: int):
+    # def calc_sum(year: int, start_doy: int, end_doy: int):
+    def calc_sum(year: int, start_doy: Union[int, xr.DataArray], end_doy: Union[int, xr.DataArray]):
         sel = (pram.time.dt.year == year) & \
               (pram.time.dt.dayofyear >= start_doy) &\
               (pram.time.dt.dayofyear <= end_doy)
-        return xr.where(sel, pram, 0).sum()
+        # return xr.where(sel, pram, 0).sum()
+        return xr.where(sel, pram, 0).sum(dim="time")
 
     # Calculate the index.
     def calc_idx(loc: str = ""):
@@ -1852,8 +1897,11 @@ def rain_season_prcptot(
             # Start and end dates not in the same year (left shift required).
             else:
                 end_shift = end_loc.shift(time=-1, fill_value=np.nan) if t == 0 else end_shift
-                if (np.isnan(start_loc[t]).astype(bool) == 0) and (np.isnan(end_shift[t]).astype(bool) == 0):
-                    prcptot_loc[t] = calc_sum(year, int(start_loc[t]), 365) + calc_sum(year, 1, int(end_shift[t]))
+                # if (np.isnan(start_loc[t]).astype(bool) == 0) and (np.isnan(end_shift[t]).astype(bool) == 0):
+                # if (start_loc[t].isnull().astype(int) + end_shift[t].isnull().astype(int)) == 0:
+                    # prcptot_loc[t] = calc_sum(year, int(start_loc[t]), 365) + calc_sum(year, 1, int(end_shift[t]))
+                prcptot_loc[t] =\
+                    calc_sum(year, start_loc[t].astype(int), 365) + calc_sum(year, 1, end_shift[t].astype(int))
 
         return prcptot_loc
 

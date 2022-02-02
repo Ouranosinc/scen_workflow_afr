@@ -15,6 +15,7 @@ import os
 import os.path
 import pandas as pd
 import sys
+from typing import Optional
 
 # Workflow libraries.
 from def_constant import const as c
@@ -176,7 +177,7 @@ class Context(def_context.Context):
 
         # Directory of reference data (observations or reanalysis) are located in:
         # /exec/<user_name>/<country>/<project>/stn/<obs_src>/<var>/*.csv
-        self.d_stn = ""
+        self._d_stn = ""
 
         # Directory of results.
         self.d_res = ""
@@ -1025,7 +1026,7 @@ class Context(def_context.Context):
         # Directories and paths.
         d_base = self.d_exec + self.country + self.sep + self.project + self.sep
         obs_src_region = self.obs_src + ("_" + self.region if (self.region != "") and self.opt_ra else "")
-        self.d_stn = d_base + c.cat_stn + self.sep + obs_src_region + self.sep
+        self._d_stn = d_base + c.cat_stn + self.sep + obs_src_region + self.sep
         self.d_res = self.d_exec + "sim_climat" + self.sep + self.country + self.sep + self.project + self.sep
 
         # Boundaries and locations.
@@ -1043,8 +1044,8 @@ class Context(def_context.Context):
 
     def d_stn(
         self,
-        var_name: str
-    ):
+        var_name: Optional[str] = ""
+    ) -> str:
 
         """
         ----------------------------------------
@@ -1052,14 +1053,19 @@ class Context(def_context.Context):
 
         Parameters
         ----------
-        var_name: str
+        var_name: Optional[str]
             Variable name.
+
+        Returns
+        -------
+        str
+            Directory of station data.
         ----------------------------------------
         """
 
         d = ""
         if var_name != "":
-            d = self.d_stn + var_name + self.sep
+            d = self._d_stn + var_name + self.sep
 
         return d
 
@@ -1067,7 +1073,7 @@ class Context(def_context.Context):
         self,
         var_name: str,
         stn: str
-    ):
+    ) -> str:
 
         """
         ----------------------------------------
@@ -1079,10 +1085,15 @@ class Context(def_context.Context):
             Variable name.
         stn: str
             Station.
+
+        Returns
+        -------
+        str
+            Path of station data.
         ----------------------------------------
         """
 
-        p = self.d_stn + var_name + self.sep + var_name + "_" + stn + c.f_ext_nc
+        p = str(self.d_stn(var_name)) + var_name + "_" + stn + c.f_ext_nc
 
         return p
 
@@ -1091,11 +1102,11 @@ class Context(def_context.Context):
         stn: str,
         cat: str,
         var_name: str = ""
-    ):
+    ) -> str:
 
         """
         ----------------------------------------
-        Get scenario directory.
+        Get directory of scenarios.
 
         Parameters
         ----------
@@ -1105,6 +1116,11 @@ class Context(def_context.Context):
             Category.
         var_name: str, optional
             Variable.
+
+        Returns
+        -------
+        str
+            Directory of scenarios.
         ----------------------------------------
         """
 
@@ -1125,11 +1141,11 @@ class Context(def_context.Context):
         self,
         stn: str,
         idx_name: str = ""
-    ):
+    ) -> str:
 
         """
         ----------------------------------------
-        Get index directory.
+        Get directory of indices.
 
         Parameters
         ----------
@@ -1137,6 +1153,11 @@ class Context(def_context.Context):
             Station.
         idx_name : str, optional
             Index name.
+
+        Returns
+        -------
+        str
+            Directory of indices.
         ----------------------------------------
         """
 
@@ -1154,7 +1175,7 @@ class Context(def_context.Context):
         stn_name: str,
         var_name: str,
         cat: str = ""
-    ):
+    ) -> str:
 
         """
         ----------------------------------------
@@ -1168,10 +1189,15 @@ class Context(def_context.Context):
             Variable name.
         cat: str, optional
             Category.
+
+        Returns
+        -------
+        str
+            Observation path.
         ----------------------------------------
         """
 
-        p = self.d_scen(stn_name, c.cat_obs) + var_name + self.sep + var_name + "_" + stn_name
+        p = str(self.d_scen(stn_name, c.cat_obs)) + var_name + self.sep + var_name + "_" + stn_name
         if cat != "":
             p = p + "_4qqmap"
         p = p + c.f_ext_nc

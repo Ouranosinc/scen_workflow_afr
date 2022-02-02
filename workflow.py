@@ -42,7 +42,7 @@ def main():
     cntx.code = c.platform_script
     cntx.project = def_project.Project(str(cntx.project))
 
-    # Variables .
+    # CORDEX variables.
     if len(cntx.variables) > 0:
         cntx.vars = vi.VarIdxs(cntx.variables)
 
@@ -52,17 +52,22 @@ def main():
             for var in cntx.vars.items:
                 variables_ra.append(var.convert_name(cntx.obs_src))
             cntx.vars_ra = vi.VarIdxs(variables_ra)
+
+    # ERA5* variables to download.
     if len(cntx.opt_download_variables) > 0:
         cntx.opt_download_vars = vi.VarIdxs(cntx.opt_download_variables)
+
+    # CORDEX variables used for clustering.
     if len(cntx.opt_cluster_variables) > 0:
         cntx.cluster_vars = vi.VarIdxs(cntx.opt_cluster_variables)
 
     # Indices.
-    cntx.idxs = vi.VarIdxs()
-    for i in range(cntx.idxs.count):
-        idx = vi.VarIdx(cntx.idx_codes[i])
-        idx.params = cntx.idx_params[i]
-        cntx.idxs.add(idx)
+    if len(cntx.idx_codes):
+        cntx.idxs = vi.VarIdxs()
+        for i in range(len(cntx.idx_codes)):
+            idx = vi.VarIdx(cntx.idx_codes[i])
+            idx.params = cntx.idx_params[i]
+            cntx.idxs.add(idx)
 
     # Step #1: Header.
 
@@ -78,7 +83,7 @@ def main():
     fu.log("Variables (CORDEX)     : " + str(cntx.vars.code_l).replace("'", ""))
     for i in range(cntx.idxs.count):
         params_i =\
-            str(cntx.idxs.items.params[i]).replace("'", "").replace("(", "[").replace(")", "]").replace("\\n", "")
+            str(cntx.idxs.items[i].params).replace("'", "").replace("(", "[").replace(")", "]").replace("\\n", "")
         fu.log("Climate index #" + ("0" if i < 9 else "") + str(i + 1) + "      : " + params_i)
     if cntx.opt_ra:
         fu.log("Reanalysis set         : " + cntx.obs_src)
@@ -117,7 +122,7 @@ def main():
     # Clean NetCDF files.
     if cntx.opt_scen:
         for var in cntx.vars.items:
-            fu.clean_netcdf(cntx.d_stn + var.name + cntx.sep)
+            fu.clean_netcdf(cntx.d_stn(var.name))
             fu.clean_netcdf(cntx.d_scen(cntx.obs_src, c.cat_scen + cntx.sep + "*", var.name))
     if cntx.opt_idx:
         for idx in cntx.idxs.items:

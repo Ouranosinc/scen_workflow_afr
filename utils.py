@@ -281,8 +281,7 @@ def extract_date_field(
             month = time_l[i].month
             day   = time_l[i].day
             doy   = time_l[i].dayofyear
-        except Exception as e:
-            fu.log(str(e))
+        except AttributeError as e:
             year  = int(str(time_l[i])[0:4])
             month = int(str(time_l[i])[5:7])
             day   = int(str(time_l[i])[8:10])
