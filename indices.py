@@ -2199,7 +2199,7 @@ def run():
     # Plots ------------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    fu.log("Step #8a  Generating daily and monthly plots (indices)")
+    msg = "Step #8a  Generating daily and monthly plots (indices)"
     if cntx.opt_cycle[1] and (len(cntx.opt_cycle_format) > 0):
         fu.log(msg)
         gen_per_idx("calc_diag_cycle")

@@ -93,8 +93,8 @@ def calc_stat(
     # Extract name and group.
     cat = c.cat_scen if varidx.is_var else c.cat_idx
     vi_name = vi_code if cat == c.cat_scen else varidx.name
-    vi_code_grp = vi.group(vi_code)
-    vi_name_grp = vi.group(vi_name)
+    vi_code_grp = vi.group(vi_code) if varidx.is_group else vi_code
+    vi_name_grp = vi.group(vi_name) if varidx.is_group else vi_name
 
     # List files.
     if data_type == c.cat_obs:
@@ -319,9 +319,9 @@ def calc_stat_tbl(
     varidx = vi.VarIdx(vi_code_l[i_vi_proc])
 
     cat = c.cat_scen if varidx.is_var else c.cat_idx
-    if cat == c.cat_scen:
+    if (cat == c.cat_scen) or (not varidx.is_group):
         vi_code_l = [varidx.code]
-        vi_name_l = [varidx.code]
+        vi_name_l = [varidx.name]
     else:
         vi_code_l = vi.explode_idx_l([varidx.code])
         vi_name_l = vi.explode_idx_l([varidx.name])
@@ -343,7 +343,7 @@ def calc_stat_tbl(
         for i_vi in range(len(vi_name_l)):
             vi_code = vi_code_l[i_vi]
             vi_name = vi_name_l[i_vi]
-            vi_code_grp = str(vi.group(vi_code))
+            vi_code_grp = str(vi.group(vi_code)) if varidx.is_group else vi_code
 
             # Skip iteration if the file already exists.
             p_csv = cntx.d_scen(stn, c.cat_stat, cat + cntx.sep + vi_code_grp) + vi_name + c.f_ext_csv
@@ -1897,6 +1897,10 @@ def calc_cycle(
             if freq == c.freq_D:
                 ds = utils.remove_feb29(ds)
 
+        # Exit if there is not at leat one year of data for the current period.
+        if len(ds[c.dim_time]) == 0:
+            return
+
         # Convert units.
         units = ds[varidx.name].attrs[c.attrs_units]
         if (varidx.name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and \
@@ -1947,7 +1951,9 @@ def calc_cycle(
 
         # Update context.
         cntx.code   = c.platform_script
+        cntx.view   = def_view.View(c.view_cluster)
         cntx.lib    = def_lib.Lib(c.lib_mat)
+        cntx.delta  = def_delta.Delta("False")
         cntx.varidx = vi.VarIdx(varidx.name)
 
         # Generate plot.
