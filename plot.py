@@ -157,9 +157,9 @@ def plot_postprocess(
 
     # Draw curves.
     if c.cat_sim_adj in df.columns:
-        ax.plot.line(df, c.cat_sim_adj, color=col_sim_adj)
-    ax.plot.line(df, c.cat_sim, color=col_sim)
-    ax.plot(df, c.cat_obs, color=col_obs)
+        ax.plot(df["year"], df[c.cat_sim_adj], color=col_sim_adj)
+    ax.plot(df["year"], df[c.cat_sim], color=col_sim)
+    ax.plot(df["year"], df[c.cat_obs], color=col_obs)
 
     # Font size.
     fs        = 8
@@ -249,8 +249,8 @@ def plot_workflow(
 
         # Upper plot: Reference period.
         ax = fig.add_subplot(211)
-        ax.plot(df, "year", y, color=col_sim_ref)
-        ax.plot(df, "year", ffit, color="black")
+        ax.plot(df["year"], y, color=col_sim_ref)
+        ax.plot(df["year"], ffit, color="black")
         plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
         plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(varidx.label, fontsize=fs_axes)
