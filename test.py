@@ -38,7 +38,7 @@ from def_constant import const as c
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard.def_varidx import VarIdx
 
 
 def sample_data(var: str) -> Union[xr.DataArray, None]:
@@ -110,7 +110,7 @@ def gen(
     time = pd.date_range(str(start_year) + "-01-01", periods=n_years * dpy, freq=freq)
 
     # Description and units.
-    varidx = vi.VarIdx(varidx_name)
+    varidx = VarIdx(varidx_name)
     desc = varidx.desc
     units = varidx.unit
 

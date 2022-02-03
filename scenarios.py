@@ -39,11 +39,12 @@ from quantile_mapping import train, predict
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard.def_rcp import RCP
+from dashboard.def_varidx import VarIdx
 
 
 def load_observations(
-    var: vi.VarIdx
+    var: VarIdx
 ):
 
     """
@@ -52,7 +53,7 @@ def load_observations(
 
     Parameters
     ----------
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -201,7 +202,7 @@ def load_observations(
 
 
 def preload_reanalysis(
-    var_ra: vi.VarIdx
+    var_ra: VarIdx
 ):
 
     """
@@ -210,7 +211,7 @@ def preload_reanalysis(
 
     Parameters
     ----------
-    var_ra: vi.VarIdx
+    var_ra: VarIdx
         Variable (reanalysis).
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -292,7 +293,7 @@ def preload_reanalysis(
 
 
 def load_reanalysis(
-    var_ra: vi.VarIdx
+    var_ra: VarIdx
 ):
 
     """
@@ -303,12 +304,12 @@ def load_reanalysis(
 
     Parameters
     ----------
-    var_ra: vi.VarIdx
+    var_ra: VarIdx
         Variable (reanalysis).
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    var_name = vi.VarIdx(var_ra.name).convert_name(c.ens_cordex)
+    var_name = VarIdx(var_ra.name).convert_name(c.ens_cordex)
 
     # Paths.
     p_stn_l = list(glob.glob(cntx.d_ra_day + var_ra.name + cntx.sep + "*" + c.f_ext_nc))
@@ -398,7 +399,7 @@ def load_reanalysis(
 
 
 def extract(
-    var: vi.VarIdx,
+    var: VarIdx,
     ds_stn: xr.Dataset,
     d_obs: str,
     d_fut: str,
@@ -413,7 +414,7 @@ def extract(
 
     Parameters
     ----------
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     ds_stn: xr.Dataset
         NetCDF file containing station data.
@@ -499,7 +500,7 @@ def extract(
 
 
 def interpolate(
-    var: vi.VarIdx,
+    var: VarIdx,
     ds_stn: xr.Dataset,
     p_raw: str,
     p_regrid: str
@@ -515,7 +516,7 @@ def interpolate(
 
     Parameters
     ----------
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     ds_stn: xr.Dataset
         NetCDF file containing station data.
@@ -588,7 +589,7 @@ def interpolate(
 def regrid(
     ds_data: xr.Dataset,
     ds_grid: xr.Dataset,
-    var: vi.VarIdx
+    var: VarIdx
 ) -> xr.Dataset:
 
     """
@@ -602,7 +603,7 @@ def regrid(
         Dataset containing data.
     ds_grid: xr.Dataset
         Dataset containing grid
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -655,7 +656,7 @@ def regrid(
 
 def perturbate(
     ds: xr.Dataset,
-    var: vi.VarIdx
+    var: VarIdx
 ) -> xr.Dataset:
 
     """
@@ -666,7 +667,7 @@ def perturbate(
     ----------
     ds: xr.Dataset
         Dataset.
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
 
     Returns
@@ -699,7 +700,7 @@ def perturbate(
 
 
 def preprocess(
-    var: vi.VarIdx,
+    var: VarIdx,
     ds_stn: xr.Dataset,
     p_obs: str,
     p_regrid: str,
@@ -713,7 +714,7 @@ def preprocess(
 
     Parameters
     ----------
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     ds_stn: xr.Dataset
         NetCDF file containing station data.
@@ -787,7 +788,7 @@ def preprocess(
 
 
 def postprocess(
-    var: vi.VarIdx,
+    var: VarIdx,
     nq: int,
     up_qmf: float,
     time_win: int,
@@ -806,7 +807,7 @@ def postprocess(
 
     Parameters
     ----------
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     nq: int
         Number of quantiles.
@@ -995,7 +996,7 @@ def postprocess(
 
 def bias_adj(
     stn: str,
-    var: vi.VarIdx,
+    var: VarIdx,
     sim_name: str = "",
     calc_err: bool = False
 ):
@@ -1008,7 +1009,7 @@ def bias_adj(
     ----------
     stn: str
         Station name.
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     sim_name: str
         Simulation name.
@@ -1174,7 +1175,7 @@ def init_calib_params():
         fu.log("Calibration file loaded.", True)
 
     # List CORDEX files.
-    list_cordex = fu.list_cordex(cntx.d_proj, cntx.rcps)
+    list_cordex = fu.list_cordex(cntx.d_proj, cntx.rcps.code_l)
 
     # Stations.
     stns = cntx.stns
@@ -1182,12 +1183,11 @@ def init_calib_params():
         stns = [cntx.obs_src]
 
     # List simulation names, stations and variables.
-    for i_rcp in range(len(cntx.rcps)):
-        rcp = cntx.rcps[i_rcp]
-        sim_l = list_cordex[rcp]
+    for rcp in cntx.rcps.items:
+        sim_l = list_cordex[rcp.code]
         sim_l.sort()
         for i_sim in range(0, len(sim_l)):
-            list_i = list_cordex[rcp][i_sim].split(cntx.sep)
+            list_i = list_cordex[rcp.code][i_sim].split(cntx.sep)
             sim_name = list_i[cntx.rank_inst()] + "_" + list_i[cntx.rank_inst() + 1]
             for stn in stns:
                 for var in cntx.vars.items:
@@ -1264,7 +1264,7 @@ def gen():
     # Step #2d: List directories potentially containing CORDEX files (but not necessarily for all selected variables).
     fu.log("=")
     fu.log("Step #2d  Listing directories with CORDEX files")
-    list_cordex = fu.list_cordex(cntx.d_proj, cntx.rcps)
+    list_cordex = fu.list_cordex(cntx.d_proj, cntx.rcps.code_l)
 
     fu.log("=")
     fu.log("Step #3-5 Producing climate scenarios")
@@ -1329,16 +1329,16 @@ def gen():
                 os.makedirs(d_fig_workflow)
 
             # Loop through RCPs.
-            for rcp in cntx.rcps:
+            for rcp in cntx.rcps.items:
 
                 # Extract and sort simulations lists.
-                list_cordex_ref = list_cordex[rcp + "_historical"]
-                list_cordex_fut = list_cordex[rcp]
+                list_cordex_ref = list_cordex[rcp.code + "_historical"]
+                list_cordex_fut = list_cordex[rcp.code]
                 list_cordex_ref.sort()
                 list_cordex_fut.sort()
                 n_sim = len(list_cordex_ref)
 
-                fu.log("Processing: " + var.name + ", " + stn + ", " + rcp, True)
+                fu.log("Processing: " + var.name + ", " + stn + ", " + rcp.code, True)
 
                 # Scalar mode.
                 if cntx.n_proc == 1:
@@ -1403,9 +1403,9 @@ def gen_single(
     list_cordex_fut: [str],
     ds_stn: xr.Dataset,
     d_raw: str,
-    var: vi.VarIdx,
+    var: VarIdx,
     stn: str,
-    rcp: str,
+    rcp: RCP,
     extract_only: bool,
     i_sim_proc: int
 ):
@@ -1426,11 +1426,11 @@ def gen_single(
         Station file.
     d_raw: str
         Directory containing raw NetCDF files.
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     stn: str
         Station.
-    rcp: str
+    rcp: RCP
         RCP emission scenario.
     extract_only:
         If True, only extract.
@@ -1450,7 +1450,7 @@ def gen_single(
     fu.log("=")
     fu.log("Variable   : " + var.name)
     fu.log("Station    : " + stn)
-    fu.log("RCP        : " + rcp)
+    fu.log("RCP        : " + rcp.code)
     fu.log("Simulation : " + sim_name)
     fu.log("=")
 
@@ -1661,7 +1661,7 @@ def calc_diag_cycle(
 
     # Get variable.
     var_name = variables[i_var_proc]
-    var = vi.VarIdx(var_name)
+    var = VarIdx(var_name)
 
     # Loop through stations.
     stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
@@ -1791,7 +1791,7 @@ def run():
     # Plots ------------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    fu.log("Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)")
+    msg = "Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)"
     if (cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0)) or\
        (cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0)):
         fu.log(msg)

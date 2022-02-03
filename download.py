@@ -25,14 +25,14 @@ from def_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard.def_varidx import VarIdx
 
 
 def download_from_copernicus(
     p_base: str,
     obs_src: str,
     area: [float],
-    var: vi.VarIdx,
+    var: VarIdx,
     year: int
 ):
 
@@ -49,7 +49,7 @@ def download_from_copernicus(
     area: [float]
         Bounding box defining the 4 limits of the area of interest (in decimal degrees):
         [North, West, South, East].
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
         Supported variables are the following: cntx.v_era5_d2m, cntx.v_era5_e, cntx.v_era5_pev, cntx.v_era5_sp,
         cntx.v_era5_ssrd, cntx.v_era5_t2m, cntx.v_era5_tp, cntx.v_era5_u10, cntx.v_era5_v10}
@@ -99,7 +99,7 @@ def download_from_copernicus(
     # Equivalent to c.v_vas.
     elif var.name == c.v_era5_v10:
         var_ra_name = "10m_v_component_of_wind"
-    # Equivalent to vi.v_sfcwindmax.
+    # Equivalent to c.v_sfcwindmax.
     elif var.name == c.v_era5_uv10:
         var_ra_name = "10m_wind"
 

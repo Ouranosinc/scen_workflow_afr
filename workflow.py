@@ -25,7 +25,9 @@ from def_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_project, def_varidx as vi
+from dashboard import def_project
+from dashboard.def_rcp import RCPs
+from dashboard.def_varidx import VarIdx, VarIdxs
 
 
 def main():
@@ -42,30 +44,33 @@ def main():
     cntx.code = c.platform_script
     cntx.project = def_project.Project(str(cntx.project))
 
+    # Emission scenarios.
+    cntx.rcps = RCPs(cntx.emission_scenarios)
+
     # CORDEX variables.
     if len(cntx.variables) > 0:
-        cntx.vars = vi.VarIdxs(cntx.variables)
+        cntx.vars = VarIdxs(cntx.variables)
 
         # Reanalysis variables.
         if cntx.obs_src in [c.ens_era5, c.ens_era5_land, c.ens_enacts]:
             variables_ra = []
             for var in cntx.vars.items:
                 variables_ra.append(var.convert_name(cntx.obs_src))
-            cntx.vars_ra = vi.VarIdxs(variables_ra)
+            cntx.vars_ra = VarIdxs(variables_ra)
 
     # ERA5* variables to download.
     if len(cntx.opt_download_variables) > 0:
-        cntx.opt_download_vars = vi.VarIdxs(cntx.opt_download_variables)
+        cntx.opt_download_vars = VarIdxs(cntx.opt_download_variables)
 
     # CORDEX variables used for clustering.
     if len(cntx.opt_cluster_variables) > 0:
-        cntx.cluster_vars = vi.VarIdxs(cntx.opt_cluster_variables)
+        cntx.cluster_vars = VarIdxs(cntx.opt_cluster_variables)
 
     # Indices.
     if len(cntx.idx_codes):
-        cntx.idxs = vi.VarIdxs()
+        cntx.idxs = VarIdxs()
         for i in range(len(cntx.idx_codes)):
-            idx = vi.VarIdx(cntx.idx_codes[i])
+            idx = VarIdx(cntx.idx_codes[i])
             idx.params = cntx.idx_params[i]
             cntx.idxs.add(idx)
 
@@ -90,7 +95,7 @@ def main():
         fu.log("Variables (reanalysis) : " + str(cntx.vars_ra.code_l).replace("'", ""))
     else:
         fu.log("Stations               : " + str(cntx.stns))
-    fu.log("Emission scenarios     : " + str(cntx.rcps).replace("'", ""))
+    fu.log("Emission scenarios     : " + str(cntx.rcps.code_l).replace("'", ""))
     fu.log("Reference period       : " + str(cntx.per_ref))
     fu.log("Future period          : " + str(cntx.per_fut))
     fu.log("Horizons               : " + str(cntx.per_hors).replace("'", ""))

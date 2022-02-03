@@ -128,7 +128,8 @@ class Context(def_context.Context):
         self.region = ""
 
         # Emission scenarios to be considered.
-        self.rcps = [c.rcp26, c.rcp45, c.rcp85]
+        self.emission_scenarios = [c.rcp26, c.rcp45, c.rcp85]
+        self.rcps = None
 
         # Reference period.
         self.per_ref = [1981, 2010]
@@ -714,9 +715,15 @@ class Context(def_context.Context):
         ---------------+---------------+--------------+------------
         temperature    |  high values  |  temp_var_1  |  temp_idx_1
         temperature    |  low values   |  -           |  temp_idx_2
+        ---------------+---------------+--------------+------------
         precipitation  |  high values  |  prec_var_1  |  prec_idx_1
         precipitation  |  low values   |  -           |  prec_idx_2
         precipitation  |  dates        |  -           |  prec_idx_3
+        ---------------+---------------+--------------+------------
+        evaporation    |  high values  |  evap_var_1  |  evap_idx_1
+        evaporation    |  low values   |  -           |  evap_idx_2
+        evaporation    |  dates        |  -           |  evap_idx_3
+        ---------------+---------------+--------------+------------
         wind           |               |  wind_var_1  |  wind_idx_1
     
         Notes:
@@ -728,35 +735,20 @@ class Context(def_context.Context):
         - The 4th scheme is for positive-only delta values.
         """
 
-        # Temperature variables.
-        self.opt_map_col_temp_var = []
-
-        # Temperature indices (high).
-        self.opt_map_col_temp_idx_1 = []
-
-        # Temperature indices (low).
-        self.opt_map_col_temp_idx_2 = []
-
-        # Precipitation variables.
-        self.opt_map_col_prec_var = []
-
-        # Precipitation indices (high).
-        self.opt_map_col_prec_idx_1 = []
-
-        # Precipitation indices (low).
-        self.opt_map_col_prec_idx_2 = []
-
-        # Precipitation indices (other).
-        self.opt_map_col_prec_idx_3 = []
-
-        # Wind variables.
-        self.opt_map_col_wind_var = []
-
-        # Wind indices.
-        self.opt_map_col_wind_idx_1 = []
-
-        # Other variables and indices.
-        self.opt_map_col_default = []
+        self.opt_map_col_temp_var   = super(Context, self).opt_map_col_temp_var
+        self.opt_map_col_temp_idx_1 = super(Context, self).opt_map_col_temp_idx_1
+        self.opt_map_col_temp_idx_2 = super(Context, self).opt_map_col_temp_idx_2
+        self.opt_map_col_prec_var   = super(Context, self).opt_map_col_prec_var
+        self.opt_map_col_prec_idx_1 = super(Context, self).opt_map_col_prec_idx_1
+        self.opt_map_col_prec_idx_2 = super(Context, self).opt_map_col_prec_idx_2
+        self.opt_map_col_prec_idx_3 = super(Context, self).opt_map_col_prec_idx_3
+        self.opt_map_col_evap_var   = super(Context, self).opt_map_col_evap_var
+        self.opt_map_col_evap_idx_1 = super(Context, self).opt_map_col_evap_idx_1
+        self.opt_map_col_evap_idx_2 = super(Context, self).opt_map_col_evap_idx_2
+        self.opt_map_col_evap_idx_3 = super(Context, self).opt_map_col_evap_idx_3
+        self.opt_map_col_wind_var   = super(Context, self).opt_map_col_wind_var
+        self.opt_map_col_wind_idx_1 = super(Context, self).opt_map_col_wind_idx_1
+        self.opt_map_col_default    = super(Context, self).opt_map_col_default
 
         # Number of processes
         self.n_proc = 1
@@ -814,8 +806,8 @@ class Context(def_context.Context):
                     self.stns = def_context.str_to_arr_1d(value, str)
 
                 # Context.
-                elif key == "rcps":
-                    self.rcps = ast.literal_eval(value)
+                elif key == "emission_scenarios":
+                    self.emission_scenarios = ast.literal_eval(value)
                 elif key == "per_ref":
                     self.per_ref = def_context.str_to_arr_1d(value, int)
                     if per_hors_read:

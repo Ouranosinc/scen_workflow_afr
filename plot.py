@@ -31,7 +31,8 @@ from def_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard.def_varidx import VarIdx
+
 
 # Color associated with specific datasets (calibration plots).
 col_obs         = "green"   # Observed data.
@@ -44,7 +45,7 @@ col_sim_adj_ref = "blue"    # Simulation data (bias-adjusted, reference period).
 def plot_year(
     ds_hour: xr.Dataset,
     ds_day: xr.Dataset,
-    var: vi.VarIdx
+    var: VarIdx
 ):
 
     """
@@ -57,7 +58,7 @@ def plot_year(
         Dataset with hourly frequency.
     ds_day: xr.Dataset
         Dataset with daily frequency.
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -82,7 +83,7 @@ def plot_year(
 
 def plot_dayofyear(
     ds_day: xr.Dataset,
-    var: vi.VarIdx,
+    var: VarIdx,
     date: str
 ):
 
@@ -94,7 +95,7 @@ def plot_dayofyear(
     ----------
     ds_day: xr.Dataset
         Dataset with daily frequency.
-    var: vi.VarIdx
+    var: VarIdx
         Variable.
     date: str
         Date.
@@ -107,8 +108,7 @@ def plot_dayofyear(
     # Plot.
     fs = 10
     ds_day_sel.plot.pcolormesh(add_colorbar=True, add_labels=True,
-                               cbar_kwargs=dict(orientation="vertical", pad=0.05, shrink=1,
-                                                label=vi.VarIdx(var.name).label))
+                               cbar_kwargs=dict(orientation="vertical", pad=0.05, shrink=1, label=var.label))
     plt.title(date)
     plt.suptitle("", fontsize=fs)
     plt.xlabel("Longitude (º)", fontsize=fs)
@@ -121,7 +121,7 @@ def plot_dayofyear(
 
 def plot_postprocess(
     df: pd.DataFrame,
-    varidx: vi.VarIdx,
+    var: VarIdx,
     title: str
 ) -> plt.Figure:
 
@@ -133,8 +133,8 @@ def plot_postprocess(
     ----------
     df: pd.DataFrame
         Dataframe.
-    varidx: vi.VarIdx
-        Variable or index.
+    var: VarIdx
+        Variable.
     title: str
         Title of figure.
 
@@ -170,7 +170,7 @@ def plot_postprocess(
     # Customize.
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlabel("Année", fontsize=fs_axes)
-    y_label = varidx.label
+    y_label = var.label
     plt.ylabel(y_label, fontsize=fs_axes)
     plt.title("")
     plt.suptitle(title, fontsize=fs_title)
@@ -185,7 +185,7 @@ def plot_postprocess(
 
 def plot_workflow(
     df: xr.DataArray,
-    varidx: vi.VarIdx,
+    varidx: VarIdx,
     units: List[str],
     title: str
 ) -> plt.Figure:
@@ -198,7 +198,7 @@ def plot_workflow(
     ----------
     df: pd.DataFrame
         Dataframe.
-    varidx: viVarIdx
+    varidx: VarIdx
         Variable or index.
     units: List[str]
         Units, of reference and simulation data.
@@ -286,7 +286,7 @@ def plot_calib(
     da_sim_adj: xr.DataArray,
     da_sim_adj_ref: xr.DataArray,
     da_qmf: xr.DataArray,
-    varidx: vi.VarIdx,
+    varidx: VarIdx,
     sup_title: str,
     p_fig: str
 ):
@@ -309,7 +309,7 @@ def plot_calib(
         Adjusted simulation for the reference period.
     da_qmf: xr.DataArray
         Quantile mapping function.
-    varidx: vi.VarIdx
+    varidx: VarIdx
         Variable or index.
     sup_title: str
         Title of figure.
@@ -431,7 +431,7 @@ def plot_calib_ts(
     da_obs: xr.DataArray,
     da_sim: xr.DataArray,
     da_sim_adj: xr.DataArray,
-    varidx: vi.VarIdx,
+    varidx: VarIdx,
     title: str,
     p_fig: str
 ):
@@ -448,7 +448,7 @@ def plot_calib_ts(
         Simulation data.
     da_sim_adj: xr.DataArray
         Adjusted simulation data.
-    varidx: vi.VarIdx
+    varidx: VarIdx
         Variable or index.
     title: str
         Title of figure.
@@ -534,7 +534,7 @@ def plot_calib_ts(
 
 def draw_curves(
     ax: plt.axis,
-    varidx: vi.VarIdx,
+    varidx: VarIdx,
     da_obs: xr.DataArray,
     da_sim_ref: xr.DataArray,
     da_sim: xr.DataArray,
@@ -553,7 +553,7 @@ def draw_curves(
     ----------
     ax: plt.axis
         Plot axis.
-    varidx: vi.VarIdx
+    varidx: VarIdx
         Variable or index name.
     da_obs: xr.DataArray
         Observed data.

@@ -25,14 +25,14 @@ from def_context import cntx
 # Dashboard libraries.
 import sys
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi
+from dashboard.def_varidx import VarIdx
 
 
 def aggregate(
     p_hour: str,
     p_day: str,
     ens: str,
-    var: vi.VarIdx
+    var: VarIdx
 ):
 
     """
@@ -47,7 +47,7 @@ def aggregate(
         Path of a NetCDF file containing daily data (written).
     ens: str
         Ensemble.
-    var: vi.VarIdx
+    var: VarIdx
         Variable (reanalysis).
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -304,7 +304,7 @@ def run():
             var_name_l.append(c.v_era5_u10)
             var_name_l.append(c.v_era5_v10)
         else:
-            var_ra_name = vi.VarIdx(var.name).convert_name(c.ens_era5)
+            var_ra_name = VarIdx(var.name).convert_name(c.ens_era5)
             if var_ra_name is not None:
                 var_name_l.append(var_ra_name)
 
@@ -323,7 +323,7 @@ def run():
 
             # Perform aggregation.
             if (not os.path.exists(p_day)) or cntx.opt_force_overwrite:
-                aggregate(p_raw, p_day, cntx.obs_src, vi.VarIdx(var_name))
+                aggregate(p_raw, p_day, cntx.obs_src, VarIdx(var_name))
 
             # Calculate specific humidity.
             if var_name in [c.v_era5_d2m, c.v_era5_sp]:
@@ -339,7 +339,7 @@ def run():
                    ((not os.path.exists(p_raw_sh)) or cntx.opt_force_overwrite):
                     gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
                 if os.path.exists(p_raw_sh) and (not os.path.exists(p_day_sh) or cntx.opt_force_overwrite):
-                    aggregate(p_raw_sh, p_day_sh, cntx.obs_src, vi.VarIdx(c.v_era5_sh))
+                    aggregate(p_raw_sh, p_day_sh, cntx.obs_src, VarIdx(c.v_era5_sh))
 
             # Calculate wind speed.
             if var_name in [c.v_era5_u10, c.v_era5_v10]:
@@ -355,7 +355,7 @@ def run():
                    ((not os.path.exists(p_raw_uv10)) or cntx.opt_force_overwrite):
                     gen_dataset_uv10(p_raw_u10, p_raw_v10, p_raw_uv10, n_years)
                 if os.path.exists(p_raw_uv10) and (not os.path.exists(p_day_uv10) or cntx.opt_force_overwrite):
-                    aggregate(p_raw_uv10, p_day_uv10, cntx.obs_src, vi.VarIdx(c.v_era5_uv10))
+                    aggregate(p_raw_uv10, p_day_uv10, cntx.obs_src, VarIdx(c.v_era5_uv10))
 
 
 if __name__ == "__main__":

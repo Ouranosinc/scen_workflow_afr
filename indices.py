@@ -37,7 +37,8 @@ from def_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_varidx as vi, def_rcp
+from dashboard.def_rcp import RCP, RCPs
+from dashboard.def_varidx import VarIdx
 
 
 def gen():
@@ -52,7 +53,7 @@ def gen():
     for idx in cntx.idxs.items:
 
         # Emission scenarios.
-        rcps = [c.ref] + cntx.rcps
+        rcps = RCPs([c.ref] + cntx.rcps.code_l)
 
         # Data preparation ---------------------------------------------------------------------------------------------
 
@@ -121,7 +122,7 @@ def gen():
             vi_code_l_avail = True
             for vi_code_i in vi_code_l:
                 if vi_code_i != "nan":
-                    ens = vi.VarIdx(vi_code_i).ens
+                    ens = VarIdx(vi_code_i).ens
                     if ((ens == c.ens_cordex) and not os.path.isdir(cntx.d_scen(stn, c.cat_qqmap, vi_code_i))) or\
                        ((ens != c.ens_cordex) and not os.path.isdir(cntx.d_idx(stn, vi_code_i))):
                         vi_code_l_avail = False
@@ -135,15 +136,15 @@ def gen():
                 da_mask = fu.create_mask()
 
             # Loop through emissions scenarios.
-            for rcp in rcps:
+            for rcp in rcps.items:
 
-                fu.log("Processing: " + idx.code + ", " + stn + ", " + str(def_rcp.RCP(rcp).desc) + "", True)
+                fu.log("Processing: " + idx.code + ", " + stn + ", " + str(rcp.desc) + "", True)
 
                 # List simulation files for the first variable. As soon as there is no file for one variable, the
                 # analysis for the current RCP needs to abort.
                 fu.log("Collecting simulation files.", True)
-                varidx_0 = vi.VarIdx(vi_code_l[0])
-                if rcp == c.ref:
+                varidx_0 = VarIdx(vi_code_l[0])
+                if rcp.code == c.ref:
                     if varidx_0.is_var:
                         p_sim_l = cntx.d_scen(stn, c.cat_obs, vi_code_l[0]) + varidx_0.name + "_" + stn + c.f_ext_nc
                     else:
@@ -155,7 +156,7 @@ def gen():
                         d = cntx.d_scen(stn, c.cat_qqmap, vi_code_l[0])
                     else:
                         d = cntx.d_idx(stn, vi_code_l[0])
-                    p_sim_l = glob.glob(d + "*_" + rcp + c.f_ext_nc)
+                    p_sim_l = glob.glob(d + "*_" + rcp.code + c.f_ext_nc)
                 if not p_sim_l:
                     continue
 
@@ -186,7 +187,7 @@ def gen():
                         missing = False
                         for vi_code_j in vi_code_l[1:]:
                             if vi_code_j != "nan":
-                                p_sim_j = vi.VarIdx(vi_code_l[0]).equi_path(p_sim_i, vi_code_j, stn, rcp)
+                                p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_i, vi_code_j, stn, rcp.code)
                                 if not os.path.exists(p_sim_j):
                                     missing = True
                                     break
@@ -248,11 +249,11 @@ def gen():
 
 
 def gen_single(
-    idx: vi.VarIdx,
+    idx: VarIdx,
     vi_code_l: [str],
     p_sim_l: [str],
     stn: str,
-    rcp: str,
+    rcp: RCP,
     da_mask: xr.DataArray,
     i_sim: int
 ):
@@ -263,7 +264,7 @@ def gen_single(
 
     Parameters
     ----------
-    idx : vi.VarIdx
+    idx : VarIdx
         Climate index.
     vi_code_l : [str]
         List of climate variables or indices.
@@ -271,7 +272,7 @@ def gen_single(
         List of simulation files.
     stn : str
         Station name.
-    rcp : str
+    rcp : RCP
         RCP emission scenario.
     da_mask : xr.DataArray
         Mask.
@@ -281,18 +282,18 @@ def gen_single(
     """
 
     # Extract variable name
-    varidx_0 = vi.VarIdx(vi_code_l[0])
+    varidx_0 = VarIdx(vi_code_l[0])
     vi_name_0 = str(varidx_0.name)
 
     # Name of NetCDF file to generate.
-    if rcp == c.ref:
+    if rcp.code == c.ref:
         p_idx = cntx.d_idx(stn, idx.code) + idx.name + "_ref" + c.f_ext_nc
     else:
         p_idx = cntx.d_scen(stn, c.cat_idx, idx.code) +\
                 os.path.basename(p_sim_l[i_sim]).replace(vi_name_0, idx.name)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
-    if (rcp != c.ref) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite):
+    if (rcp.code != c.ref) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite):
         if cntx.n_proc > 1:
             fu.log("Work done!", True)
         return
@@ -301,17 +302,17 @@ def gen_single(
     ds_vi_l: List[xr.Dataset] = []
     for i_varidx in range(0, len(vi_code_l)):
         vi_code_i = vi_code_l[i_varidx]
-        varidx_i = vi.VarIdx(idx.name)
+        varidx_i = VarIdx(idx.name)
         if vi_code_i == "nan":
             continue
 
         try:
             # Open dataset.
-            p_sim_j = vi.VarIdx(vi_code_l[0]).equi_path(p_sim_l[i_sim], vi_code_i, stn, rcp)
+            p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_l[i_sim], vi_code_i, stn, rcp.code)
             ds = fu.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.
-            if (rcp == c.ref) and (varidx_i.ens == c.ens_cordex):
+            if (rcp.code == c.ref) and (varidx_i.ens == c.ens_cordex):
                 ds = utils.remove_feb29(ds)
                 ds = utils.sel_period(ds, cntx.per_ref)
 
@@ -319,7 +320,7 @@ def gen_single(
             if varidx_i.name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
                 if ds[vi_code_i].attrs[c.attrs_units] == c.unit_K:
                     ds[vi_code_i] = ds[vi_code_i] - c.d_KC
-                elif rcp == c.ref:
+                elif rcp.code == c.ref:
                     ds[vi_code_i][c.attrs_units] = c.unit_C
                 ds[vi_code_i].attrs[c.attrs_units] = c.unit_C
 
@@ -331,7 +332,7 @@ def gen_single(
 
     # Calculate the 90th percentile of tasmax for the reference period.
     da_tx90p = None
-    if (idx.name == c.i_wsdi) and (rcp == c.ref):
+    if (idx.name == c.i_wsdi) and (rcp.code == c.ref):
         da_tx90p = xr.DataArray(percentile_doy(ds_vi_l[0][c.v_tasmax], per=0.9))
 
     # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
@@ -350,7 +351,7 @@ def gen_single(
 
             if "p" in str(vi_param):
                 vi_param = float(vi_param.replace("p", "")) / 100.0
-                if rcp == c.ref:
+                if rcp.code == c.ref:
                     # Calculate percentile.
                     if (idx.name in [c.i_tx90p, c.i_hot_spell_frequency, c.i_hot_spell_max_length, c.i_wsdi]) or\
                        (i == 1):
@@ -385,7 +386,7 @@ def gen_single(
            ((idx.name in [c.i_heat_wave_max_length, c.i_heat_wave_total_length]) and (i <= 1)):
             vi_ref = str(vi_param) + " " + c.unit_C
             vi_fut = str(vi_param + c.d_KC) + " " + c.unit_K
-            params_str.append(vi_ref if (rcp == c.ref) else vi_fut)
+            params_str.append(vi_ref if (rcp.code == c.ref) else vi_fut)
 
         elif idx.name in [c.i_cwd, c.i_cdd, c.i_r10mm, c.i_r20mm, c.i_rnnmm, c.i_wet_days, c.i_dry_days, c.i_sdii]:
             params_str.append(str(vi_param) + " mm/day")
@@ -397,7 +398,7 @@ def gen_single(
             params_str.append(str(vi_param))
 
     # Exit loop if the file already exists (reference file only).
-    if not ((rcp == c.ref) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite)):
+    if not ((rcp.code == c.ref) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite)):
 
         # Will hold data arrays and units.
         da_idx_l    = []
@@ -710,7 +711,7 @@ def gen_single(
 
             # Add to list.
             da_idx_l.append(da_idx)
-            idx_units_l.append(vi.VarIdx(idx.name).unit)
+            idx_units_l.append(VarIdx(idx.name).unit)
 
         elif idx.name == c.i_rain_season:
 
@@ -749,7 +750,7 @@ def gen_single(
 
             # Add to list.
             da_idx_l = [da_start, da_end, da_length, da_prcptot]
-            idx_units_l = [c.unit_1, c.unit_1, c.unit_1, vi.VarIdx(c.i_rain_season_prcptot).unit]
+            idx_units_l = [c.unit_1, c.unit_1, c.unit_1, VarIdx(c.i_rain_season_prcptot).unit]
             idx_name_l = [c.i_rain_season_start, c.i_rain_season_end, c.i_rain_season_length, c.i_rain_season_prcptot]
 
         elif idx.name == c.i_dry_spell_total_length:
@@ -850,7 +851,7 @@ def gen_single(
         fu.save_netcdf(ds_idx, p_idx, desc=desc)
 
     # Convert percentile threshold values for climate indices. This is sometimes required in time series.
-    if (rcp == c.ref) and (idx.name == c.i_prcptot):
+    if (rcp.code == c.ref) and (idx.name == c.i_prcptot):
         ds_idx = fu.open_netcdf(p_idx)
         da_idx = ds_idx.mean(dim=[c.dim_longitude, c.dim_latitude])[idx.name]
         param_pr = params_str[0]
