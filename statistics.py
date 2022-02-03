@@ -141,7 +141,7 @@ def calc_stat(
     # First and last years.
     year_1 = int(str(ds.time.values[0])[0:4])
     year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
-    if len(hor.code) >= 2:
+    if len(hor) >= 2:
         year_1 = max(year_1, hor[0])
         year_n = min(year_n, hor[1])
     n_time = (year_n - year_1 + 1) * (365 if freq_in == c.freq_D else 1)
