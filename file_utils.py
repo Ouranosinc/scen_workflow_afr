@@ -238,7 +238,8 @@ def open_netcdf(
             ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks).copy(deep=True).load()
             close_netcdf(ds)
     else:
-        ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim)
+        ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim,
+                               lock=False)
 
     if cntx.opt_trace:
         log("Opened NetCDF file", True)
@@ -281,14 +282,14 @@ def save_netcdf(
     # Create a temporary file to indicate that writing is in progress.
     p_inc = p.replace(c.f_ext_nc, ".incomplete")
     if not os.path.exists(p_inc):
-        open(p_inc, 'a').close()
+        open(p_inc, "a").close()
 
     # Discard file if it already exists.
     if os.path.exists(p):
         os.remove(p)
 
     # Save NetCDF file.
-    ds.to_netcdf(p, "w", engine="scipy")
+    ds.to_netcdf(p, mode="w", engine="netcdf4")
 
     # Discard the temporary file.
     if os.path.exists(p_inc):
