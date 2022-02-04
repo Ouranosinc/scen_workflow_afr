@@ -1230,4 +1230,3 @@ class Context(def_context.Context):
 
 # Configuration instance.
 cntx = Context("script")
-cntx.load()
