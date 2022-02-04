@@ -288,7 +288,7 @@ def save_netcdf(
         os.remove(p)
 
     # Save NetCDF file.
-    ds.to_netcdf(p, "w")
+    ds.to_netcdf(p, "w", engine="scipy")
 
     # Discard the temporary file.
     if os.path.exists(p_inc):
