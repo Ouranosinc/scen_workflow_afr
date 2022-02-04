@@ -31,6 +31,7 @@ from def_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
+from dashboard.def_stat import Stat
 from dashboard.def_varidx import VarIdx
 
 
@@ -360,7 +361,7 @@ def plot_calib(
 
     # Plot.
     ax = f.add_subplot(432)
-    draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, c.stat_mean, -1, p_csv)
+    draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, Stat(c.stat_mean), p_csv)
     plt.title("Moyenne", fontsize=fs_title)
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlim([1, 12])
@@ -376,15 +377,14 @@ def plot_calib(
 
         ax = plt.subplot(433 + i - 1)
 
-        stat  = "quantile"
-        q     = cntx.opt_stat_quantiles[i-1]
-        title = "Q_" + "{0:.2f}".format(q)
-        if q == 0:
-            stat = c.stat_min
-        elif q == 1:
-            stat = c.stat_max
+        stat = Stat(c.stat_quantile, cntx.opt_stat_quantiles[i-1])
+        title = "Q_" + "{0:.2f}".format(stat.quantile)
+        if stat.quantile == 0:
+            stat = Stat(c.stat_min)
+        elif stat.quantile == 1:
+            stat = Stat(c.stat_max)
 
-        draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat, q)
+        draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat)
 
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
@@ -540,8 +540,7 @@ def draw_curves(
     da_sim: xr.DataArray,
     da_sim_adj: xr.DataArray,
     da_sim_adj_ref: xr.DataArray,
-    stat: str,
-    q: float,
+    stat: Stat,
     p_csv: str = ""
 ):
 
@@ -565,10 +564,8 @@ def draw_curves(
         Adjusted simulation dasta.
     da_sim_adj_ref: xr.DataArray
         Adjusted simulation data for the reference period.
-    stat: str
-        Statistic: {def_stat.code_max, def_stat.code_quantile, def_stat.code_mean, def_stat.code_sum}
-    q: float, optional
-        Quantile.
+    stat: Stat
+        Statistic.
     p_csv: str
         Path of CSV file to create.
     --------------------------------------------------------------------------------------------------------------------
@@ -577,10 +574,10 @@ def draw_curves(
     vi_name = str(varidx.name)
 
     # Paths.
-    if stat in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
-        suffix = stat
+    if stat.code in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
+        suffix = stat.code
     else:
-        suffix = "q" + str(round(q * 100)).zfill(2)
+        suffix = "q" + str(round(stat.quantile * 100)).zfill(2)
     p_csv = p_csv.replace(c.f_ext_csv, "_" + suffix + c.f_ext_csv)
 
     # Determine if the analysis is required.
@@ -598,21 +595,20 @@ def draw_curves(
         # Calculate statistics.
         def da_groupby(
             da: xr.DataArray,
-            _stat: str,
-            _q: float = -1.0
+            _stat: Stat
         ) -> xr.DataArray:
 
             da_group = da.groupby(da.time.dt.month)
             da_group_stat = None
-            if _stat == c.stat_min:
+            if _stat.code == c.stat_min:
                 da_group_stat = da_group.min(dim=c.dim_time)
-            elif _stat == c.stat_max:
+            elif _stat.code == c.stat_max:
                 da_group_stat = da_group.max(dim=c.dim_time)
-            elif _stat == c.stat_mean:
+            elif _stat.code == c.stat_mean:
                 da_group_stat = da_group.mean(dim=c.dim_time)
-            elif _stat == c.stat_quantile:
-                da_group_stat = da_group.quantile(_q, dim=c.dim_time)
-            elif _stat == c.stat_sum:
+            elif _stat.code == c.stat_quantile:
+                da_group_stat = da_group.quantile(_stat.quantile, dim=c.dim_time)
+            elif _stat.code == c.stat_sum:
                 n_years = da[c.dim_time].size / 12
                 da_group_stat = da_group.sum(dim=c.dim_time) / n_years
             return da_group_stat
@@ -620,8 +616,8 @@ def draw_curves(
         # Determine if sum is needed.
         stat_actual = stat
         if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
-            if stat == c.stat_mean:
-                stat_actual = c.stat_sum
+            if stat.code == c.stat_mean:
+                stat_actual.code = c.stat_sum
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
                 da_obs         = da_obs.resample(time="1M").sum()
@@ -631,11 +627,11 @@ def draw_curves(
                 da_sim_adj_ref = da_sim_adj_ref.resample(time="1M").sum()
 
         # Calculate statistics.
-        da_obs         = da_groupby(da_obs, stat_actual, q)
-        da_sim_ref     = da_groupby(da_sim_ref, stat_actual, q)
-        da_sim         = da_groupby(da_sim, stat_actual, q)
-        da_sim_adj     = da_groupby(da_sim_adj, stat_actual, q)
-        da_sim_adj_ref = da_groupby(da_sim_adj_ref, stat_actual, q)
+        da_obs         = da_groupby(da_obs, stat_actual)
+        da_sim_ref     = da_groupby(da_sim_ref, stat_actual)
+        da_sim         = da_groupby(da_sim, stat_actual)
+        da_sim_adj     = da_groupby(da_sim_adj, stat_actual)
+        da_sim_adj_ref = da_groupby(da_sim_adj_ref, stat_actual)
 
         # Create dataframe.
         dict_pd = {"month": list(range(1, 13)),

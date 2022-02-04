@@ -42,23 +42,21 @@ from dashboard.def_hor import Hor
 from dashboard.def_lib import Lib
 from dashboard.def_rcp import RCP, RCPs
 from dashboard.def_sim import Sim
-from dashboard.def_stat import Stat
+from dashboard.def_stat import Stat, Stats
 from dashboard.def_varidx import VarIdx
 from dashboard.def_view import View
 
 
 def calc_stat(
-    data_type: str,
+    stn: str,
+    varidx: VarIdx,
+    rcp: RCP,
+    hor: Union[None, Hor],
+    stat: Stat,
+    per_region: bool,
     freq_in: str,
     freq_out: str,
-    stn: str,
-    vi_code: str,
-    rcp: RCP,
-    hor: List[int],
-    per_region: bool,
-    clip: bool,
-    stat: str,
-    q: float = -1
+    clip: bool
 ) -> Union[xr.Dataset, None]:
 
     """
@@ -67,44 +65,36 @@ def calc_stat(
 
     Parameters
     ----------
-
-    data_type: str
-        Dataset type: {const.obs, const.cat_scen}
+    stn: str
+        Station.
+    varidx: VarIdx
+        Climate variable or index.
+    rcp: RCP
+        Emission scenario.
+    hor: Union[None, Hor]
+        Horizon: ex: [1981, 2010]
+        If None is specified, the complete time range is considered.
+    stat: Stat
+        Statistic.
+    per_region: bool
+        If True, statistics are calculated for a region as a whole.
     freq_in: str
         Frequency (input): const.freq_D=daily; const.freq_YS=annual
     freq_out: str
         Frequency (output): const.freq_D=daily; const.freq_YS=annual
-    stn: str
-        Station.
-    vi_code: str
-        Climate variable or index code.
-    rcp: List[int]
-        Emission scenario: {def_rcp.rcp_26, def_rcp.rcp_45, def_rcp, def_rcp.rcp_xx}
-    hor: Hor
-        Horizon: ex: [1981, 2010]
-        If None is specified, the complete time range is considered.
-    per_region: bool
-        If True, statistics are calculated for a region as a whole.
     clip: bool
         If True, clip according to 'cntx.p_bounds'.
-    stat: str
-        Statistic: {def_stat.code_mean, def_stat.code_min, def_stat.code_max, def_stat.code_quantile}
-    q: float, optional
-        Quantile: value between 0 and 1.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Create variable instance.
-    varidx = VarIdx(vi_code)
-
     # Extract name and group.
-    cat = c.cat_scen if varidx.is_var else c.cat_idx
-    vi_name = vi_code if cat == c.cat_scen else varidx.name
+    vi_code = varidx.code
+    vi_name = varidx.name
     vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
     vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
 
     # List files.
-    if data_type == c.cat_obs:
+    if rcp.code == c.ref:
         if varidx.is_var:
             p_sim_l = [cntx.d_scen(stn, c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
         else:
@@ -141,9 +131,9 @@ def calc_stat(
     # First and last years.
     year_1 = int(str(ds.time.values[0])[0:4])
     year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
-    if len(hor) >= 2:
-        year_1 = max(year_1, hor[0])
-        year_n = min(year_n, hor[1])
+    if hor is not None:
+        year_1 = max(year_1, hor.year_1)
+        year_n = min(year_n, hor.year_2)
     n_time = (year_n - year_1 + 1) * (365 if freq_in == c.freq_D else 1)
 
     # Collect values from simulations.
@@ -279,15 +269,15 @@ def calc_stat(
             da_vals = xr.DataArray(np.array(vals_t))
             vals_t = list(da_vals[(np.isnan(da_vals.values) == False) &
                                   ((vi_name != c.v_pr) | (sum(da_vals.values) > 0))].values)
-        if (stat == c.stat_min) or (q == 0):
+        if (stat.code == c.stat_min) or ((stat.code == c.stat_quantile) and (stat.quantile == 0)):
             val_stat = np.min(vals_t)
-        elif (stat == c.stat_max) or (q == 1):
+        elif (stat.code == c.stat_max) or ((stat.code == c.stat_quantile) and (stat.quantile == 1)):
             val_stat = np.max(vals_t)
-        elif stat == c.stat_mean:
+        elif stat.code == c.stat_mean:
             val_stat = np.mean(vals_t)
-        elif stat == c.stat_quantile:
-            val_stat = np.quantile(vals_t, q)
-        elif stat == c.stat_sum:
+        elif stat.code == c.stat_quantile:
+            val_stat = np.quantile(vals_t, stat.quantile)
+        elif stat.code == c.stat_sum:
             val_stat = np.sum(vals_t)
         arr_stat.append(val_stat)
 
@@ -375,7 +365,6 @@ def calc_stat_tbl(
                 # Select years.
                 if rcp.code == c.ref:
                     hors = [cntx.per_ref]
-                    cat_rcp = c.cat_obs
                     if cat == c.cat_scen:
                         d = os.path.dirname(cntx.p_obs(stn, vi_code_grp))
                     else:
@@ -383,10 +372,8 @@ def calc_stat_tbl(
                 else:
                     hors = cntx.per_hors
                     if cat == c.cat_scen:
-                        cat_rcp = c.cat_scen
                         d = cntx.d_scen(stn, c.cat_qqmap, vi_code_grp)
                     else:
-                        cat_rcp = c.cat_idx
                         d = cntx.d_idx(stn, vi_code_grp)
 
                 if not os.path.isdir(d):
@@ -398,27 +385,25 @@ def calc_stat_tbl(
                 fu.log("Processing: " + stn + ", " + idx_desc + ", " + rcp.code + "", True)
 
                 # Loop through statistics.
-                stats = [c.stat_mean]
-                if cat_rcp != c.cat_obs:
-                    stats = stats + [c.stat_min, c.stat_max, c.stat_quantile]
-                for stat in stats:
-                    stat_quantiles = cntx.opt_stat_quantiles
-                    if stat != c.stat_quantile:
-                        stat_quantiles = [-1]
-                    for q in stat_quantiles:
-                        if ((q <= 0) or (q >= 1)) and (q != -1):
+                stats = Stats([c.stat_mean])
+                if rcp.code != c.ref:
+                    stats.add([c.stat_min, c.stat_max, c.stat_quantile], inplace=True)
+                for stat in stats.items:
+                    quantile_l = cntx.opt_stat_quantiles
+                    if stat.code != c.stat_quantile:
+                        quantile_l = [-1]
+                    for quantile in quantile_l:
+                        if ((quantile <= 0) or (quantile >= 1)) and (quantile != -1):
                             continue
+                        stat.quantile = quantile
 
                         # Loop through horizons.
                         for hor in hors:
 
                             # Calculate statistics.
-                            # The use of boundaries was disabled, because the function cliops.subset does not always
-                            # work (different result obtained for different runs with same exact data).
-                            ds_stat =\
-                                calc_stat(cat_rcp, freq, c.freq_YS, stn, vi_code, rcp, hor,
-                                          (freq == c.freq_YS) and (cat == c.cat_scen),
-                                          cntx.opt_stat_clip, stat, q)
+                            ds_stat = calc_stat(stn, varidx, rcp, hor, stat,
+                                                (freq == c.freq_YS) and (cat == c.cat_scen),
+                                                freq, c.freq_YS, cntx.opt_stat_clip)
                             if ds_stat is None:
                                 continue
 
@@ -438,10 +423,8 @@ def calc_stat_tbl(
                             stn_l.append(stn)
                             rcp_l.append(rcp.code)
                             hor_l.append(str(hor[0]) + "-" + str(hor[1]))
-                            if cat_rcp == c.cat_obs:
-                                stat = "none"
-                            stat_l.append(stat)
-                            q_l.append(str(q))
+                            stat_l.append("none" if rcp.code == c.ref else stat.code)
+                            q_l.append(str(quantile))
                             val_l.append(round(val, 6))
 
                             # Clearing cache.
@@ -1068,14 +1051,13 @@ def calc_map(
 
     # Get statistic string.
     def stat_str(
-        _stat: str,
-        _q: float
+        _stat: Stat
     ):
 
-        if _stat in [c.stat_mean, c.stat_min, c.stat_max]:
-            _stat_str = "_" + _stat
+        if _stat.code in [c.stat_mean, c.stat_min, c.stat_max]:
+            _stat_str = _stat.code
         else:
-            _stat_str = "_q" + str(int(_q * 100)).rjust(2, "0")
+            _stat_str = "q" + str(int(_stat.quantile * 100)).rjust(2, "0")
 
         return _stat_str
 
@@ -1084,7 +1066,7 @@ def calc_map(
         _rcp: RCP,
         _per: List[int],
         _per_str: str,
-        _stat: str,
+        _stat: Stat,
         _delta: Optional[bool] = False
     ) -> Tuple[str, str]:
 
@@ -1092,8 +1074,8 @@ def calc_map(
         _d_fig = cntx.d_scen(stn, c.cat_fig + cntx.sep + cat + cntx.sep + c.view_map,
                              (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
                              varidx.code + cntx.sep + per_str)
-        _stat_str = stat_str(stat, q)
-        _fn_fig = vi_name + "_" + _rcp.code + "_" + str(_per[0]) + "_" + str(_per[1]) + _stat_str + c.f_ext_png
+        _stat_str = stat_str(_stat)
+        _fn_fig = vi_name + "_" + _rcp.code + "_" + str(_per[0]) + "_" + str(_per[1]) + "_" + _stat_str + c.f_ext_png
         _p_fig = _d_fig + _fn_fig
         if _delta:
             _p_fig = _p_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
@@ -1123,20 +1105,17 @@ def calc_map(
     arr_ds_maps = []
     arr_items = []
 
-    # Build arrays for statistics to calculate.
-    arr_stat = [c.stat_mean]
-    arr_q = [-1]
+    # Identify statistics to calculate.
+    stats = Stats([c.stat_mean])
     if cntx.opt_map_quantiles is not None:
-        arr_stat = arr_stat + ([c.stat_quantile] * len(cntx.opt_map_quantiles))
-        arr_q = arr_q + cntx.opt_map_quantiles
+        for quantile in cntx.opt_map_quantiles:
+            stats.add(Stat(c.stat_quantile, quantile))
 
     # Reference map (to calculate deltas).
     ds_map_ref = None
 
     # Loop through statistics.
-    for i in range(len(arr_stat)):
-        stat = arr_stat[i]
-        q = arr_q[i]
+    for stat in stats.items:
 
         # Loop through categories of emission scenarios.
         for j in range(rcps.count):
@@ -1172,7 +1151,7 @@ def calc_map(
                 else:
 
                     # Calculate map.
-                    ds_map = calc_map_rcp(varidx.code, rcp, per, stat, q)
+                    ds_map = calc_map_rcp(varidx, rcp, per, stat)
 
                     # Clip to geographic boundaries.
                     if cntx.opt_map_clip and (cntx.p_bounds != ""):
@@ -1180,10 +1159,11 @@ def calc_map(
 
                 # Record current map, statistic and quantile, RCP and period.
                 arr_ds_maps.append(ds_map)
-                arr_items.append([stat, q, rcp.code, per])
+                arr_items.append([stat.code, stat.quantile, rcp.code, per])
 
                 # Calculate reference map.
-                if (ds_map_ref is None) and (stat == c.stat_mean) and (rcp.code == c.rcpxx) and (per == cntx.per_ref):
+                if (ds_map_ref is None) and (stat.code == c.stat_mean) and (rcp.code == c.rcpxx) and\
+                   (per == cntx.per_ref):
                     ds_map_ref = ds_map
 
                 # Extract values.
@@ -1216,8 +1196,7 @@ def calc_map(
         ds_map = arr_ds_maps[i]
 
         # Current RCP and horizon.
-        stat  = arr_items[i][0]
-        q     = arr_items[i][1]
+        stat  = Stat(arr_items[i][0], arr_items[i][1])
         rcp   = RCP(arr_items[i][2])
         per   = arr_items[i][3]
         i_per = cntx.per_hors.index(per)
@@ -1264,8 +1243,8 @@ def calc_map(
                 cntx.varidx            = VarIdx(vi_name)
                 cntx.project.quantiles = cntx.opt_map_quantiles
                 cntx.rcp               = rcp
-                cntx.hor               = Hor(str(per[0]) + "-" + str(per[1]))
-                cntx.stat              = Stat(stat_str(stat, q).replace("_", ""))
+                cntx.hor               = Hor(per)
+                cntx.stat              = stat
                 cntx.delta             = Delta(str(j == 1))
 
                 # Update colors.
@@ -1353,11 +1332,10 @@ def calc_map(
 
 
 def calc_map_rcp(
-    vi_code: str,
+    varidx: VarIdx,
     rcp: RCP,
     per: [int],
-    stat: str,
-    q: float
+    stat: Stat
 ) -> xr.Dataset:
 
     """
@@ -1366,28 +1344,25 @@ def calc_map_rcp(
 
     Parameters
     ----------
-    vi_code: str
-        Climate variable or index code.
-    rcp: def_rcp.RCP
+    varidx: VarIdx
+        Climate variable or index.
+    rcp: RCP
         Emission scenario.
     per: [int]
         Period.
-    stat: str
-        Statistic = {"mean" or "quantile"}
-    q: float
-        Quantile.
+    stat: Stat
+        Statistic.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Extract variable name and group.
-    varidx = VarIdx(vi_code)
-    cat = c.cat_scen if varidx.is_var else c.cat_idx
-    vi_name = vi_code if cat == c.cat_scen else varidx.name
+    vi_code = varidx.code
+    vi_name = varidx.name
     vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
     vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
 
     fu.log("Processing: " + vi_code + ", " +
-           ("q" + str(int(q * 100)).rjust(2, "0") if q >= 0 else stat) + ", " +
+           ("q" + str(int(stat.quantile * 100)).rjust(2, "0") if stat.quantile >= 0 else stat.code) + ", " +
            rcp.desc + ", " + str(per[0]) + "-" + str(per[1]) + "", True)
 
     # Number of years and stations.
@@ -1419,8 +1394,7 @@ def calc_map_rcp(
             lat = df[df["station"] == stn][c.dim_lat].values[0]
 
             # Calculate statistics.
-            ds_stat = calc_stat(c.cat_obs if rcp.code == c.ref else c.cat_scen, c.freq_YS,
-                                c.freq_YS, stn, vi_code, rcp, [], False, cntx.opt_map_clip, stat, q)
+            ds_stat = calc_stat(stn, varidx, rcp, None, stat, False, c.freq_YS, c.freq_YS, cntx.opt_map_clip)
             if ds_stat is None:
                 continue
 
@@ -1526,7 +1500,7 @@ def calc_map_rcp(
             ds_res = ds_sim.mean(dim=c.dim_time)
             if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
                 ds_res = ds_res * 365
-            if cat == c.cat_scen:
+            if varidx.is_var:
                 ds_res[vi_name].attrs[c.attrs_units] = units
             else:
                 ds_res.attrs[c.attrs_units] = units
@@ -1535,7 +1509,7 @@ def calc_map_rcp(
         else:
 
             # List scenarios or indices for the current RCP.
-            if cat == c.cat_scen:
+            if varidx.is_var:
                 d = cntx.d_scen(cntx.obs_src, c.cat_qqmap, vi_code_grp)
             else:
                 d = cntx.d_scen(cntx.obs_src, c.cat_idx, vi_code_grp)
@@ -1570,7 +1544,7 @@ def calc_map_rcp(
                     ds_sim = ds_sim.mean(dim=c.dim_time)
                     if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
                         ds_sim = ds_sim * 365
-                    if cat == c.cat_scen:
+                    if varidx.is_var:
                         ds_sim[vi_name].attrs[c.attrs_units] = units
                     else:
                         ds_sim.attrs[c.attrs_units] = units
@@ -1608,20 +1582,20 @@ def calc_map_rcp(
 
                     # Calculate statistic.
                     val = np.nan
-                    if stat == c.stat_mean:
+                    if stat.code == c.stat_mean:
                         val = np.mean(vals)
-                    elif stat == c.stat_min:
+                    elif stat.code == c.stat_min:
                         val = np.min(vals)
-                    elif stat == c.stat_max:
+                    elif stat.code == c.stat_max:
                         val = np.max(vals)
-                    elif stat == c.stat_quantile:
-                        val = np.quantile(vals, q)
+                    elif stat.code == c.stat_quantile:
+                        val = np.quantile(vals, stat.quantile)
 
                     # Record value.
                     ds_res[vi_name][i_lat, j_lon] = val
 
         # Remember units.
-        units = ds_res[vi_name].attrs[c.attrs_units] if cat == c.cat_scen else ds_res.attrs[c.attrs_units]
+        units = ds_res[vi_name].attrs[c.attrs_units] if varidx.is_var else ds_res.attrs[c.attrs_units]
 
         # Convert units.
         if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and\
@@ -1681,16 +1655,13 @@ def conv_nc_csv(
             cat_l = [c.cat_idx]
         for cat in cat_l:
 
-            # Explode lists of codes and names.
-            idx_names_exploded = VI.explode_idx_l(cntx.varidxs.name_l)
-            idx_codes_exploded = VI.explode_idx_l(cntx.varidxx.code_l)
-
             # Loop through variables or indices.
-            vi_name_l = cntx.varidxs.code_l if cat != c.cat_idx else idx_names_exploded
-            for i_vi_name in range(len(vi_name_l)):
-                vi_name = idx_names_exploded[i_vi_name]
-                vi_code = idx_codes_exploded[i_vi_name]
-                vi_code_grp = VI.group(vi_code)
+            vi_code_l = cntx.varidxs.code_l if cat != c.cat_idx else VI.explode_idx_l(cntx.varidxx.code_l)
+            for vi_code in vi_code_l:
+
+                # Extract variable/index information.
+                varidx = VarIdx(vi_code)
+                vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
 
                 # List NetCDF files.
                 p_l = list(glob.glob(cntx.d_scen(stn, cat, vi_code_grp) + "*" + c.f_ext_nc))
@@ -1704,7 +1675,7 @@ def conv_nc_csv(
                 # Scalar processing mode.
                 if cntx.n_proc == 1:
                     for i_file in range(n_files):
-                        conv_nc_csv_single(p_l, vi_code, i_file)
+                        conv_nc_csv_single(p_l, varidx, i_file)
 
                 # Parallel processing mode.
                 else:
@@ -1719,7 +1690,7 @@ def conv_nc_csv(
                         try:
                             fu.log("Splitting work between " + str(cntx.n_proc) + " threads.", True)
                             pool = multiprocessing.Pool(processes=min(cntx.n_proc, len(p_l)))
-                            func = functools.partial(conv_nc_csv_single, p_l, vi_name)
+                            func = functools.partial(conv_nc_csv_single, p_l, varidx)
                             pool.map(func, list(range(n_files)))
                             fu.log("Work done!", True)
                             pool.close()
@@ -1740,7 +1711,7 @@ def conv_nc_csv(
 
 def conv_nc_csv_single(
     p_l: [str],
-    vi_code: str,
+    varidx: VarIdx,
     i_file: int
 ):
 
@@ -1752,17 +1723,17 @@ def conv_nc_csv_single(
     ----------
     p_l : [str]
         List of paths.
-    vi_code : str
-        Climate variable or index code.
+    varidx : VarIdx
+        Climate variable or index.
     i_file : int
         Rank of file in 'p_l'.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     # Extract variable name and group.
-    varidx = VarIdx(vi_code)
-    vi_name = vi_code if varidx.is_var else varidx.name
-    vi_code_grp = VI.group(vi_code)
+    vi_code = varidx.code
+    vi_name = varidx.name
+    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
 
     # Paths.
     p = p_l[i_file]
