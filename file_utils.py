@@ -338,7 +338,13 @@ def clean_netcdf(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    log("Cleaning NetCDF file: " + d, True)
+    msg = "Cleaning NetCDF files: "
+    if cntx.d_stn() in d:
+        msg += "~/stn/.../" + d.replace(cntx.d_stn(), "")
+    else:
+        msg += "~/res/.../" + d.replace(cntx.d_res, "")
+    msg += "*"
+    log(msg, True)
 
     # List temporary files.
     if d[len(d) - 1] != cntx.sep:

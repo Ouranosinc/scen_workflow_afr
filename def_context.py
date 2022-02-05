@@ -294,7 +294,7 @@ class Context(def_context.Context):
         d. Run the script.
            This will adjust bias for each combination of three parameter values.
         e. Examine the plots that were generated under the following directory:
-           d_scen(<station_name>, "fig")/calibration/
+           /fig/scen/calibration/
            and select the parameter values that produce the best fit between simulations and observations.
            There is one parameter value per simulation, per station, per variable.
         f. Set values for the following parameters:
@@ -1016,7 +1016,8 @@ class Context(def_context.Context):
         d_base = self.d_exec + self.country + self.sep + self.project + self.sep
         obs_src_region = self.obs_src + ("_" + self.region if (self.region != "") and self.opt_ra else "")
         self._d_stn = d_base + c.cat_stn + self.sep + obs_src_region + self.sep
-        self.d_res = self.d_exec + "sim_climat" + self.sep + self.country + self.sep + self.project + self.sep
+        self.d_res = self.d_exec + "sim_climat" + self.sep + self.country + self.sep + self.project + self.sep +\
+            "stn" + cntx.sep + cntx.obs_src + ("_" + self.region if self.region != "" else "") + self.sep
 
         # Boundaries and locations.
         if self.p_bounds != "":
@@ -1030,41 +1031,6 @@ class Context(def_context.Context):
 
         # Calibration file.
         self.p_calib = self.d_res + "stn" + self.sep + obs_src_region + self.sep + self.p_calib
-
-    def d_fig(
-        self,
-        cat_vi: str,
-        cat_fig: Optional[str] = "",
-        vi_name: Optional[str] = ""
-    ) -> str:
-
-        """
-        ----------------------------------------
-        Get directory of figure.
-
-        Parameters
-        ----------
-        cat_vi: str
-            Category = {c.cat_scen, c.cat_idx}.
-        cat_fig: Optional[str]
-            Category of figure = {c.cat_figure*}
-        vi_name: Optional[str]
-            Climate variable or index name.
-
-        Returns
-        -------
-        str
-            Directory of figure data.
-        ----------------------------------------
-        """
-
-        d = cntx.d_res + "stn" + self.sep + cntx.obs_src + "_" + cntx.region + self.sep + c.cat_fig + self.sep + cat_vi + self.sep
-        if cat_fig != "":
-            d = d + cat_fig + self.sep
-        if vi_name != "":
-            d = d + vi_name + self.sep
-
-        return d
 
     def d_stn(
         self,
@@ -1087,9 +1053,9 @@ class Context(def_context.Context):
         ----------------------------------------
         """
 
-        d = ""
+        d = self._d_stn
         if var_name != "":
-            d = self._d_stn + var_name + self.sep
+            d = d + var_name + self.sep
 
         return d
 
@@ -1123,38 +1089,30 @@ class Context(def_context.Context):
 
     def d_scen(
         self,
-        stn: str,
         cat: str,
         var_name: str = ""
     ) -> str:
 
         """
         ----------------------------------------
-        Get directory of scenarios.
+        Get directory of climate scenarios.
 
         Parameters
         ----------
-        stn: str
-            Station.
         cat: str
             Category.
         var_name: str, optional
-            Variable.
+            Climate variable.
 
         Returns
         -------
         str
-            Directory of scenarios.
+            Directory of climate scenarios.
         ----------------------------------------
         """
 
-        d = self.d_res
-        if stn != "":
-            d = d + c.cat_stn + self.sep + stn + ("_" + self.region if self.region != "" else "") + self.sep
+        d = self.d_res + c.cat_scen + self.sep
         if cat != "":
-            d = d
-            if cat in [c.cat_obs, c.cat_raw, c.cat_regrid, c.cat_qqmap, c.cat_qmf, "*"]:
-                d = d + c.cat_scen + self.sep
             d = d + cat + self.sep
         if var_name != "":
             d = d + var_name + self.sep
@@ -1163,34 +1121,93 @@ class Context(def_context.Context):
 
     def d_idx(
         self,
-        stn: str,
-        idx_name: str = ""
+        idx_name: Optional[str] = ""
     ) -> str:
 
         """
         ----------------------------------------
-        Get directory of indices.
+        Get directory of climate indices.
 
         Parameters
         ----------
-        stn : str
-            Station.
-        idx_name : str, optional
-            Index name.
+        idx_name : Optional[str]
+            Climate index name.
 
         Returns
         -------
         str
-            Directory of indices.
+            Directory of climate indices.
         ----------------------------------------
         """
 
-        d = self.d_res
-        if stn != "":
-            d = d + c.cat_stn + self.sep + stn + ("_" + self.region if self.region != "" else "") + self.sep
-        d = d + c.cat_idx + self.sep
+        d = self.d_res + c.cat_idx + self.sep
         if idx_name != "":
             d = d + idx_name + self.sep
+
+        return d
+
+    def d_fig(
+        self,
+        cat_vi: str,
+        cat_fig: Optional[str] = "",
+        vi_name: Optional[str] = ""
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get directory of figure.
+
+        Parameters
+        ----------
+        cat_vi: str
+            Category = {c.cat_scen, c.cat_idx}.
+        cat_fig: Optional[str]
+            Category of figure = {c.cat_figure*}
+        vi_name: Optional[str]
+            Climate variable or index name.
+
+        Returns
+        -------
+        str
+            Directory of figure data.
+        ----------------------------------------
+        """
+
+        d = cntx.d_res + c.cat_fig + self.sep + cat_vi + self.sep
+        if cat_fig != "":
+            d = d + cat_fig + self.sep
+        if vi_name != "":
+            d = d + vi_name + self.sep
+
+        return d
+
+    def d_stat(
+        self,
+        cat_vi: str,
+        vi_name: Optional[str] = ""
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get directory of statistic.
+
+        Parameters
+        ----------
+        cat_vi: str
+            Category = {c.cat_scen, c.cat_idx}.
+        vi_name: Optional[str]
+            Climate variable or index name.
+
+        Returns
+        -------
+        str
+            Directory of statistic.
+        ----------------------------------------
+        """
+
+        d = cntx.d_res + c.cat_stat + self.sep + cat_vi + self.sep
+        if vi_name != "":
+            d = d + vi_name + self.sep
 
         return d
 
@@ -1221,7 +1238,7 @@ class Context(def_context.Context):
         ----------------------------------------
         """
 
-        p = str(self.d_scen(stn_name, c.cat_obs)) + var_name + self.sep + var_name + "_" + stn_name
+        p = str(self.d_scen(c.cat_obs, var_name)) + var_name + "_" + stn_name
         if cat != "":
             p = p + "_4qqmap"
         p = p + c.f_ext_nc

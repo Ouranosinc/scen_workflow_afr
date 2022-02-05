@@ -128,10 +128,10 @@ def main():
     if cntx.opt_scen:
         for var in cntx.vars.items:
             fu.clean_netcdf(cntx.d_stn(var.name))
-            fu.clean_netcdf(cntx.d_scen(cntx.obs_src, c.cat_scen + cntx.sep + "*", var.name))
+            fu.clean_netcdf(cntx.d_scen("*", var.name))
     if cntx.opt_idx:
         for idx in cntx.idxs.items:
-            fu.clean_netcdf(cntx.d_idx(cntx.obs_src, idx.name))
+            fu.clean_netcdf(cntx.d_idx(idx.name))
 
     # Initialization.
     scenarios.init_calib_params()

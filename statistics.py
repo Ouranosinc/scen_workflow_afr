@@ -96,14 +96,14 @@ def calc_stat(
     # List files.
     if rcp.code == c.ref:
         if varidx.is_var:
-            p_sim_l = [cntx.d_scen(stn, c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
+            p_sim_l = [cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
         else:
-            p_sim_l = [cntx.d_idx(stn, vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
+            p_sim_l = [cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
     else:
         if varidx.is_var:
-            d = cntx.d_scen(stn, c.cat_qqmap, vi_code_grp)
+            d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
         else:
-            d = cntx.d_idx(stn, vi_code_grp)
+            d = cntx.d_idx(vi_code_grp)
         p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp.code == c.rcpxx else rcp.code) + c.f_ext_nc)
 
     # Exit if there is no file corresponding to the criteria.
@@ -347,7 +347,7 @@ def calc_stat_tbl(
             vi_code_grp = str(VI.group(vi_code)) if varidx.is_group else vi_code
 
             # Skip iteration if the file already exists.
-            p_csv = cntx.d_scen(stn, c.cat_stat, cat + cntx.sep + vi_code_grp) + vi_name + c.f_ext_csv
+            p_csv = cntx.d_stat(cat, vi_code_grp) + vi_name + c.f_ext_csv
             if os.path.exists(p_csv) and (not cntx.opt_force_overwrite):
                 continue
 
@@ -368,13 +368,13 @@ def calc_stat_tbl(
                     if cat == c.cat_scen:
                         d = os.path.dirname(cntx.p_obs(stn, vi_code_grp))
                     else:
-                        d = cntx.d_idx(stn, vi_code_grp)
+                        d = cntx.d_idx(vi_code_grp)
                 else:
                     hors = Hors(cntx.per_hors)
                     if cat == c.cat_scen:
-                        d = cntx.d_scen(stn, c.cat_qqmap, vi_code_grp)
+                        d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
                     else:
-                        d = cntx.d_idx(stn, vi_code_grp)
+                        d = cntx.d_idx(vi_code_grp)
 
                 if not os.path.isdir(d):
                     continue
@@ -487,12 +487,12 @@ def calc_ts(
         cat_fig = c.cat_fig + cntx.sep + cat + cntx.sep + view_code
         fn = varidx.name + "_" + dash_plot.mode_rcp
         # CSV files:
-        p_rcp_csv = cntx.d_scen(stn, cat_fig, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
+        p_rcp_csv = cntx.d_fig(cat, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
         p_sim_csv = p_rcp_csv.replace("_" + dash_plot.mode_rcp, "_" + dash_plot.mode_sim)
         p_rcp_del_csv = p_rcp_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         p_sim_del_csv = p_sim_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         # PNG files.
-        p_rcp_fig = cntx.d_scen(stn, cat_fig, vi_code_grp) + fn + c.f_ext_png
+        p_rcp_fig = cntx.d_fig(cat, vi_code_grp) + fn + c.f_ext_png
         p_sim_fig = p_rcp_fig.replace("_" + dash_plot.mode_rcp + c.f_ext_png, "_" + dash_plot.mode_sim + c.f_ext_png)
         p_rcp_del_fig = p_rcp_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
         p_sim_del_fig = p_sim_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
@@ -622,14 +622,14 @@ def calc_ts_prep(
             if cntx.varidx.is_var:
                 p_ref = cntx.d_stn(vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc
             else:
-                p_ref = cntx.d_idx(stn, vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc
+                p_ref = cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc
             if rcp.code == c.ref:
                 p_sim_l = [p_ref]
             else:
                 if cntx.varidx.is_var:
-                    d = cntx.d_scen(stn, c.cat_qqmap, vi_code_grp)
+                    d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
                 else:
-                    d = cntx.d_idx(stn, vi_code_grp)
+                    d = cntx.d_idx(vi_code_grp)
                 p_sim_l = glob.glob(d + "*_" + ("*" if rcp.code == c.rcpxx else rcp.code) + c.f_ext_nc)
 
             # Exit if there is no file corresponding to the criteria.
@@ -1044,8 +1044,6 @@ def calc_map(
     vi_code_grp = VI.group(varidx.code) if varidx.is_group else varidx.code
     rcps = RCPs([c.ref, c.rcpxx] + cntx.rcps.code_l)
 
-    stn = "stns" if not cntx.opt_ra else cntx.obs_src
-
     msg = "Calculating maps."
     fu.log(msg, True)
 
@@ -1071,9 +1069,8 @@ def calc_map(
     ) -> Tuple[str, str]:
 
         # PNG file.
-        _d_fig = cntx.d_scen(stn, c.cat_fig + cntx.sep + cat + cntx.sep + c.view_map,
-                             (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
-                             varidx.code + cntx.sep + per_str)
+        _d_fig = cntx.d_fig(cat, c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
+                            varidx.code + cntx.sep + per_str)
         _stat_str = stat_str(_stat)
         _fn_fig = vi_name + "_" + _rcp.code + "_" + str(_per[0]) + "_" + str(_per[1]) + "_" + _stat_str + c.f_ext_png
         _p_fig = _d_fig + _fn_fig
@@ -1081,9 +1078,8 @@ def calc_map(
             _p_fig = _p_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
 
         # CSV file.
-        _d_csv = cntx.d_scen(stn, c.cat_fig + cntx.sep + cat + cntx.sep + c.view_map,
-                             (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
-                             varidx.code + "_csv" + cntx.sep + _per_str)
+        _d_csv = cntx.d_fig(cat, c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
+                            varidx.code + "_csv" + cntx.sep + _per_str)
         _fn_csv = _fn_fig.replace(c.f_ext_png, c.f_ext_csv)
         _p_csv = _d_csv + _fn_csv
         if _delta:
@@ -1470,9 +1466,9 @@ def calc_map_rcp(
         # Reference period.
         if varidx.is_var:
             p_sim_ref =\
-                cntx.d_scen(cntx.obs_src, c.cat_obs, vi_code_grp) + vi_name_grp + "_" + cntx.obs_src + c.f_ext_nc
+                cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + cntx.obs_src + c.f_ext_nc
         else:
-            p_sim_ref = cntx.d_idx(cntx.obs_src, vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc
+            p_sim_ref = cntx.d_idx(vi_code_grp) + vi_name_grp + "_" + c.ref + c.f_ext_nc
         if rcp.code == c.ref:
 
             # Open dataset.
@@ -1510,9 +1506,9 @@ def calc_map_rcp(
 
             # List scenarios or indices for the current RCP.
             if varidx.is_var:
-                d = cntx.d_scen(cntx.obs_src, c.cat_qqmap, vi_code_grp)
+                d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
             else:
-                d = cntx.d_scen(cntx.obs_src, c.cat_idx, vi_code_grp)
+                d = cntx.d_idx(vi_code_grp)
             p_sim_l = [i for i in glob.glob(d + "*" + c.f_ext_nc) if i != p_sim_ref]
 
             # Collect simulations.
@@ -1664,7 +1660,10 @@ def conv_nc_csv(
                 vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
 
                 # List NetCDF files.
-                p_l = list(glob.glob(cntx.d_scen(stn, cat, vi_code_grp) + "*" + c.f_ext_nc))
+                if cat != c.cat_idx:
+                    p_l = list(glob.glob(cntx.d_scen(cat, vi_code_grp) + "*" + c.f_ext_nc))
+                else:
+                    p_l = list(glob.glob(cntx.d_fig(vi_code_grp) + "*" + c.f_ext_nc))
                 n_files = len(p_l)
                 if n_files == 0:
                     continue
@@ -1684,8 +1683,8 @@ def conv_nc_csv(
                     while True:
 
                         # Calculate the number of files processed (before conversion).
-                        n_files_proc_before =\
-                            len(list(glob.glob(cntx.d_scen(stn, cat, vi_code) + "*" + c.f_ext_csv)))
+                        d_cat = cntx.d_scen(cat, vi_code) if cat != c.cat_fig else cntx.d_idx(vi_code)
+                        n_files_proc_before = len(list(glob.glob(d_cat + "*" + c.f_ext_csv)))
 
                         try:
                             fu.log("Splitting work between " + str(cntx.n_proc) + " threads.", True)
@@ -1701,8 +1700,7 @@ def conv_nc_csv(
                             pass
 
                         # Calculate the number of files processed (after conversion).
-                        n_files_proc_after =\
-                            len(list(glob.glob(cntx.d_scen(stn, cat, vi_code_grp) + "*" + c.f_ext_csv)))
+                        n_files_proc_after = len(list(glob.glob(d_cat + "*" + c.f_ext_csv)))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cntx.n_proc == 1) or (n_files_proc_before == n_files_proc_after):
@@ -2004,8 +2002,7 @@ def calc_clusters():
         # Determine the maximum number of clusters.
         p_csv_ts_l = []
         for var in cntx.varidxs.items:
-            p_i = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.view_ts,
-                              var.code + "_" + c.f_csv) + var.code + "_sim" + c.f_ext_csv
+            p_i = cntx.d_fig(c.cat_scen, c.view_ts, var.code + "_" + c.f_csv) + var.code + "_sim" + c.f_ext_csv
             p_csv_ts_l.append(p_i)
         n_cluster_max = len(dash_utils.get_shared_sims(p_csv_ts_l))
 
@@ -2013,7 +2010,7 @@ def calc_clusters():
         for n_cluster in range(1, n_cluster_max):
 
             # Paths.
-            p_csv = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen, c.view_cluster) +\
+            p_csv = cntx.d_fig(c.cat_scen, c.view_cluster) +\
                 vars_str + "_" + c.f_csv + cntx.sep + vars_str + "_" + str(n_cluster) + c.f_ext_csv
             p_fig = p_csv.replace("_" + c.f_csv, "").replace(c.f_ext_csv, c.f_ext_png)
 

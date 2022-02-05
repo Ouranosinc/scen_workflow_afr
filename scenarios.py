@@ -326,10 +326,7 @@ def load_reanalysis(
 
         # Combine datasets (the 'load' is necessary to apply the mask later).
         # ds = fu.open_netcdf(p_stn_l, combine="by_coords", concat_dim=const.dim_time).load()
-        ds = fu.open_netcdf(p_stn_l, combine="nested", concat_dim=c.dim_time).load()
-
-        # Sort/rename dimensions.
-        ds = utils.sort_dims(ds, vi_name=var_ra.name, rename=True)
+        ds = fu.open_netcdf(p_stn_l, combine="nested", concat_dim=c.dim_time)
 
         # Rename variables.
         if var_ra.name in [c.v_era5_t2mmin, c.v_era5_t2mmax]:
@@ -343,8 +340,9 @@ def load_reanalysis(
         else:
             var_ra_name = var_ra.name
         if var_ra_name != var_ra.name:
-            ds[var_name] = ds[var_ra_name]
-            del ds[var_ra.name]
+            if var_ra_name not in list(ds.variables):
+                var_ra_name = var_ra.name
+            ds = ds.rename({var_ra_name: var_name})
 
         # Subset.
         ds = utils.subset_lon_lat_time(ds, var_name, cntx.lon_bnds, cntx.lat_bnds)
@@ -399,6 +397,9 @@ def load_reanalysis(
         # atmosphere. A negative sign means that there is condensation.
         if (var_name in [c.v_evspsbl, c.v_evspsblpot]) and (cntx.obs_src in [c.ens_era5, c.ens_era5_land]):
             ds[var_name] = -ds[var_name]
+
+        # Sort/rename dimensions.
+        ds = utils.sort_dims(ds, vi_name=var_name, rename=True)
 
         # Save NetCDF.
         desc = cntx.sep + c.cat_obs + cntx.sep + os.path.basename(p_stn)
@@ -661,6 +662,7 @@ def regrid(
     if (cntx.obs_src == c.ens_era5_land) and (var.name not in [c.v_tas, c.v_tasmin, c.v_tasmax]):
         ds_regrid = da_regrid.to_dataset(name=var.name)
         da_mask = fu.create_mask()
+        # if da_mask is not None:
         da_regrid = utils.apply_mask(ds_regrid[var.name], da_mask)
 
     # Create dataset.
@@ -1064,7 +1066,7 @@ def bias_adj(
     """
 
     # List regrid files.
-    d_regrid = cntx.d_scen(stn, c.cat_regrid, var.name)
+    d_regrid = cntx.d_scen(c.cat_regrid, var.name)
     p_regrid_l = fu.list_files(d_regrid)
     if p_regrid_l is None:
         fu.log("The required files are not available.", True)
@@ -1313,7 +1315,7 @@ def gen():
     """
 
     # Create directory.
-    d_exec = cntx.d_scen("", "", "")
+    d_exec = cntx.d_scen("", "")
     if not(os.path.isdir(d_exec)):
         os.makedirs(d_exec)
 
@@ -1368,11 +1370,11 @@ def gen():
 
             # Directories.
             d_stn             = cntx.d_stn(var.name)
-            d_obs             = cntx.d_scen(stn, c.cat_obs, var.name)
-            d_raw             = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_raw, var.name)
-            d_regrid          = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_regrid, var.name)
-            d_qqmap           = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_qqmap, var.name)
-            d_qmf             = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_qmf, var.name)
+            d_obs             = cntx.d_scen(c.cat_obs, var.name)
+            d_raw             = cntx.d_scen(c.cat_scen + cntx.sep + c.cat_raw, var.name)
+            d_regrid          = cntx.d_scen(c.cat_scen + cntx.sep + c.cat_regrid, var.name)
+            d_qqmap           = cntx.d_scen(c.cat_scen + cntx.sep + c.cat_qqmap, var.name)
+            d_qmf             = cntx.d_scen(c.cat_scen + cntx.sep + c.cat_qmf, var.name)
             d_fig_calibration = cntx.d_fig(c.cat_scen, c.cat_fig_calibration, var.name)
             d_fig_postprocess = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var.name)
             d_fig_workflow    = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var.name)
@@ -1748,7 +1750,7 @@ def calc_diag_cycle(
         p_obs = cntx.p_obs(stn, var_name)
 
         # Loop through raw NetCDF files.
-        p_raw_l = list(glob.glob(cntx.d_scen(stn, c.cat_raw, var_name) + "*" + c.f_ext_nc))
+        p_raw_l = list(glob.glob(cntx.d_scen(c.cat_raw, var_name) + "*" + c.f_ext_nc))
         for i in range(len(p_raw_l)):
             p_raw = p_raw_l[i]
 

@@ -123,8 +123,8 @@ def gen():
             for vi_code_i in vi_code_l:
                 if vi_code_i != "nan":
                     ens = VarIdx(vi_code_i).ens
-                    if ((ens == c.ens_cordex) and not os.path.isdir(cntx.d_scen(stn, c.cat_qqmap, vi_code_i))) or\
-                       ((ens != c.ens_cordex) and not os.path.isdir(cntx.d_idx(stn, vi_code_i))):
+                    if ((ens == c.ens_cordex) and not os.path.isdir(cntx.d_scen(c.cat_qqmap, vi_code_i))) or\
+                       ((ens != c.ens_cordex) and not os.path.isdir(cntx.d_idx(vi_code_i))):
                         vi_code_l_avail = False
                         break
             if not vi_code_l_avail:
@@ -146,16 +146,16 @@ def gen():
                 varidx_0 = VarIdx(vi_code_l[0])
                 if rcp.code == c.ref:
                     if varidx_0.is_var:
-                        p_sim_l = cntx.d_scen(stn, c.cat_obs, vi_code_l[0]) + varidx_0.name + "_" + stn + c.f_ext_nc
+                        p_sim_l = cntx.d_scen(c.cat_obs, vi_code_l[0]) + varidx_0.name + "_" + stn + c.f_ext_nc
                     else:
-                        p_sim_l = cntx.d_idx(cntx.obs_src, vi_code_l[0]) + varidx_0.name + "_ref" + c.f_ext_nc
+                        p_sim_l = cntx.d_idx(vi_code_l[0]) + varidx_0.name + "_ref" + c.f_ext_nc
                     if type(p_sim_l) is str:
                         p_sim_l = [p_sim_l]
                 else:
                     if varidx_0.is_var:
-                        d = cntx.d_scen(stn, c.cat_qqmap, vi_code_l[0])
+                        d = cntx.d_scen(c.cat_qqmap, vi_code_l[0])
                     else:
-                        d = cntx.d_idx(stn, vi_code_l[0])
+                        d = cntx.d_idx(vi_code_l[0])
                     p_sim_l = glob.glob(d + "*_" + rcp.code + c.f_ext_nc)
                 if not p_sim_l:
                     continue
@@ -200,7 +200,7 @@ def gen():
                 fu.log("Calculating climate indices", True)
 
                 n_sim = len(p_sim_l)
-                d_idx = cntx.d_idx(stn, idx.code)
+                d_idx = cntx.d_idx(idx.code)
 
                 # Scalar mode.
                 if cntx.n_proc == 1:
@@ -287,10 +287,9 @@ def gen_single(
 
     # Name of NetCDF file to generate.
     if rcp.code == c.ref:
-        p_idx = cntx.d_idx(stn, idx.code) + idx.name + "_ref" + c.f_ext_nc
+        p_idx = cntx.d_idx(idx.code) + idx.name + "_ref" + c.f_ext_nc
     else:
-        p_idx = cntx.d_scen(stn, c.cat_idx, idx.code) +\
-                os.path.basename(p_sim_l[i_sim]).replace(vi_name_0, idx.name)
+        p_idx = cntx.d_idx(idx.code) + os.path.basename(p_sim_l[i_sim]).replace(vi_name_0, idx.name)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
     if (rcp.code != c.ref) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite):
