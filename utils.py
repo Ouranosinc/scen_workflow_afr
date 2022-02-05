@@ -22,7 +22,7 @@ from cmath import rect, phase
 from collections import defaultdict
 from math import radians, degrees, sqrt
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from typing import Union, List, Tuple
+from typing import List, Optional, Tuple, Union
 
 # Workflow libraries.
 import file_utils as fu
@@ -551,9 +551,9 @@ def current_time():
 
 
 def squeeze_lon_lat(
-    ds: Union[xr.Dataset, xr.Dataset],
+    ds: Union[xr.Dataset, xr.DataArray],
     varidx_name: str = ""
-) -> Union[xr.Dataset, xr.Dataset]:
+) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -562,10 +562,15 @@ def squeeze_lon_lat(
 
     Parameters
     ----------
-    ds : Union[xr.Dataset, xr.Dataset]
+    ds : Union[xr.Dataset, xr.DataArray]
         Dataset or DataArray.
     varidx_name : str
         Variable or index.
+
+    Returns
+    -------
+    Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -588,8 +593,8 @@ def squeeze_lon_lat(
 
 
 def subset_ctrl_pt(
-    ds: Union[xr.Dataset, xr.Dataset]
-) -> Union[xr.Dataset, xr.Dataset]:
+    ds: Union[xr.Dataset, xr.DataArray]
+) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
@@ -597,7 +602,12 @@ def subset_ctrl_pt(
 
     Parameters
     ----------
-    ds : Union[xr.Dataset, xr.Dataset]
+    ds: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray.
+
+    Returns
+    -------
+    Union[xr.Dataset, xr.DataArray]
         Dataset or DataArray.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -1049,7 +1059,7 @@ def rename_dimensions(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    # Function that renames dimensions.
+    Function that renames dimensions.
 
     Parameters
     ----------
@@ -1190,45 +1200,77 @@ def doy_to_doy_str(
     return doy_str
 
 
-def reorder_dims(da_idx: xr.DataArray, ds_or_da_src: Union[xr.DataArray, xr.Dataset]) -> xr.DataArray:
+def sort_dims(
+    ds_da: Union[xr.Dataset, xr.DataArray],
+    vi_name: Optional[str] = "",
+    template: Optional[Union[xr.DataArray, xr.Dataset, List[str]]] = None,
+    rename: Optional[bool] = False
+) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    # Reorder dimensions to fit input data.
-    # There is not guarantee that the dimensions of a DataArray of indices will be the same at each run.
+    Reorder dimensions to fit input data.
+    There is not guarantee that the dimensions of a DataArray of indices will be the same at each run.
 
     Parameters
     ----------
-    da_idx : xr.DataArray
-        DataArray whose dimensions need to be reordered.
-    ds_or_da_src : Union[xr.DataArray, xr.Dataset]
+    ds_da: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray whose dimensions need to be reordered and potentially renamed.
+    vi_name: Optional[str]
+        Climate variable or index name.
+    template: Union[xr.DataArray, xr.Dataset, List[str]]
         DataArray serving as template.
+    rename: Optional[bool]
+        If True, rename dimensions according to template.
 
     Returns
     -------
-    xr.DataArray :
-        DataArray with a potentially altered order of dimensions.
+    Union[xr.Dataset, xr.DataArray]:
+        Dataset or DataArray with a potentially altered order of dimensions.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Extract dimensions.
-    if isinstance(ds_or_da_src, xr.Dataset):
-        dims = list(ds_or_da_src[list(ds_or_da_src.data_vars.variables.mapping)[0]].dims)
+    # Determine current dimensions (referring to names in 'ds_da').
+    if isinstance(ds_da, xr.Dataset):
+        dims_current = list(ds_da[vi_name].dims)
     else:
-        dims = list(ds_or_da_src.dims)
+        dims_current = list(ds_da.dims)
+
+    # Determine template dimensions (referring to names in 'template').
+    if isinstance(template, xr.Dataset):
+        dims_template = list(template[vi_name].dims)
+    elif isinstance(template, xr.DataArray):
+        dims_template = list(template.dims)
+    elif isinstance(template, List):
+        dims_template = list(template)
+    else:
+        dims_template = [c.dim_time, c.dim_latitude, c.dim_longitude]
+
+    # Determine ordered dimensions (referring to the names in 'ds_da').
+    dims_order = []
+    for dim in dims_template:
+        dim = str(dim).replace(c.dim_rlat, c.dim_lat).replace(c.dim_rlon, c.dim_lon).\
+            replace(c.dim_latitude, c.dim_lat).replace(c.dim_longitude, c.dim_lon)
+        dim_current = [i for i in dims_current if dim in i][0]
+        dims_order.append(dim_current)
+
+    # Sort dimensions.
+    if isinstance(ds_da, xr.Dataset):
+        if c.dim_location in dims_order:
+            ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1])
+        else:
+            ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1], dims_order[2])
+    else:
+        if c.dim_location in dims_order:
+            ds_da = ds_da.transpose(dims_order[0], dims_order[1])
+        else:
+            ds_da = ds_da.transpose(dims_order[0], dims_order[1], dims_order[2])
 
     # Rename dimensions.
-    for i in range(len(dims)):
-        dims[i] = dims[i].replace(c.dim_rlat, c.dim_latitude).replace(c.dim_rlon, c.dim_longitude)
-        if dims[i] == c.dim_lat:
-            dims[i] = c.dim_latitude
-        if dims[i] == c.dim_lon:
-            dims[i] = c.dim_longitude
+    if rename:
+        for dim in [c.dim_lat, c.dim_lon]:
+            dim_current = [i for i in dims_current if dim in i][0]
+            dim_template = [i for i in dims_template if dim in i][0]
+            ds_da = ds_da.rename({dim_current: dim_template})
 
-    # Reorder dimensions.
-    if c.dim_location in dims:
-        da_idx_new = da_idx.transpose(dims[0], dims[1]).copy()
-    else:
-        da_idx_new = da_idx.transpose(dims[0], dims[1], dims[2]).copy()
-
-    return da_idx_new
+    return ds_da

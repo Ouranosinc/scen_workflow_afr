@@ -823,8 +823,8 @@ def gen_single(
             if np.isnan(da_idx).astype(int).max() > 0:
                 da_idx = utils.interpolate_na_fix(da_idx)
 
-            # Reorder dimensions to fit input data.
-            utils.reorder_dims(da_idx, ds_vi_l[0])
+            # Sort dimensions to fit input data.
+            utils.sort_dims(da_idx, template=ds_vi_l[0])
 
             # Apply mask.
             if da_mask is not None:

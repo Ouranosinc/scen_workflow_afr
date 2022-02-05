@@ -722,9 +722,9 @@ def dry_spell_total_length() -> bool:
                 da_idx = indices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, freq,
                                                         start_date, end_date)
 
-            # Reorder dimensions.
+            # Sort dimensions.
             if len(list(da_idx.dims)) > 1:
-                da_idx = utils.reorder_dims(da_idx, da_pr)
+                da_idx = utils.sort_dims(da_idx, template=da_pr)
 
             # Extract results.
             res = np.array(da_idx.squeeze())
@@ -900,9 +900,9 @@ def rain_season_start() -> bool:
             da_start = indices.rain_season_start(da_pr, str(thresh_wet) + " mm", window_wet,
                                                  str(thresh_dry) + " mm", dry_days, window_dry, start_date, end_date)
 
-            # Reorder dimensions.
+            # Sort dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = utils.reorder_dims(da_start, da_pr)
+                da_start = utils.sort_dims(da_start, template=da_pr)
 
             # Verify results.
             res = np.array(da_start.squeeze())
@@ -1199,9 +1199,9 @@ def rain_season_end() -> bool:
             da_end = indices.rain_season_end(da_pr, da_etp, da_start, da_start_next, op, str(thresh) + " mm", window,
                                              (str(etp_rate_i) if op == op_etp else "0") + " mm", start_date, end_date)
 
-            # Reorder dimensions.
+            # Sort dimensions.
             if len(list(da_end.dims)) > 1:
-                da_end = utils.reorder_dims(da_end, da_pr)
+                da_end = utils.sort_dims(da_end, template=da_pr)
 
             # Verify results.
             res = np.array(da_end.squeeze())
@@ -1360,9 +1360,9 @@ def rain_season_length_prcptot() -> bool:
 
             # Reorder dimensions.
             if len(list(da_length.dims)) > 1:
-                da_length = utils.reorder_dims(da_length, da_pr)
+                da_length = utils.sort_dims(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
+                da_prcptot = utils.sort_dims(da_prcptot, template=da_pr)
 
             # Verify results.
             res_length = np.array(da_length.squeeze())
@@ -1544,13 +1544,13 @@ def rain_season() -> bool:
 
             # Reorder dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = utils.reorder_dims(da_start, da_pr)
+                da_start = utils.sort_dims(da_start, template=da_pr)
             if len(list(da_end.dims)) > 1:
-                da_end = utils.reorder_dims(da_end, da_pr)
+                da_end = utils.sort_dims(da_end, template=da_pr)
             if len(list(da_length.dims)) > 1:
-                da_length = utils.reorder_dims(da_length, da_pr)
+                da_length = utils.sort_dims(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = utils.reorder_dims(da_prcptot, da_pr)
+                da_prcptot = utils.sort_dims(da_prcptot, template=da_pr)
 
             #  Verify results.
             res_start = np.array(da_start.squeeze())

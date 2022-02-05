@@ -288,6 +288,9 @@ def preload_reanalysis(
                 ds[var_ra.name] = ds[var_ra.name] / c.spd
                 ds[var_ra.name].attrs["units"] = c.unit_kg_m2s1
 
+            # Sort/rename dimensions.
+            ds = utils.sort_dims(ds, vi_name=var_ra.name, rename=True)
+
             # Save combined datasets.
             fu.save_netcdf(ds, p, os.path.basename(p))
 
@@ -323,6 +326,9 @@ def load_reanalysis(
         # Combine datasets (the 'load' is necessary to apply the mask later).
         # ds = fu.open_netcdf(p_stn_l, combine="by_coords", concat_dim=const.dim_time).load()
         ds = fu.open_netcdf(p_stn_l, combine="nested", concat_dim=c.dim_time).load()
+
+        # Sort/rename dimensions.
+        ds = utils.sort_dims(ds, vi_name=var_ra.name, rename=True)
 
         # Rename variables.
         if var_ra.name in [c.v_era5_t2mmin, c.v_era5_t2mmax]:
@@ -393,7 +399,7 @@ def load_reanalysis(
         if (var_name in [c.v_evspsbl, c.v_evspsblpot]) and (cntx.obs_src in [c.ens_era5, c.ens_era5_land]):
             ds[var_name] = -ds[var_name]
 
-        # Save data.
+        # Save NetCDF.
         desc = cntx.sep + c.cat_obs + cntx.sep + os.path.basename(p_stn)
         fu.save_netcdf(ds, p_stn, desc=desc)
 
@@ -488,15 +494,18 @@ def extract(
 
     # Open NetCDF.
     # Note: subset is not working with chunks.
-    ds = fu.open_netcdf(p_l, chunks={c.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
-                        combine="by_coords")
+    ds_extract = fu.open_netcdf(p_l, chunks={c.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
+                                combine="by_coords")
 
     # Subset.
-    ds_subset = utils.subset_lon_lat_time(ds, var.name, lon_l, lat_l, year_l)
+    ds_extract = utils.subset_lon_lat_time(ds_extract, var.name, lon_l, lat_l, year_l)
 
-    # Save NetCDF file.
+    # Sort/rename dimensions.
+    ds_extract = utils.sort_dims(ds_extract, vi_name=var.name, rename=True)
+
+    # Save NetCDF.
     desc = cntx.sep + c.cat_raw + cntx.sep + os.path.basename(p_raw)
-    fu.save_netcdf(ds_subset, p_raw, desc=desc)
+    fu.save_netcdf(ds_extract, p_raw, desc=desc)
 
 
 def interpolate(
@@ -531,8 +540,11 @@ def interpolate(
 
     fu.log("Loading data from NetCDF file (raw, w/o interpolation)", True)
 
-    # Load dataset.
+    # Load NetCDF.
     ds_raw = fu.open_netcdf(p_raw)
+
+    # Sort/rename dimensions.
+    ds_raw = utils.sort_dims(ds_raw, vi_name=var.name, rename=True)
 
     msg = "Interpolating (time)"
 
@@ -547,10 +559,14 @@ def interpolate(
             warnings.simplefilter("ignore", category=Warning)
             ds_raw = ds_raw.resample(time="1D").mean(dim=c.dim_time, keep_attrs=True)
 
-        # Save NetCDF file (raw).
+        # Save NetCDF (raw) and load it.
         desc = cntx.sep + c.cat_raw + cntx.sep + os.path.basename(p_raw)
         fu.save_netcdf(ds_raw, p_raw, desc=desc)
         ds_raw = fu.open_netcdf(p_raw)
+
+        # Sort/rename dimensions.
+        ds_raw = utils.sort_dims(ds_raw, vi_name=var.name, rename=True)
+
     else:
         fu.log(msg + " (not required; daily frequency)", True)
 
@@ -577,7 +593,10 @@ def interpolate(
             # Determine nearest points.
             ds_regrid = ds_raw.sel(rlat=lat_stn, rlon=lon_stn, method="nearest", tolerance=1)
 
-        # Save NetCDF file (regrid).
+        # Sort/rename dimensions.
+        ds_regrid = utils.sort_dims(ds_regrid, vi_name=var.name, rename=True)
+
+        # Save NetCDF (regrid).
         desc = cntx.sep + c.cat_regrid + cntx.sep + os.path.basename(p_regrid)
         fu.save_netcdf(ds_regrid, p_regrid, desc=desc)
 
@@ -595,7 +614,6 @@ def regrid(
     """
     --------------------------------------------------------------------------------------------------------------------
     Perform grid change.
-    TODO: Make this function more universal and more efficient.
 
     Parameters
     ----------
@@ -609,24 +627,20 @@ def regrid(
     """
 
     # Get longitude and latitude values (grid).
-    if c.dim_lon in ds_grid.dims:
-        grid_lon = ds_grid.lon.values.ravel()
-        grid_lat = ds_grid.lat.values.ravel()
-    else:
-        grid_lon = ds_grid.longitude.values.ravel()
-        grid_lat = ds_grid.latitude.values.ravel()
+    grid_lon = ds_grid[c.dim_longitude].values.ravel()
+    grid_lat = ds_grid[c.dim_latitude].values.ravel()
 
     # Create new mesh.
     new_grid = np.meshgrid(grid_lon, grid_lat)
     if np.min(new_grid[0]) > 0:
         new_grid[0] -= 360
-    t_len = len(ds_data.time)
+    t_len = len(ds_data[c.dim_time])
     arr_regrid = np.empty((t_len, len(grid_lat), len(grid_lon)))
     for t in range(0, t_len):
         arr_regrid[t, :, :] = griddata(
-            (ds_data.lon.values.ravel(), ds_data.lat.values.ravel()),
+            (ds_data[var.name].lon.values.ravel(), ds_data[var.name].lat.values.ravel()),
             ds_data[var.name][t, :, :].values.ravel(),
-            (new_grid[0], new_grid[1]), fill_value=np.nan, method="linear"
+            (new_grid[1], new_grid[0]), fill_value=np.nan, method="linear"
         )
 
     # Create data array.
@@ -729,7 +743,11 @@ def preprocess(
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Load NetCDF.
     ds_fut = fu.open_netcdf(p_regrid)
+
+    # Sort/rename dimensions.
+    ds_fut = utils.sort_dims(ds_fut, vi_name=var.name, rename=True)
 
     # Observations -----------------------------------------------------------------------------------------------------
 
@@ -739,7 +757,7 @@ def preprocess(
         ds_obs = utils.remove_feb29(ds_stn)
         ds_obs = utils.sel_period(ds_obs, cntx.per_ref)
 
-        # Save NetCDF file.
+        # Save NetCDF.
         desc = cntx.sep + c.cat_obs + cntx.sep + os.path.basename(p_obs)
         fu.save_netcdf(ds_obs, p_obs, desc=desc)
 
@@ -747,7 +765,11 @@ def preprocess(
 
     if os.path.exists(p_regrid_fut) and (not cntx.opt_force_overwrite):
 
+        # Load NetCDF.
         ds_regrid_fut = fu.open_netcdf(p_regrid_fut)
+
+        # Sort/rename dimensions.
+        ds_regrid_fut = utils.sort_dims(ds_regrid_fut, vi_name=var.name, rename=True)
 
     else:
 
@@ -767,7 +789,7 @@ def preprocess(
         # Convert to a 365-day calendar.
         ds_regrid_fut = utils.convert_to_365_calender(ds_regrid_fut)
 
-        # Save dataset.
+        # Save NetCDF.
         desc = cntx.sep + c.cat_regrid + cntx.sep + os.path.basename(p_regrid_fut)
         fu.save_netcdf(ds_regrid_fut, p_regrid_fut, desc=desc)
 
@@ -782,7 +804,7 @@ def preprocess(
             pos = np.where(np.squeeze(ds_regrid_ref[var.name].values) > 0.01)[0]
             ds_regrid_ref[var.name][pos] = 1e-12
 
-        # Save dataset.
+        # Save NetCDF.
         desc = cntx.sep + c.cat_regrid + cntx.sep + os.path.basename(p_regrid_ref)
         fu.save_netcdf(ds_regrid_ref, p_regrid_ref, desc=desc)
 
@@ -843,10 +865,15 @@ def postprocess(
         da_stn = ds_stn[var.name][:, 0, 0]
     else:
         da_stn = ds_stn[var.name]
-    if c.dim_longitude in da_stn.dims:
-        da_stn = da_stn.rename({c.dim_longitude: c.dim_rlon, c.dim_latitude: c.dim_rlat})
+
+    # Load NetCDFs (observation and simulation).
     ds_obs = fu.open_netcdf(p_obs)
     ds_sim = fu.open_netcdf(p_sim)
+
+    # Sort/rename dimensions.
+    ds_obs = utils.sort_dims(ds_obs, vi_name=var.name, rename=True)
+    ds_sim = utils.sort_dims(ds_sim, vi_name=var.name, rename=True)
+
     da_obs = ds_obs[var.name]
     da_sim = ds_sim[var.name]
     ds_sim_adj = None
@@ -873,11 +900,14 @@ def postprocess(
 
     # Load transfer function.
     if (p_qmf != "") and os.path.exists(p_qmf) and (not cntx.opt_force_overwrite):
+
+        # Load NetCDF.
         chunks = {c.dim_time: 1} if cntx.use_chunks else None
         ds_qmf = fu.open_netcdf(p_qmf, chunks=chunks)
 
     # Calculate transfer function.
     else:
+
         da_qmf = xr.DataArray(train(da_obs.squeeze(), da_stn.squeeze(), nq, c.group, kind, time_win,
                                     detrend_order=c.detrend_order))
         if var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
@@ -896,12 +926,17 @@ def postprocess(
 
     # Load quantile mapping.
     if (p_sim_adj != "") and os.path.exists(p_sim_adj) and (not cntx.opt_force_overwrite):
+
+        # Load NetCDF.
         chunks = {c.dim_time: 1} if cntx.use_chunks else None
         ds_sim_adj = fu.open_netcdf(p_sim_adj, chunks=chunks)
 
     # Apply transfer function.
     else:
+
         try:
+
+            # Adjust simulation.
             interp = (True if not cntx.opt_ra else False)
             da_sim_adj = xr.DataArray(predict(da_sim_365.squeeze(), ds_qmf[var.name].squeeze(),
                                       interp=interp, detrend_order=c.detrend_order))
@@ -912,6 +947,8 @@ def postprocess(
             ds_sim_adj[var.name].attrs[c.attrs_units] = da_stn.attrs[c.attrs_units]
             if c.attrs_gmap in da_stn.attrs:
                 ds_sim_adj[var.name].attrs[c.attrs_gmap]  = da_stn.attrs[c.attrs_gmap]
+
+            # Save NetCDF (adjusted simulation) and open it.
             if p_sim_adj != "":
                 desc = cntx.sep + c.cat_qqmap + cntx.sep + os.path.basename(p_sim_adj)
                 fu.save_netcdf(ds_sim_adj, p_sim_adj, desc=desc)
@@ -921,6 +958,10 @@ def postprocess(
             fu.log("Failed to create QQMAP NetCDF file.", True)
             fu.log(format(err), True)
             pass
+
+    # Sort/rename dimensions.
+    if ds_sim_adj is not None:
+        ds_sim_adj = utils.sort_dims(ds_sim_adj, vi_name=var.name, rename=True)
 
     # Create plots -----------------------------------------------------------------------------------------------------
 
@@ -1071,8 +1112,9 @@ def bias_adj(
                             fu.log(msg + p_regrid_fut, True)
                         continue
 
-                    # Load station data, drop February 29th, and select reference period.
+                    # Load NetCDF (station), drop February 29th, sort/rename dimensions, and select reference period.
                     ds_stn = fu.open_netcdf(p_stn)
+                    ds_stn = utils.sort_dims(ds_stn, vi_name=var.name, rename=True)
                     ds_stn = utils.remove_feb29(ds_stn)
                     ds_stn = utils.sel_period(ds_stn, cntx.per_ref)
 
@@ -1117,6 +1159,7 @@ def bias_adj(
 
                         # Extract the reference period from the adjusted simulation.
                         ds_qqmap_ref = fu.open_netcdf(p_qqmap)
+                        ds_qqmap_ref = utils.sort_dims(ds_qqmap_ref, vi_name=var.name, rename=True)
                         ds_qqmap_ref = utils.remove_feb29(ds_qqmap_ref)
                         ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cntx.per_ref)
 
@@ -1305,6 +1348,7 @@ def gen():
 
             # Load station data, drop February 29th and select reference period.
             ds_stn = fu.open_netcdf(p_stn)
+            ds_stn = utils.sort_dims(ds_stn, vi_name=var.name, rename=True)
             ds_stn = utils.remove_feb29(ds_stn)
             ds_stn = utils.sel_period(ds_stn, cntx.per_ref)
 
@@ -1717,6 +1761,7 @@ def calc_diag_cycle(
             if cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
 
                 ds_qqmap = fu.open_netcdf(p_qqmap)
+                ds_qqmap = utils.sort_dims(ds_qqmap, vi_name=var.name, rename=True)
                 for per in cntx.per_hors:
                     per_str = str(per[0]) + "_" + str(per[1])
 
@@ -1734,6 +1779,7 @@ def calc_diag_cycle(
 
         if os.path.exists(p_obs) and cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
             ds_obs = fu.open_netcdf(p_obs)
+            ds_obs = utils.sort_dims(ds_obs, vi_name=var.name, rename=True)
             per_str = str(cntx.per_ref[0]) + "_" + str(cntx.per_ref[1])
 
             # This creates 2 files:

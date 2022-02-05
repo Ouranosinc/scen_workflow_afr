@@ -508,9 +508,9 @@ def plot_calib_ts(
         plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
 
         # Add curves.
-        ax.plot.line(df, c.cat_sim_adj, alpha=0.5, color=col_sim_adj)
-        ax.plot.line(df, c.cat_sim, alpha=0.5, color=col_sim)
-        ax.plot.line(df, c.cat_obs, alpha=0.5, color=col_obs)
+        ax.plot(df["day"], df[c.cat_sim_adj], alpha=0.5, color=col_sim_adj)
+        ax.plot(df["day"], df[c.cat_sim], alpha=0.5, color=col_sim)
+        ax.plot(df["day"], df[c.cat_obs], alpha=0.5, color=col_obs)
 
         # Customize.
         plt.legend(["Sim. ajustée", "Sim. (réf.)", "Référence"], fontsize=fs_legend, frameon=False)
@@ -581,7 +581,8 @@ def draw_curves(
     p_csv = p_csv.replace(c.f_ext_csv, "_" + suffix + c.f_ext_csv)
 
     # Determine if the analysis is required.
-    save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format)))
+    save_csv = cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format))
+
     if not save_csv:
         return
 
@@ -643,12 +644,12 @@ def draw_curves(
         df = pd.DataFrame(dict_pd)
 
     # Draw curves.
-    ax.plot.line(df, c.cat_obs, color=col_obs)
-    ax.plot.line(df, c.cat_sim_ref, color=col_sim_ref)
-    ax.plot.line(df, c.cat_sim, color=col_sim)
-    ax.plot.line(df, c.cat_sim_adj, color=col_sim_adj)
-    ax.plot.line(df, c.cat_sim_adj_ref, color=col_sim_adj_ref)
+    ax.plot(df["month"], df[c.cat_obs], color=col_obs)
+    ax.plot(df["month"], df[c.cat_sim_ref], color=col_sim_ref)
+    ax.plot(df["month"], df[c.cat_sim], color=col_sim)
+    ax.plot(df["month"], df[c.cat_sim_adj], color=col_sim_adj)
+    ax.plot(df["month"], df[c.cat_sim_adj_ref], color=col_sim_adj_ref)
 
     # Save to CSV.
-    if save_csv:
+    if save_csv and (p_csv != ""):
         fu.save_csv(df, p_csv)
