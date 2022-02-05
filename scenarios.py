@@ -40,6 +40,7 @@ from quantile_mapping import train, predict
 # Dashboard libraries.
 sys.path.append("dashboard")
 from dashboard.def_rcp import RCP
+from dashboard.def_stat import Stat
 from dashboard.def_varidx import VarIdx
 
 
@@ -632,6 +633,7 @@ def regrid(
 
     # Create new mesh.
     new_grid = np.meshgrid(grid_lon, grid_lat)
+    new_grid_lon, new_grid_lat = new_grid[0], new_grid[1]
     if np.min(new_grid[0]) > 0:
         new_grid[0] -= 360
     t_len = len(ds_data[c.dim_time])
@@ -640,7 +642,7 @@ def regrid(
         arr_regrid[t, :, :] = griddata(
             (ds_data[var.name].lon.values.ravel(), ds_data[var.name].lat.values.ravel()),
             ds_data[var.name][t, :, :].values.ravel(),
-            (new_grid[1], new_grid[0]), fill_value=np.nan, method="linear"
+            (new_grid_lon, new_grid_lat), fill_value=np.nan, method="linear"
         )
 
     # Create data array.
@@ -819,8 +821,9 @@ def postprocess(
     p_sim: str,
     p_sim_adj: str,
     p_qmf: str,
-    title: str = "",
-    p_fig: str = ""
+    title: Optional[str] = "",
+    p_fig: Optional[str] = "",
+    p_ts_fig: Optional[str] = ""
 ):
 
     """
@@ -847,10 +850,12 @@ def postprocess(
         Path of NetCDF file containing adjusted simulation data.
     p_qmf: str
         Path of NetCDF file containing quantile map function.
-    title: str, optional
+    title: Optional[str]
         Title of figure.
-    p_fig: str, optimal
-        Path of figure.
+    p_fig: Optional[str]
+        Path of figure (large plot).
+    p_ts_fig: Optional[str]
+        Path of figure (time series).
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1029,8 +1034,7 @@ def postprocess(
                             var, title, p_fig)
 
             # Generate time series only.
-            plot.plot_calib_ts(da_stn_xy, da_sim_xy, da_sim_adj_xy, var, title,
-                               p_fig.replace(c.f_ext_png, "_ts" + c.f_ext_png))
+            plot.plot_calib_ts(da_stn_xy, da_sim_xy, da_sim_adj_xy, var, title, p_ts_fig)
 
     return ds_sim_adj if (p_fig == "") else None
 
@@ -1118,34 +1122,65 @@ def bias_adj(
                     ds_stn = utils.remove_feb29(ds_stn)
                     ds_stn = utils.sel_period(ds_stn, cntx.per_ref)
 
-                    # Path and title of calibration figure and csv file.
-                    fn_fig = var.name + "_" + sim_name_i + "_" + c.cat_fig_calibration + c.f_ext_png
+                    # Title.
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
+
+                    # Path of CSV and PNG files (large plot).
+                    fn_fig = var.name + "_" + sim_name_i + "_" + c.cat_fig_calibration + c.f_ext_png
                     p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_calibration, var.name) + fn_fig
                     p_csv = p_fig.replace(cntx.sep + var.name + cntx.sep,
                                           cntx.sep + var.name + "_" + c.f_csv + cntx.sep).\
                         replace(c.f_ext_png, c.f_ext_csv)
+
+                    # Path of CSV and PNG files (time series).
                     p_ts_fig = p_fig.replace(c.f_ext_png, "_ts" + c.f_ext_png)
                     p_ts_csv = p_csv.replace(c.f_ext_csv, "_ts" + c.f_ext_csv)
+
+                    # Verify if all CSV files related to the large plot exist.
+                    p_csv_exists = True
+                    stats_l = [c.stat_mean] + [c.stat_quantile] * len(cntx.opt_calib_quantiles)
+                    quantiles_l = [-1] + cntx.opt_calib_quantiles
+                    for j in range(len(stats_l)):
+
+                        # Create a statistic instance.
+                        stat = Stat(stats_l[j], quantiles_l[j])
+                        if stat.quantile == 0:
+                            stat = Stat(c.stat_min)
+                        elif stat.quantile == 1:
+                            stat = Stat(c.stat_max)
+
+                        # Path of CSV file related to the statistic.
+                        if stat.code in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
+                            suffix = stat.code
+                        else:
+                            suffix = "q" + str(round(stat.quantile * 100)).zfill(2)
+
+                        # Verify if this file exists
+                        p_csv_i = p_csv.replace(c.f_ext_csv, "_" + suffix + c.f_ext_csv)
+                        if not os.path.exists(p_csv_i):
+                            p_csv_exists = False
+                            break
 
                     # Bias adjustment ----------------------------------------------------------------------------------
 
                     if not calc_err:
 
                         msg = "nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + ", time_win=" + str(time_win)
-                        if not(os.path.exists(p_fig)) or \
-                           (not(os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or\
-                           not(os.path.exists(p_ts_fig)) or \
-                           (not (os.path.exists(p_ts_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or \
-                           not(os.path.exists(p_qqmap)) or not(os.path.exists(p_qmf)) or cntx.opt_force_overwrite:
+                        if (not os.path.exists(p_fig)) or \
+                           ((not p_csv_exists) and (c.f_csv in cntx.opt_diagnostic_format)) or \
+                           (not os.path.exists(p_ts_fig)) or \
+                           ((not os.path.exists(p_ts_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or \
+                           (not os.path.exists(p_qqmap)) or \
+                           (not os.path.exists(p_qmf)) or \
+                           cntx.opt_force_overwrite:
                             fu.log(msg, True)
 
                             # Calculate QQ and generate calibration plots.
                             with warnings.catch_warnings():
                                 warnings.simplefilter("ignore", category=RuntimeWarning)
                                 postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap,
-                                            p_qmf, title, p_fig)
+                                            p_qmf, title, p_fig, p_ts_fig)
                         else:
                             fu.log(msg + " (not required)", True)
 

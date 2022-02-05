@@ -335,13 +335,13 @@ def plot_calib(
 
     y_label = varidx.label
 
-    f = plt.figure(figsize=(12, 8))
-    ax = f.add_subplot(431)
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(431)
     plt.subplots_adjust(top=0.930, bottom=0.065, left=0.070, right=0.973, hspace=0.90, wspace=0.250)
 
     # Quantile mapping function.
     img1 = ax.imshow(da_qmf, extent=[0, 1, 365, 1], cmap="coolwarm")
-    cb = f.colorbar(img1, ax=ax)
+    cb = fig.colorbar(img1, ax=ax)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=UserWarning)
         cb.ax.set_yticklabels(cb.ax.get_yticks(), fontsize=fs_axes)
@@ -360,7 +360,7 @@ def plot_calib(
     # Mean values ------------------------------------------------------------------------------------------------------
 
     # Plot.
-    ax = f.add_subplot(432)
+    ax = fig.add_subplot(432)
     draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, Stat(c.stat_mean), p_csv)
     plt.title("Moyenne", fontsize=fs_title)
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
@@ -384,7 +384,7 @@ def plot_calib(
         elif stat.quantile == 1:
             stat = Stat(c.stat_max)
 
-        draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat)
+        draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat, p_csv)
 
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
@@ -412,7 +412,7 @@ def plot_calib(
     plt.legend(["Sim. ajustée", "Sim. (réf.)", "Référence"], fontsize=fs_legend, frameon=False)
     plt.title("")
 
-    f.suptitle(vi_name + "_" + sup_title, fontsize=fs_sup_title)
+    fig.suptitle(vi_name + "_" + sup_title, fontsize=fs_sup_title)
     plt.tick_params(axis="x", labelsize=fs_axes)
     plt.tick_params(axis="y", labelsize=fs_axes)
 
@@ -421,7 +421,7 @@ def plot_calib(
 
     # Save plot.
     if p_fig != "":
-        fu.save_plot(plt, p_fig)
+        fu.save_plot(fig, p_fig)
 
     # Close plot.
     plt.close()
@@ -508,9 +508,10 @@ def plot_calib_ts(
         plt.subplots_adjust(top=0.9, bottom=0.21, left=0.04, right=0.99, hspace=0.695, wspace=0.416)
 
         # Add curves.
-        ax.plot(df["day"], df[c.cat_sim_adj], alpha=0.5, color=col_sim_adj)
-        ax.plot(df["day"], df[c.cat_sim], alpha=0.5, color=col_sim)
-        ax.plot(df["day"], df[c.cat_obs], alpha=0.5, color=col_obs)
+        x_column = "day" if "day" in df.columns else "month"
+        ax.plot(df[x_column], df[c.cat_sim_adj], alpha=0.5, color=col_sim_adj)
+        ax.plot(df[x_column], df[c.cat_sim], alpha=0.5, color=col_sim)
+        ax.plot(df[x_column], df[c.cat_obs], alpha=0.5, color=col_obs)
 
         # Customize.
         plt.legend(["Sim. ajustée", "Sim. (réf.)", "Référence"], fontsize=fs_legend, frameon=False)
