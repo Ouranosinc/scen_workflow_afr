@@ -1660,7 +1660,7 @@ def gen_per_var(
             i_first = i * cntx.n_proc
             i_last = min((i + 1) * cntx.n_proc, n_var - 1)
             n_proc = i_last - i_first + 1
-            var_name_l = cntx.vars.code_l[i_first, i_last]
+            var_name_l = cntx.vars.code_l[i_first, i_last + 1]
 
             try:
                 fu.log("Splitting work between " + str(n_proc) + " threads.", True)
