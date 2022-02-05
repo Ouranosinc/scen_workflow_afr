@@ -38,7 +38,7 @@ from def_context import cntx
 sys.path.append("dashboard")
 from dashboard import dash_plot, dash_statistics as dash_stats, dash_utils, def_varidx as VI
 from dashboard.def_delta import Delta
-from dashboard.def_hor import Hor
+from dashboard.def_hor import Hor, Hors
 from dashboard.def_lib import Lib
 from dashboard.def_rcp import RCP, RCPs
 from dashboard.def_sim import Sim
@@ -364,13 +364,13 @@ def calc_stat_tbl(
 
                 # Select years.
                 if rcp.code == c.ref:
-                    hors = [cntx.per_ref]
+                    hors = Hors([cntx.per_ref])
                     if cat == c.cat_scen:
                         d = os.path.dirname(cntx.p_obs(stn, vi_code_grp))
                     else:
                         d = cntx.d_idx(stn, vi_code_grp)
                 else:
-                    hors = cntx.per_hors
+                    hors = Hors(cntx.per_hors)
                     if cat == c.cat_scen:
                         d = cntx.d_scen(stn, c.cat_qqmap, vi_code_grp)
                     else:
@@ -398,7 +398,7 @@ def calc_stat_tbl(
                         stat.quantile = quantile
 
                         # Loop through horizons.
-                        for hor in hors:
+                        for hor in hors.items:
 
                             # Calculate statistics.
                             ds_stat = calc_stat(stn, varidx, rcp, hor, stat,
@@ -409,20 +409,20 @@ def calc_stat_tbl(
 
                             # Select period.
                             if cntx.opt_ra:
-                                ds_stat_hor = utils.sel_period(ds_stat.squeeze(), hor)
+                                ds_stat_hor = utils.sel_period(ds_stat.squeeze(), [hor.year_1, hor.year_2])
                             else:
                                 ds_stat_hor = ds_stat.copy(deep=True)
 
                             # Extract value.
                             if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
-                                val = float(ds_stat_hor[vi_name].sum()) / (hor[1] - hor[0] + 1)
+                                val = float(ds_stat_hor[vi_name].sum()) / (hor.year_2 - hor.year_1 + 1)
                             else:
                                 val = float(ds_stat_hor[vi_name].mean())
 
                             # Add row.
                             stn_l.append(stn)
                             rcp_l.append(rcp.code)
-                            hor_l.append(str(hor[0]) + "-" + str(hor[1]))
+                            hor_l.append(hor.code)
                             stat_l.append("none" if rcp.code == c.ref else stat.code)
                             q_l.append(str(quantile))
                             val_l.append(round(val, 6))
