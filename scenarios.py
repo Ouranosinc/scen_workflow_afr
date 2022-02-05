@@ -1640,7 +1640,7 @@ def gen_per_var(
     n_var = len(cntx.vars.items)
 
     # Scalar mode.
-    if cntx.n_proc == 1:
+    if (cntx.n_proc == 1) or (n_var < 2):
         for i_var in range(n_var):
             if func_name == "calc_diag_cycle":
                 calc_diag_cycle(cntx.vars.code_l, i_var)

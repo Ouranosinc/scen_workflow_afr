@@ -2040,7 +2040,7 @@ def gen_per_idx(
     n_idx = len(cntx.idxs.code_l)
 
     # Scalar mode.
-    if cntx.n_proc == 1:
+    if (cntx.n_proc == 1) or (n_idx < 2):
         for i_idx in range(n_idx):
             if func_name == "stats.calc_map":
                 stats.calc_map(cntx.idxs.code_l, i_idx)
