@@ -1742,12 +1742,12 @@ def calc_diag_cycle(
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
                 title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_process, var_name) + fn_fig
+                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var_name) + fn_fig
                 stats.calc_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
-                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_process, var_name) + fn_fig + \
+                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var_name) + fn_fig + \
                     p_regrid_fut.split(cntx.sep)[-1].replace("4qqmap" + c.f_ext_nc, c.cat_fig_workflow + c.f_ext_png)
                 stats.calc_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
