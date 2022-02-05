@@ -1852,11 +1852,9 @@ def calc_cycle(
     """
 
     # Paths.
+    cat_vi = c.cat_scen if varidx.is_var else c.cat_idx
     cat_fig = c.view_cycle_ms if freq == c.freq_MS else c.view_cycle_d
-    p_fig = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + cat_fig, varidx.name)
-    if varidx.name in cntx.idxs.name_l:
-        p_fig = p_fig.replace(cntx.sep + c.cat_scen, cntx.sep + c.cat_idx)
-    p_fig += title + c.f_ext_png
+    p_fig = cntx.d_fig(cat_vi, cat_fig, varidx.name) + title + c.f_ext_png
     p_csv = p_fig.replace(cntx.sep + varidx.name + cntx.sep, cntx.sep + varidx.name + "_" + c.f_csv + cntx.sep).\
         replace(c.f_ext_png, c.f_ext_csv)
 
