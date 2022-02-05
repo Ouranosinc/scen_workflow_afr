@@ -1733,8 +1733,7 @@ def calc_diag_cycle(
             time_win = float(df_sel["time_win"])
 
             # File name.
-            fn_fig = p_regrid_fut.split(cntx.sep)[-1]. \
-                replace("_4qqmap" + c.f_ext_nc, "_" + c.cat_fig_postprocess + c.f_ext_png)
+            fn_fig = p_regrid_fut.split(cntx.sep)[-1].replace("_4qqmap" + c.f_ext_nc, "_<per>_<cat_fig>" + c.f_ext_png)
 
             # Generate diagnostic plots.
             if cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0):
@@ -1742,13 +1741,16 @@ def calc_diag_cycle(
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
                 title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var_name) + fn_fig
+                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var_name) + fn_fig.replace("<per>_", "")
+                p_fig = p_fig.replace("_<per>", "")
+                p_fig = p_fig.replace("<cat_fig>", c.cat_fig_postprocess)
                 stats.calc_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
-                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var_name) + fn_fig + \
-                    p_regrid_fut.split(cntx.sep)[-1].replace("4qqmap" + c.f_ext_nc, c.cat_fig_workflow + c.f_ext_png)
+                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var_name) + fn_fig.replace("<per>_", "")
+                p_fig = p_fig.replace("_<per>", "")
+                p_fig = p_fig.replace("<cat_fig>", c.cat_fig_workflow)
                 stats.calc_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
             # Generate monthly and daily plots.
@@ -1762,13 +1764,13 @@ def calc_diag_cycle(
                     # This creates 2 files:
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
-                    title = fn_fig[:-4].replace(c.cat_fig_postprocess, per_str + "_" + c.view_cycle_ms)
+                    title = fn_fig.replace("<per>", per_str).replace("<cat_fig>", c.view_cycle_ms)
                     stats.calc_cycle(ds_qqmap, stn, var, per, c.freq_MS, title)
 
                     # This creates 2 files:
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/*.png
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
-                    title = fn_fig[:-4].replace(c.cat_fig_postprocess, per_str + "_" + c.view_cycle_d)
+                    title = fn_fig.replace("<per>", per_str).replace("<cat_fig>", c.view_cycle_d)
                     stats.calc_cycle(ds_qqmap, stn, var, per, c.freq_D, title)
 
         if os.path.exists(p_obs) and cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
