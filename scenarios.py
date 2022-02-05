@@ -1738,20 +1738,21 @@ def calc_diag_cycle(
             # Generate diagnostic plots.
             if cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0):
 
+                # Plot title.
+                title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
+                title = title.replace("_<per>", "").replace("_<cat_fig>", "")
+
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
-                title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                 p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var_name) + fn_fig.replace("<per>_", "")
-                p_fig = p_fig.replace("_<per>", "")
-                p_fig = p_fig.replace("<cat_fig>", c.cat_fig_postprocess)
+                p_fig = p_fig.replace("_<per>", "").replace("<cat_fig>", c.cat_fig_postprocess)
                 stats.calc_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
                 p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var_name) + fn_fig.replace("<per>_", "")
-                p_fig = p_fig.replace("_<per>", "")
-                p_fig = p_fig.replace("<cat_fig>", c.cat_fig_workflow)
-                stats.calc_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
+                p_fig = p_fig.replace("_<per>", "").replace("<cat_fig>", c.cat_fig_workflow)
+                stats.calc_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig, title)
 
             # Generate monthly and daily plots.
             if cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):

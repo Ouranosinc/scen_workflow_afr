@@ -2172,7 +2172,8 @@ def calc_workflow(
     time_win: int,
     p_ref: str,
     p_sim: str,
-    p_fig: str
+    p_fig: str,
+    title: str
 ):
 
     """
@@ -2195,6 +2196,8 @@ def calc_workflow(
         Path of the NetCDF file containing simulation data.
     p_fig : str
         Path of output figure.
+    title : str
+        Title of figure.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -2256,8 +2259,6 @@ def calc_workflow(
 
     # Generate and save plot.
     if save_fig:
-        title = os.path.basename(p_fig).replace(c.f_ext_png, "") +\
-            "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
         fig = plot.plot_workflow(df, varidx, units, title)
         fu.save_plot(fig, p_fig)
 
