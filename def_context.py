@@ -1031,6 +1031,41 @@ class Context(def_context.Context):
         # Calibration file.
         self.p_calib = self.d_res + "stn" + self.sep + obs_src_region + self.sep + self.p_calib
 
+    def d_fig(
+        self,
+        cat_vi: str,
+        cat_fig: Optional[str] = "",
+        vi_name: Optional[str] = ""
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get directory of figure.
+
+        Parameters
+        ----------
+        cat_vi: str
+            Category = {c.cat_scen, c.cat_idx}.
+        cat_fig: Optional[str]
+            Category of figure = {c.cat_figure*}
+        vi_name: Optional[str]
+            Climate variable or index name.
+
+        Returns
+        -------
+        str
+            Directory of figure data.
+        ----------------------------------------
+        """
+
+        d = cntx.d_res + "stn" + self.sep + cntx.obs_src + "_" + cntx.region + self.sep + c.cat_fig + self.sep + cat_vi + self.sep
+        if cat_fig != "":
+            d = d + cat_fig + self.sep
+        if vi_name != "":
+            d = d + vi_name + self.sep
+
+        return d
+
     def d_stn(
         self,
         var_name: Optional[str] = ""

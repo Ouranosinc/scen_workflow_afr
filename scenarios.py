@@ -1122,16 +1122,12 @@ def bias_adj(
                     fn_fig = var.name + "_" + sim_name_i + "_" + c.cat_fig_calibration + c.f_ext_png
                     comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
                     title = sim_name_i + "_" + comb
-                    d = c.cat_scen + cntx.sep + c.cat_fig + cntx.sep + c.cat_fig_calibration
-                    p_fig = cntx.d_scen(stn, d, var.name) + comb + cntx.sep + fn_fig
-                    p_fig_csv =\
-                        p_fig.replace(cntx.sep + var.name + cntx.sep,
-                                      cntx.sep + var.name + "_" + c.f_csv + cntx.sep).\
-                        replace(c.f_ext_png, "_" + c.stat_mean + c.f_ext_csv)
-                    p_fig_ts = p_fig.replace(c.f_ext_png, "_ts" + c.f_ext_png)
-                    p_fig_ts_csv = p_fig_ts.replace(cntx.sep + var.name + cntx.sep,
-                                                    cntx.sep + var.name + "_" + c.f_csv + cntx.sep).\
+                    p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_calibration, var.name) + fn_fig
+                    p_csv = p_fig.replace(cntx.sep + var.name + cntx.sep,
+                                          cntx.sep + var.name + "_" + c.f_csv + cntx.sep).\
                         replace(c.f_ext_png, c.f_ext_csv)
+                    p_ts_fig = p_fig.replace(c.f_ext_png, "_ts" + c.f_ext_png)
+                    p_ts_csv = p_csv.replace(c.f_ext_csv, "_ts" + c.f_ext_csv)
 
                     # Bias adjustment ----------------------------------------------------------------------------------
 
@@ -1139,9 +1135,9 @@ def bias_adj(
 
                         msg = "nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + ", time_win=" + str(time_win)
                         if not(os.path.exists(p_fig)) or \
-                           (not(os.path.exists(p_fig_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or\
-                           not(os.path.exists(p_fig_ts)) or \
-                           (not (os.path.exists(p_fig_ts_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or \
+                           (not(os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or\
+                           not(os.path.exists(p_ts_fig)) or \
+                           (not (os.path.exists(p_ts_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or \
                            not(os.path.exists(p_qqmap)) or not(os.path.exists(p_qmf)) or cntx.opt_force_overwrite:
                             fu.log(msg, True)
 
@@ -1336,15 +1332,15 @@ def gen():
                 stn = cntx.obs_src
 
             # Directories.
-            d_stn    = cntx.d_stn(var.name)
-            d_obs    = cntx.d_scen(stn, c.cat_obs, var.name)
-            d_raw    = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_raw, var.name)
-            d_regrid = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_regrid, var.name)
-            d_qqmap  = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_qqmap, var.name)
-            d_qmf    = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_qmf, var.name)
-            d_fig_calibration = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_fig_calibration, var.name)
-            d_fig_postprocess = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_fig_postprocess, var.name)
-            d_fig_workflow    = cntx.d_scen(stn, c.cat_fig + cntx.sep + c.cat_fig_workflow, var.name)
+            d_stn             = cntx.d_stn(var.name)
+            d_obs             = cntx.d_scen(stn, c.cat_obs, var.name)
+            d_raw             = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_raw, var.name)
+            d_regrid          = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_regrid, var.name)
+            d_qqmap           = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_qqmap, var.name)
+            d_qmf             = cntx.d_scen(stn, c.cat_scen + cntx.sep + c.cat_qmf, var.name)
+            d_fig_calibration = cntx.d_fig(c.cat_scen, c.cat_fig_calibration, var.name)
+            d_fig_postprocess = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var.name)
+            d_fig_workflow    = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var.name)
 
             # Load station data, drop February 29th and select reference period.
             ds_stn = fu.open_netcdf(p_stn)
@@ -1746,14 +1742,12 @@ def calc_diag_cycle(
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
                 title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                d = c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.cat_fig_postprocess
-                p_fig = cntx.d_scen(stn, d, var_name) + fn_fig
+                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_process, var_name) + fn_fig
                 stats.calc_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
-                d = c.cat_fig + cntx.sep + c.cat_scen + cntx.sep + c.cat_fig_workflow
-                p_fig = cntx.d_scen(stn, d, var_name) + \
+                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_process, var_name) + fn_fig + \
                     p_regrid_fut.split(cntx.sep)[-1].replace("4qqmap" + c.f_ext_nc, c.cat_fig_workflow + c.f_ext_png)
                 stats.calc_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig)
 
