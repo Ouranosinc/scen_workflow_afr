@@ -1757,8 +1757,11 @@ def calc_diag_cycle(
             # Generate monthly and daily plots.
             if cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
 
+                # Load NetCDF and sort dimensions.
                 ds_qqmap = fu.open_netcdf(p_qqmap)
                 ds_qqmap = utils.sort_dims(ds_qqmap, vi_name=var.name, rename=True)
+
+                # Loop through horizons.
                 for per in cntx.per_hors:
                     per_str = str(per[0]) + "_" + str(per[1])
 
