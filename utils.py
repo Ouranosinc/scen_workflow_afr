@@ -1015,7 +1015,7 @@ def apply_mask(
     # Drop coordinates.
     try:
         da_res = da_res.reset_coords(names=c.dim_time, drop=True)
-    finally:
+    except ValueError:
         pass
 
     return da_res
