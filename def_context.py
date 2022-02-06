@@ -1027,10 +1027,10 @@ class Context(def_context.Context):
         dt = datetime.datetime.now()
         dt_str = str(dt.year) + str(dt.month).zfill(2) + str(dt.day).zfill(2) + "_" + \
             str(dt.hour).zfill(2) + str(dt.minute).zfill(2) + str(dt.second).zfill(2)
-        self.p_log = self.d_res + "stn" + self.sep + obs_src_region + self.sep + "log" + self.sep + dt_str + ".log"
+        self.p_log = self.d_res + "log" + self.sep + dt_str + ".log"
 
         # Calibration file.
-        self.p_calib = self.d_res + "stn" + self.sep + obs_src_region + self.sep + self.p_calib
+        self.p_calib = self.d_res + self.p_calib
 
     def d_stn(
         self,
