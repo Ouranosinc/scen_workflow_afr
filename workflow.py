@@ -131,7 +131,7 @@ def main():
             fu.clean_netcdf(cntx.d_scen("*", var.name))
     if cntx.opt_idx:
         for idx in cntx.idxs.items:
-            fu.clean_netcdf(cntx.d_idx(idx.name))
+            fu.clean_netcdf(cntx.d_idx(idx.code))
 
     # Initialization.
     scenarios.init_calib_params()
