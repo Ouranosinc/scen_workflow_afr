@@ -290,7 +290,7 @@ def preload_reanalysis(
                 ds[var_ra.name].attrs["units"] = c.unit_kg_m2s1
 
             # Sort/rename dimensions.
-            ds = utils.sort_dims(ds, vi_name=var_ra.name, rename=True)
+            ds = utils.standardize_netcdf(ds, vi_name=var_ra.name)
 
             # Save combined datasets.
             fu.save_netcdf(ds, p, os.path.basename(p))
@@ -399,7 +399,7 @@ def load_reanalysis(
             ds[var_name] = -ds[var_name]
 
         # Sort/rename dimensions.
-        ds = utils.sort_dims(ds, vi_name=var_name, rename=True)
+        ds = utils.standardize_netcdf(ds, vi_name=var_name)
 
         # Save NetCDF.
         desc = cntx.sep + c.cat_obs + cntx.sep + os.path.basename(p_stn)
@@ -480,7 +480,7 @@ def extract(
     #        It seems to wake up the hard disk.
     p_inc = p_raw.replace(c.f_ext_nc, ".incomplete")
     if not os.path.exists(p_inc):
-        open(p_inc, 'a').close()
+        open(p_inc, "a").close()
     if os.path.exists(p_inc):
         os.remove(p_inc)
 
@@ -496,14 +496,16 @@ def extract(
 
     # Open NetCDF.
     # Note: subset is not working with chunks.
-    ds_extract = fu.open_netcdf(p_l, chunks={c.dim_time: 365}, drop_variables=["time_vectors", "ts", "time_bnds"],
+    ds_extract = fu.open_netcdf(p_l,
+                                chunks={c.dim_time: 365},
+                                drop_variables=["time_vectors", "ts", "time_bnds"],
                                 combine="by_coords")
 
     # Subset.
     ds_extract = utils.subset_lon_lat_time(ds_extract, var.name, lon_l, lat_l, year_l)
 
     # Sort/rename dimensions.
-    ds_extract = utils.sort_dims(ds_extract, vi_name=var.name, rename=True)
+    ds_extract = utils.standardize_netcdf(ds_extract, vi_name=var.name)
 
     # Save NetCDF.
     desc = cntx.sep + c.cat_raw + cntx.sep + os.path.basename(p_raw)
@@ -546,7 +548,7 @@ def interpolate(
     ds_raw = fu.open_netcdf(p_raw)
 
     # Sort/rename dimensions.
-    ds_raw = utils.sort_dims(ds_raw, vi_name=var.name, rename=True)
+    ds_raw = utils.standardize_netcdf(ds_raw, vi_name=var.name)
 
     msg = "Interpolating (time)"
 
@@ -567,7 +569,7 @@ def interpolate(
         ds_raw = fu.open_netcdf(p_raw)
 
         # Sort/rename dimensions.
-        ds_raw = utils.sort_dims(ds_raw, vi_name=var.name, rename=True)
+        ds_raw = utils.standardize_netcdf(ds_raw, vi_name=var.name)
 
     else:
         fu.log(msg + " (not required; daily frequency)", True)
@@ -596,7 +598,7 @@ def interpolate(
             ds_regrid = ds_raw.sel(rlat=lat_stn, rlon=lon_stn, method="nearest", tolerance=1)
 
         # Sort/rename dimensions.
-        ds_regrid = utils.sort_dims(ds_regrid, vi_name=var.name, rename=True)
+        ds_regrid = utils.standardize_netcdf(ds_regrid, vi_name=var.name)
 
         # Save NetCDF (regrid).
         desc = cntx.sep + c.cat_regrid + cntx.sep + os.path.basename(p_regrid)
@@ -751,7 +753,7 @@ def preprocess(
     ds_fut = fu.open_netcdf(p_regrid)
 
     # Sort/rename dimensions.
-    ds_fut = utils.sort_dims(ds_fut, vi_name=var.name, rename=True)
+    ds_fut = utils.standardize_netcdf(ds_fut, vi_name=var.name)
 
     # Observations -----------------------------------------------------------------------------------------------------
 
@@ -773,7 +775,7 @@ def preprocess(
         ds_regrid_fut = fu.open_netcdf(p_regrid_fut)
 
         # Sort/rename dimensions.
-        ds_regrid_fut = utils.sort_dims(ds_regrid_fut, vi_name=var.name, rename=True)
+        ds_regrid_fut = utils.standardize_netcdf(ds_regrid_fut, vi_name=var.name)
 
     else:
 
@@ -878,8 +880,8 @@ def postprocess(
     ds_sim = fu.open_netcdf(p_sim)
 
     # Sort/rename dimensions.
-    ds_obs = utils.sort_dims(ds_obs, vi_name=var.name, rename=True)
-    ds_sim = utils.sort_dims(ds_sim, vi_name=var.name, rename=True)
+    ds_obs = utils.standardize_netcdf(ds_obs, vi_name=var.name)
+    ds_sim = utils.standardize_netcdf(ds_sim, vi_name=var.name)
 
     da_obs = ds_obs[var.name]
     da_sim = ds_sim[var.name]
@@ -968,7 +970,7 @@ def postprocess(
 
     # Sort/rename dimensions.
     if ds_sim_adj is not None:
-        ds_sim_adj = utils.sort_dims(ds_sim_adj, vi_name=var.name, rename=True)
+        ds_sim_adj = utils.standardize_netcdf(ds_sim_adj, vi_name=var.name)
 
     # Create plots -----------------------------------------------------------------------------------------------------
 
@@ -1120,7 +1122,7 @@ def bias_adj(
 
                     # Load NetCDF (station), drop February 29th, sort/rename dimensions, and select reference period.
                     ds_stn = fu.open_netcdf(p_stn)
-                    ds_stn = utils.sort_dims(ds_stn, vi_name=var.name, rename=True)
+                    ds_stn = utils.standardize_netcdf(ds_stn, vi_name=var.name)
                     ds_stn = utils.remove_feb29(ds_stn)
                     ds_stn = utils.sel_period(ds_stn, cntx.per_ref)
 
@@ -1192,7 +1194,7 @@ def bias_adj(
 
                         # Extract the reference period from the adjusted simulation.
                         ds_qqmap_ref = fu.open_netcdf(p_qqmap)
-                        ds_qqmap_ref = utils.sort_dims(ds_qqmap_ref, vi_name=var.name, rename=True)
+                        ds_qqmap_ref = utils.standardize_netcdf(ds_qqmap_ref, vi_name=var.name)
                         ds_qqmap_ref = utils.remove_feb29(ds_qqmap_ref)
                         ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cntx.per_ref)
 
@@ -1381,7 +1383,7 @@ def gen():
 
             # Load station data, drop February 29th and select reference period.
             ds_stn = fu.open_netcdf(p_stn)
-            ds_stn = utils.sort_dims(ds_stn, vi_name=var.name, rename=True)
+            ds_stn = utils.standardize_netcdf(ds_stn, vi_name=var.name)
             ds_stn = utils.remove_feb29(ds_stn)
             ds_stn = utils.sel_period(ds_stn, cntx.per_ref)
 
@@ -1796,7 +1798,7 @@ def calc_diag_cycle(
 
                 # Load NetCDF and sort dimensions.
                 ds_qqmap = fu.open_netcdf(p_qqmap)
-                ds_qqmap = utils.sort_dims(ds_qqmap, vi_name=var.name, rename=True)
+                ds_qqmap = utils.standardize_netcdf(ds_qqmap, vi_name=var.name)
 
                 # Loop through horizons.
                 for per in cntx.per_hors:
@@ -1816,7 +1818,7 @@ def calc_diag_cycle(
 
         if os.path.exists(p_obs) and cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
             ds_obs = fu.open_netcdf(p_obs)
-            ds_obs = utils.sort_dims(ds_obs, vi_name=var.name, rename=True)
+            ds_obs = utils.standardize_netcdf(ds_obs, vi_name=var.name)
             per_str = str(cntx.per_ref[0]) + "_" + str(cntx.per_ref[1])
 
             # This creates 2 files:

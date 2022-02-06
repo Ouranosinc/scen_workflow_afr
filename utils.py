@@ -1200,17 +1200,24 @@ def doy_to_doy_str(
     return doy_str
 
 
-def sort_dims(
+def standardize_netcdf(
     ds_da: Union[xr.Dataset, xr.DataArray],
     vi_name: Optional[str] = "",
-    template: Optional[Union[xr.DataArray, xr.Dataset, List[str]]] = None,
-    rename: Optional[bool] = False
+    template: Optional[Union[xr.Dataset, xr.DataArray, List[str]]] = None,
+    sort: Optional[bool] = True,
+    rename: Optional[bool] = True,
+    drop: Optional[bool] = True
 ) -> Union[xr.Dataset, xr.DataArray]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Reorder dimensions to fit input data.
-    There is not guarantee that the dimensions of a DataArray of indices will be the same at each run.
+    Standardize a Dataset or DataArray by sorting dimensions, renaming dimensions and droping variables.
+
+    Dimensions are renamed based on a template, which can be a DataSet, a DataArray, or a list of strings. If no
+    template is provided but the sort option is enabled, columns are sorted by time, latitude and longitude.
+
+    The columns that can be dropped are the following: 'lat' and 'lon' (if they are not dimensions), 'lat_vertices',
+    'lon_vertices', 'rotated_latitude_longitude', 'height'.
 
     Parameters
     ----------
@@ -1218,10 +1225,14 @@ def sort_dims(
         Dataset or DataArray whose dimensions need to be reordered and potentially renamed.
     vi_name: Optional[str]
         Climate variable or index name.
-    template: Union[xr.DataArray, xr.Dataset, List[str]]
+    template: Union[xr.Dataset, xr.DataArray, List[str]]
         DataArray serving as template.
+    sort: Optional[bool]
+        If True, sort dimensions according to template
     rename: Optional[bool]
         If True, rename dimensions according to template.
+    drop: Optional[bool]
+        If True, remove unncessary columns.
 
     Returns
     -------
@@ -1246,31 +1257,46 @@ def sort_dims(
     else:
         dims_template = [c.dim_time, c.dim_latitude, c.dim_longitude]
 
-    # Determine ordered dimensions (referring to the names in 'ds_da').
-    dims_order = []
-    for dim in dims_template:
-        dim = str(dim).replace(c.dim_rlat, c.dim_lat).replace(c.dim_rlon, c.dim_lon).\
-            replace(c.dim_latitude, c.dim_lat).replace(c.dim_longitude, c.dim_lon)
-        dim_current = [i for i in dims_current if dim in i][0]
-        dims_order.append(dim_current)
-
     # Sort dimensions.
-    if isinstance(ds_da, xr.Dataset):
-        if c.dim_location in dims_order:
-            ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1])
-        else:
-            ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1], dims_order[2])
-    else:
-        if c.dim_location in dims_order:
-            ds_da = ds_da.transpose(dims_order[0], dims_order[1])
-        else:
-            ds_da = ds_da.transpose(dims_order[0], dims_order[1], dims_order[2])
+    if sort:
+
+        # Determine the required order of dimensions (referring to the names in 'ds_da'), then drop 'lon' and 'lat'.
+        sort_needed = False
+        dims_order = []
+        for dim_template in dims_template:
+            dim = str(dim_template).replace(c.dim_rlat, c.dim_lat).replace(c.dim_rlon, c.dim_lon).\
+                replace(c.dim_latitude, c.dim_lat).replace(c.dim_longitude, c.dim_lon)
+            dim_current = [i for i in dims_current if dim in i][0]
+            dims_order.append(dim_current)
+
+        # Sort dimensions.
+        if sort_needed:
+            if isinstance(ds_da, xr.Dataset):
+                if c.dim_location in dims_order:
+                    ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1])
+                else:
+                    ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1], dims_order[2])
+            else:
+                if c.dim_location in dims_order:
+                    ds_da = ds_da.transpose(dims_order[0], dims_order[1])
+                else:
+                    ds_da = ds_da.transpose(dims_order[0], dims_order[1], dims_order[2])
 
     # Rename dimensions.
     if rename:
         for dim in [c.dim_lat, c.dim_lon]:
             dim_current = [i for i in dims_current if dim in i][0]
             dim_template = [i for i in dims_template if dim in i][0]
-            ds_da = ds_da.rename({dim_current: dim_template})
+            if dim_current != dim_template:
+                ds_da = ds_da.rename({dim_current: dim_template})
+            if drop and (dim in ds_da.dims) and (dim != dim_template):
+                ds_da = ds_da.drop_vars(dim)
+
+    # Drop columns.
+    if drop:
+        columns = ["lat", "lon", "lat_vertices", "lon_vertices", "rotated_latitude_longitude", "height"]
+        for column in columns:
+            if column in list(ds_da.variables):
+                ds_da = ds_da.drop_vars([column])
 
     return ds_da

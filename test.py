@@ -724,7 +724,7 @@ def dry_spell_total_length() -> bool:
 
             # Sort dimensions.
             if len(list(da_idx.dims)) > 1:
-                da_idx = utils.sort_dims(da_idx, template=da_pr)
+                da_idx = utils.standardize_netcdf(da_idx, template=da_pr)
 
             # Extract results.
             res = np.array(da_idx.squeeze())
@@ -902,7 +902,7 @@ def rain_season_start() -> bool:
 
             # Sort dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = utils.sort_dims(da_start, template=da_pr)
+                da_start = utils.standardize_netcdf(da_start, template=da_pr)
 
             # Verify results.
             res = np.array(da_start.squeeze())
@@ -1201,7 +1201,7 @@ def rain_season_end() -> bool:
 
             # Sort dimensions.
             if len(list(da_end.dims)) > 1:
-                da_end = utils.sort_dims(da_end, template=da_pr)
+                da_end = utils.standardize_netcdf(da_end, template=da_pr)
 
             # Verify results.
             res = np.array(da_end.squeeze())
@@ -1360,9 +1360,9 @@ def rain_season_length_prcptot() -> bool:
 
             # Reorder dimensions.
             if len(list(da_length.dims)) > 1:
-                da_length = utils.sort_dims(da_length, template=da_pr)
+                da_length = utils.standardize_netcdf(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = utils.sort_dims(da_prcptot, template=da_pr)
+                da_prcptot = utils.standardize_netcdf(da_prcptot, template=da_pr)
 
             # Verify results.
             res_length = np.array(da_length.squeeze())
@@ -1544,13 +1544,13 @@ def rain_season() -> bool:
 
             # Reorder dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = utils.sort_dims(da_start, template=da_pr)
+                da_start = utils.standardize_netcdf(da_start, template=da_pr)
             if len(list(da_end.dims)) > 1:
-                da_end = utils.sort_dims(da_end, template=da_pr)
+                da_end = utils.standardize_netcdf(da_end, template=da_pr)
             if len(list(da_length.dims)) > 1:
-                da_length = utils.sort_dims(da_length, template=da_pr)
+                da_length = utils.standardize_netcdf(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = utils.sort_dims(da_prcptot, template=da_pr)
+                da_prcptot = utils.standardize_netcdf(da_prcptot, template=da_pr)
 
             #  Verify results.
             res_start = np.array(da_start.squeeze())
