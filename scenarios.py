@@ -634,6 +634,9 @@ def regrid(
     grid_lon = ds_grid[c.dim_longitude].values.ravel()
     grid_lat = ds_grid[c.dim_latitude].values.ravel()
 
+    # Get coordinate names.
+    lon, lat = utils.coord_names(ds_data)
+
     # Create new mesh.
     new_grid = np.meshgrid(grid_lon, grid_lat)
     new_grid_lon, new_grid_lat = new_grid[0], new_grid[1]
@@ -643,7 +646,7 @@ def regrid(
     arr_regrid = np.empty((t_len, len(grid_lat), len(grid_lon)))
     for t in range(0, t_len):
         arr_regrid[t, :, :] = griddata(
-            (ds_data[var.name].lon.values.ravel(), ds_data[var.name].lat.values.ravel()),
+            (ds_data[var.name][lon].values.ravel(), ds_data[var.name][lat].values.ravel()),
             ds_data[var.name][t, :, :].values.ravel(),
             (new_grid_lon, new_grid_lat), fill_value=np.nan, method="linear"
         )
