@@ -622,7 +622,7 @@ class Context(def_context.Context):
         self.opt_idx = True
 
         # Spatial resolution for mapping.
-        self.idx_resol = 0.05
+        self.map_resol = 0.05
 
         # Indices.
         self.idxs = None

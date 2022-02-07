@@ -22,10 +22,10 @@ import os
 import pandas as pd
 import re
 import sys
+import xesmf as xe
 import xarray as xr
 import xarray.core.variable as xcv
 import warnings
-from scipy.interpolate import griddata
 from typing import List, Optional
 
 # Workflow libraries.
@@ -466,7 +466,7 @@ def extract(
         res_ra_lat = abs(ds_stn.latitude.values[1] - ds_stn.latitude.values[0])
         res_ra_lon = abs(ds_stn.longitude.values[1] - ds_stn.longitude.values[0])
 
-        # Calculate the number of extra space.
+        # Calculate the number of points needed along each dimension.
         n_lat_ext = float(max(1.0, math.ceil(res_proj_lat / res_ra_lat)))
         n_lon_ext = float(max(1.0, math.ceil(res_proj_lon / res_ra_lon)))
 
@@ -630,45 +630,23 @@ def regrid(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Get longitude and latitude values (grid).
-    grid_lon = ds_grid[c.dim_longitude].values.ravel()
-    grid_lat = ds_grid[c.dim_latitude].values.ravel()
+    # Get longitude and latitude values (ds_grid).
+    grid_lon_l = ds_grid[var.name][c.dim_longitude].values.ravel()
+    grid_lat_l = ds_grid[var.name][c.dim_latitude].values.ravel()
 
-    # Get coordinate names.
-    lon, lat = utils.coord_names(ds_data)
+    # Create a Dataset for the new grid.
+    ds_grid = xr.Dataset({c.dim_latitude: ([c.dim_latitude], grid_lat_l),
+                          c.dim_longitude: ([c.dim_longitude], grid_lon_l)})
 
-    # Create new mesh.
-    new_grid = np.meshgrid(grid_lon, grid_lat)
-    new_grid_lon, new_grid_lat = new_grid[0], new_grid[1]
-    if np.min(new_grid[0]) > 0:
-        new_grid[0] -= 360
-    t_len = len(ds_data[c.dim_time])
-    arr_regrid = np.empty((t_len, len(grid_lat), len(grid_lon)))
-    for t in range(0, t_len):
-        arr_regrid[t, :, :] = griddata(
-            (ds_data[var.name][lon].values.ravel(), ds_data[var.name][lat].values.ravel()),
-            ds_data[var.name][t, :, :].values.ravel(),
-            (new_grid_lon, new_grid_lat), fill_value=np.nan, method="linear"
-        )
-
-    # Create data array.
-    # Using xarray v0.20.2, the following line crashes with the following error:
-    # {TypeError} Using a DataArray object to construct a variable is ambiguous, please extract the data using the .data
-    # property.
-    # It runs fine with v0.18.2.
-    da_regrid = xr.DataArray(
-        arr_regrid,
-        coords=[(c.dim_time, ds_data.time[0:t_len]), (c.dim_lat, grid_lat), (c.dim_lon, grid_lon)],
-        dims=[c.dim_time, c.dim_rlat, c.dim_rlon],
-        attrs=ds_data.attrs
-    )
+    # Interpolate.
+    regridder = xe.Regridder(ds_data, ds_grid, "bilinear")
+    da_regrid = regridder(ds_data[var.name])
 
     # Apply and create mask.
     if (cntx.obs_src == c.ens_era5_land) and (var.name not in [c.v_tas, c.v_tasmin, c.v_tasmax]):
-        ds_regrid = da_regrid.to_dataset(name=var.name)
         da_mask = fu.create_mask()
-        # if da_mask is not None:
-        da_regrid = utils.apply_mask(ds_regrid[var.name], da_mask)
+        if da_mask is not None:
+            da_regrid = utils.apply_mask(da_regrid, da_mask)
 
     # Create dataset.
     ds_regrid = da_regrid.to_dataset(name=var.name)

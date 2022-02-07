@@ -1374,15 +1374,15 @@ def calc_map_rcp(
 
     if not cntx.opt_ra:
 
+        # TODO: Warning: this part has never been tested.
+
         # Get information on stations.
-        p_stn = glob.glob(cntx.d_stn(c.v_tas) + "../*" + c.f_ext_csv)[0]
+        p_stn = glob.glob(cntx.d_stn() + c.f_ext_csv)[0]
         df = pd.read_csv(p_stn, sep=cntx.f_sep)
 
         # Collect values for each station and determine overall boundaries.
         fu.log("Collecting emissions scenarios at each station.", True)
-        x_bnds = []
-        y_bnds = []
-        data_stn = []
+        data_lon_l, data_lat_l, data_val_l = [], [], []
         for stn in stns:
 
             # Get coordinates.
@@ -1395,70 +1395,49 @@ def calc_map_rcp(
                 continue
 
             # Extract data from stations.
-            data = [[], [], []]
             n = ds_stat.dims[c.dim_time]
             for year in range(0, n):
 
                 # Collect data.
-                x = float(lon)
-                y = float(lat)
-                z = float(ds_stat[vi_name][0][0][year])
+                lon = float(lon)
+                lat = float(lat)
+                val = float(ds_stat[vi_name][0][0][year])
                 if math.isnan(z):
                     z = float(0)
-                data[0].append(x)
-                data[1].append(y)
-                data[2].append(z)
+                data_lon_l.append(lon)
+                data_lat_l.append(lat)
+                data_val_l.append(val)
 
-                # Update overall boundaries (round according to the variable 'step').
-                if not x_bnds:
-                    x_bnds = [x, x]
-                    y_bnds = [y, y]
-                else:
-                    x_bnds = [min(x_bnds[0], x), max(x_bnds[1], x)]
-                    y_bnds = [min(y_bnds[0], y), max(y_bnds[1], y)]
-
-            # Add data from station to complete dataset.
-            data_stn.append(data)
-
-        # Build the list of x and y locations for which interpolation is needed.
-        fu.log("Collecting the coordinates of stations.", True)
-        grid_time = range(0, n_year)
-
-        def round_to_nearest_decimal(val_inner, step):
-            if val_inner < 0:
-                val_rnd = math.floor(val_inner/step) * step
-            else:
-                val_rnd = math.ceil(val_inner/step) * step
-            return val_rnd
-
-        for i in range(0, 2):
-            x_bnds[i] = round_to_nearest_decimal(x_bnds[i], cntx.idx_resol)
-            y_bnds[i] = round_to_nearest_decimal(y_bnds[i], cntx.idx_resol)
-        grid_x = np.arange(x_bnds[0], x_bnds[1] + cntx.idx_resol, cntx.idx_resol)
-        grid_y = np.arange(y_bnds[0], y_bnds[1] + cntx.idx_resol, cntx.idx_resol)
-
-        # Perform interpolation.
-        # There is a certain flexibility regarding the number of years in a dataset. Ideally, the station should not
-        # have been considered in the analysis, unless there is no better option.
         fu.log("Performing interpolation.", True)
-        new_grid = np.meshgrid(grid_x, grid_y)
-        new_grid_data = np.empty((n_year, len(grid_y), len(grid_x)))
-        for i_year in range(0, n_year):
-            arr_x = []
-            arr_y = []
-            arr_z = []
-            for i_stn in range(len(data_stn)):
-                if i_year < len(data_stn[i_stn][0]):
-                    arr_x.append(data_stn[i_stn][0][i_year])
-                    arr_y.append(data_stn[i_stn][1][i_year])
-                    arr_z.append(data_stn[i_stn][2][i_year])
-            new_grid_data[i_year, :, :] =\
-                griddata((arr_x, arr_y), np.array(arr_z), (new_grid[0], new_grid[1]), fill_value=np.nan,
-                         method="linear")
-        da_itp = xr.DataArray(new_grid_data,
-                              coords={c.dim_time: grid_time, c.dim_lat: grid_y, c.dim_lon: grid_x},
-                              dims=[c.dim_time, c.dim_lat, c.dim_lon])
-        ds_res = da_itp.to_dataset(name=vi_name)
+
+        # Build a Dataset containing the x-y-z locations of data points.
+        df_data = pd.Dataframe({vi_name: data_val_l, c.dim_latitude: data_lat_l, c.dim_longitude: data_lon_l})
+        df_data = df_data.pivot(index=c.dim_latitude, columns=c.dim_longitude)
+        df_data = df_data.droplevel(0, axis=1)
+        da_data = xr.DataArray(df_data)
+        ds_data = da_data.to_dataset(name=vi_name)
+
+        # Build a list of x-y locations at which interpolation is needed.
+        grid_lon_l = np.arange(min(data_lon_l), max(data_lon_l) + cntx.map_resol, cntx.map_resol)
+        grid_lat_l = np.arange(min(data_lat_l), max(data_lat_l) + cntx.map_resol, cntx.map_resol)
+
+        # Create a Dataset for the new grid.
+        ds_grid = xr.Dataset({c.dim_latitude: ([c.dim_latitude], grid_lat_l),
+                              c.dim_longitude: ([c.dim_longitude], grid_lon_l)})
+
+        # Interpolate.
+        regridder = xe.Regridder(ds_data, ds_grid, "bilinear")
+        da_res = regridder(ds_data[vi_name])
+
+        # Apply and create mask.
+        if (cntx.obs_src == c.ens_era5_land) and (vi_name not in [c.v_tas, c.v_tasmin, c.v_tasmax]):
+            da_mask = fu.create_mask()
+            if da_mask is not None:
+                da_res = utils.apply_mask(da_res, da_mask)
+
+        # Create dataset.
+        ds_res = da_res.to_dataset(name=vi_name)
+        ds_res[vi_name].attrs[c.attrs_units] = da_data.attrs[c.attrs_units]
 
     # There is no need to interpolate.
     else:
