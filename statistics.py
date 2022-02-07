@@ -487,12 +487,12 @@ def calc_ts(
         cat_fig = c.cat_fig + cntx.sep + cat + cntx.sep + view_code
         fn = varidx.name + "_" + dash_plot.mode_rcp
         # CSV files:
-        p_rcp_csv = cntx.d_fig(cat, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
+        p_rcp_csv = cntx.d_fig(cat, c.view_ts, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
         p_sim_csv = p_rcp_csv.replace("_" + dash_plot.mode_rcp, "_" + dash_plot.mode_sim)
         p_rcp_del_csv = p_rcp_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         p_sim_del_csv = p_sim_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         # PNG files.
-        p_rcp_fig = cntx.d_fig(cat, vi_code_grp) + fn + c.f_ext_png
+        p_rcp_fig = cntx.d_fig(cat, c.view_ts, vi_code_grp) + fn + c.f_ext_png
         p_sim_fig = p_rcp_fig.replace("_" + dash_plot.mode_rcp + c.f_ext_png, "_" + dash_plot.mode_sim + c.f_ext_png)
         p_rcp_del_fig = p_rcp_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
         p_sim_del_fig = p_sim_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
