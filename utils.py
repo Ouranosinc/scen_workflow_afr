@@ -1293,7 +1293,7 @@ def standardize_netcdf(
                 ds_da = ds_da.drop_vars(dim)
 
     # Drop columns.
-    if drop:
+    if drop and isinstance(ds_da, xr.Dataset):
         columns = ["lat", "lon", "lat_vertices", "lon_vertices", "rotated_latitude_longitude", "height"]
         for column in columns:
             if column in list(ds_da.variables):

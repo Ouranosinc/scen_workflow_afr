@@ -815,8 +815,9 @@ def gen_single(
             # Convert to float. This is required to ensure that 'nan' values are not transformed into integers.
             da_idx = da_idx.astype(float)
 
-            # Rename dimensions.
+            # Rename dimensions and attribute a name.
             da_idx = utils.rename_dimensions(da_idx)
+            da_idx.name = idx.name
 
             # Interpolate (to remove nan values).
             if np.isnan(da_idx).astype(int).max() > 0:
