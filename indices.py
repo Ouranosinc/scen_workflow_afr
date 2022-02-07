@@ -2068,7 +2068,7 @@ def gen_per_idx(
                     func = functools.partial(stats.calc_ts, view_code, idx_codes)
                 else:
                     func = functools.partial(stats.calc_stat_tbl, idx_codes)
-                pool.map(func, list(range(idx_codes)))
+                pool.map(func, list(range(len(idx_codes))))
                 pool.close()
                 pool.join()
                 fu.log("Fork ended.", True)

@@ -1693,7 +1693,7 @@ def gen_per_var(
                     func = functools.partial(stats.calc_ts, view_code, var_name_l)
                 else:
                     func = functools.partial(stats.calc_stat_tbl, var_name_l)
-                pool.map(func, list(range(var_name_l)))
+                pool.map(func, list(range(len(var_name_l))))
                 pool.close()
                 pool.join()
                 fu.log("Fork ended.", True)

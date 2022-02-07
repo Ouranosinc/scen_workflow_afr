@@ -249,7 +249,7 @@ def run():
                         fu.log("Splitting work between " + str(cntx.n_proc) + " threads.", True)
                         pool = multiprocessing.Pool(processes=min(cntx.n_proc, len(years)))
                         func = functools.partial(download_from_copernicus, d_prefix, cntx.obs_src, area, var)
-                        pool.map(func, years)
+                        pool.map(func, list(range(len(years))))
                         pool.close()
                         pool.join()
                         fu.log("Fork ended.", True)
