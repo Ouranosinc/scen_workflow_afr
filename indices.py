@@ -824,7 +824,7 @@ def gen_single(
                 da_idx = utils.interpolate_na_fix(da_idx)
 
             # Sort dimensions to fit input data.
-            utils.standardize_netcdf(da_idx, template=ds_vi_l[0])
+            utils.standardize_netcdf(da_idx, template=ds_vi_l[0][varidx_0.name])
 
             # Apply mask.
             if da_mask is not None:
