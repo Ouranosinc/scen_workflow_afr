@@ -176,12 +176,21 @@ Implemented features:
 - created a unit testing module that can be enabled using 'opt_test';
 - increased the performance of 'rain_season*' and 'dry_spell_total_length' indices.
 
-### v1.3.6 (under development)
+### v1.4.0 (under development)
 
 Implemented features:
 - relocated plotting functions within a distinct Github project (see note in the introduction);
-- added compatibility with ENACTS reanalysis data;
-- restructured code to make it easier to maintain (object-oriented). 
+- added compatibility with ENACTS reanalysis ensemble;
+- restructured code to make it easier to maintain (object-oriented), which takes the form of a partial inheritance from
+  the dashboard;
+- regridding and interpolation is now performed with xesmf, which considerably reduces the duration of the analysis;
+- parallel processing per variable during the generation of statistics and visual elements;
+- cluster analysis in n dimensions; a plot is produced if two variables are provided by the used;
+- fragmentation of former configuration file into a context (parameters of the analysis that depend on user
+  input) and a se of constants (constant.py) (parameters that are constant throughout the analysis);
+- grouping of figures under the 'fig' directory with improved directory access from the context;
+- data shown on plots always saved as .csv files; an attempt is made to load these files to regenerate plots;
+- improved aesthetics of visual elements.
 
 ## Contributing
 
