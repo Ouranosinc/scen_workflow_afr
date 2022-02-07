@@ -190,7 +190,9 @@ Implemented features:
   input) and a se of constants (constant.py) (parameters that are constant throughout the analysis);
 - grouping of figures under the 'fig' directory with improved directory access from the context;
 - data shown on plots always saved as .csv files; an attempt is made to load these files to regenerate plots;
-- improved aesthetics of visual elements.
+- improved aesthetics of visual elements (using matplotlib, hvplot, altair and plotly, depending on the context);
+- now saving NetCDF files with the same coordinate names ('longitude' and 'latitude') and eliminating unnecssary
+  variables to reduce the volume of files generated during the analysis.
 
 ## Contributing
 
