@@ -557,10 +557,9 @@ def calc_stat_tbl(
                     elif stat.code == c.stat_max:
                         ds_stat = ds_stats[2]
                     else:
-                        for i in range(len(stats.items - 3)):
-                            if stat.quantile == cntx.opt_stat_quantiles[i]:
-                                ds_stat = ds_stats[3 + i]
-                                break
+                        for i in range(len(stats.items) - 3):
+                            ds_stat = ds_stats[3 + i]
+                            break
 
                     # Loop through horizons.
                     for hor in hors.items:
