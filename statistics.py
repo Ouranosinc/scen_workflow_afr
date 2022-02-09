@@ -389,7 +389,7 @@ def calc_stat(
     ds_mean_std_max_min = ensembles.ensemble_mean_std_max_min(ds_ens)
 
     # Calculate percentiles.
-    quantile_l = [i * 100 for i in cntx.opt_stat_quantiles]
+    quantile_l = [i * 100 for i in stats.quantiles if i >= 0]
     ds_percentiles = ensembles.ensemble_percentiles(ds_ens, values=quantile_l, split=False)
 
     # Loop through statistics.
@@ -400,7 +400,7 @@ def calc_stat(
         if stat.code != c.stat_quantile:
             ds_ens_stats = ds_mean_std_max_min.copy()
         else:
-            ds_ens_stats = ds_percentiles.sel(percentiles=stat.quantile*100)
+            ds_ens_stats = ds_percentiles.sel(percentiles=stat.quantile*100).copy()
             if c.dim_percentiles in ds_ens_stats.dims:
                 ds_ens_stats = ds_ens_stats.squeeze(dim=c.dim_percentiles)
 
@@ -528,8 +528,7 @@ def calc_stat_tbl(
                 idx_desc = vi_code
                 if vi_code_grp != vi_code:
                     idx_desc = vi_code_grp + "." + idx_desc
-                cat_rcp = rcp.code if rcp.code == c.ref else "rcp"
-                fu.log("Processing: " + stn + ", " + idx_desc + ", " + cat_rcp + "", True)
+                fu.log("Processing: " + stn + ", " + idx_desc + ", " + rcp.code + "", True)
 
                 # Identify the statistics to be calculated.
                 # The order is: mean, min, max, quantile_1, quantile_2, ..., quantile n.
@@ -566,7 +565,7 @@ def calc_stat_tbl(
 
                         # Select period.
                         if cntx.opt_ra:
-                            ds_stat_hor = utils.sel_period(ds_stat.squeeze(), [hor.year_1, hor.year_2])
+                            ds_stat_hor = utils.sel_period(ds_stat.squeeze(), [hor.year_1, hor.year_2]).copy(deep=True)
                         else:
                             ds_stat_hor = ds_stat.copy(deep=True)
 
