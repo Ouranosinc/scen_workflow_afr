@@ -104,7 +104,7 @@ def load_observations(
 
         # Precipitation, evaporation, evapotranspiration ---------------------------------------------------------------
 
-        elif var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        elif var.is_summable:
 
             # Extract variable and convert from mm to kg m-2 s-1.
             obs = pd.DataFrame(data=np.array(obs.iloc[:, 3:]), index=time, columns=[stn])
@@ -359,7 +359,7 @@ def load_reanalysis(
             ds[var_name].attrs[c.attrs_sname] = "temperature"
             ds[var_name].attrs[c.attrs_lname] = "Temperature"
             ds[var_name].attrs[c.attrs_units] = c.unit_K
-        elif var_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        elif var_ra.is_summable:
             if (cntx.obs_src == c.ens_era5) or (cntx.obs_src == c.ens_era5_land):
                 ds[var_name] = ds[var_name] * 1000 / c.spd
             if var_name == c.v_pr:
@@ -764,13 +764,13 @@ def preprocess(
         ds_regrid_fut = utils.remove_feb29(ds_fut)
 
         # Adjust values that do not make sense.
-        if var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot, c.v_clt]:
+        if var.is_summable or (var.name == c.v_clt):
             ds_regrid_fut[var.name].values[ds_regrid_fut[var.name] < 0] = 0
             if var.name == c.v_clt:
                 ds_regrid_fut[var.name].values[ds_regrid_fut[var.name] > 100] = 100
 
         # Add small perturbation.
-        if var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        if var.is_summable:
             perturbate(ds_regrid_fut, var)
 
         # Convert to a 365-day calendar.
@@ -787,7 +787,7 @@ def preprocess(
         # Select reference period.
         ds_regrid_ref = utils.sel_period(ds_regrid_fut, cntx.per_ref)
 
-        if var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot, c.v_clt]:
+        if var.is_summable or (var.name == c.v_clt):
             pos = np.where(np.squeeze(ds_regrid_ref[var.name].values) > 0.01)[0]
             ds_regrid_ref[var.name][pos] = 1e-12
 
@@ -875,7 +875,7 @@ def postprocess(
 
     # Observation ------------------------------------------------------------------------------------------------------
 
-    if var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+    if var.is_summable:
         kind = c.kind_mult
     elif var.name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
         kind = c.kind_add
@@ -900,7 +900,7 @@ def postprocess(
 
         da_qmf = xr.DataArray(train(da_obs.squeeze(), da_stn.squeeze(), nq, c.group, kind, time_win,
                                     detrend_order=c.detrend_order))
-        if var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        if var.is_summable:
             da_qmf.values[da_qmf > up_qmf] = up_qmf
             da_qmf.values[da_qmf < -up_qmf] = -up_qmf
         ds_qmf = da_qmf.to_dataset(name=var.name)
@@ -975,7 +975,7 @@ def postprocess(
             return da
 
         # Convert units.
-        if var.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        if var.is_summable:
             da_stn         = convert_units(da_stn, c.unit_mm)
             da_obs         = convert_units(da_obs, c.unit_mm)
             da_sim         = convert_units(da_sim, c.unit_mm)

@@ -10,6 +10,7 @@
 # External libraries.
 import functools
 import glob
+import logging
 import math
 import multiprocessing
 import numpy as np
@@ -26,6 +27,9 @@ from pandas.core.common import SettingWithCopyWarning
 from scipy.interpolate import griddata
 from streamlit import caching
 from typing import Union, List, Tuple, Optional
+
+# xclim libraries.
+from xclim import ensembles
 
 # Workflow libraries.
 import file_utils as fu
@@ -47,6 +51,7 @@ from dashboard.def_varidx import VarIdx
 from dashboard.def_view import View
 
 
+"""
 def calc_stat(
     stn: str,
     varidx: VarIdx,
@@ -59,9 +64,8 @@ def calc_stat(
     clip: bool
 ) -> Union[xr.Dataset, None]:
 
-    """
     --------------------------------------------------------------------------------------------------------------------
-    Calculate quantiles.
+    Calculate statistics.
 
     Parameters
     ----------
@@ -85,7 +89,6 @@ def calc_stat(
     clip: bool
         If True, clip according to 'cntx.p_bounds'.
     --------------------------------------------------------------------------------------------------------------------
-    """
 
     # Extract name and group.
     vi_code = varidx.code
@@ -155,7 +158,7 @@ def calc_stat(
                (ds[vi_name].attrs[c.attrs_units] == c.unit_K):
                 ds = ds - c.d_KC
                 ds[vi_name].attrs[c.attrs_units] = c.unit_C
-            elif vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+            elif varidx.is_summable:
                 ds = ds * c.spd
                 ds[vi_name].attrs[c.attrs_units] = c.unit_mm
             elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
@@ -213,7 +216,7 @@ def calc_stat(
                         except Exception as e:
                             fu.log(str(e))
                             pass
-            if cntx.opt_ra and (vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]):
+            if cntx.opt_ra and varidx.is_summable:
                 vals = [i * c.spd for i in vals]
             arr_vals.append(vals)
 
@@ -236,7 +239,7 @@ def calc_stat(
                 vals_year = list(da_vals[np.isnan(da_vals.values) == False].values)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
-                    if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+                    if varidx.is_summable:
                         val_year = np.nansum(vals_year)
                     else:
                         val_year = np.nanmean(vals_year)
@@ -297,6 +300,149 @@ def calc_stat(
     ds_stat[vi_name].attrs[c.attrs_units] = units
 
     return ds_stat
+"""
+
+
+def calc_stat(
+    stn: str,
+    varidx: VarIdx,
+    rcp: RCP,
+    stats: Stats,
+    squeeze_coords: bool,
+    clip: bool
+) -> Union[List[xr.Dataset], None]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate statistics using xclim libraries.
+
+    Parameters
+    ----------
+    stn: str
+        Station.
+    varidx: VarIdx
+        Climate variable or index.
+    rcp: RCP
+        Emission scenario.
+    stats: Stats
+        Statistics.
+    squeeze_coords: bool
+        If True, squeeze coordinates.l
+    clip: bool
+        If True, clip according to 'cntx.p_bounds'.
+
+    Returns
+    -------
+    Union[List[xr.Dataset], None]
+        List of datasets (of statistics).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Extract name and group.
+    vi_code = varidx.code
+    vi_name = varidx.name
+    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
+    vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
+
+    # List files.
+    if rcp.code == c.ref:
+        if varidx.is_var:
+            p_sim_l = [cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
+        else:
+            p_sim_l = [cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
+    else:
+        if varidx.is_var:
+            d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
+        else:
+            d = cntx.d_idx(vi_code_grp)
+        p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp.code == c.rcpxx else rcp.code) + c.f_ext_nc)
+
+    # Exit if there is no file corresponding to the criteria.
+    if (len(p_sim_l) == 0) or \
+       ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
+        return None
+
+    # Create ensemble.
+    xclim_logger_level = utils.get_logger_level("xclim")
+    utils.set_logger_level("root", logging.CRITICAL)
+    ds_ens = ensembles.create_ensemble(p_sim_l).load()
+    ds_ens.close()
+    utils.set_logger_level("root", xclim_logger_level)
+
+    # Skip simulation if there is no data.
+    if len(ds_ens[c.dim_time]) == 0:
+        return None
+
+    # Transform units.
+    if c.attrs_units in ds_ens[vi_name].attrs:
+        if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and (ds_ens[vi_name].attrs[c.attrs_units] == c.unit_K):
+            ds_ens = ds_ens - c.d_KC
+            ds_ens[vi_name].attrs[c.attrs_units] = c.unit_C
+        elif varidx.is_summable:
+            ds_ens = ds_ens * c.spd
+            ds_ens[vi_name].attrs[c.attrs_units] = c.unit_mm
+        elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
+            ds_ens = ds_ens * c.km_h_per_m_s
+            ds_ens[vi_name].attrs[c.attrs_units] = c.unit_km_h
+
+    # Calculate statistics (mean, std, max, min).
+    ds_mean_std_max_min = ensembles.ensemble_mean_std_max_min(ds_ens)
+
+    # Calculate percentiles.
+    quantile_l = [i * 100 for i in cntx.opt_stat_quantiles]
+    ds_percentiles = ensembles.ensemble_percentiles(ds_ens, values=quantile_l, split=False)
+
+    # Loop through statistics.
+    ds_stats = []
+    for stat in stats.items:
+
+        # Select the current percentile and squeeze this dimension.
+        if stat.code != c.stat_quantile:
+            ds_ens_stats = ds_mean_std_max_min.copy()
+        else:
+            ds_ens_stats = ds_percentiles.sel(percentiles=stat.quantile*100)
+            if c.dim_percentiles in ds_ens_stats.dims:
+                ds_ens_stats = ds_ens_stats.squeeze(dim=c.dim_percentiles)
+
+        # Extract DataArray.
+        if stat.code in [c.stat_mean, c.stat_min, c.stat_max]:
+            vi_name_stat = vi_name + "_" + stat.code
+        else:
+            vi_name_stat = vi_name
+        da_stat = ds_ens_stats[vi_name_stat]
+
+        # Aggregate to the required frequency.
+        if varidx.is_summable:
+            da_stat = da_stat.resample(time=c.freq_YS).sum()
+        else:
+            da_stat = da_stat.resample(time=c.freq_YS).mean()
+
+        # Calculate the mean value of all years.
+        if squeeze_coords:
+            da_stat = da_stat.mean(dim="time")
+
+        # Build dataset and ajust units.
+        ds_stat = da_stat.to_dataset(name=vi_name)
+        if c.attrs_units in ds_ens[vi_name].attrs:
+            ds_stat[vi_name].attrs[c.attrs_units] = ds_ens[vi_name].attrs[c.attrs_units]
+        else:
+            ds_stat[vi_name].attrs[c.attrs_units] = 1
+
+        # Select control point or apply a mask.
+        if cntx.opt_ra:
+
+            # Statistics are calculated at a point.
+            if cntx.p_bounds == "":
+                ds_stat = utils.subset_ctrl_pt(ds_stat)
+
+            # Statistics are calculated within geographic boundaries.
+            elif clip and (cntx.p_bounds != ""):
+                ds_stat = utils.subset_shape(ds_stat)
+
+        # Record this result.
+        ds_stats.append(ds_stat)
+
+    return ds_stats
 
 
 def calc_stat_tbl(
@@ -382,57 +528,69 @@ def calc_stat_tbl(
                 idx_desc = vi_code
                 if vi_code_grp != vi_code:
                     idx_desc = vi_code_grp + "." + idx_desc
-                fu.log("Processing: " + stn + ", " + idx_desc + ", " + rcp.code + "", True)
+                cat_rcp = rcp.code if rcp.code == c.ref else "rcp"
+                fu.log("Processing: " + stn + ", " + idx_desc + ", " + cat_rcp + "", True)
 
-                # Loop through statistics.
+                # Identify the statistics to be calculated.
+                # The order is: mean, min, max, quantile_1, quantile_2, ..., quantile n.
                 stats = Stats([c.stat_mean])
                 if rcp.code != c.ref:
-                    stats.add([c.stat_min, c.stat_max, c.stat_quantile], inplace=True)
+                    stats.add([c.stat_min, c.stat_max], inplace=True)
+                    for quantile in cntx.opt_stat_quantiles:
+                        if quantile not in [0, 1]:
+                            stats.add(Stat(c.stat_quantile, quantile), inplace=True)
+
+                # Calculate statistics.
+                # The order is the same as the items in 'stats'.
+                ds_stats = calc_stat(stn, varidx, rcp, stats, (freq == c.freq_YS) and (cat == c.cat_scen),
+                                     cntx.opt_stat_clip)
+
+                # Loop through statistics.
                 for stat in stats.items:
-                    quantile_l = cntx.opt_stat_quantiles
-                    if stat.code != c.stat_quantile:
-                        quantile_l = [-1]
-                    for quantile in quantile_l:
-                        if ((quantile <= 0) or (quantile >= 1)) and (quantile != -1):
-                            continue
-                        stat.quantile = quantile
 
-                        # Loop through horizons.
-                        for hor in hors.items:
+                    # Extract the current statistic (within 'ds_stats').
+                    ds_stat = None
+                    if stat.code == c.stat_mean:
+                        ds_stat = ds_stats[0]
+                    elif stat.code == c.stat_min:
+                        ds_stat = ds_stats[1]
+                    elif stat.code == c.stat_max:
+                        ds_stat = ds_stats[2]
+                    else:
+                        for i in range(len(stats.items - 3)):
+                            if stat.quantile == cntx.opt_stat_quantiles[i]:
+                                ds_stat = ds_stats[3 + i]
+                                break
 
-                            # Calculate statistics.
-                            ds_stat = calc_stat(stn, varidx, rcp, hor, stat,
-                                                (freq == c.freq_YS) and (cat == c.cat_scen),
-                                                freq, c.freq_YS, cntx.opt_stat_clip)
-                            if ds_stat is None:
-                                continue
+                    # Loop through horizons.
+                    for hor in hors.items:
 
-                            # Select period.
-                            if cntx.opt_ra:
-                                ds_stat_hor = utils.sel_period(ds_stat.squeeze(), [hor.year_1, hor.year_2])
-                            else:
-                                ds_stat_hor = ds_stat.copy(deep=True)
+                        # Select period.
+                        if cntx.opt_ra:
+                            ds_stat_hor = utils.sel_period(ds_stat.squeeze(), [hor.year_1, hor.year_2])
+                        else:
+                            ds_stat_hor = ds_stat.copy(deep=True)
 
-                            # Extract value.
-                            if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
-                                val = float(ds_stat_hor[vi_name].sum()) / (hor.year_2 - hor.year_1 + 1)
-                            else:
-                                val = float(ds_stat_hor[vi_name].mean())
+                        # Extract value.
+                        if varidx.is_summable:
+                            val = float(ds_stat_hor[vi_name].sum()) / (hor.year_2 - hor.year_1 + 1)
+                        else:
+                            val = float(ds_stat_hor[vi_name].mean())
 
-                            # Add row.
-                            stn_l.append(stn)
-                            rcp_l.append(rcp.code)
-                            hor_l.append(hor.code)
-                            stat_l.append("none" if rcp.code == c.ref else stat.code)
-                            q_l.append(str(quantile))
-                            val_l.append(round(val, 6))
+                        # Add row.
+                        stn_l.append(stn)
+                        rcp_l.append(rcp.code)
+                        hor_l.append(hor.code)
+                        stat_l.append("none" if rcp.code == c.ref else stat.code)
+                        q_l.append(stat.quantile)
+                        val_l.append(round(val, 6))
 
-                            # Clearing cache.
-                            # This is an ugly patch. Otherwise, the value of 'val' is incorrect.
-                            try:
-                                caching.clear_cache()
-                            except AttributeError:
-                                pass
+                        # Clearing cache.
+                        # This is an ugly patch. Otherwise, the value of 'val' is incorrect.
+                        try:
+                            caching.clear_cache()
+                        except AttributeError:
+                            pass
 
             # Save results.
             if len(stn_l) > 0:
@@ -484,7 +642,6 @@ def calc_ts(
         fu.log("Processing: " + stn + ", " + msg, True)
 
         # Path of files to be created.
-        cat_fig = c.cat_fig + cntx.sep + cat + cntx.sep + view_code
         fn = varidx.name + "_" + dash_plot.mode_rcp
         # CSV files:
         p_rcp_csv = cntx.d_fig(cat, c.view_ts, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
@@ -823,7 +980,7 @@ def calc_ts_ds(
     # Calculate statistics.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        if cntx.varidx.is_summable:
             ds = ds.groupby(ds.time.dt.year).sum(keepdims=True)
         else:
             ds = ds.groupby(ds.time.dt.year).mean(keepdims=True)
@@ -840,7 +997,7 @@ def calc_ts_ds(
         if ds[vi_name].attrs[c.attrs_units] == c.unit_K:
             ds = ds - c.d_KC
             ds[vi_name].attrs[c.attrs_units] = c.unit_C
-    elif vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+    elif cntx.varidx.is_summable:
         if ds[vi_name].attrs[c.attrs_units] == c.unit_kg_m2s1:
             ds = ds * c.spd
             ds[vi_name].attrs[c.attrs_units] = c.unit_mm
@@ -921,7 +1078,7 @@ def calc_stat_mean_min_max(
 
 def calc_by_freq(
     ds: xr.Dataset,
-    var: str,
+    var: VarIdx,
     per: [int, int],
     freq: str
 ) -> List[xr.Dataset]:
@@ -934,7 +1091,7 @@ def calc_by_freq(
     ----------
     ds: xr.Dataset
         Dataset.
-    var: str
+    var: VarIdx
         Climate variable.
     per: [int, int]
         Period of interest, for instance, [1981, 2010].
@@ -948,11 +1105,11 @@ def calc_by_freq(
 
     # Extract data for the current month.
     if c.dim_rlon in ds.dims:
-        da_m = ds[var].rename({c.dim_rlon: c.dim_longitude, c.dim_rlat: c.dim_latitude})
+        da_m = ds[var.name].rename({c.dim_rlon: c.dim_longitude, c.dim_rlat: c.dim_latitude})
     elif c.dim_lon in ds.dims:
-        da_m = ds[var].rename({c.dim_lon: c.dim_longitude, c.dim_lat: c.dim_latitude})
+        da_m = ds[var.name].rename({c.dim_lon: c.dim_longitude, c.dim_lat: c.dim_latitude})
     else:
-        da_m = ds[var]
+        da_m = ds[var.name]
 
     # Grouping frequency.
     freq_str = "time.month" if freq == c.freq_MS else "time.dayofyear"
@@ -966,7 +1123,7 @@ def calc_by_freq(
         if freq != c.freq_MS:
 
             # Extract values.
-            if var in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+            if var.is_summable:
                 da_mean = da_m.resample(time=time_str).sum().groupby(freq_str).mean()
                 da_min  = da_m.resample(time=time_str).sum().groupby(freq_str).min()
                 da_max  = da_m.resample(time=time_str).sum().groupby(freq_str).max()
@@ -976,7 +1133,7 @@ def calc_by_freq(
                 da_max  = da_m.resample(time=time_str).mean().groupby(freq_str).max()
 
             # Create dataset
-            da_mean.name = da_min.name = da_max.name = var
+            da_mean.name = da_min.name = da_max.name = var.name
             for i in range(3):
                 if i == 0:
                     ds_m = da_mean.to_dataset()
@@ -989,7 +1146,7 @@ def calc_by_freq(
                 if not cntx.opt_ra:
                     ds_m = ds_m.squeeze()
 
-                ds_m[var].attrs[c.attrs_units] = ds[var].attrs[c.attrs_units]
+                ds_m[var.name].attrs[c.attrs_units] = ds[var.name].attrs[c.attrs_units]
                 ds_l.append(ds_m)
 
         else:
@@ -1001,7 +1158,7 @@ def calc_by_freq(
             for m in range(1, 13):
                 vals_m = []
                 for y in range(per[0], per[1] + 1):
-                    if var in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+                    if var.is_summable:
                         val_m_y = np.nansum(da_m[(da_m["time.year"] == y) & (da_m["time.month"] == m)].values)
                     else:
                         val_m_y = np.nanmean(da_m[(da_m["time.year"] == y) & (da_m["time.month"] == m)].values)
@@ -1009,10 +1166,10 @@ def calc_by_freq(
                 arr_all.append(vals_m)
 
             # Create dataset.
-            dict_pd = {var: arr_all}
+            dict_pd = {var.name: arr_all}
             df = pd.DataFrame(dict_pd)
             ds_l = df.to_xarray()
-            ds_l.attrs[c.attrs_units] = ds[var].attrs[c.attrs_units]
+            ds_l.attrs[c.attrs_units] = ds[var.name].attrs[c.attrs_units]
 
     return ds_l
 
@@ -1390,7 +1547,7 @@ def calc_map_rcp(
             lat = df[df["station"] == stn][c.dim_lat].values[0]
 
             # Calculate statistics.
-            ds_stat = calc_stat(stn, varidx, rcp, None, stat, False, c.freq_YS, c.freq_YS, cntx.opt_map_clip)
+            ds_stat = calc_stat(stn, varidx, rcp, Stats(stat), False, cntx.opt_map_clip)
             if ds_stat is None:
                 continue
 
@@ -1473,7 +1630,7 @@ def calc_map_rcp(
 
             # Calculate mean.
             ds_res = ds_sim.mean(dim=c.dim_time)
-            if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+            if varidx.is_summable:
                 ds_res = ds_res * 365
             if varidx.is_var:
                 ds_res[vi_name].attrs[c.attrs_units] = units
@@ -1517,7 +1674,7 @@ def calc_map_rcp(
 
                     # Calculate mean and add to array.
                     ds_sim = ds_sim.mean(dim=c.dim_time)
-                    if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+                    if varidx.is_summable:
                         ds_sim = ds_sim * 365
                     if varidx.is_var:
                         ds_sim[vi_name].attrs[c.attrs_units] = units
@@ -1577,8 +1734,7 @@ def calc_map_rcp(
            (ds_res[vi_name].attrs[c.attrs_units] == c.unit_K):
             ds_res = ds_res - c.d_KC
             ds_res[vi_name].attrs[c.attrs_units] = c.unit_C
-        elif (vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]) and \
-             (ds_res[vi_name].attrs[c.attrs_units] == c.unit_kg_m2s1):
+        elif varidx.is_summable and (ds_res[vi_name].attrs[c.attrs_units] == c.unit_kg_m2s1):
             ds_res = ds_res * c.spd
             ds_res[vi_name].attrs[c.attrs_units] = c.unit_mm
         elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
@@ -1760,8 +1916,7 @@ def conv_nc_csv_single(
                 val_l = list(val_l[0][0])
 
     # Convert values to more practical units (if required).
-    if (vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]) and\
-       (ds[vi_name].attrs[c.attrs_units] == c.unit_kg_m2s1):
+    if varidx.is_summable and (ds[vi_name].attrs[c.attrs_units] == c.unit_kg_m2s1):
         for i in range(n_time):
             val_l[i] = val_l[i] * c.spd
     elif (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and\
@@ -1862,13 +2017,12 @@ def calc_cycle(
         if (varidx.name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and \
            (ds[varidx.name].attrs[c.attrs_units] == c.unit_K):
             ds = ds - c.d_KC
-        elif (varidx.name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]) and \
-             (ds[varidx.name].attrs[c.attrs_units] == c.unit_kg_m2s1):
+        elif varidx.is_summable and (ds[varidx.name].attrs[c.attrs_units] == c.unit_kg_m2s1):
             ds = ds * c.spd
         ds[varidx.name].attrs[c.attrs_units] = units
 
         # Calculate statistics.
-        ds_l = calc_by_freq(ds, varidx.name, per, freq)
+        ds_l = calc_by_freq(ds, varidx, per, freq)
 
         n = 12 if freq == c.freq_MS else 365
 
@@ -2105,7 +2259,7 @@ def calc_postprocess(
         # Conversion coefficient.
         coef = 1
         delta_ref, delta_sim, delta_sim_adj = 0, 0, 0
-        if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        if varidx.is_summable:
             coef = c.spd * 365
         elif vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
             if da_ref.units == c.unit_K:

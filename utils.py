@@ -1304,3 +1304,83 @@ def standardize_netcdf(
                 ds_da = ds_da.drop_vars([column])
 
     return ds_da
+
+
+def get_logger(
+    logger_name: str
+) -> Union[logging.Logger, None]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get logger.
+
+    Parameters
+    ----------
+    logger_name: str
+         Logger name.
+
+    Returns
+    -------
+    Union[logging.Logger, None]
+        Logger.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if logger_name == "root":
+        return logging.root
+    else:
+        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        for i in range(len(loggers)):
+            if loggers[i].name == logger_name:
+                return loggers[i]
+
+    return None
+
+
+def get_logger_level(
+    logger_name: str
+) -> int:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get logger level.
+
+    Returns
+    -------
+    int
+         Logger level.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    logger = get_logger(logger_name)
+    if logger is not None:
+        return logger.level
+
+    return -1
+
+
+def set_logger_level(
+    logger_name: str,
+    logger_level: int
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Set logger level.
+
+    Parameters
+    ----------
+    logger_name: str
+        Logger name.
+    logger_level: str
+         Logger level.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if logger_name == "root":
+        logging.root.setLevel(logger_level)
+    else:
+        logger = get_logger(logger_name)
+        logger.setLevel(logger_level)
+
+    return

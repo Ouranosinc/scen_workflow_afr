@@ -219,7 +219,7 @@ def plot_workflow(
     coef = 1
     delta_ref = 0
     delta_sim = 0
-    if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+    if varidx.is_summable:
         coef = c.spd
     if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and (len(units) > 0):
         if units[0] == c.unit_K:
@@ -617,7 +617,7 @@ def draw_curves(
 
         # Determine if sum is needed.
         stat_actual = stat
-        if vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+        if varidx.is_summable:
             if stat.code == c.stat_mean:
                 stat_actual.code = c.stat_sum
             with warnings.catch_warnings():

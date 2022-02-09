@@ -84,6 +84,8 @@ class Constant(const.Constant):
     dim_latitude        = "latitude"
     dim_time            = "time"
     dim_location        = "location"
+    dim_realization     = "realization"
+    dim_percentiles     = "percentiles"
 
     # Data array attributes.
     attrs_units         = "units"
