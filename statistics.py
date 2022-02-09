@@ -51,258 +51,6 @@ from dashboard.def_varidx import VarIdx
 from dashboard.def_view import View
 
 
-"""
-def calc_stat(
-    stn: str,
-    varidx: VarIdx,
-    rcp: RCP,
-    hor: Union[None, Hor],
-    stat: Stat,
-    per_region: bool,
-    freq_in: str,
-    freq_out: str,
-    clip: bool
-) -> Union[xr.Dataset, None]:
-
-    --------------------------------------------------------------------------------------------------------------------
-    Calculate statistics.
-
-    Parameters
-    ----------
-    stn: str
-        Station.
-    varidx: VarIdx
-        Climate variable or index.
-    rcp: RCP
-        Emission scenario.
-    hor: Union[None, Hor]
-        Horizon: ex: [1981, 2010]
-        If None is specified, the complete time range is considered.
-    stat: Stat
-        Statistic.
-    per_region: bool
-        If True, statistics are calculated for a region as a whole.
-    freq_in: str
-        Frequency (input): const.freq_D=daily; const.freq_YS=annual
-    freq_out: str
-        Frequency (output): const.freq_D=daily; const.freq_YS=annual
-    clip: bool
-        If True, clip according to 'cntx.p_bounds'.
-    --------------------------------------------------------------------------------------------------------------------
-
-    # Extract name and group.
-    vi_code = varidx.code
-    vi_name = varidx.name
-    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
-    vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
-
-    # List files.
-    if rcp.code == c.ref:
-        if varidx.is_var:
-            p_sim_l = [cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
-        else:
-            p_sim_l = [cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
-    else:
-        if varidx.is_var:
-            d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
-        else:
-            d = cntx.d_idx(vi_code_grp)
-        p_sim_l = glob.glob(d + "*_" + ("*rcp*" if rcp.code == c.rcpxx else rcp.code) + c.f_ext_nc)
-
-    # Exit if there is no file corresponding to the criteria.
-    if (len(p_sim_l) == 0) or \
-       ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
-        return None
-
-    # List days.
-    ds = fu.open_netcdf(p_sim_l[0])
-    if (c.dim_lon in ds.variables) or (c.dim_lon in ds.dims):
-        lon = ds[c.dim_lon]
-        lat = ds[c.dim_lat]
-    elif (c.dim_rlon in ds.variables) or (c.dim_rlon in ds.dims):
-        lon = ds[c.dim_rlon]
-        lat = ds[c.dim_rlat]
-    else:
-        lon = ds[c.dim_longitude]
-        lat = ds[c.dim_latitude]
-    if c.attrs_units in ds[vi_name].attrs:
-        units = ds[vi_name].attrs[c.attrs_units]
-    else:
-        units = 1
-    n_sim = len(p_sim_l)
-
-    # First and last years.
-    year_1 = int(str(ds.time.values[0])[0:4])
-    year_n = int(str(ds.time.values[len(ds.time.values) - 1])[0:4])
-    if hor is not None:
-        year_1 = max(year_1, hor.year_1)
-        year_n = min(year_n, hor.year_2)
-    n_time = (year_n - year_1 + 1) * (365 if freq_in == c.freq_D else 1)
-
-    # Collect values from simulations.
-    arr_vals = []
-    for i_sim in range(n_sim):
-
-        # Load dataset.
-        ds = fu.open_netcdf(p_sim_l[i_sim])
-
-        # Patch used to fix potentially unordered dimensions of index 'c.i_drought_code'.
-        if vi_code in cntx.idxs.code_l:
-            ds = ds.resample(time=c.freq_YS).mean(dim=c.dim_time, keep_attrs=True)
-
-        # Select years and adjust units.
-        years_str = [str(year_1) + "-01-01", str(year_n) + "-12-31"]
-        ds = ds.sel(time=slice(years_str[0], years_str[1]))
-        if c.attrs_units in ds[vi_name].attrs:
-            if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and\
-               (ds[vi_name].attrs[c.attrs_units] == c.unit_K):
-                ds = ds - c.d_KC
-                ds[vi_name].attrs[c.attrs_units] = c.unit_C
-            elif varidx.is_summable:
-                ds = ds * c.spd
-                ds[vi_name].attrs[c.attrs_units] = c.unit_mm
-            elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
-                ds = ds * c.km_h_per_m_s
-                ds[vi_name].attrs[c.attrs_units] = c.unit_km_h
-
-        if cntx.opt_ra:
-
-            # Statistics are calculated at a point.
-            if cntx.p_bounds == "":
-                ds = utils.subset_ctrl_pt(ds)
-
-            # Statistics are calculated on a surface.
-            else:
-
-                # Clip to geographic boundaries.
-                if clip and (cntx.p_bounds != ""):
-                    ds = utils.subset_shape(ds)
-
-                # Calculate mean value.
-                ds = utils.squeeze_lon_lat(ds)
-
-        # Skip simulation if there is no data.
-        if len(ds[c.dim_time]) == 0:
-            continue
-
-        # Records values.
-        # Simulation data is assumed to be complete.
-        if ds[vi_name].time.size == n_time:
-            if (c.dim_lon in ds.dims) or (c.dim_rlon in ds.dims) or (c.dim_longitude in ds.dims):
-                vals = ds.squeeze()[vi_name].values.tolist()
-            else:
-                vals = ds[vi_name].values.tolist()
-            arr_vals.append(vals)
-        # Observation data can be incomplete. This explains the day-by-day copy performed below. There is probably a
-        # nicer and more efficient way to do this.
-        # TODO: The algorithm is not efficient in the following lines. Fix this.
-        else:
-            np_vals = np.empty(n_time)
-            np_vals[:] = np.nan
-            vals = np_vals.tolist()
-            for i_year in range(year_1, year_n + 1):
-                for i_month in range(1, 13):
-                    for i_day in range(1, 32):
-                        date_str = str(i_year) + "-" + str(i_month).zfill(2) + "-" + str(i_day).zfill(2)
-                        try:
-                            ds_i = ds.sel(time=slice(date_str, date_str))
-                            if ds_i[vi_name].size != 0:
-                                day_of_year = ds_i[vi_name].time.dt.dayofyear.values[0]
-                                if len(np.array(ds_i[vi_name].values).shape) > 1:
-                                    val = ds_i[vi_name].values[0][0][0]
-                                else:
-                                    val = ds_i[vi_name].values[0]
-                                vals[(i_year - year_1) * 365 + day_of_year - 1] = val
-                        except Exception as e:
-                            fu.log(str(e))
-                            pass
-            if cntx.opt_ra and varidx.is_summable:
-                vals = [i * c.spd for i in vals]
-            arr_vals.append(vals)
-
-    # Calculate the mean value of all years.
-    if per_region:
-        for i in range(len(arr_vals)):
-            arr_vals[i] = [np.nanmean(arr_vals[i])]
-        n_time = 1
-
-    # Transpose.
-    arr_vals_t = []
-
-    # Collapse to yearly frequency.
-    if (freq_in == c.freq_D) and (freq_out == c.freq_YS) and cntx.opt_ra:
-        for i_sim in range(n_sim):
-            vals_sim = []
-            for i_year in range(0, year_n - year_1 + 1):
-                vals_year = arr_vals[i_sim][(365 * i_year):(365 * (i_year + 1))]
-                da_vals = xr.DataArray(np.array(vals_year))
-                vals_year = list(da_vals[np.isnan(da_vals.values) == False].values)
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category=RuntimeWarning)
-                    if varidx.is_summable:
-                        val_year = np.nansum(vals_year)
-                    else:
-                        val_year = np.nanmean(vals_year)
-                vals_sim.append(val_year)
-            if (vi_name != c.v_pr) | (sum(vals_sim) > 0):
-                arr_vals_t.append(vals_sim)
-        arr_vals = arr_vals_t
-        n_time = year_n - year_1 + 1
-    n_sim = len(arr_vals)
-
-    # Transpose array.
-    arr_vals_t = []
-    for i_time in range(n_time):
-        vals = []
-        for i_sim in range(n_sim):
-            if (vi_name != c.i_rain_season_prcptot) or\
-               ((vi_name == c.i_rain_season_prcptot) and (max(arr_vals[i_sim]) > 0)):
-                if n_time == 1:
-                    vals.append(arr_vals[i_sim][0])
-                else:
-                    vals.append(arr_vals[i_sim][i_time])
-        arr_vals_t.append(vals)
-
-    # Calculate statistics.
-    arr_stat = []
-    for i_time in range(n_time):
-        val_stat = None
-        vals_t = arr_vals_t[i_time]
-        if n_sim > 1:
-            da_vals = xr.DataArray(np.array(vals_t))
-            vals_t = list(da_vals[(np.isnan(da_vals.values) == False) &
-                                  ((vi_name != c.v_pr) | (sum(da_vals.values) > 0))].values)
-        if (stat.code == c.stat_min) or ((stat.code == c.stat_quantile) and (stat.quantile == 0)):
-            val_stat = np.min(vals_t)
-        elif (stat.code == c.stat_max) or ((stat.code == c.stat_quantile) and (stat.quantile == 1)):
-            val_stat = np.max(vals_t)
-        elif stat.code == c.stat_mean:
-            val_stat = np.mean(vals_t)
-        elif stat.code == c.stat_quantile:
-            val_stat = np.quantile(vals_t, stat.quantile)
-        elif stat.code == c.stat_sum:
-            val_stat = np.sum(vals_t)
-        arr_stat.append(val_stat)
-
-    # Build dataset.
-    da_stat = xr.DataArray(np.array(arr_stat), name=vi_name, coords=[(c.dim_time, np.arange(n_time))])
-    ds_stat = da_stat.to_dataset()
-    ds_stat = ds_stat.expand_dims(lon=1, lat=1)
-
-    # Adjust coordinates and time.
-    if not(c.dim_lon in ds_stat.dims):
-        ds_stat[c.dim_lon] = lon
-        ds_stat[c.dim_lat] = lat
-    if freq_out == c.freq_YS:
-        ds_stat[c.dim_time] = utils.reset_calendar(ds_stat, year_1, year_n, freq_out)
-
-    # Adjust units.
-    ds_stat[vi_name].attrs[c.attrs_units] = units
-
-    return ds_stat
-"""
-
-
 def calc_stat(
     stn: str,
     varidx: VarIdx,
@@ -363,7 +111,7 @@ def calc_stat(
         return None
 
     # Create ensemble.
-    xclim_logger_level = utils.get_logger_level("xclim")
+    xclim_logger_level = utils.get_logger_level("root")
     utils.set_logger_level("root", logging.CRITICAL)
     ds_ens = ensembles.create_ensemble(p_sim_l).load()
     ds_ens.close()
@@ -498,12 +246,7 @@ def calc_stat_tbl(
                 continue
 
             # Containers.
-            stn_l  = []
-            rcp_l  = []
-            hor_l  = []
-            stat_l = []
-            q_l    = []
-            val_l  = []
+            stn_l, rcp_l, hor_l, stat_l, q_l, val_l = [], [], [], [], [], []
 
             # Loop through emission scenarios.
             for rcp in rcps.items:
@@ -545,20 +288,11 @@ def calc_stat_tbl(
                                      cntx.opt_stat_clip)
 
                 # Loop through statistics.
-                for stat in stats.items:
+                for i in range(len(stats.items)):
 
-                    # Extract the current statistic (within 'ds_stats').
-                    ds_stat = None
-                    if stat.code == c.stat_mean:
-                        ds_stat = ds_stats[0]
-                    elif stat.code == c.stat_min:
-                        ds_stat = ds_stats[1]
-                    elif stat.code == c.stat_max:
-                        ds_stat = ds_stats[2]
-                    else:
-                        for i in range(len(stats.items) - 3):
-                            ds_stat = ds_stats[3 + i]
-                            break
+                    # Extract the current statistic and the associated result.
+                    stat = stats.items[i]
+                    ds_stat = ds_stats[i]
 
                     # Loop through horizons.
                     for hor in hors.items:
@@ -582,13 +316,6 @@ def calc_stat_tbl(
                         stat_l.append("none" if rcp.code == c.ref else stat.code)
                         q_l.append(stat.quantile)
                         val_l.append(round(val, 6))
-
-                        # Clearing cache.
-                        # This is an ugly patch. Otherwise, the value of 'val' is incorrect.
-                        try:
-                            caching.clear_cache()
-                        except AttributeError:
-                            pass
 
             # Save results.
             if len(stn_l) > 0:
