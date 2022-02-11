@@ -564,7 +564,7 @@ class Context(def_context.Context):
         # Enable/disable the calculation of statistics for [scenarios, indices].
         self.opt_stat = [True] * 2
 
-        # Centiles.
+        # Centiles required to generate a statistical table.
         self.opt_stat_centiles = [0, 1, 10, 50, 90, 99, 100]
 
         # Enable/disable clipping according to 'p_bounds'.
