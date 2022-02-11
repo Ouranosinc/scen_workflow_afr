@@ -477,6 +477,9 @@ def calc_ts(
         cntx.varidx = VarIdx(varidx.code)
         cntx.rcp    = RCP(c.rcpxx)
         cntx.sim    = Sim("")
+        cntx.stats  = Stats()
+        cntx.stats.add(Stat(c.stat_centile, cntx.opt_ts_centiles[0]))
+        cntx.stats.add(Stat(c.stat_centile, cntx.opt_ts_centiles[1]))
 
         # Attempt loading CSV files into dataframes.
         if os.path.exists(p_rcp_csv) and os.path.exists(p_sim_csv) and \
@@ -998,18 +1001,17 @@ def calc_map(
                 p_csv, p_fig = p_csv_fig(rcp, per, per_str, stat, j == 1)
 
                 # Create context.
-                cntx.code          = c.platform_script
-                cntx.view          = View(c.view_map)
-                cntx.lib           = Lib(c.lib_mat)
-                cntx.varidx        = VarIdx(vi_name)
-                stats = Stats()
+                cntx.code   = c.platform_script
+                cntx.view   = View(c.view_map)
+                cntx.lib    = Lib(c.lib_mat)
+                cntx.varidx = VarIdx(vi_name)
+                cntx.rcp    = rcp
+                cntx.hor    = Hor(per)
+                cntx.stats  = Stats()
                 for s in range(len(cntx.opt_map_centiles)):
                     stats.add(Stat(c.stat_centile, cntx.opt_map_centiles[s]))
-                cntx.project.stats = stats
-                cntx.rcp           = rcp
-                cntx.hor           = Hor(per)
-                cntx.stat          = stat
-                cntx.delta         = Delta(str(j == 1))
+                cntx.stat   = stat
+                cntx.delta  = Delta(str(j == 1))
 
                 # Update colors.
                 if len(cntx.opt_map_col_temp_var) > 0:
@@ -1718,9 +1720,11 @@ def calc_clusters():
     # Update context.
     cntx.view    = View(c.view_cluster)
     cntx.lib     = Lib(c.lib_mat)
-    cntx.project.load_stats()
     cntx.varidxs = cntx.cluster_vars
     cntx.rcp     = RCP(c.rcpxx)
+    cntx.stats   = Stats()
+    cntx.stats.add(Stat(c.stat_centile, cntx.opt_cluster_centiles[0]))
+    cntx.stats.add(Stat(c.stat_centile, cntx.opt_cluster_centiles[1]))
 
     # Assemble a string representing the combination of (sorted) variable codes.
     vars_str = ""
