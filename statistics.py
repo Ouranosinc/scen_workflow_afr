@@ -259,11 +259,11 @@ def calc_stats(
                                       c.cat_qqmap)[c.stat_mean]
 
         # Adjust values.
+        if (view.code == c.view_ts_bias) and varidx.is_var:
+            val_ref = ds_stats_ref[vi_name]
+        else:
+            val_ref = float(ds_stats_ref[vi_name].mean().values)
         for i in range(len(ds_stats)):
-            if (view.code == c.view_ts_bias) and varidx.is_var:
-                val_ref = ds_stats_ref[i][vi_name]
-            else:
-                val_ref = float(ds_stats_ref[vi_name].mean().values)
             ds_stats[i][vi_name] = ds_stats[i][vi_name] - val_ref
             ds_stats[i][vi_name][c.attrs_units] = units
 
