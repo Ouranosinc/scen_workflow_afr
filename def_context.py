@@ -827,7 +827,7 @@ class Context(def_context.Context):
                     self.opt_stat = ast.literal_eval(value)\
                         if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_stat_centiles":
-                    opt_stat_centiles = def_context.str_to_arr_1d(value, float)
+                    opt_stat_centiles = def_context.str_to_arr_1d(value, int)
                     if str(opt_stat_centiles).replace("['']", "") != "":
                         self.opt_stat_centiles = opt_stat_centiles
                         self.opt_stat_centiles.sort()
@@ -852,7 +852,7 @@ class Context(def_context.Context):
                 elif key == "opt_ts_bias":
                     self.opt_ts_bias = ast.literal_eval(value)
                 elif key == "opt_ts_centiles":
-                    opt_ts_centiles = def_context.str_to_arr_1d(value, float)
+                    opt_ts_centiles = def_context.str_to_arr_1d(value, int)
                     if str(opt_ts_centiles).replace("['']", "") == "":
                         self.opt_ts_centiles = opt_ts_centiles
                         self.opt_ts_centiles.sort()
@@ -873,7 +873,7 @@ class Context(def_context.Context):
                 elif key == "opt_map_clip":
                     self.opt_map_clip = ast.literal_eval(value)
                 elif key == "opt_map_centiles":
-                    opt_map_centiles = def_context.str_to_arr_1d(value, float)
+                    opt_map_centiles = def_context.str_to_arr_1d(value, int)
                     if str(opt_map_centiles).replace("['']", "") == "":
                         self.opt_map_centiles = opt_map_centiles
                         self.opt_map_centiles.sort()
@@ -913,7 +913,7 @@ class Context(def_context.Context):
                 elif key == "opt_cluster_variables":
                     self.opt_cluster_variables = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_cluster_centiles":
-                    opt_cluster_centiles = def_context.str_to_arr_1d(value, float)
+                    opt_cluster_centiles = def_context.str_to_arr_1d(value, int)
                     if str(opt_cluster_centiles).replace("['']", "") == "":
                         self.opt_cluster_centiles = opt_cluster_centiles
                         self.opt_cluster_centiles.sort()
