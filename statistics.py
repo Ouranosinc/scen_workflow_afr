@@ -233,6 +233,9 @@ def calc_stats(
                     if squeeze_coords:
                         ds_stats_y = ds_stats_y.mean(dim=utils.coord_names(ds_stats_y))
 
+            # Put units back in.
+            ds_stats_y[vi_name].attrs[c.attrs_units] = ds_ens[vi_name].attrs[c.attrs_units]
+
             # Record this result.
             ds_stats_y_l.append(ds_stats_y)
 
