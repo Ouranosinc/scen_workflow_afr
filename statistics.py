@@ -138,7 +138,7 @@ def calc_stats(
 
         # Open dataset.
         ds_i = fu.open_netcdf(p_sim_l[i])
-        units = c.attrs_units if c.attrs_units in ds_i[vi_name].attrs else 1
+        units = ds_i[vi_name].attrs[c.attrs_units] if c.attrs_units in ds_i[vi_name].attrs else ""
 
         # Aggregate to the annual frequency.
         if varidx.is_summable:
