@@ -204,9 +204,6 @@ class Context(def_context.Context):
         # Enable/disable additional traces.
         self.opt_trace = False
 
-        # Name of file holding bias adjustment results.
-        self.p_calib = "calib.csv"
-
         # Number of processes to be used for the analysis.
         self.n_proc = 1
 
@@ -263,115 +260,48 @@ class Context(def_context.Context):
         self.var_sim_excepts = []
 
         """
-        Bias adjustment and statistical downscaling
+        Bias adjustment and statistical downscaling (activated with 'opt_bias')
     
-        There are 3 calibration modes.
-        Note that a CSV file containing calibration parameters (corresponding to the variable 'p_calib') is generated
-        when using modes 2 and 3. This file will automatically be loaded the next time the script runs. In that 
-        situation, calibration could be disabled if previous values are still valid.
+        The CSV file containing bias adjustment parameters (corresponding to the variable 'opt_bias_fn') is generated
+        and updated during the adjustment. This file will automatically be loaded the next time the script runs.
     
-        Calibration mode #1: no calibration.
-        a. Set a value for each of the following variable:
-           nq_default       = ...
-           up_qmf_default   = ...
-           time_win_default = ...
-        b. Set the following options:
-           opt_calib      = False
-           opt_calib_auto = False
-        c. Run the script.
-    
-        Calibration mode #2: manual (default mode):
-        a. Run function 'scenarios.init_calib_params()' so that it generates a calibration file.
-        b. Set a list of values to each of the following parameters:
-           nq_calib       = [<value_i>, ..., <value_n>]
-           up_qmf_calib   = [<value_i>, ..., <value_n>]
-           time_win_calib = [<value_i>, ..., <value_n>]
-           bias_err_calib = [<value_i>, ..., <value_n>]
-        c. Set the following options:
-           opt_calib      = True
-           opt_calib_auto = False
-           opt_idx        = False
-        d. Run the script.
-           This will adjust bias for each combination of three parameter values.
-        e. Examine the plots that were generated under the following directory:
-           /fig/scen/calibration/
-           and select the parameter values that produce the best fit between simulations and observations.
-           There is one parameter value per simulation, per station, per variable.
-        f. Set values for the following parameters:
-           nq_default       = <value in cntx.nq_calib producing the best fit>
-           up_qmf_default   = <value in cntx.up_qmf_calib producing the best fit>
-           time_win_default = <value in cntx.time_win_calib producing the best fit>
-           bias_err_default = <value in cntx.bias_err_calib producing the best fit>
-        g. Set the following options:
-           opt_calib      = False
-           opt_calib_auto = False
-           opt_idx        = True
-        h. Run the script again.
-    
-        Calibration mode #3: automatic:
-        This mode will take much longer to run, but it will fit observations much better.
-        a. Set a list of values to each of the following parameters:
-           nq_calib       = [<value_i>, ..., <value_n>]
-           up_qmf_calib   = [<value_i>, ..., <value_n>]
-           time_win_calib = [<value_i>, ..., <value_n>]
-           bias_err_calib = [<value_i>, ..., <value_n>]
-        b. Set the following options:
-           opt_calib      = True
-           opt_calib_auto = True
-        c. Run the script.
-    
-        The parameter 'time_win' is the number of days before and after any given day (15 days before and after =
-        30 days). This needs to be adjusted as there is period of adjustment between cold period and monsoon. It's
-        possible that a very small precipitation amount be considered extreme. We need to limit correction factors.
+        'nq':       Number of quantiles.
+        'up_qmf:    Upper limit of the quantile mapping function.
+        'time_win': This is the number of days before and after any given day (15 days before + 15 days after =
+                    30 days). This needs to be adjusted as there is period of adjustment between cold period and
+                    monsoon. It's possible that a very small precipitation amount be considered extreme. We need to
+                    limit correction factors.
         """
 
         # Enable/disable bias adjustment.
-        self.opt_calib = True
+        self.opt_bias = True
 
-        # Enable/disable automatic determination of 'nq', 'up_qmf' and 'time_win' parameters.
-        self.opt_calib_auto = True
+        # Bias adjustment method (only one method is available).
+        self.opt_bias_meth = "quantile_mapping"
 
-        # Enable/disable bias adjustment.
-        self.opt_calib_bias = True
+        # Number of quantiles.
+        self.opt_bias_nq = 50
 
-        # Error quantification method (see the other options in def_constant.py).
-        self.opt_calib_bias_meth = "rrmse"
+        # Upper limit of quantile mapping function.
+        self.opt_bias_up_qmf = 3.0
 
-        # Enable/disable the calculation of qqmap.
-        self.opt_calib_qqmap = True
+        # Time window.
+        self.opt_bias_time_win = 30
 
         # Slight data perturbation: list of [variable, value]. "*" applies to all variables.
-        self.opt_calib_perturb = []
+        self.opt_bias_perturb = []
 
-        # Quantiles to show in the calibration figure.
-        self.opt_calib_quantiles = [1.00, 0.99, 0.90, 0.50, 0.10, 0.01, 0.00]
+        # Centiles to show in the bias adjustment figure.
+        self.opt_bias_centiles = [100, 99, 90, 50, 10, 1, 0]
 
-        # Default 'nq' value.
-        self.nq_default = 50
+        # Error quantification method (see the other options in def_constant.py).
+        self.opt_bias_err_meth = "rrmse"
 
-        # Default 'up_qmf' value.
-        self.up_qmf_default = 3.0
+        # Name of file holding bias adjustment statistics.
+        self.opt_bias_fn = "bias.csv"
 
-        # Default 'time_win' value.
-        self.time_win_default = 30
-
-        # Default 'bias_err' value.
-        self.bias_err_default = -1
-
-        # List of 'nq' values to test during bias adjustment.
-        self.nq_calib = [self.nq_default]
-
-        # List of 'up_wmf' values to test during bias adjustment.
-        self.up_qmf_calib = [self.up_qmf_default]
-
-        # List of 'time_win' values to test during bias adjustment.
-        self.time_win_calib = [self.time_win_default]
-
-        # List of 'bias_err' values to test during bias adjustment.
-        self.bias_err_calib = [self.bias_err_default]
-
-        # Container for calibration parameters (pandas dataframe).
-        self.df_calib = None
+        # Container for bias adjustment parameters (pd.DataFrame).
+        self.opt_bias_df = None
 
         """
         Indices
@@ -634,8 +564,8 @@ class Context(def_context.Context):
         # Enable/disable the calculation of statistics for [scenarios, indices].
         self.opt_stat = [True] * 2
 
-        # Quantiles.
-        self.opt_stat_quantiles = [1.00, 0.90, 0.50, 0.10, 0.00]
+        # Centiles.
+        self.opt_stat_centiles = [0, 1, 10, 50, 90, 99, 100]
 
         # Enable/disable clipping according to 'p_bounds'.
         self.opt_stat_clip = False
@@ -665,6 +595,9 @@ class Context(def_context.Context):
         # Enable/disable generation of bias plots for [scenarios].
         self.opt_ts_bias = True
 
+        # Centiles for which a time series is required.
+        self.opt_ts_centiles = [10, 90]
+
         # Format of time series.
         self.opt_ts_format = ["png", "csv"]
 
@@ -677,8 +610,8 @@ class Context(def_context.Context):
         # Tells whether map clipping should be done using 'p_bounds'.
         self.opt_map_clip = False
 
-        # Quantiles for which a map is required.
-        self.opt_map_quantiles = []
+        # Centiles for which a map is required.
+        self.opt_map_centiles = [10, 90]
 
         # Format of maps.
         self.opt_map_format = ["png", "csv"]
@@ -701,6 +634,9 @@ class Context(def_context.Context):
         # Variables used for clustering.
         self.opt_cluster_variables = []
         self.opt_cluster_vars = None
+
+        # Centiles required to produce a cluster scatter plot (if a single variable is selected).
+        self.opt_cluster_centiles = [10, 50, 90]
 
         # Format of cluster plots.
         self.opt_cluster_format = ["png", "csv"]
@@ -856,29 +792,20 @@ class Context(def_context.Context):
                     self.var_sim_excepts = def_context.str_to_arr_1d(value, str)
 
                 # Bias adjustment:
-                elif key == "opt_calib":
-                    self.opt_calib = ast.literal_eval(value)
-                elif key == "opt_calib_auto":
-                    self.opt_calib_auto = ast.literal_eval(value)
-                elif key == "opt_calib_bias":
-                    self.opt_calib_bias = ast.literal_eval(value)
-                elif key == "opt_calib_bias_meth":
-                    self.opt_calib_bias_meth = ast.literal_eval(value)
-                elif key == "opt_calib_qqmap":
-                    self.opt_calib_qqmap = ast.literal_eval(value)
-                elif key == "opt_calib_perturb":
-                    self.opt_calib_perturb = def_context.str_to_arr_2d(value, float)
-                elif key == "opt_calib_quantiles":
-                    self.opt_calib_quantiles = def_context.str_to_arr_1d(value, float)
-                elif key == "nq_default":
-                    self.nq_default = int(value)
-                    self.nq_calib = [self.nq_default]
-                elif key == "up_qmf_default":
-                    self.up_qmf_default = float(value)
-                    self.up_qmf_calib = [self.up_qmf_default]
-                elif key == "time_win_default":
-                    self.time_win_default = int(value)
-                    self.time_win_calib = [self.time_win_default]
+                elif key == "opt_bias":
+                    self.opt_bias = ast.literal_eval(value)
+                elif key == "opt_bias_meth":
+                    self.opt_bias_meth = ast.literal_eval(value)
+                elif key == "opt_bias_nq":
+                    self.opt_bias_nq = int(value)
+                elif key == "opt_bias_up_qmf":
+                    self.opt_bias_up_qmf = float(value)
+                elif key == "opt_bias_time_win":
+                    self.opt_bias_time_win = int(value)
+                elif key == "opt_bias_perturb":
+                    self.opt_bias_perturb = def_context.str_to_arr_2d(value, float)
+                elif key == "opt_bias_err_meth":
+                    self.opt_bias_err_meth = ast.literal_eval(value)
 
                 # Climate indices.
                 elif key == "opt_idx":
@@ -899,8 +826,11 @@ class Context(def_context.Context):
                 elif key == "opt_stat":
                     self.opt_stat = ast.literal_eval(value)\
                         if ("," not in value) else def_context.str_to_arr_1d(value, bool)
-                elif key == "opt_stat_quantiles":
-                    self.opt_stat_quantiles = def_context.str_to_arr_1d(value, float)
+                elif key == "opt_stat_centiles":
+                    opt_stat_centiles = def_context.str_to_arr_1d(value, float)
+                    if str(opt_stat_centiles).replace("['']", "") != "":
+                        self.opt_stat_centiles = opt_stat_centiles
+                        self.opt_stat_centiles.sort()
                 elif key == "opt_stat_clip":
                     self.opt_stat_clip = ast.literal_eval(value)
                 elif key == "export_nc_to_csv":
@@ -921,6 +851,11 @@ class Context(def_context.Context):
                         if ("," not in value) else def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_ts_bias":
                     self.opt_ts_bias = ast.literal_eval(value)
+                elif key == "opt_ts_centiles":
+                    opt_ts_centiles = def_context.str_to_arr_1d(value, float)
+                    if str(opt_ts_centiles).replace("['']", "") == "":
+                        self.opt_ts_centiles = opt_ts_centiles
+                        self.opt_ts_centiles.sort()
                 elif key == "opt_ts_format":
                     self.opt_ts_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map":
@@ -937,10 +872,11 @@ class Context(def_context.Context):
                             self.opt_map_delta = def_context.str_to_arr_1d(value, bool)
                 elif key == "opt_map_clip":
                     self.opt_map_clip = ast.literal_eval(value)
-                elif key == "opt_map_quantiles":
-                    self.opt_map_quantiles = def_context.str_to_arr_1d(value, float)
-                    if str(self.opt_map_quantiles).replace("['']", "") == "":
-                        self.opt_map_quantiles = None
+                elif key == "opt_map_centiles":
+                    opt_map_centiles = def_context.str_to_arr_1d(value, float)
+                    if str(opt_map_centiles).replace("['']", "") == "":
+                        self.opt_map_centiles = opt_map_centiles
+                        self.opt_map_centiles.sort()
                 elif key == "opt_map_format":
                     self.opt_map_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_locations":
@@ -976,6 +912,11 @@ class Context(def_context.Context):
                     self.opt_cluster = ast.literal_eval(value)
                 elif key == "opt_cluster_variables":
                     self.opt_cluster_variables = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_cluster_centiles":
+                    opt_cluster_centiles = def_context.str_to_arr_1d(value, float)
+                    if str(opt_cluster_centiles).replace("['']", "") == "":
+                        self.opt_cluster_centiles = opt_cluster_centiles
+                        self.opt_cluster_centiles.sort()
                 elif key == "opt_cluster_format":
                     self.opt_cluster_format = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_cluster_col":
@@ -1029,8 +970,8 @@ class Context(def_context.Context):
             str(dt.hour).zfill(2) + str(dt.minute).zfill(2) + str(dt.second).zfill(2)
         self.p_log = self.d_res + "log" + self.sep + dt_str + ".log"
 
-        # Calibration file.
-        self.p_calib = self.d_res + self.p_calib
+        # Bias adjustment file name.
+        self.opt_bias_fn = self.d_res + self.opt_bias_fn
 
     def d_stn(
         self,

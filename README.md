@@ -8,7 +8,7 @@ This code produces climate scenarios using CORDEX NetCDF files and observations.
 - bias adjustment and statistical downscaling when producing climate scenarios (with error calculation) based on
   at-a-station observations or reanalysed data (ERA5 and ERA5-Land datasets are supported);
 - calculation of climate indices;
-- calculation of statistics related to climate scenarios and indices (min., max., mean or sum, quantiles);
+- calculation of statistics related to climate scenarios and indices (min., max., mean or sum, centiles);
 - generation of time series;
 - generation of maps;
 - multiprocesssing (per simulation).
@@ -32,7 +32,7 @@ At the moment, there is one 'sample' climate indicator.
 ### v1.0.1
 
 Implemented features:
-- calculation of statistics for climate scenarios to include user-defined quantiles.
+- calculation of statistics for climate scenarios to include user-defined centiles.
 
 ### v1.0.2
 
@@ -106,9 +106,9 @@ Bugs fixed:
 ### v1.3.0
 
 Implemented features:
-- added the option 'opt_map_quantiles' to generate maps for specific percentiles, in addition of the mean;
-- added the option 'opt_calib_quantiles' to specify quantiles that are specific to calibration plots;
-- renamed the option 'stat_quantiles' to 'opt_stat_quantiles';
+- added the option 'opt_map_centiles' to generate maps for specific percentiles, in addition of the mean;
+- added the option 'opt_bias_centiles' to specify centiles that are specific to bias adjustment plots;
+- renamed the option 'stat_centiles' to 'opt_stat_centiles';
 - added the option 'opt_map_delta' to enable/disable the generation of delta heat maps;
 - made the 4th argument of index 'drydurtot' (minimum daily precipitation amount to consider) optional when the first
   argument is 'tot' (total mode);
@@ -131,23 +131,23 @@ Implemented features:
 ### v1.3.3
 
 Implemented features:
-- adding missing lines in calib.csv file (containing bias adjustment error) automatically when a new simulation,
+- adding missing lines in bias.csv file (containing bias adjustment error) automatically when a new simulation,
   station, or variable is added or if bias adjustment is performed with new nq, up_qmf and time_win parameters;
-  the error is now calculated in scalar mode to avoid a competition between processes when updating calib.csv;
-- changed the location of calib.csv so that there is one file per region.
+  the error is now calculated in scalar mode to avoid a competition between processes when updating bias.csv;
+- changed the location of bias.csv so that there is one file per region.
 
 Bugs fixed:
 - fixed a typo in the name of CORDEX variables 'evspsbl' and 'evspsblpot';
 - ensured compatibility of script with CORDEX variable 'evspsbl';
 - fixed a bug that was happening when calculating statistics for scenarios (values must not be averaged over years);
-- prevent duplicates in calib.csv.
+- prevent duplicates in bias.csv.
 
 ### v1.3.4
 
 Implemented features:
 - created a rain season group of indices comprising rainstart, rainend, raindur and rainqty (now calculated at once);
 - increased the calculation speed of rain season indices;
-- now exporting calibration and post-process plots if 'csv' in 'opt_diagnostic_format' (only mean values);
+- now exporting bias adjustment and post-process plots if 'csv' in 'opt_diagnostic_format' (only mean values);
 - standardized variable names (within the code).
 
 Bugs fixed:
@@ -192,7 +192,8 @@ Implemented features:
 - data shown on plots always saved as .csv files; an attempt is made to load these files to regenerate plots;
 - improved aesthetics of visual elements (using matplotlib, hvplot, altair and plotly, depending on the context);
 - now saving NetCDF files with the same coordinate names ('longitude' and 'latitude') and eliminating unnecssary
-  variables to reduce the volume of files generated during the analysis.
+  variables to reduce the volume of files generated during the analysis;
+- removed the option to optimize the selection of quantile mapping parameters.
 
 ## Contributing
 

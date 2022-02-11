@@ -38,7 +38,7 @@ class Constant(const.Constant):
     # Views.
     cat_stat            = "stat"            # Statistics.
     cat_fig             = "fig"             # Figures.
-    cat_fig_calibration = "calibration"     # Figures (calibration).
+    cat_fig_bias        = "bias"            # Figures (bias).
     cat_fig_postprocess = "postprocess"     # Figures (postprocess).
     cat_fig_workflow    = "workflow"        # Figures (workflow).
 
@@ -70,10 +70,10 @@ class Constant(const.Constant):
     kind_mult           = "*"               # Multiplicative.
 
     # Bias adjustment error.
-    opt_calib_bias_meth_r2    = "r2"        # Coefficient of determination.
-    opt_calib_bias_meth_mae   = "mae"       # Mean absolute error.
-    opt_calib_bias_meth_rmse  = "rmse"      # Root mean square error.
-    opt_calib_bias_meth_rrmse = "rrmse"     # Relative root mean square error.
+    opt_bias_err_meth_r2    = "r2"        # Coefficient of determination.
+    opt_bias_err_meth_mae   = "mae"       # Mean absolute error.
+    opt_bias_err_meth_rmse  = "rmse"      # Root mean square error.
+    opt_bias_err_meth_rrmse = "rrmse"     # Relative root mean square error.
 
     # Dataset dimensions.
     dim_lon             = "lon"

@@ -349,20 +349,20 @@ def gen_single(
            ((idx.name in [c.i_wg_days_above, c.i_wx_days_above]) and (i == 0)):
 
             if "p" in str(vi_param):
-                vi_param = float(vi_param.replace("p", "")) / 100.0
+                vi_param = float(vi_param.replace("p", ""))
                 if rcp.code == c.ref:
                     # Calculate percentile.
                     if (idx.name in [c.i_tx90p, c.i_hot_spell_frequency, c.i_hot_spell_max_length, c.i_wsdi]) or\
                        (i == 1):
-                        vi_param = ds_vi_l[i][c.v_tasmax].quantile(vi_param).values.ravel()[0]
+                        vi_param = ds_vi_l[i][c.v_tasmax].quantile(float(vi_param) / 100.0).values.ravel()[0]
                     elif idx.name in [c.i_heat_wave_max_length, c.i_heat_wave_total_length]:
-                        vi_param = ds_vi_l[i][c.v_tasmin].quantile(vi_param).values.ravel()[0]
+                        vi_param = ds_vi_l[i][c.v_tasmin].quantile(float(vi_param) / 100.0).values.ravel()[0]
                     elif idx.name == c.i_prcptot:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=FutureWarning)
                             da_i = ds_vi_l[i][c.v_pr].resample(time=c.freq_YS).sum(dim=c.dim_time)
                         dims = utils.coord_names(ds_vi_l[i])
-                        vi_param = da_i.mean(dim=dims).quantile(vi_param).values.ravel()[0] * c.spd
+                        vi_param = da_i.mean(dim=dims).quantile(float(vi_param) / 100.0).values.ravel()[0] * c.spd
                     elif idx.name in [c.i_wg_days_above, c.i_wx_days_above]:
                         if idx.name == c.i_wg_days_above:
                             da_uas = ds_vi_l[0][c.v_uas]
@@ -370,7 +370,7 @@ def gen_single(
                             da_vv, da_dd = indices.uas_vas_2_sfcwind(da_uas, da_vas)
                         else:
                             da_vv = ds_vi_l[0][c.v_sfcwindmax]
-                        vi_param = da_vv.quantile(vi_param).values.ravel()[0]
+                        vi_param = da_vv.quantile(float(vi_param) / 100.0).values.ravel()[0]
                     # Round value and save it.
                     vi_param = float(round(vi_param, 2))
                     cntx.idxs.params[cntx.idxs.name_l.index(idx.name)][i] = vi_param
@@ -856,9 +856,9 @@ def gen_single(
         da_idx = ds_idx.mean(dim=[c.dim_longitude, c.dim_latitude])[idx.name]
         param_pr = params_str[0]
         if "p" in str(param_pr):
-            param_pr = float(param_pr.replace("p", "")) / 100.0
+            param_pr = float(param_pr.replace("p", ""))
             cntx.idxs.params[cntx.idx.code_l.index(idx.code)][0] = \
-                float(round(da_idx.quantile(param_pr).values.ravel()[0], 2))
+                float(round(da_idx.quantile(float(param_pr) / 100.0).values.ravel()[0], 2))
 
     if cntx.n_proc > 1:
         fu.log("Work done!", True)

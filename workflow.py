@@ -134,7 +134,7 @@ def main():
             fu.clean_netcdf(cntx.d_idx(idx.code))
 
     # Initialization.
-    scenarios.init_calib_params()
+    scenarios.init_bias_params()
 
     # Launch units tests.
     if cntx.opt_test:

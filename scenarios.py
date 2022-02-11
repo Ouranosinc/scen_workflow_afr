@@ -39,9 +39,14 @@ from quantile_mapping import train, predict
 
 # Dashboard libraries.
 sys.path.append("dashboard")
+from dashboard.def_delta import Delta
+from dashboard.def_hor import Hor
+from dashboard.def_lib import Lib
 from dashboard.def_rcp import RCP
+from dashboard.def_sim import Sim
 from dashboard.def_stat import Stat
 from dashboard.def_varidx import VarIdx
+from dashboard.def_view import View
 
 
 def load_observations(
@@ -680,10 +685,10 @@ def perturbate(
 
     # Get perturbation value.
     d_val = 1e-12
-    if cntx.opt_calib_perturb is not None:
-        for i in range(len(cntx.opt_calib_perturb)):
-            if var.name == cntx.opt_calib_perturb[i][0]:
-                d_val = float(cntx.opt_calib_perturb[i][1])
+    if cntx.opt_bias_perturb is not None:
+        for i in range(len(cntx.opt_bias_perturb)):
+            if var.name == cntx.opt_bias_perturb[i][0]:
+                d_val = float(cntx.opt_bias_perturb[i][1])
                 break
 
     # Data array has a single dimension.
@@ -1015,11 +1020,11 @@ def postprocess(
         if cntx.opt_diagnostic:
 
             # Generate summary plot.
-            plot.plot_calib(da_stn_xy, da_obs_xy, da_sim_xy, da_sim_adj_xy, da_sim_adj_ref_xy, da_qmf_xy,
-                            var, title, p_fig)
+            plot.plot_bias(da_stn_xy, da_obs_xy, da_sim_xy, da_sim_adj_xy, da_sim_adj_ref_xy, da_qmf_xy,
+                           var, title, p_fig)
 
             # Generate time series only.
-            plot.plot_calib_ts(da_stn_xy, da_sim_xy, da_sim_adj_xy, var, title, p_ts_fig)
+            plot.plot_bias_ts(da_stn_xy, da_sim_xy, da_sim_adj_xy, var, title, p_ts_fig)
 
     return ds_sim_adj if (p_fig == "") else None
 
@@ -1066,140 +1071,120 @@ def bias_adj(
         if (sim_name != "") and (sim_name != sim_name_i):
             continue
 
-        # Best parameter set.
-        bias_err_best = -1
+        # NetCDF files.
+        p_stn        = cntx.p_stn(var.name, stn)
+        p_regrid     = p_regrid_l[i]
+        p_regrid_ref = p_regrid.replace(c.f_ext_nc, "_ref_4qqmap" + c.f_ext_nc)
+        p_regrid_fut = p_regrid.replace(c.f_ext_nc, "_4qqmap" + c.f_ext_nc)
+        p_qqmap      = p_regrid.replace(c.cat_regrid, c.cat_qqmap)
+        p_qmf        = p_regrid.replace(c.cat_regrid, c.cat_qmf)
 
-        # Loop through combinations of nq values, up_qmf and time_win values.
-        for nq in cntx.nq_calib:
-            for up_qmf in cntx.up_qmf_calib:
-                for time_win in cntx.time_win_calib:
+        # Verify if required files exist.
+        msg = "File missing: "
+        if ((not os.path.exists(p_stn)) or (not os.path.exists(p_regrid_ref)) or
+            (not os.path.exists(p_regrid_fut))) and\
+           (not cntx.opt_force_overwrite):
+            if not(os.path.exists(p_stn)):
+                fu.log(msg + p_stn, True)
+            if not(os.path.exists(p_regrid_ref)):
+                fu.log(msg + p_regrid_ref, True)
+            if not(os.path.exists(p_regrid_fut)):
+                fu.log(msg + p_regrid_fut, True)
+            continue
 
-                    # NetCDF files.
-                    p_stn        = cntx.p_stn(var.name, stn)
-                    p_regrid     = p_regrid_l[i]
-                    p_regrid_ref = p_regrid.replace(c.f_ext_nc, "_ref_4qqmap" + c.f_ext_nc)
-                    p_regrid_fut = p_regrid.replace(c.f_ext_nc, "_4qqmap" + c.f_ext_nc)
+        # Load NetCDF (station), drop February 29th, sort/rename dimensions, and select reference period.
+        ds_stn = fu.open_netcdf(p_stn)
+        ds_stn = utils.standardize_netcdf(ds_stn, vi_name=var.name)
+        ds_stn = utils.remove_feb29(ds_stn)
+        ds_stn = utils.sel_period(ds_stn, cntx.per_ref)
 
-                    # If there is a single combination of calibration parameters, NetCDF files can be saved, so that
-                    # they don't have to be created during post-process.
-                    p_qqmap = ""
-                    p_qmf   = ""
-                    if (len(cntx.nq_calib) == 1) and (len(cntx.up_qmf_calib) == 1) and (len(cntx.time_win_calib) == 1):
-                        p_qqmap = p_regrid.replace(c.cat_regrid, c.cat_qqmap)
-                        p_qmf   = p_regrid.replace(c.cat_regrid, c.cat_qmf)
+        # Path of CSV and PNG files (large plot).
+        fn_fig = var.name + "_" + sim_name_i + "_" + c.cat_fig_bias + c.f_ext_png
+        p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_bias, var.name) + fn_fig
+        p_csv = p_fig.replace(cntx.sep + var.name + cntx.sep,
+                              cntx.sep + var.name + "_" + c.f_csv + cntx.sep).\
+            replace(c.f_ext_png, c.f_ext_csv)
 
-                    # Verify if required files exist.
-                    msg = "File missing: "
-                    if ((not os.path.exists(p_stn)) or (not os.path.exists(p_regrid_ref)) or
-                        (not os.path.exists(p_regrid_fut))) and\
-                       (not cntx.opt_force_overwrite):
-                        if not(os.path.exists(p_stn)):
-                            fu.log(msg + p_stn, True)
-                        if not(os.path.exists(p_regrid_ref)):
-                            fu.log(msg + p_regrid_ref, True)
-                        if not(os.path.exists(p_regrid_fut)):
-                            fu.log(msg + p_regrid_fut, True)
-                        continue
+        # Path of CSV and PNG files (time series).
+        p_ts_fig = p_fig.replace(c.f_ext_png, "_ts" + c.f_ext_png)
+        p_ts_csv = p_csv.replace(c.f_ext_csv, "_ts" + c.f_ext_csv)
 
-                    # Load NetCDF (station), drop February 29th, sort/rename dimensions, and select reference period.
-                    ds_stn = fu.open_netcdf(p_stn)
-                    ds_stn = utils.standardize_netcdf(ds_stn, vi_name=var.name)
-                    ds_stn = utils.remove_feb29(ds_stn)
-                    ds_stn = utils.sel_period(ds_stn, cntx.per_ref)
+        # Verify if all CSV files related to the large plot exist.
+        p_csv_exists = True
+        stats_l = [c.stat_mean] + [c.stat_centile] * len(cntx.opt_bias_centiles)
+        centiles_l = [-1] + cntx.opt_bias_centiles
+        for j in range(len(stats_l)):
 
-                    # Title.
-                    comb = "nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                    title = sim_name_i + "_" + comb
+            # Create a statistic instance.
+            stat = Stat(stats_l[j], centiles_l[j])
+            if stat.centile == 0:
+                stat = Stat(c.stat_min)
+            elif stat.centile == 1:
+                stat = Stat(c.stat_max)
 
-                    # Path of CSV and PNG files (large plot).
-                    fn_fig = var.name + "_" + sim_name_i + "_" + c.cat_fig_calibration + c.f_ext_png
-                    p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_calibration, var.name) + fn_fig
-                    p_csv = p_fig.replace(cntx.sep + var.name + cntx.sep,
-                                          cntx.sep + var.name + "_" + c.f_csv + cntx.sep).\
-                        replace(c.f_ext_png, c.f_ext_csv)
+            # Path of CSV file related to the statistic.
+            if stat.code in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
+                suffix = stat.code
+            else:
+                suffix = stat.centile_as_str
 
-                    # Path of CSV and PNG files (time series).
-                    p_ts_fig = p_fig.replace(c.f_ext_png, "_ts" + c.f_ext_png)
-                    p_ts_csv = p_csv.replace(c.f_ext_csv, "_ts" + c.f_ext_csv)
+            # Verify if this file exists
+            p_csv_i = p_csv.replace(c.f_ext_csv, "_" + suffix + c.f_ext_csv)
+            if not os.path.exists(p_csv_i):
+                p_csv_exists = False
+                break
 
-                    # Verify if all CSV files related to the large plot exist.
-                    p_csv_exists = True
-                    stats_l = [c.stat_mean] + [c.stat_quantile] * len(cntx.opt_calib_quantiles)
-                    quantiles_l = [-1] + cntx.opt_calib_quantiles
-                    for j in range(len(stats_l)):
+        # Bias adjustment ----------------------------------------------------------------------------------
 
-                        # Create a statistic instance.
-                        stat = Stat(stats_l[j], quantiles_l[j])
-                        if stat.quantile == 0:
-                            stat = Stat(c.stat_min)
-                        elif stat.quantile == 1:
-                            stat = Stat(c.stat_max)
+        if not calc_err:
 
-                        # Path of CSV file related to the statistic.
-                        if stat.code in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
-                            suffix = stat.code
-                        else:
-                            suffix = "q" + str(round(stat.quantile * 100)).zfill(2)
+            if (not os.path.exists(p_fig)) or \
+               ((not p_csv_exists) and (c.f_csv in cntx.opt_diagnostic_format)) or \
+               (not os.path.exists(p_ts_fig)) or \
+               ((not os.path.exists(p_ts_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or \
+               (not os.path.exists(p_qqmap)) or \
+               (not os.path.exists(p_qmf)) or \
+               cntx.opt_force_overwrite:
 
-                        # Verify if this file exists
-                        p_csv_i = p_csv.replace(c.f_ext_csv, "_" + suffix + c.f_ext_csv)
-                        if not os.path.exists(p_csv_i):
-                            p_csv_exists = False
-                            break
+                # Calculate QQ and generate bias adjustment plots.
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    postprocess(var, cntx.opt_bias_nq, cntx.opt_bias_up_qmf, cntx.opt_bias_time_win,
+                                ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap, p_qmf, sim_name_i, p_fig,
+                                p_ts_fig)
+            else:
+                fu.log(msg + " (not required)", True)
 
-                    # Bias adjustment ----------------------------------------------------------------------------------
+        # Bias error ---------------------------------------------------------------------------------------
 
-                    if not calc_err:
+        elif os.path.exists(p_qqmap):
 
-                        msg = "nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + ", time_win=" + str(time_win)
-                        if (not os.path.exists(p_fig)) or \
-                           ((not p_csv_exists) and (c.f_csv in cntx.opt_diagnostic_format)) or \
-                           (not os.path.exists(p_ts_fig)) or \
-                           ((not os.path.exists(p_ts_csv)) and (c.f_csv in cntx.opt_diagnostic_format)) or \
-                           (not os.path.exists(p_qqmap)) or \
-                           (not os.path.exists(p_qmf)) or \
-                           cntx.opt_force_overwrite:
-                            fu.log(msg, True)
+            # Extract the reference period from the adjusted simulation.
+            ds_qqmap_ref = fu.open_netcdf(p_qqmap)
+            ds_qqmap_ref = utils.standardize_netcdf(ds_qqmap_ref, vi_name=var.name)
+            ds_qqmap_ref = utils.remove_feb29(ds_qqmap_ref)
+            ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cntx.per_ref)
 
-                            # Calculate QQ and generate calibration plots.
-                            with warnings.catch_warnings():
-                                warnings.simplefilter("ignore", category=RuntimeWarning)
-                                postprocess(var, nq, up_qmf, time_win, ds_stn, p_regrid_ref, p_regrid_fut, p_qqmap,
-                                            p_qmf, title, p_fig, p_ts_fig)
-                        else:
-                            fu.log(msg + " (not required)", True)
+            # Calculate the error between observations and simulation for the reference period.
+            bias_err_current = float(round(utils.calc_error(ds_stn[var.name], ds_qqmap_ref[var.name]), 4))
 
-                    # Bias error ---------------------------------------------------------------------------------------
-
-                    elif os.path.exists(p_qqmap):
-
-                        # Extract the reference period from the adjusted simulation.
-                        ds_qqmap_ref = fu.open_netcdf(p_qqmap)
-                        ds_qqmap_ref = utils.standardize_netcdf(ds_qqmap_ref, vi_name=var.name)
-                        ds_qqmap_ref = utils.remove_feb29(ds_qqmap_ref)
-                        ds_qqmap_ref = utils.sel_period(ds_qqmap_ref, cntx.per_ref)
-
-                        # Calculate the error between observations and simulation for the reference period.
-                        bias_err_current = float(round(utils.calc_error(ds_stn[var.name], ds_qqmap_ref[var.name]), 4))
-
-                        # Set calibration parameters (nq, up_qmf and time_win) and calculate error according to the
-                        # selected method.
-                        if (not cntx.opt_calib_auto) or\
-                           (cntx.opt_calib_auto and ((bias_err_best < 0) or (bias_err_current < bias_err_best))):
-                            col_names = ["nq", "up_qmf", "time_win", "bias_err"]
-                            col_values = [float(nq), up_qmf, float(time_win), bias_err_current]
-                            calib_row = (cntx.df_calib["sim_name"] == sim_name) &\
-                                        (cntx.df_calib["stn"] == stn) &\
-                                        (cntx.df_calib["var"] == var.name)
-                            cntx.df_calib.loc[calib_row, col_names] = col_values
-                            fu.save_csv(cntx.df_calib, cntx.p_calib)
+            # Set bias adjustment parameters (nq, up_qmf and time_win) and calculate error according to the
+            # selected method.
+            col_names = ["nq", "up_qmf", "time_win", "bias_err"]
+            col_values = [float(cntx.opt_bias_nq), cntx.opt_bias_up_qmf, float(cntx.opt_bias_time_win),
+                          bias_err_current]
+            row = (cntx.opt_bias_df["sim_name"] == sim_name) &\
+                  (cntx.opt_bias_df["stn"] == stn) &\
+                  (cntx.opt_bias_df["var"] == var.name)
+            cntx.opt_bias_df.loc[row, col_names] = col_values
+            fu.save_csv(cntx.opt_bias_df, cntx.opt_bias_fn)
 
 
-def init_calib_params():
+def init_bias_params():
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Initialize calibration parameters.
+    Initialize bias adjustment parameters.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -1220,18 +1205,18 @@ def init_calib_params():
             "bias_err": _bias_err_l}
         return pd.DataFrame(dict_pd)
 
-    # Attempt loading a calibration file.
-    if os.path.exists(cntx.p_calib):
-        cntx.df_calib = pd.read_csv(cntx.p_calib)
-        if len(cntx.df_calib) > 0:
-            sim_name_l = list(cntx.df_calib["sim_name"])
-            stn_l      = list(cntx.df_calib["stn"])
-            vi_code_l  = list(cntx.df_calib["var"])
-            nq_l       = list(cntx.df_calib["nq"])
-            up_qmf_l   = list(cntx.df_calib["up_qmf"])
-            time_win_l = list(cntx.df_calib["time_win"])
-            bias_err_l = list(cntx.df_calib["bias_err"])
-        fu.log("Calibration file loaded.", True)
+    # Attempt loading the bias adjustment file.
+    if os.path.exists(cntx.opt_bias_fn):
+        cntx.opt_bias_df = pd.read_csv(cntx.opt_bias_fn)
+        if len(cntx.opt_bias_df) > 0:
+            sim_name_l = list(cntx.opt_bias_df["sim_name"])
+            stn_l      = list(cntx.opt_bias_df["stn"])
+            vi_code_l  = list(cntx.opt_bias_df["var"])
+            nq_l       = list(cntx.opt_bias_df["nq"])
+            up_qmf_l   = list(cntx.opt_bias_df["up_qmf"])
+            time_win_l = list(cntx.opt_bias_df["time_win"])
+            bias_err_l = list(cntx.opt_bias_df["bias_err"])
+        fu.log("Bias adjustment file loaded.", True)
 
     # List CORDEX files.
     list_cordex = fu.list_cordex(cntx.d_proj, cntx.rcps.code_l)
@@ -1252,36 +1237,37 @@ def init_calib_params():
                 for var in cntx.vars.items:
 
                     # Add the combination if it does not already exist.
-                    if (cntx.df_calib is None) or\
-                       (len(cntx.df_calib.loc[(cntx.df_calib["sim_name"] == sim_name) &
-                                              (cntx.df_calib["stn"] == stn) &
-                                              (cntx.df_calib["var"] == var.name)]) == 0):
+                    if (cntx.opt_bias_df is None) or\
+                       (len(cntx.opt_bias_df.loc[(cntx.opt_bias_df["sim_name"] == sim_name) &
+                                                 (cntx.opt_bias_df["stn"] == stn) &
+                                                 (cntx.opt_bias_df["var"] == var.name)]) == 0):
                         sim_name_l.append(sim_name)
                         stn_l.append(stn)
                         vi_code_l.append(var.name)
-                        nq_l.append(cntx.nq_default)
-                        up_qmf_l.append(cntx.up_qmf_default)
-                        time_win_l.append(cntx.time_win_default)
-                        bias_err_l.append(cntx.bias_err_default)
+                        nq_l.append(cntx.opt_bias_nq)
+                        up_qmf_l.append(cntx.opt_bias_up_qmf)
+                        time_win_l.append(cntx.opt_bias_time_win)
+                        bias_err_l.append(-1)
 
                         # Update dataframe.
-                        cntx.df_calib = build_df(sim_name_l, stn_l, vi_code_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
+                        cntx.opt_bias_df =\
+                            build_df(sim_name_l, stn_l, vi_code_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
 
     # Build dataframe.
-    cntx.df_calib = build_df(sim_name_l, stn_l, vi_code_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
+    cntx.opt_bias_df = build_df(sim_name_l, stn_l, vi_code_l, nq_l, up_qmf_l, time_win_l, bias_err_l)
 
-    # Save calibration parameters to a CSV file.
-    if cntx.p_calib != "":
+    # Save bias adjustment statistics to a CSV file.
+    if cntx.opt_bias_fn != "":
 
         # Create directory if it does not already exist.
-        d = os.path.dirname(cntx.p_calib)
+        d = os.path.dirname(cntx.opt_bias_fn)
         if not (os.path.isdir(d)):
             os.makedirs(d)
 
         # Save file.
-        fu.save_csv(cntx.df_calib, cntx.p_calib)
-        if os.path.exists(cntx.p_calib):
-            fu.log("Calibration file created or updated.", True)
+        fu.save_csv(cntx.opt_bias_df, cntx.opt_bias_fn)
+        if os.path.exists(cntx.opt_bias_fn):
+            fu.log("Bias adjustment file created or updated.", True)
 
 
 def gen():
@@ -1358,7 +1344,7 @@ def gen():
             d_regrid          = cntx.d_scen(c.cat_regrid, var.name)
             d_qqmap           = cntx.d_scen(c.cat_qqmap, var.name)
             d_qmf             = cntx.d_scen(c.cat_qmf, var.name)
-            d_fig_calibration = cntx.d_fig(c.cat_scen, c.cat_fig_calibration, var.name)
+            d_fig_bias        = cntx.d_fig(c.cat_scen, c.cat_fig_bias, var.name)
             d_fig_postprocess = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var.name)
             d_fig_workflow    = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var.name)
 
@@ -1381,8 +1367,8 @@ def gen():
                 os.makedirs(d_qmf)
             if not (os.path.isdir(d_qqmap)):
                 os.makedirs(d_qqmap)
-            if not (os.path.isdir(d_fig_calibration)):
-                os.makedirs(d_fig_calibration)
+            if not (os.path.isdir(d_fig_bias)):
+                os.makedirs(d_fig_bias)
             if not (os.path.isdir(d_fig_postprocess)):
                 os.makedirs(d_fig_postprocess)
             if not (os.path.isdir(d_fig_workflow)):
@@ -1601,29 +1587,22 @@ def gen_single(
     # Step #5a: Calculate adjustment factors.
     fu.log("-")
     msg = "Step #5a  Calculating adjustment factors"
-    if cntx.opt_calib:
+    if cntx.opt_bias:
         fu.log(msg)
         bias_adj(stn, var, sim_name)
     else:
         fu.log(msg + " (not required)")
-    df_sel = cntx.df_calib.loc[(cntx.df_calib["sim_name"] == sim_name) &
-                               (cntx.df_calib["stn"] == stn) &
-                               (cntx.df_calib["var"] == var.name)]
+    df_sel = cntx.opt_bias_df.loc[(cntx.opt_bias_df["sim_name"] == sim_name) &
+                                  (cntx.opt_bias_df["stn"] == stn) &
+                                  (cntx.opt_bias_df["var"] == var.name)]
     if df_sel is not None:
         nq       = float(df_sel["nq"])
         up_qmf   = float(df_sel["up_qmf"])
         time_win = float(df_sel["time_win"])
-        bias_err = float(df_sel["bias_err"])
     else:
-        nq       = float(cntx.nq_default)
-        up_qmf   = float(cntx.up_qmf_default)
-        time_win = float(cntx.time_win_default)
-        bias_err = float(cntx.bias_err_default)
-
-    # Display calibration parameters.
-    msg = "Selected parameters: nq=" + str(nq) + ", up_qmf=" + str(up_qmf) + \
-          ", time_win=" + str(time_win) + ", bias_err=" + str(bias_err)
-    fu.log(msg, True)
+        nq       = float(cntx.opt_bias_nq)
+        up_qmf   = float(cntx.opt_bias_up_qmf)
+        time_win = float(cntx.opt_bias_time_win)
 
     # Step #5b: Statistical downscaling.
     # Step #5c: Bias correction.
@@ -1723,6 +1702,13 @@ def calc_diag_cycle(
     var_name = variables[i_var_proc]
     var = VarIdx(var_name)
 
+    # Update context.
+    cntx.code = c.platform_script
+    cntx.view = View(c.view_cycle)
+    cntx.lib = Lib(c.lib_mat)
+    cntx.delta = Delta("False")
+    cntx.varidx = VarIdx(var.name)
+
     # Loop through stations.
     stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
     for stn in stns:
@@ -1743,15 +1729,6 @@ def calc_diag_cycle(
             p_regrid_ref = p_regrid[0:len(p_regrid) - 3] + "_ref_4" + c.cat_qqmap + c.f_ext_nc
             p_regrid_fut = p_regrid[0:len(p_regrid) - 3] + "_4" + c.cat_qqmap + c.f_ext_nc
 
-            # Calibration parameters.
-            sim_name = os.path.basename(p_raw).replace(var_name + "_", "").replace(c.f_ext_nc, "")
-            df_sel = cntx.df_calib.loc[(cntx.df_calib["sim_name"] == sim_name) &
-                                       (cntx.df_calib["stn"] == stn) &
-                                       (cntx.df_calib["var"] == var_name)]
-            nq = float(df_sel["nq"])
-            up_qmf = float(df_sel["up_qmf"])
-            time_win = float(df_sel["time_win"])
-
             # File name.
             fn_fig = p_regrid_fut.split(cntx.sep)[-1].replace("_4qqmap" + c.f_ext_nc, "_<per>_<cat_fig>" + c.f_ext_png)
 
@@ -1759,8 +1736,7 @@ def calc_diag_cycle(
             if cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0):
 
                 # Plot title.
-                title = fn_fig[:-4] + "_nq_" + str(nq) + "_upqmf_" + str(up_qmf) + "_timewin_" + str(time_win)
-                title = title.replace("_<per>", "").replace("_<cat_fig>", "")
+                title = fn_fig[:-4].replace("_<per>", "").replace("_<cat_fig>", "")
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
@@ -1772,7 +1748,7 @@ def calc_diag_cycle(
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
                 p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var_name) + fn_fig.replace("<per>_", "")
                 p_fig = p_fig.replace("_<per>", "").replace("<cat_fig>", c.cat_fig_workflow)
-                stats.calc_workflow(var, int(nq), up_qmf, int(time_win), p_regrid_ref, p_regrid_fut, p_fig, title)
+                stats.calc_workflow(var, p_regrid_ref, p_regrid_fut, p_fig, title)
 
             # Generate monthly and daily plots.
             if cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
@@ -1784,6 +1760,12 @@ def calc_diag_cycle(
                 # Loop through horizons.
                 for per in cntx.per_hors:
                     per_str = str(per[0]) + "_" + str(per[1])
+
+                    # Update context.
+                    sim_code = os.path.basename(p_qqmap).replace(c.f_ext_nc, "").replace(var_name + "_", "")
+                    cntx.rcp = RCP("")
+                    cntx.sim = Sim(sim_code)
+                    cntx.hor = Hor(per)
 
                     # This creates 2 files:
                     #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
@@ -1798,9 +1780,16 @@ def calc_diag_cycle(
                     stats.calc_cycle(ds_qqmap, stn, var, per, c.freq_D, title)
 
         if os.path.exists(p_obs) and cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
+
+            # Load data.
             ds_obs = fu.open_netcdf(p_obs)
             ds_obs = utils.standardize_netcdf(ds_obs, vi_name=var.name)
             per_str = str(cntx.per_ref[0]) + "_" + str(cntx.per_ref[1])
+
+            # Update context.
+            cntx.rcp = RCP(c.ref)
+            cntx.sim = Sim("")
+            cntx.hor = Hor(cntx.per_ref)
 
             # This creates 2 files:
             #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
@@ -1898,7 +1887,7 @@ def run():
         fu.log(msg + " (not required)")
 
 
-def run_calib():
+def run_bias():
 
     """
     --------------------------------------------------------------------------------------------------------------------

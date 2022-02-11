@@ -503,19 +503,19 @@ def calc_error(
     if len(values_obs) == len(values_pred):
 
         # Method #1: Coefficient of determination.
-        if cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_r2:
+        if cntx.opt_bias_err_meth == c.opt_bias_err_meth_r2:
             error = r2_score(values_obs, values_pred)
 
         # Method #2: Mean absolute error.
-        elif cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_mae:
+        elif cntx.opt_bias_err_meth == c.opt_bias_err_meth_mae:
             error = mean_absolute_error(values_obs, values_pred)
 
         # Method #3: Root mean square error.
-        elif cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_rmse:
+        elif cntx.opt_bias_err_meth == c.opt_bias_err_meth_rmse:
             error = sqrt(mean_squared_error(values_obs, values_pred))
 
         # Method #4: Relative root mean square error.
-        elif cntx.opt_calib_bias_meth == c.opt_calib_bias_meth_rrmse:
+        elif cntx.opt_bias_err_meth == c.opt_bias_err_meth_rrmse:
             if np.std(values_obs) != 0:
                 error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
             else:

@@ -35,7 +35,7 @@ from dashboard.def_stat import Stat
 from dashboard.def_varidx import VarIdx
 
 
-# Color associated with specific datasets (calibration plots).
+# Color associated with specific datasets (bias plots).
 col_obs         = "green"   # Observed data.
 col_sim         = "purple"  # Simulation data (non-adjusted).
 col_sim_ref     = "orange"  # Simulation data (non-adjusted, reference period).
@@ -280,7 +280,7 @@ def plot_workflow(
     return fig
 
 
-def plot_calib(
+def plot_bias(
     da_obs: xr.DataArray,
     da_sim_ref: xr.DataArray,
     da_sim: xr.DataArray,
@@ -294,7 +294,7 @@ def plot_calib(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Generates a plot containing a summary of calibration.
+    Generates a plot containing a summary of bias adjustment.
 
     Parameters
     ----------
@@ -371,17 +371,16 @@ def plot_calib(
     plt.tick_params(axis="x", labelsize=fs_axes)
     plt.tick_params(axis="y", labelsize=fs_axes)
 
-    # Mean, Q100, Q99, Q75, Q50, Q25, Q01 and Q00 monthly values -------------------------------------------------------
+    # Mean, c100, c099, c075, c050, c025, c001 and c000 monthly values -------------------------------------------------
 
-    for i in range(1, len(cntx.opt_calib_quantiles) + 1):
+    for i in range(1, len(cntx.opt_bias_centiles) + 1):
 
         ax = plt.subplot(433 + i - 1)
 
-        stat = Stat(c.stat_quantile, cntx.opt_stat_quantiles[i-1])
-        title = "Q_" + "{0:.2f}".format(stat.quantile)
-        if stat.quantile == 0:
+        stat = Stat(c.stat_centile, cntx.opt_stat_centiles[i - 1])
+        if stat.centile == 0:
             stat = Stat(c.stat_min)
-        elif stat.quantile == 1:
+        elif stat.centile == 1:
             stat = Stat(c.stat_max)
 
         draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat, p_csv)
@@ -391,7 +390,7 @@ def plot_calib(
         plt.xlabel("Mois", fontsize=fs_axes)
         plt.ylabel(y_label, fontsize=fs_axes)
         plt.legend(legend_items, fontsize=fs_legend, frameon=False)
-        plt.title(title, fontsize=fs_title)
+        plt.title(stat.centile_as_str, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
 
@@ -427,7 +426,7 @@ def plot_calib(
     plt.close()
 
 
-def plot_calib_ts(
+def plot_bias_ts(
     da_obs: xr.DataArray,
     da_sim: xr.DataArray,
     da_sim_adj: xr.DataArray,
@@ -578,7 +577,7 @@ def draw_curves(
     if stat.code in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
         suffix = stat.code
     else:
-        suffix = "q" + str(round(stat.quantile * 100)).zfill(2)
+        suffix = stat.centile_as_str
     p_csv = p_csv.replace(c.f_ext_csv, "_" + suffix + c.f_ext_csv)
 
     # Determine if the analysis is required.
@@ -608,8 +607,8 @@ def draw_curves(
                 da_group_stat = da_group.max(dim=c.dim_time)
             elif _stat.code == c.stat_mean:
                 da_group_stat = da_group.mean(dim=c.dim_time)
-            elif _stat.code == c.stat_quantile:
-                da_group_stat = da_group.quantile(_stat.quantile, dim=c.dim_time)
+            elif _stat.code == c.stat_centile:
+                da_group_stat = da_group.quantile(float(_stat.centile) / 100.0, dim=c.dim_time)
             elif _stat.code == c.stat_sum:
                 n_years = da[c.dim_time].size / 12
                 da_group_stat = da_group.sum(dim=c.dim_time) / n_years
