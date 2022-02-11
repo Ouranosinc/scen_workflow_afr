@@ -138,12 +138,24 @@ def calc_stats(
 
         # Open dataset.
         ds_i = fu.open_netcdf(p_sim_l[i])
+        units = c.attrs_units if c.attrs_units in ds_i[vi_name].attrs else 1
 
         # Aggregate to the annual frequency.
         if varidx.is_summable:
             ds_i = ds_i.resample(time=c.freq_YS).sum()
         else:
             ds_i = ds_i.resample(time=c.freq_YS).mean()
+
+        # Convert units.
+        if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and (units == c.unit_K):
+            ds_i = ds_i - c.d_KC
+            ds_i[vi_name].attrs[c.attrs_units] = c.unit_C
+        elif varidx.is_summable:
+            ds_i = ds_i * c.spd
+            ds_i[vi_name].attrs[c.attrs_units] = c.unit_mm
+        elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
+            ds_i = ds_i * c.km_h_per_m_s
+            ds_i[vi_name].attrs[c.attrs_units] = c.unit_km_h
 
         # Add to list of Datasets.
         ds_l.append(ds_i)
@@ -158,21 +170,6 @@ def calc_stats(
     # Skip simulation if there is no data.
     if len(ds_ens[c.dim_time]) == 0:
         return None
-
-    # Convert units.
-    if c.attrs_units in ds_ens[vi_name].attrs:
-        if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and (ds_ens[vi_name].attrs[c.attrs_units] == c.unit_K):
-            ds_ens = ds_ens - c.d_KC
-            ds_ens[vi_name].attrs[c.attrs_units] = c.unit_C
-        elif varidx.is_summable:
-            ds_ens = ds_ens * c.spd
-            ds_ens[vi_name].attrs[c.attrs_units] = c.unit_mm
-        elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
-            ds_ens = ds_ens * c.km_h_per_m_s
-            ds_ens[vi_name].attrs[c.attrs_units] = c.unit_km_h
-        units = ds_ens[vi_name].attrs[c.attrs_units]
-    else:
-        units = 1
 
     # Calculate statistics by year if there are multiple years.
     calc_by_year = (len(p_sim_l) > 1)
@@ -257,6 +254,7 @@ def calc_stats(
         else:
             ds_stats_ref = calc_stats(view, stn, varidx, RCP(c.ref), sim, False, Stats([c.stat_mean]), True, clip,
                                       c.cat_qqmap)[c.stat_mean]
+        units = ds_stats_ref[vi_name].attrs[c.attrs_units]
 
         # Adjust values.
         if (view.code == c.view_ts_bias) and varidx.is_var:

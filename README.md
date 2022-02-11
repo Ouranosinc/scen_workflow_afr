@@ -193,7 +193,8 @@ Implemented features:
 - improved aesthetics of visual elements (using matplotlib, hvplot, altair and plotly, depending on the context);
 - now saving NetCDF files with the same coordinate names ('longitude' and 'latitude') and eliminating unnecssary
   variables to reduce the volume of files generated during the analysis;
-- removed the option to optimize the selection of quantile mapping parameters.
+- removed the option to optimize the selection of quantile mapping parameters;
+- the lower and upper boundaries of RCP grops in time-series is now defined using centiles (instead of min-max).
 
 ## Contributing
 
