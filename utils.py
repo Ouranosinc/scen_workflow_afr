@@ -779,7 +779,8 @@ def remove_feb29(
 
 def sel_period(
     ds: xr.Dataset,
-    per: [float]
+    per: [float],
+    drop: Optional[bool] = True
 ) -> xr.Dataset:
 
     """
@@ -792,12 +793,14 @@ def sel_period(
         Dataset.
     per: [float]
         Selected period, ex: [1981, 2010]
+    drop: Optional[bool]
+        If True, drops dimensions of length 1.
     --------------------------------------------------------------------------------------------------------------------
     """
 
     ds_res = ds.copy(deep=True)
 
-    ds_res = ds_res.where((ds_res.time.dt.year >= per[0]) & (ds_res.time.dt.year <= per[1]), drop=True)
+    ds_res = ds_res.where((ds_res.time.dt.year >= per[0]) & (ds_res.time.dt.year <= per[1]), drop=drop)
 
     return ds_res
 

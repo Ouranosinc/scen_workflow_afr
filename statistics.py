@@ -106,7 +106,7 @@ def calc_stats(
     vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
     vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
 
-    # List files.
+    # List paths to NetCDF files.
     if rcp.code == c.ref:
         if varidx.is_var:
             p_sim_l = [cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
@@ -122,8 +122,8 @@ def calc_stats(
             if ((rcp.code == c.rcpxx) or (rcp.code in p)) and ((sim.code == c.simxx) or (sim.code in p)):
                 p_sim_l.append(p)
 
-    # Adjust paths if doing the analysis for bias adjustment time series.
-    if ((view.code == c.view_ts_bias) and (rcp.code != c.ref) and varidx.is_var) or (cat_scen == c.cat_regrid):
+    # Adjust paths if doing the analysis for bias adjustment time series (need .
+    if (rcp.code != c.ref) and (cat_scen == c.cat_regrid):
         for i_sim in range(len(p_sim_l)):
             p_sim_l[i_sim] = p_sim_l[i_sim].replace(cntx.sep + c.cat_qqmap, cntx.sep + c.cat_regrid).\
                 replace(c.f_ext_nc, "_4" + c.cat_qqmap + c.f_ext_nc)
@@ -132,10 +132,26 @@ def calc_stats(
     if (len(p_sim_l) == 0) or ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
         return None
 
+    # Create array of Datasets.
+    ds_l = []
+    for i in range(len(p_sim_l)):
+
+        # Open dataset.
+        ds_i = fu.open_netcdf(p_sim_l[i])
+
+        # Aggregate to the annual frequency.
+        if varidx.is_summable:
+            ds_i = ds_i.resample(time=c.freq_YS).sum()
+        else:
+            ds_i = ds_i.resample(time=c.freq_YS).mean()
+
+        # Add to list of Datasets.
+        ds_l.append(ds_i)
+
     # Create ensemble.
     xclim_logger_level = utils.get_logger_level("root")
     utils.set_logger_level("root", logging.CRITICAL)
-    ds_ens = ensembles.create_ensemble(p_sim_l).load()
+    ds_ens = ensembles.create_ensemble(ds_l).load()
     ds_ens.close()
     utils.set_logger_level("root", xclim_logger_level)
 
@@ -157,12 +173,6 @@ def calc_stats(
         units = ds_ens[vi_name].attrs[c.attrs_units]
     else:
         units = 1
-
-    # Aggregate to the annual frequency.
-    if varidx.is_summable:
-        ds_ens = ds_ens.resample(time=c.freq_YS).sum()
-    else:
-        ds_ens = ds_ens.resample(time=c.freq_YS).mean()
 
     # Calculate statistics by year if there are multiple years.
     calc_by_year = (len(p_sim_l) > 1)
@@ -446,12 +456,12 @@ def calc_ts(
         # Path of files to be created.
         fn = varidx.name + "_" + dash_plot.mode_rcp
         # CSV files:
-        p_rcp_csv = cntx.d_fig(cat, c.view_ts, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
+        p_rcp_csv = cntx.d_fig(cat, view_code, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
         p_sim_csv = p_rcp_csv.replace("_" + dash_plot.mode_rcp, "_" + dash_plot.mode_sim)
         p_rcp_del_csv = p_rcp_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         p_sim_del_csv = p_sim_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         # PNG files.
-        p_rcp_fig = cntx.d_fig(cat, c.view_ts, vi_code_grp) + fn + c.f_ext_png
+        p_rcp_fig = cntx.d_fig(cat, view_code, vi_code_grp) + fn + c.f_ext_png
         p_sim_fig = p_rcp_fig.replace("_" + dash_plot.mode_rcp + c.f_ext_png, "_" + dash_plot.mode_sim + c.f_ext_png)
         p_rcp_del_fig = p_rcp_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
         p_sim_del_fig = p_sim_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
