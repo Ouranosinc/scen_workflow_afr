@@ -1085,11 +1085,11 @@ def bias_adj(
             (not os.path.exists(p_regrid_fut))) and\
            (not cntx.opt_force_overwrite):
             if not(os.path.exists(p_stn)):
-                fu.log(msg + p_stn, True)
+                fu.log(msg + os.path.basename(p_stn), True)
             if not(os.path.exists(p_regrid_ref)):
-                fu.log(msg + p_regrid_ref, True)
+                fu.log(msg + os.path.basename(p_regrid_ref), True)
             if not(os.path.exists(p_regrid_fut)):
-                fu.log(msg + p_regrid_fut, True)
+                fu.log(msg + os.path.basename(p_regrid_fut), True)
             continue
 
         # Load NetCDF (station), drop February 29th, sort/rename dimensions, and select reference period.
@@ -1138,6 +1138,7 @@ def bias_adj(
 
         if not calc_err:
 
+            msg = "Step #5bc Statistical downscaling and adjusting bias"
             if (not os.path.exists(p_fig)) or \
                ((not p_csv_exists) and (c.f_csv in cntx.opt_diagnostic_format)) or \
                (not os.path.exists(p_ts_fig)) or \
@@ -1147,6 +1148,7 @@ def bias_adj(
                cntx.opt_force_overwrite:
 
                 # Calculate QQ and generate bias adjustment plots.
+                fu.log(msg, True)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
                     postprocess(var, cntx.opt_bias_nq, cntx.opt_bias_up_qmf, cntx.opt_bias_time_win,
