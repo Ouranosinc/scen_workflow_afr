@@ -156,6 +156,8 @@ def calc_stats(
         elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
             ds_i = ds_i * c.km_h_per_m_s
             ds_i[vi_name].attrs[c.attrs_units] = c.unit_km_h
+        else:
+            ds_i[vi_name].attrs[c.attrs_units] = units
 
         # Add to list of Datasets.
         ds_l.append(ds_i)
