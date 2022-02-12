@@ -1736,10 +1736,10 @@ def calc_diag_cycle(
             if cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0):
 
                 # Plot title.
-                title = fn_fig[:-4].replace("_<per>", "").replace("_<cat_fig>", "")
+                title = fn_fig.replace(c.f_ext_png, "").replace("_<per>", "").replace("_<cat_fig>", "")
 
                 # This creates one file:
-                #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/*.png
+                #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/<hor>/*.png
                 p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var_name) + fn_fig.replace("<per>_", "")
                 p_fig = p_fig.replace("_<per>", "").replace("<cat_fig>", c.cat_fig_postprocess)
                 stats.calc_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
@@ -1768,15 +1768,17 @@ def calc_diag_cycle(
                     cntx.hor = Hor(per)
 
                     # This creates 2 files:
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
-                    title = fn_fig.replace("<per>", per_str).replace("<cat_fig>", c.view_cycle_ms)
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/<hor>/*.png
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ma/<var>_csv/<hor>/*.csv
+                    title = fn_fig.replace(c.f_ext_png, "").replace("<per>", per_str).\
+                        replace("<cat_fig>", c.view_cycle_ms)
                     stats.calc_cycle(ds_qqmap, stn, var, per, c.freq_MS, title)
 
                     # This creates 2 files:
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/*.png
-                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/*.csv
-                    title = fn_fig.replace("<per>", per_str).replace("<cat_fig>", c.view_cycle_d)
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/<hor>/*.png
+                    #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>_csv/<hor>/*.csv
+                    title = fn_fig.replace(c.f_ext_png, "").replace("<per>", per_str).\
+                        replace("<cat_fig>", c.view_cycle_d)
                     stats.calc_cycle(ds_qqmap, stn, var, per, c.freq_D, title)
 
         if os.path.exists(p_obs) and cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0):
@@ -1794,13 +1796,13 @@ def calc_diag_cycle(
             # This creates 2 files:
             #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>/*.png
             #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_ms/<var>_csv/*.csv
-            title = var_name + "_" + per_str + "_" + c.view_cycle_ms
+            title = var_name + "_" + c.ref + "_" + per_str + "_" + c.view_cycle_ms
             stats.calc_cycle(ds_obs, stn, var, cntx.per_ref, c.freq_MS, title)
 
             # This creates 2 files:
             #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/cycle_d/<var>/*.png
             #     ~/sim_climat/<country>/<project>/<stn>/fig/scen_cycle_d/<var>_csv/*.csv
-            title = var_name + "_" + per_str + "_" + c.view_cycle_d
+            title = var_name + "_" + c.ref + "_" + per_str + "_" + c.view_cycle_d
             stats.calc_cycle(ds_obs, stn, var, cntx.per_ref, c.freq_D, title)
 
 
