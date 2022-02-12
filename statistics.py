@@ -367,7 +367,7 @@ def calc_stat_tbl(
                 if rcp.code != c.ref:
                     stats.add([c.stat_min, c.stat_max], inplace=True)
                     for centile in cntx.opt_stat_centiles:
-                        if centile not in [0, 1]:
+                        if centile not in [0, 100]:
                             stats.add(Stat(c.stat_centile, centile), inplace=True)
 
                 # Calculate statistics.

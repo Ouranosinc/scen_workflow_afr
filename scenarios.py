@@ -1850,7 +1850,7 @@ def run():
     # Plots ------------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    msg = "Step #8a  Generating post-process, workflow, daily and monthly plots (scenarios)"
+    msg = "Step #8a  Generating post-process, workflow and cycle plots (scenarios)"
     if (cntx.opt_diagnostic and (len(cntx.opt_diagnostic_format) > 0)) or\
        (cntx.opt_cycle and (len(cntx.opt_cycle_format) > 0)):
         fu.log(msg)
