@@ -14,10 +14,11 @@ import holoviews as hv
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
+import shutil
 import xarray as xr
 import warnings
 from itertools import compress
-from typing import Union, List
+from typing import Union, List, Optional
 
 # Workflow libraries.
 import utils
@@ -521,3 +522,54 @@ def log(
         f = open(p_log, "a")
         f.writelines(ln + "\n")
         f.close()
+
+
+def renames_files(
+    p: str,
+    text_to_modify: str,
+    text_to_replace_with: str,
+    rename_directories: Optional[bool] = False,
+    recursive: Optional[bool] = False
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Rename all the files under a path, which can be a directory or file.
+
+    This function is not used by the workflow. Alreayd, it is useful to batch rename files from a project if a new
+    version of the code required to restructure project directories.
+
+    Parameters
+    ----------
+    p: str
+        Path.
+    text_to_modify: str
+        Text to modify.
+    text_to_replace_with: str
+        Text to replace with.
+    rename_directories: Optional[bool]
+        If True, rename directories as well as files.
+    recursive: Optional[bool]
+        If True, rename recursively (if 'p' is a directory).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # List files and directories.
+    if os.path.isdir(p):
+        p += cntx.sep if p[len(p) - 1] != cntx.sep else ""
+        item_l = os.listdir(p)
+    else:
+        item_l = [p]
+    item_l.sort()
+
+    # Loop through items (directories and files).
+    for item_i in item_l:
+
+        # Rename current item.
+        if text_to_modify in item_i:
+            shutil.move(p + item_i, p + item_i.replace(text_to_modify, text_to_replace_with))
+            item_i = item_i.replace(text_to_modify, text_to_replace_with)
+
+        # Rename items in a children directory.
+        if os.path.isdir(p + item_i) and recursive:
+            renames_files(p + item_i, text_to_modify, text_to_replace_with, rename_directories, recursive)
