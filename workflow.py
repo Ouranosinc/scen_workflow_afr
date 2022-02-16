@@ -38,28 +38,6 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Rename files.
-    # project_l = ["bf-co", "bf-hb"]
-    # for i in range(len(project_l)):
-    #     p = "/home/yrousseau/Documents/dev/scen_workflow_afr/dashboard/data/" + project_l[i] + "/"
-    #     fu.renames_files(p, "q10", "c010", recursive=True)
-    #     fu.renames_files(p, "q90", "c090", recursive=True)
-    #     fu.renames_files(p, "drydays", "dry_days", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "heatwavemaxlen", "heat_wave_max_length", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "heatwavetotlen", "heat_wave_total_length", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "hotspellfreq", "hot_spell_frequency", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "hotspellmaxlen", "hot_spell_max_length", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "tropicalnights", "tropical_nights", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "txdaysabove", "tx_days_above", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "wetdays", "wet_days", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "wgdaysabove", "wg_days_above", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "wxdaysabove", "wx_days_above", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "rainstart", "rain_season_start", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "rainend", "rain_season_end", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "raindur", "rain_season_length", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "daily", "cycle_d", rename_directories=True, recursive=True)
-    #     fu.renames_files(p, "monthly", "cycle_ms", rename_directories=True, recursive=True)
-
     # Step #0: Structure: project, variables and indices.
 
     # Project.

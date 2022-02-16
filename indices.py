@@ -187,7 +187,7 @@ def gen():
                         missing = False
                         for vi_code_j in vi_code_l[1:]:
                             if vi_code_j != "nan":
-                                p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_i, vi_code_j, stn, rcp.code)
+                                p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_i, vi_code_j, rcp.code)
                                 if not os.path.exists(p_sim_j):
                                     missing = True
                                     break
@@ -307,7 +307,7 @@ def gen_single(
 
         try:
             # Open dataset.
-            p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_l[i_sim], vi_code_i, stn, rcp.code)
+            p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_l[i_sim], vi_code_i, rcp.code)
             ds = fu.open_netcdf(p_sim_j)
 
             # Remove February 29th and select reference period.

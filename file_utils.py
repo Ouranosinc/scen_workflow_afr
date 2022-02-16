@@ -573,3 +573,68 @@ def renames_files(
         # Rename items in a children directory.
         if os.path.isdir(p + item_i) and recursive:
             renames_files(p + item_i, text_to_modify, text_to_replace_with, rename_directories, recursive)
+
+
+def migrate_project(
+    p_base: str,
+    project_region: str,
+    version_pre_migration: float,
+    version_post_migration: float
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Migrate a project.
+
+    Parameters
+    ----------
+    p_base: str
+        Base path.
+    project_region: str
+        Project and region (ex: "<country_acronym>-<region>).
+    version_pre_migration: float
+        Version of workflow, to migrate from.
+    version_post_migration: float
+        Version of workflow, to migrate to.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    p = p_base + project_region + "/"
+
+    if (version_pre_migration == 1.2) and (version_post_migration == 1.4):
+
+        if project_region in ["bf-co", "bf-hb"]:
+            renames_files(p, "q10", "c010", recursive=True)
+            renames_files(p, "q90", "c090", recursive=True)
+            renames_files(p, "drydays", "dry_days", rename_directories=True, recursive=True)
+            renames_files(p, "heatwavemaxlen", "heat_wave_max_length", rename_directories=True, recursive=True)
+            renames_files(p, "heatwavetotlen", "heat_wave_total_length", rename_directories=True, recursive=True)
+            renames_files(p, "hotspellfreq", "hot_spell_frequency", rename_directories=True, recursive=True)
+            renames_files(p, "hotspellmaxlen", "hot_spell_max_length", rename_directories=True, recursive=True)
+            renames_files(p, "tropicalnights", "tropical_nights", rename_directories=True, recursive=True)
+            renames_files(p, "txdaysabove", "tx_days_above", rename_directories=True, recursive=True)
+            renames_files(p, "wetdays", "wet_days", rename_directories=True, recursive=True)
+            renames_files(p, "wgdaysabove", "wg_days_above", rename_directories=True, recursive=True)
+            renames_files(p, "wxdaysabove", "wx_days_above", rename_directories=True, recursive=True)
+            renames_files(p, "rainstart", "rain_season_start", rename_directories=True, recursive=True)
+            renames_files(p, "rainend", "rain_season_end", rename_directories=True, recursive=True)
+            renames_files(p, "raindur", "rain_season_length", rename_directories=True, recursive=True)
+            renames_files(p, "daily", "cycle_d", rename_directories=True, recursive=True)
+            renames_files(p, "monthly", "cycle_ms", rename_directories=True, recursive=True)
+
+        elif project_region == "ma":
+            renames_files(p, "q10", "c010", recursive=True)
+            renames_files(p, "q90", "c090", recursive=True)
+            renames_files(p, "tndaysbelow", "tn_days_below", rename_directories=True, recursive=True)
+            renames_files(p, "txdaysabove", "tx_days_above", rename_directories=True, recursive=True)
+
+        elif project_region in ["ci-c", "ci-s"]:
+            renames_files(p, "q10", "c010", recursive=True)
+            renames_files(p, "q90", "c090", recursive=True)
+            renames_files(p, "rainstart", "rain_season_start", rename_directories=True, recursive=True)
+            renames_files(p, "rainend", "rain_season_end", rename_directories=True, recursive=True)
+            renames_files(p, "raindur", "rain_season_length", rename_directories=True, recursive=True)
+            renames_files(p, "rainqty", "rain_season_prcptot", rename_directories=True, recursive=True)
+            renames_files(p, "drydurtot", "dry_spell_total_length", rename_directories=True, recursive=True)
+            renames_files(p, "tngmonthsbelow", "tng_months_below", rename_directories=True, recursive=True)
+            renames_files(p, "txdaysabove", "tx_days_above", rename_directories=True, recursive=True)
