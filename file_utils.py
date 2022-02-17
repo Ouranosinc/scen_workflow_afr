@@ -430,7 +430,7 @@ def save_plot(
 def save_csv(
     df: pd.DataFrame,
     p: str,
-    desc=""
+    desc: Optional[str] = ""
 ):
 
     """
@@ -443,7 +443,7 @@ def save_csv(
         Dataframe.
     p: str
         Path of file to be created.
-    desc: str
+    desc: Optional[str]
         Description.
     --------------------------------------------------------------------------------------------------------------------
     """
@@ -524,20 +524,22 @@ def log(
         f.close()
 
 
-def renames_files(
+def rename(
     p: str,
     text_to_modify: str,
     text_to_replace_with: str,
-    rename_directories: Optional[bool] = False,
+    rename_files: Optional[bool] = True,
+    rename_directories: Optional[bool] = True,
+    update_content: Optional[bool] = False,
     recursive: Optional[bool] = False
 ):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Rename all the files under a path, which can be a directory or file.
+    Rename files, directories and content under a path.
 
-    This function is not used by the workflow. Alreayd, it is useful to batch rename files from a project if a new
-    version of the code required to restructure project directories.
+    This function is not used by the workflow. It is useful to batch rename files from a project if a new version of the
+    code has a different structure.
 
     Parameters
     ----------
@@ -547,8 +549,12 @@ def renames_files(
         Text to modify.
     text_to_replace_with: str
         Text to replace with.
+    rename_files: Optional[bool]
+        If True, rename files.
     rename_directories: Optional[bool]
-        If True, rename directories as well as files.
+        If True, rename directories.
+    update_content: Optional[bool]
+        If True, update file content.
     recursive: Optional[bool]
         If True, rename recursively (if 'p' is a directory).
     --------------------------------------------------------------------------------------------------------------------
@@ -562,17 +568,51 @@ def renames_files(
         item_l = [p]
     item_l.sort()
 
-    # Loop through items (directories and files).
+    # Loop through items.
     for item_i in item_l:
 
-        # Rename current item.
-        if text_to_modify in item_i:
+        # Rename directory or file name.
+        if (text_to_modify in item_i) and\
+           (((not os.path.isdir(p + item_i)) and rename_files) or ((os.path.isdir(p + item_i)) and rename_directories)):
             shutil.move(p + item_i, p + item_i.replace(text_to_modify, text_to_replace_with))
             item_i = item_i.replace(text_to_modify, text_to_replace_with)
 
+        # Update the content of a CSV file (and remove the index).
+        if ((text_to_modify in item_i) or (text_to_replace_with in item_i)) and\
+           (c.f_ext_csv in item_i) and update_content:
+
+            df = pd.read_csv(p + item_i)
+            columns = list(df.columns)
+
+            # View 'map': rename the column holding the value to 'val'.
+            if cntx.sep + c.view_map + cntx.sep in p:
+                df.columns = [columns[i].replace(text_to_modify, "val").replace(text_to_replace_with, "val")
+                              for i in range(len(columns))]
+
+            # View 'ts': rename column names for lower, middle and upper values.
+            elif ((cntx.sep + c.view_ts + cntx.sep in p) or (cntx.sep + c.view_ts_bias + cntx.sep in p)) and\
+                 ("_rcp" in p):
+                df.columns = [columns[i].replace("min", "lower").replace("mean", "middle").replace("moy", "middle")
+                                        .replace("max", "upper") for i in range(len(columns))]
+
+            # View 'tbl': rename column 'q' to 'centile', ajust values in columns 'stat' and 'centile'.
+            elif cntx.sep + c.view_tbl + cntx.sep in p:
+                df.columns = [columns[i].replace("q", c.stat_centile) for i in range(len(columns))]
+                def update_stat(i): return c.stat_centile if i == c.stat_quantile else i
+                df["stat"] = df["stat"].map(update_stat)
+                def update_centile(i): return i * 100 if (i > 0) and (i < 1) else i
+                df["centile"] = df["centile"].map(update_centile)
+
+            # Remove the index.
+            if ("index" in df.columns[0]) or ("unnamed" in str(df.columns[0]).lower()):
+                df = df.iloc[:, 1:]
+
+            save_csv(df, p + item_i)
+
         # Rename items in a children directory.
         if os.path.isdir(p + item_i) and recursive:
-            renames_files(p + item_i, text_to_modify, text_to_replace_with, rename_directories, recursive)
+            rename(p + item_i, text_to_modify, text_to_replace_with, rename_files, rename_directories,
+                   update_content, recursive)
 
 
 def migrate_project(
@@ -603,38 +643,61 @@ def migrate_project(
 
     if (version_pre_migration == 1.2) and (version_post_migration == 1.4):
 
-        if project_region in ["bf-co", "bf-hb"]:
-            renames_files(p, "q10", "c010", recursive=True)
-            renames_files(p, "q90", "c090", recursive=True)
-            renames_files(p, "drydays", "dry_days", rename_directories=True, recursive=True)
-            renames_files(p, "heatwavemaxlen", "heat_wave_max_length", rename_directories=True, recursive=True)
-            renames_files(p, "heatwavetotlen", "heat_wave_total_length", rename_directories=True, recursive=True)
-            renames_files(p, "hotspellfreq", "hot_spell_frequency", rename_directories=True, recursive=True)
-            renames_files(p, "hotspellmaxlen", "hot_spell_max_length", rename_directories=True, recursive=True)
-            renames_files(p, "tropicalnights", "tropical_nights", rename_directories=True, recursive=True)
-            renames_files(p, "txdaysabove", "tx_days_above", rename_directories=True, recursive=True)
-            renames_files(p, "wetdays", "wet_days", rename_directories=True, recursive=True)
-            renames_files(p, "wgdaysabove", "wg_days_above", rename_directories=True, recursive=True)
-            renames_files(p, "wxdaysabove", "wx_days_above", rename_directories=True, recursive=True)
-            renames_files(p, "rainstart", "rain_season_start", rename_directories=True, recursive=True)
-            renames_files(p, "rainend", "rain_season_end", rename_directories=True, recursive=True)
-            renames_files(p, "raindur", "rain_season_length", rename_directories=True, recursive=True)
-            renames_files(p, "daily", "cycle_d", rename_directories=True, recursive=True)
-            renames_files(p, "monthly", "cycle_ms", rename_directories=True, recursive=True)
+        rename(p, "daily", c.view_cycle_d, recursive=True)
+        rename(p, "monthly", c.view_cycle_ms, recursive=True)
 
-        elif project_region == "ma":
-            renames_files(p, "q10", "c010", recursive=True)
-            renames_files(p, "q90", "c090", recursive=True)
-            renames_files(p, "tndaysbelow", "tn_days_below", rename_directories=True, recursive=True)
-            renames_files(p, "txdaysabove", "tx_days_above", rename_directories=True, recursive=True)
+        # Using 'centile' (instead of 'quantile'), and the range of values is from 0 to 100 (instead of 0 to 1).
+        rename(p + c.view_map + cntx.sep, "q10", "c010", update_content=False, recursive=True)
+        rename(p + c.view_map + cntx.sep, "q90", "c090", update_content=False, recursive=True)
 
-        elif project_region in ["ci-c", "ci-s"]:
-            renames_files(p, "q10", "c010", recursive=True)
-            renames_files(p, "q90", "c090", recursive=True)
-            renames_files(p, "rainstart", "rain_season_start", rename_directories=True, recursive=True)
-            renames_files(p, "rainend", "rain_season_end", rename_directories=True, recursive=True)
-            renames_files(p, "raindur", "rain_season_length", rename_directories=True, recursive=True)
-            renames_files(p, "rainqty", "rain_season_prcptot", rename_directories=True, recursive=True)
-            renames_files(p, "drydurtot", "dry_spell_total_length", rename_directories=True, recursive=True)
-            renames_files(p, "tngmonthsbelow", "tng_months_below", rename_directories=True, recursive=True)
-            renames_files(p, "txdaysabove", "tx_days_above", rename_directories=True, recursive=True)
+        # Indices.
+        idx_name_l =\
+            [["cdd"] * 2,
+             ["cwd"] * 2,
+             ["dc", "drought_code"],
+             ["drydays", "dry_days"],
+             ["drydurtot", "dry_spell_total_length"],
+             ["etr"] * 2,
+             ["heatwavemaxlen", "heat_wave_max_length"],
+             ["heatwavetotlen", "heat_wave_total_length"],
+             ["hotspellfreq", "hot_spell_frequency"],
+             ["hotspellmaxlen", "hot_spell_max_length"],
+             ["pr"] * 2,
+             ["prcptot"] * 2,
+             ["rainstart", "rain_season_start"],
+             ["rainend", "rain_season_end"],
+             ["raindur", "rain_season_length"],
+             ["rainqty", "rain_season_prcptot"],
+             ["r10mm"] * 2,
+             ["r20mm"] * 2,
+             ["rnnmm"] * 2,
+             ["rx1day"] * 2,
+             ["rx5day"] * 2,
+             ["sdii"] * 2,
+             ["sfcWindmax"] * 2,
+             ["tas"] * 2,
+             ["tasmax"] * 2,
+             ["tasmin"] * 2,
+             ["tgg"] * 2,
+             ["tndaysbelow", "tn_days_below"],
+             ["tng"] * 2,
+             ["tngmonthsbelow", "tng_months_below"],
+             ["tnx"] * 2,
+             ["tropicalnights", "tropical_nights"],
+             ["tx90p"] * 2,
+             ["txdaysabove", "tx_days_above"],
+             ["txg"] * 2,
+             ["txx"] * 2,
+             ["uas"] * 2,
+             ["vas"] * 2,
+             ["wetdays", "wet_days"],
+             ["wgdaysabove", "wg_days_above"],
+             ["wsdi"] * 2,
+             ["wxdaysabove", "wx_days_above"]]
+
+        # Loop through the items to rename.
+        for i in range(len(idx_name_l)):
+            rename(p, idx_name_l[i][0], idx_name_l[i][1], rename_files=True, rename_directories=True,
+                   update_content=True, recursive=True)
+            rename(p + c.view_ts + cntx.sep, "_era5_land", "_rcp", rename_files=True, rename_directories=False,
+                   update_content=False, recursive=True)
