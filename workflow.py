@@ -38,6 +38,9 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # p_dashboard = "/home/yrousseau/Documents/dev/scen_workflow_afr/dashboard/data/"
+    # fu.migrate_project(c.view_script, p_dashboard, "sn-ko", 1.2, 1.4)
+
     # Step #0: Structure: project, variables and indices.
 
     # Project.

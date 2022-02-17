@@ -616,6 +616,7 @@ def rename(
 
 
 def migrate_project(
+    platform: str,
     p_base: str,
     project_region: str,
     version_pre_migration: float,
@@ -628,6 +629,8 @@ def migrate_project(
 
     Parameters
     ----------
+    platform: str
+        Platform = {c.platform_script, c.platform_streamlit, c.platform_jupyter}
     p_base: str
         Base path.
     project_region: str
@@ -643,12 +646,22 @@ def migrate_project(
 
     if (version_pre_migration == 1.2) and (version_post_migration == 1.4):
 
+        # Determine the path of the directory holding maps and time series.
+        p_map = p
+        p_ts = p
+        if platform == c.platform_script:
+            p_map += c.cat_fig + cntx.sep
+            p_ts += c.cat_fig + cntx.sep
+        p_map += c.view_map + cntx.sep
+        p_ts += c.view_ts + cntx.sep
+
+        # Rename cycle plots.
         rename(p, "daily", c.view_cycle_d, recursive=True)
         rename(p, "monthly", c.view_cycle_ms, recursive=True)
 
         # Using 'centile' (instead of 'quantile'), and the range of values is from 0 to 100 (instead of 0 to 1).
-        rename(p + c.view_map + cntx.sep, "q10", "c010", update_content=False, recursive=True)
-        rename(p + c.view_map + cntx.sep, "q90", "c090", update_content=False, recursive=True)
+        rename(p_map, "q10", "c010", update_content=False, recursive=True)
+        rename(p_map, "q90", "c090", update_content=False, recursive=True)
 
         # Indices.
         idx_name_l =\
@@ -699,5 +712,5 @@ def migrate_project(
         for i in range(len(idx_name_l)):
             rename(p, idx_name_l[i][0], idx_name_l[i][1], rename_files=True, rename_directories=True,
                    update_content=True, recursive=True)
-            rename(p + c.view_ts + cntx.sep, "_era5_land", "_rcp", rename_files=True, rename_directories=False,
+            rename(p_ts, "_era5_land", "_rcp", rename_files=True, rename_directories=False,
                    update_content=False, recursive=True)

@@ -842,7 +842,7 @@ def gen_single(
             ds_idx[idx_name_l[i]] = utils.copy_coords(ds_vi_l[0][varidx_0.name], da_idx)
 
         # Adjust calendar.
-        # ds_idx = ds_idx.squeeze()
+        ds_idx = ds_idx.squeeze(dim={c.dim_longitude, c.dim_latitude})
         years = utils.extract_date_field(ds_vi_l[0], "year")
         ds_idx[c.dim_time] = utils.reset_calendar(ds_idx, min(years), max(years), c.freq_YS)
 
@@ -2047,7 +2047,7 @@ def gen_per_idx(
             elif func_name == "stats.calc_ts":
                 stats.calc_ts(view_code, cntx.idxs.code_l, i_idx)
             else:
-                stats.calc_stat_tbl(cntx.idxs.code_l, i_idx)
+                stats.calc_tbl(cntx.idxs.code_l, i_idx)
 
     # Parallel processing mode.
     else:
@@ -2068,7 +2068,7 @@ def gen_per_idx(
                 elif func_name == "stats.calc_ts":
                     func = functools.partial(stats.calc_ts, view_code, idx_codes)
                 else:
-                    func = functools.partial(stats.calc_stat_tbl, idx_codes)
+                    func = functools.partial(stats.calc_tbl, idx_codes)
                 pool.map(func, list(range(len(idx_codes))))
                 pool.close()
                 pool.join()
@@ -2106,7 +2106,7 @@ def run():
     msg = "Step #7a  Calculating statistics (indices)"
     if cntx.opt_stat[1]:
         fu.log(msg)
-        gen_per_idx("stats.calc_stat_tbl")
+        gen_per_idx("stats.calc_tbl")
     else:
         fu.log(msg + not_req)
 

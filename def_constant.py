@@ -35,8 +35,7 @@ class Constant(const.Constant):
     cat_scen            = "scen"            # Scenarios.
     cat_idx             = "idx"             # Indices.
 
-    # Views.
-    cat_stat            = "stat"            # Statistics.
+    # Categories of figures.
     cat_fig             = "fig"             # Figures.
     cat_fig_bias        = "bias"            # Figures (bias).
     cat_fig_postprocess = "postprocess"     # Figures (postprocess).

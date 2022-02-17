@@ -283,7 +283,7 @@ def calc_stats(
     return ds_stats_dict
 
 
-def calc_stat_tbl(
+def calc_tbl(
     vi_code_l: List[str],
     i_vi_proc: int,
 ):
@@ -331,7 +331,7 @@ def calc_stat_tbl(
             vi_code_grp = str(VI.group(vi_code)) if varidx.is_group else vi_code
 
             # Skip iteration if the file already exists.
-            p_csv = cntx.d_stat(cat, vi_code_grp) + vi_name + c.f_ext_csv
+            p_csv = cntx.d_tbl(vi_code_grp) + vi_name + c.f_ext_csv
             if os.path.exists(p_csv) and (not cntx.opt_force_overwrite):
                 continue
 
@@ -444,8 +444,6 @@ def calc_ts(
     varidx = VarIdx(vi_code_l[i_vi_proc])
     vi_code_grp = str(VI.group(varidx.code)) if varidx.is_group else varidx.code
 
-    cat = c.cat_scen if varidx.is_var else c.cat_idx
-
     # Loop through stations.
     stns = cntx.stns if not cntx.opt_ra else [cntx.obs_src]
     for stn in stns:
@@ -459,12 +457,12 @@ def calc_ts(
         # Path of files to be created.
         fn = varidx.name + "_" + dash_plot.mode_rcp
         # CSV files:
-        p_rcp_csv = cntx.d_fig(cat, view_code, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
+        p_rcp_csv = cntx.d_fig(view_code, vi_code_grp + "_" + c.f_csv) + fn + c.f_ext_csv
         p_sim_csv = p_rcp_csv.replace("_" + dash_plot.mode_rcp, "_" + dash_plot.mode_sim)
         p_rcp_del_csv = p_rcp_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         p_sim_del_csv = p_sim_csv.replace(c.f_ext_csv, "_delta" + c.f_ext_csv)
         # PNG files.
-        p_rcp_fig = cntx.d_fig(cat, view_code, vi_code_grp) + fn + c.f_ext_png
+        p_rcp_fig = cntx.d_fig(view_code, vi_code_grp) + fn + c.f_ext_png
         p_sim_fig = p_rcp_fig.replace("_" + dash_plot.mode_rcp + c.f_ext_png, "_" + dash_plot.mode_sim + c.f_ext_png)
         p_rcp_del_fig = p_rcp_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
         p_sim_del_fig = p_sim_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
@@ -850,7 +848,7 @@ def calc_map(
     ) -> Tuple[str, str]:
 
         # PNG file.
-        _d_fig = cntx.d_fig(cat, c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
+        _d_fig = cntx.d_fig(c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
                             varidx.code + cntx.sep + per_str)
         _stat_str = stat_str(_stat)
         _fn_fig = vi_name + "_" + _rcp.code + "_" + str(_per[0]) + "_" + str(_per[1]) + "_" + _stat_str + c.f_ext_png
@@ -859,7 +857,7 @@ def calc_map(
             _p_fig = _p_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
 
         # CSV file.
-        _d_csv = cntx.d_fig(cat, c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
+        _d_csv = cntx.d_fig(c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
                             varidx.code + "_csv" + cntx.sep + _per_str)
         _fn_csv = _fn_fig.replace(c.f_ext_png, c.f_ext_csv)
         _p_csv = _d_csv + _fn_csv
@@ -1611,9 +1609,8 @@ def calc_cycle(
     """
 
     # Paths.
-    cat_vi = c.cat_scen if varidx.is_var else c.cat_idx
     cat_fig = c.view_cycle_ms if freq == c.freq_MS else c.view_cycle_d
-    p_fig = cntx.d_fig(cat_vi, cat_fig, varidx.name + cntx.sep + cntx.hor.desc) + title + c.f_ext_png
+    p_fig = cntx.d_fig(cat_fig, varidx.name + cntx.sep + cntx.hor.desc) + title + c.f_ext_png
     p_csv = p_fig.replace(cntx.sep + varidx.name + cntx.sep, cntx.sep + varidx.name + "_" + c.f_csv + cntx.sep).\
         replace(c.f_ext_png, c.f_ext_csv)
 
@@ -1757,7 +1754,7 @@ def calc_clusters():
         # Determine the maximum number of clusters.
         p_csv_ts_l = []
         for var in cntx.varidxs.items:
-            p_i = cntx.d_fig(c.cat_scen, c.view_ts, var.code + "_" + c.f_csv) + var.code + "_sim" + c.f_ext_csv
+            p_i = cntx.d_fig(c.view_ts, var.code + "_" + c.f_csv) + var.code + "_sim" + c.f_ext_csv
             p_csv_ts_l.append(p_i)
         n_cluster_max = len(dash_utils.get_shared_sims(p_csv_ts_l))
 
@@ -1765,8 +1762,8 @@ def calc_clusters():
         for n_cluster in range(1, n_cluster_max):
 
             # Paths.
-            p_csv = cntx.d_fig(c.cat_scen, c.view_cluster) +\
-                vars_str + "_" + c.f_csv + cntx.sep + vars_str + "_" + str(n_cluster) + c.f_ext_csv
+            p_csv = cntx.d_fig(c.view_cluster) + vars_str + "_" + c.f_csv + cntx.sep +\
+                vars_str + "_" + str(n_cluster) + c.f_ext_csv
             p_fig = p_csv.replace("_" + c.f_csv, "").replace(c.f_ext_csv, c.f_ext_png)
 
             # Determine if the analysis is required.

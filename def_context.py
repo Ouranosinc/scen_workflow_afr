@@ -1089,8 +1089,7 @@ class Context(def_context.Context):
 
     def d_fig(
         self,
-        cat_vi: str,
-        cat_fig: Optional[str] = "",
+        cat: Optional[str] = "",
         vi_name: Optional[str] = ""
     ) -> str:
 
@@ -1100,10 +1099,8 @@ class Context(def_context.Context):
 
         Parameters
         ----------
-        cat_vi: str
-            Category = {c.cat_scen, c.cat_idx}.
-        cat_fig: Optional[str]
-            Category of figure = {c.cat_figure*}
+        cat: Optional[str]
+            Category of figure = {c.cat_fig*, c.view_ts, c.view_map, c.view_cluster*, c.view_cycle*}
         vi_name: Optional[str]
             Climate variable or index name.
 
@@ -1114,17 +1111,16 @@ class Context(def_context.Context):
         ----------------------------------------
         """
 
-        d = cntx.d_res + c.cat_fig + self.sep + cat_vi + self.sep
-        if cat_fig != "":
-            d = d + cat_fig + self.sep
+        d = cntx.d_res + c.cat_fig + self.sep
+        if cat != "":
+            d = d + cat + self.sep
         if vi_name != "":
             d = d + vi_name + self.sep
 
         return d
 
-    def d_stat(
+    def d_tbl(
         self,
-        cat_vi: str,
         vi_name: Optional[str] = ""
     ) -> str:
 
@@ -1134,8 +1130,6 @@ class Context(def_context.Context):
 
         Parameters
         ----------
-        cat_vi: str
-            Category = {c.cat_scen, c.cat_idx}.
         vi_name: Optional[str]
             Climate variable or index name.
 
@@ -1146,7 +1140,7 @@ class Context(def_context.Context):
         ----------------------------------------
         """
 
-        d = cntx.d_res + c.cat_stat + self.sep + cat_vi + self.sep
+        d = cntx.d_res + c.view_tbl + self.sep
         if vi_name != "":
             d = d + vi_name + self.sep
 

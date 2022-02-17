@@ -1100,7 +1100,7 @@ def bias_adj(
 
         # Path of CSV and PNG files (large plot).
         fn_fig = var.name + "_" + sim_name_i + "_" + c.cat_fig_bias + c.f_ext_png
-        p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_bias, var.name) + fn_fig
+        p_fig = cntx.d_fig(c.cat_fig_bias, var.name) + fn_fig
         p_csv = p_fig.replace(cntx.sep + var.name + cntx.sep,
                               cntx.sep + var.name + "_" + c.f_csv + cntx.sep).\
             replace(c.f_ext_png, c.f_ext_csv)
@@ -1346,9 +1346,9 @@ def gen():
             d_regrid          = cntx.d_scen(c.cat_regrid, var.name)
             d_qqmap           = cntx.d_scen(c.cat_qqmap, var.name)
             d_qmf             = cntx.d_scen(c.cat_qmf, var.name)
-            d_fig_bias        = cntx.d_fig(c.cat_scen, c.cat_fig_bias, var.name)
-            d_fig_postprocess = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var.name)
-            d_fig_workflow    = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var.name)
+            d_fig_bias        = cntx.d_fig(c.cat_fig_bias, var.name)
+            d_fig_postprocess = cntx.d_fig(c.cat_fig_postprocess, var.name)
+            d_fig_workflow    = cntx.d_fig(c.cat_fig_workflow, var.name)
 
             # Load station data, drop February 29th and select reference period.
             ds_stn = fu.open_netcdf(p_stn)
@@ -1650,7 +1650,7 @@ def gen_per_var(
             elif func_name == "stats.calc_ts":
                 stats.calc_ts(view_code, cntx.vars.code_l, i_var)
             else:
-                stats.calc_stat_tbl(cntx.vars.code_l, i_var)
+                stats.calc_tbl(cntx.vars.code_l, i_var)
 
     # Parallel processing mode.
     else:
@@ -1673,7 +1673,7 @@ def gen_per_var(
                 elif func_name == "stats.calc_ts":
                     func = functools.partial(stats.calc_ts, view_code, var_name_l)
                 else:
-                    func = functools.partial(stats.calc_stat_tbl, var_name_l)
+                    func = functools.partial(stats.calc_tbl, var_name_l)
                 pool.map(func, list(range(len(var_name_l))))
                 pool.close()
                 pool.join()
@@ -1742,13 +1742,13 @@ def calc_diag_cycle(
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/postprocess/<var>/<hor>/*.png
-                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_postprocess, var_name) + fn_fig.replace("<per>_", "")
+                p_fig = cntx.d_fig(c.cat_fig_postprocess, var_name) + fn_fig.replace("<per>_", "")
                 p_fig = p_fig.replace("_<per>", "").replace("<cat_fig>", c.cat_fig_postprocess)
                 stats.calc_postprocess(p_obs, p_regrid_fut, p_qqmap, var, p_fig, title)
 
                 # This creates one file:
                 #     ~/sim_climat/<country>/<project>/<stn>/fig/scen/workflow/<var>/*.png
-                p_fig = cntx.d_fig(c.cat_scen, c.cat_fig_workflow, var_name) + fn_fig.replace("<per>_", "")
+                p_fig = cntx.d_fig(c.cat_fig_workflow, var_name) + fn_fig.replace("<per>_", "")
                 p_fig = p_fig.replace("_<per>", "").replace("<cat_fig>", c.cat_fig_workflow)
                 stats.calc_workflow(var, p_regrid_ref, p_regrid_fut, p_fig, title)
 
@@ -1834,7 +1834,7 @@ def run():
     msg = "Step #7a  Calculating statistics (scenarios)"
     if cntx.opt_stat[0]:
         fu.log(msg)
-        gen_per_var("stats.calc_stat_tbl")
+        gen_per_var("stats.calc_tbl")
     else:
         fu.log(msg + not_req)
 
