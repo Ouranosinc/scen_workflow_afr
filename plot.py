@@ -377,7 +377,7 @@ def plot_bias(
 
         ax = plt.subplot(433 + i - 1)
 
-        stat = Stat(c.stat_centile, cntx.opt_stat_centiles[i - 1])
+        stat = Stat(c.stat_centile, cntx.opt_tbl_centiles[i - 1])
         if stat.centile == 0:
             stat = Stat(c.stat_min)
         elif stat.centile == 1:

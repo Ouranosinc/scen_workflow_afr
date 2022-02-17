@@ -1831,8 +1831,8 @@ def run():
     # Statistics -------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    msg = "Step #7a  Calculating statistics (scenarios)"
-    if cntx.opt_stat[0]:
+    msg = "Step #7a  Calculating statistics tables (scenarios)"
+    if cntx.opt_tbl[0]:
         fu.log(msg)
         gen_per_var("stats.calc_tbl")
     else:

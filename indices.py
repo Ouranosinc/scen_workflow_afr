@@ -2103,8 +2103,8 @@ def run():
     # Statistics -------------------------------------------------------------------------------------------------------
 
     fu.log("=")
-    msg = "Step #7a  Calculating statistics (indices)"
-    if cntx.opt_stat[1]:
+    msg = "Step #7a  Calculating statistics tables (indices)"
+    if cntx.opt_tbl[1]:
         fu.log(msg)
         gen_per_idx("stats.calc_tbl")
     else:

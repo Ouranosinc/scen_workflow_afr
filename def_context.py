@@ -551,37 +551,28 @@ class Context(def_context.Context):
         # Enable/disable the calculation of climate indices.
         self.opt_idx = True
 
-        # Spatial resolution for mapping.
-        self.map_resol = 0.05
-
         # Indices.
         self.idxs = None
 
         """
-        Statistics -----------------------------
+        Results --------------------------------
         """
 
-        # Enable/disable the calculation of statistics for [scenarios, indices].
-        self.opt_stat = [True] * 2
+        # Enable/diasble generation of cluster plots (only applicable to scenarios).
+        self.opt_cluster = False
 
-        # Centiles required to generate a statistical table.
-        self.opt_stat_centiles = [0, 1, 10, 50, 90, 99, 100]
+        # Centiles required to produce a cluster scatter plot (if a single variable is selected).
+        self.opt_cluster_centiles = [10, 50, 90]
 
-        # Enable/disable clipping according to 'p_bounds'.
-        self.opt_stat_clip = False
+        # Color scale of cluster plots.
+        self.opt_cluster_col = "Dark2"
 
-        # Enabe/disable exporting NetCDF to CSV files for [scenarios, indices].
-        self.export_nc_to_csv = [False] * 2
+        # Format of cluster plots.
+        self.opt_cluster_format = ["png", "csv"]
 
-        """
-        Visualization --------------------------
-        """
-
-        # Enable/disable diagnostic plots (related to bias adjustment).
-        self.opt_diagnostic = True
-
-        # Format of diagnostic plots.
-        self.opt_diagnostic_format = ["png", "csv"]
+        # Variables used for clustering.
+        self.opt_cluster_variables = []
+        self.opt_cluster_vars = None
 
         # Enable/disable generation of annual and monthly cycle plots for [scenarios, indices].
         self.opt_cycle = True
@@ -589,60 +580,20 @@ class Context(def_context.Context):
         # Format of cycle plots.
         self.opt_cycle_format = ["png", "csv"]
 
-        # Enable/diasble generation of time series for [scenarios, indices].
-        self.opt_ts = [True] * 2
+        # Enable/disable diagnostic plots (related to bias adjustment).
+        self.opt_diagnostic = True
 
-        # Enable/disable generation of bias plots for [scenarios].
-        self.opt_ts_bias = True
-
-        # Centiles for which a time series is required.
-        self.opt_ts_centiles = [10, 90]
-
-        # Format of time series.
-        self.opt_ts_format = ["png", "csv"]
+        # Format of diagnostic plots.
+        self.opt_diagnostic_format = ["png", "csv"]
 
         # Enable/disable generation of maps [for scenarios, for indices].
         self.opt_map = [False] * 2
 
-        # Enable/disable generationg of delta maps for [scenarios, indices].
-        self.opt_map_delta = [False] * 2
-
-        # Tells whether map clipping should be done using 'p_bounds'.
-        self.opt_map_clip = False
-
         # Centiles for which a map is required.
         self.opt_map_centiles = [10, 90]
 
-        # Format of maps.
-        self.opt_map_format = ["png", "csv"]
-
-        # Map locations (pd.DataFrame).
-        self.opt_map_locations = None
-
-        # Spatial reference (starts with: EPSG).
-        self.opt_map_spat_ref = ""
-
-        # Map resolution.
-        self.opt_map_res = -1
-
-        # Tells whether discrete color scale are used maps (rather than continuous).
-        self.opt_map_discrete = False
-
-        # Enable/diasble generation of cluster plots (only applicable to scenarios).
-        self.opt_cluster = False
-
-        # Variables used for clustering.
-        self.opt_cluster_variables = []
-        self.opt_cluster_vars = None
-
-        # Centiles required to produce a cluster scatter plot (if a single variable is selected).
-        self.opt_cluster_centiles = [10, 50, 90]
-
-        # Format of cluster plots.
-        self.opt_cluster_format = ["png", "csv"]
-
-        # Color scale of cluster plots.
-        self.opt_cluster_col = "Dark2"
+        # Tells whether map clipping should be done using 'p_bounds'.
+        self.opt_map_clip = False
 
         """
         Color maps apply to categories of variables and indices.
@@ -685,6 +636,50 @@ class Context(def_context.Context):
         self.opt_map_col_wind_var   = super(Context, self).opt_map_col_wind_var
         self.opt_map_col_wind_idx_1 = super(Context, self).opt_map_col_wind_idx_1
         self.opt_map_col_default    = super(Context, self).opt_map_col_default
+
+        # Enable/disable generationg of delta maps for [scenarios, indices].
+        self.opt_map_delta = [False] * 2
+
+        # Tells whether discrete color scale are used maps (rather than continuous).
+        self.opt_map_discrete = False
+
+        # Format of maps.
+        self.opt_map_format = ["png", "csv"]
+
+        # Map locations (pd.DataFrame).
+        self.opt_map_locations = None
+
+        # Map resolution.
+        self.opt_map_resolution = 0.05
+
+        # Spatial reference (starts with: EPSG).
+        self.opt_map_spat_ref = ""
+
+        # Enable/disable the calculation of statistics tables for [scenarios, indices].
+        self.opt_tbl = [True] * 2
+
+        # Centiles required to generate a statistical tables.
+        self.opt_tbl_centiles = [0, 1, 10, 50, 90, 99, 100]
+
+        # Enable/disable clipping according to 'p_bounds'.
+        self.opt_tbl_clip = False
+
+        # Enable/diasble generation of time series for [scenarios, indices].
+        self.opt_ts = [True] * 2
+
+        # Enable/disable generation of bias plots for [scenarios].
+        self.opt_ts_bias = True
+
+        # Centiles for which a time series is required.
+        self.opt_ts_centiles = [10, 90]
+
+        # Format of time series.
+        self.opt_ts_format = ["png", "csv"]
+
+        # Enabe/disable exporting NetCDF to CSV files for [scenarios, indices].
+        self.export_nc_to_csv = [False] * 2
+
+        # Performance --------------------------
 
         # Number of processes
         self.n_proc = 1
@@ -822,72 +817,46 @@ class Context(def_context.Context):
                         else:
                             self.idx_params.append(idx_params_tmp[i])
 
-                # Statistics.
-                elif key == "opt_stat":
-                    self.opt_stat = ast.literal_eval(value)\
-                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
-                elif key == "opt_stat_centiles":
-                    opt_stat_centiles = def_context.str_to_arr_1d(value, int)
-                    if str(opt_stat_centiles).replace("['']", "") != "":
-                        self.opt_stat_centiles = opt_stat_centiles
-                        self.opt_stat_centiles.sort()
-                elif key == "opt_stat_clip":
-                    self.opt_stat_clip = ast.literal_eval(value)
-                elif key == "export_nc_to_csv":
-                    self.export_nc_to_csv = ast.literal_eval(value)\
-                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
+                # Results > Cluster:
+                elif key == "opt_cluster":
+                    self.opt_cluster = ast.literal_eval(value)
+                elif key == "opt_cluster_centiles":
+                    opt_cluster_centiles = def_context.str_to_arr_1d(value, int)
+                    if str(opt_cluster_centiles).replace("['']", "") == "":
+                        self.opt_cluster_centiles = opt_cluster_centiles
+                        self.opt_cluster_centiles.sort()
+                elif key == "opt_cluster_col":
+                    self.opt_cluster_col = ast.literal_eval(value)
+                elif key == "opt_cluster_format":
+                    self.opt_cluster_format = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_cluster_variables":
+                    self.opt_cluster_variables = def_context.str_to_arr_1d(value, str)
 
-                # Visualization:
-                elif key == "opt_diagnostic":
-                    self.opt_diagnostic = ast.literal_eval(value)
-                elif key == "opt_diagnostic_format":
-                    self.opt_diagnostic_format = def_context.str_to_arr_1d(value, str)
+                # Results > Cycle:
                 elif key == "opt_cycle":
                     self.opt_cycle = ast.literal_eval(value)
                 elif key == "opt_cycle_format":
                     self.opt_cycle_format = def_context.str_to_arr_1d(value, str)
-                elif key == "opt_ts":
-                    self.opt_ts = ast.literal_eval(value)\
-                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
-                elif key == "opt_ts_bias":
-                    self.opt_ts_bias = ast.literal_eval(value)
-                elif key == "opt_ts_centiles":
-                    opt_ts_centiles = def_context.str_to_arr_1d(value, int)
-                    if str(opt_ts_centiles).replace("['']", "") == "":
-                        self.opt_ts_centiles = opt_ts_centiles
-                        self.opt_ts_centiles.sort()
-                elif key == "opt_ts_format":
-                    self.opt_ts_format = def_context.str_to_arr_1d(value, str)
+
+                # Results > Diagnostic:
+                elif key == "opt_diagnostic":
+                    self.opt_diagnostic = ast.literal_eval(value)
+                elif key == "opt_diagnostic_format":
+                    self.opt_diagnostic_format = def_context.str_to_arr_1d(value, str)
+
+                # Results > Map:
                 elif key == "opt_map":
                     self.opt_map = [False, False]
                     if self.opt_ra:
                         self.opt_map = ast.literal_eval(value)\
                             if ("," not in value) else def_context.str_to_arr_1d(value, bool)
-                elif key == "opt_map_delta":
-                    self.opt_map_delta = [False, False]
-                    if self.opt_ra:
-                        if "," not in value:
-                            self.opt_map_delta = ast.literal_eval(value)
-                        else:
-                            self.opt_map_delta = def_context.str_to_arr_1d(value, bool)
-                elif key == "opt_map_clip":
-                    self.opt_map_clip = ast.literal_eval(value)
                 elif key == "opt_map_centiles":
                     opt_map_centiles = def_context.str_to_arr_1d(value, int)
                     if str(opt_map_centiles).replace("['']", "") == "":
                         self.opt_map_centiles = opt_map_centiles
                         self.opt_map_centiles.sort()
-                elif key == "opt_map_format":
-                    self.opt_map_format = def_context.str_to_arr_1d(value, str)
-                elif key == "opt_map_locations":
-                    self.opt_map_locations = pd.DataFrame(def_context.str_to_arr_2d(value, float),
-                                                          columns=["longitude", "latitude", "desc"])
-                elif key == "opt_map_spat_ref":
-                    self.opt_map_spat_ref = ast.literal_eval(value)
-                elif key == "opt_map_res":
-                    self.opt_map_res = ast.literal_eval(value)
-                elif key == "opt_map_discrete":
-                    self.opt_map_discrete = ast.literal_eval(value)
+                elif key == "opt_map_clip":
+                    self.opt_map_clip = ast.literal_eval(value)
                 elif key == "opt_map_col_temp_var":
                     self.opt_map_col_temp_var = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_temp_idx_1":
@@ -908,19 +877,55 @@ class Context(def_context.Context):
                     self.opt_map_col_wind_idx_1 = def_context.str_to_arr_1d(value, str)
                 elif key == "opt_map_col_default":
                     self.opt_map_col_default = def_context.str_to_arr_1d(value, str)
-                elif key == "opt_cluster":
-                    self.opt_cluster = ast.literal_eval(value)
-                elif key == "opt_cluster_variables":
-                    self.opt_cluster_variables = def_context.str_to_arr_1d(value, str)
-                elif key == "opt_cluster_centiles":
-                    opt_cluster_centiles = def_context.str_to_arr_1d(value, int)
-                    if str(opt_cluster_centiles).replace("['']", "") == "":
-                        self.opt_cluster_centiles = opt_cluster_centiles
-                        self.opt_cluster_centiles.sort()
-                elif key == "opt_cluster_format":
-                    self.opt_cluster_format = def_context.str_to_arr_1d(value, str)
-                elif key == "opt_cluster_col":
-                    self.opt_cluster_col = ast.literal_eval(value)
+                elif key == "opt_map_delta":
+                    self.opt_map_delta = [False, False]
+                    if self.opt_ra:
+                        if "," not in value:
+                            self.opt_map_delta = ast.literal_eval(value)
+                        else:
+                            self.opt_map_delta = def_context.str_to_arr_1d(value, bool)
+                elif key == "opt_map_discrete":
+                    self.opt_map_discrete = ast.literal_eval(value)
+                elif key == "opt_map_format":
+                    self.opt_map_format = def_context.str_to_arr_1d(value, str)
+                elif key == "opt_map_locations":
+                    self.opt_map_locations =\
+                        pd.DataFrame(def_context.str_to_arr_2d(value, float), columns=["longitude", "latitude", "desc"])
+                elif key == "opt_map_resolution":
+                    self.opt_map_resolution = ast.literal_eval(value)
+                elif key == "opt_map_spat_ref":
+                    self.opt_map_spat_ref = ast.literal_eval(value)
+
+                # Results > Statistics table.
+                elif key == "opt_tbl":
+                    self.opt_tbl = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
+                elif key == "opt_tbl_centiles":
+                    opt_tbl_centiles = def_context.str_to_arr_1d(value, int)
+                    if str(opt_tbl_centiles).replace("['']", "") != "":
+                        self.opt_tbl_centiles = opt_tbl_centiles
+                        self.opt_tbl_centiles.sort()
+                elif key == "opt_tbl_clip":
+                    self.opt_tbl_clip = ast.literal_eval(value)
+
+                # Results > Time series:
+                elif key == "opt_ts":
+                    self.opt_ts = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
+                elif key == "opt_ts_bias":
+                    self.opt_ts_bias = ast.literal_eval(value)
+                elif key == "opt_ts_centiles":
+                    opt_ts_centiles = def_context.str_to_arr_1d(value, int)
+                    if str(opt_ts_centiles).replace("['']", "") == "":
+                        self.opt_ts_centiles = opt_ts_centiles
+                        self.opt_ts_centiles.sort()
+                elif key == "opt_ts_format":
+                    self.opt_ts_format = def_context.str_to_arr_1d(value, str)
+
+                # Results > Export NetCDF.
+                elif key == "export_nc_to_csv":
+                    self.export_nc_to_csv = ast.literal_eval(value)\
+                        if ("," not in value) else def_context.str_to_arr_1d(value, bool)
 
                 # Environment.
                 elif key == "n_proc":

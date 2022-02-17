@@ -368,14 +368,14 @@ def calc_tbl(
                 stats = Stats([c.stat_mean])
                 if rcp.code != c.ref:
                     stats.add([c.stat_min, c.stat_max], inplace=True)
-                    for centile in cntx.opt_stat_centiles:
+                    for centile in cntx.opt_tbl_centiles:
                         if centile not in [0, 100]:
                             stats.add(Stat(c.stat_centile, centile), inplace=True)
 
                 # Calculate statistics.
                 # The order is the same as the items in 'stats'.
                 ds_stats = calc_stats(View(c.view_tbl), stn, varidx, rcp, Sim(c.simxx), False, stats,
-                                      (freq == c.freq_YS) and (cat == c.cat_scen), cntx.opt_stat_clip)
+                                      (freq == c.freq_YS) and (cat == c.cat_scen), cntx.opt_tbl_clip)
 
                 # Loop through statistics.
                 for i in range(len(stats.items)):
@@ -615,7 +615,7 @@ def calc_ts_stn(
 
                 # Calculate statistics.
                 ds_stats = dict(calc_stats(cntx.view, stn, cntx.varidx, rcp, Sim(c.simxx), delta, stats, True,
-                                           cntx.opt_stat_clip))
+                                           cntx.opt_tbl_clip))
 
                 # Select years.
                 ds_stats_lower = ds_stats[stat_lower.centile_as_str]
@@ -665,7 +665,7 @@ def calc_ts_stn(
 
                 # Calculate simulation statistics.
                 ds_stats_i = dict(calc_stats(cntx.view, stn, cntx.varidx, rcp, Sim(sim_code), delta,
-                                             Stats([c.stat_mean]), True, cntx.opt_stat_clip))[c.stat_mean]
+                                             Stats([c.stat_mean]), True, cntx.opt_tbl_clip))[c.stat_mean]
 
                 # Select years.
                 ds_stats_i = utils.sel_period(ds_stats_i, [hor.year_1, hor.year_2])
@@ -1083,9 +1083,9 @@ def calc_map(
 
                     # Increase resolution.
                     da_tif = da_map.copy()
-                    if cntx.opt_map_res > 0:
-                        lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cntx.opt_map_res)
-                        lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cntx.opt_map_res)
+                    if cntx.opt_map_resolution > 0:
+                        lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cntx.opt_map_resolution)
+                        lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cntx.opt_map_resolution)
                         da_tif = da_tif.rename({c.dim_latitude: c.dim_lat, c.dim_longitude: c.dim_lon})
                         da_grid = xr.Dataset(
                             {c.dim_lat: ([c.dim_lat], lat_vals), c.dim_lon: ([c.dim_lon], lon_vals)})
@@ -1200,8 +1200,8 @@ def calc_map_rcp(
         ds_data = da_data.to_dataset(name=vi_name)
 
         # Build a list of x-y locations at which interpolation is needed.
-        grid_lon_l = np.arange(min(data_lon_l), max(data_lon_l) + cntx.map_resol, cntx.map_resol)
-        grid_lat_l = np.arange(min(data_lat_l), max(data_lat_l) + cntx.map_resol, cntx.map_resol)
+        grid_lon_l = np.arange(min(data_lon_l), max(data_lon_l) + cntx.opt_map_resolution, cntx.opt_map_resolution)
+        grid_lat_l = np.arange(min(data_lat_l), max(data_lat_l) + cntx.opt_map_resolution, cntx.opt_map_resolution)
 
         # Create a Dataset for the new grid.
         ds_grid = xr.Dataset({c.dim_latitude: ([c.dim_latitude], grid_lat_l),
