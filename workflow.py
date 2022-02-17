@@ -38,10 +38,7 @@ def main():
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # p_dashboard = "/home/yrousseau/Documents/dev/scen_workflow_afr/dashboard/data/"
-    # fu.migrate_project(c.view_script, p_dashboard, "sn-ko", 1.2, 1.4)
-
-    # Step #0: Structure: project, variables and indices.
+    # Step #0: Structure: project, variables and indices ---------------------------------------------------------------
 
     # Project.
     cntx.code = c.platform_script
@@ -77,7 +74,14 @@ def main():
             idx.params = cntx.idx_params[i]
             cntx.idxs.add(idx)
 
-    # Step #1: Header.
+    # TODO: Migrate project.
+    fu.migrate(c.platform_script, "", 1.2, 1.4)
+
+    # TODO: Step #9: Export to dashboard.
+    if cntx.export_to_dashboard:
+        fu.deploy()
+
+    # Step #1: Header --------------------------------------------------------------------------------------------------
 
     fu.log("=")
     fu.log("PRODUCTION OF CLIMATE SCENARIOS & CALCULATION OF CLIMATE INDICES                ")
@@ -105,7 +109,7 @@ def main():
     if (cntx.region != "") and cntx.opt_ra:
         fu.log("Region                 : " + cntx.region)
 
-    # Step #2: Download and aggregation
+    # Step #2: Download and aggregation --------------------------------------------------------------------------------
 
     # Download data.
     fu.log("=")
@@ -125,7 +129,7 @@ def main():
     else:
         fu.log(msg + " (not required)")
 
-    # Steps #3-5: Data extraction, scenarios, bias adjustment and statistical downscaling.
+    # Steps #3-5: Data extraction, scenarios, bias adjustment and statistical downscaling ------------------------------
 
     # Clean NetCDF files.
     if cntx.opt_scen:
@@ -143,11 +147,15 @@ def main():
     if cntx.opt_test:
         test.run()
 
-    # Steps #2-5,8: Production of scenarios, plots and statistics.
+    # Steps #2-5,8: Production of scenarios, plots and statistics ------------------------------------------------------
     scenarios.run()
 
-    # Steps #6,8: Calculation of indices, plots and statistics.
+    # Steps #6,8: Calculation of indices, plots and statistics ---------------------------------------------------------
     indices.run()
+
+    # Step #9: Export to dashboard -------------------------------------------------------------------------------------
+    if cntx.export_to_dashboard:
+        fu.deploy()
 
     fu.log("=")
     fu.log("Script completed: " + utils.datetime_str())

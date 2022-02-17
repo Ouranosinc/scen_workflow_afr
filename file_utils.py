@@ -17,6 +17,7 @@ import pandas as pd
 import shutil
 import xarray as xr
 import warnings
+from distutils import dir_util
 from itertools import compress
 from typing import Union, List, Optional
 
@@ -615,10 +616,9 @@ def rename(
                    update_content, recursive)
 
 
-def migrate_project(
+def migrate(
     platform: str,
-    p_base: str,
-    project_region: str,
+    country_region: str,
     version_pre_migration: float,
     version_post_migration: float
 ):
@@ -631,10 +631,8 @@ def migrate_project(
     ----------
     platform: str
         Platform = {c.platform_script, c.platform_streamlit, c.platform_jupyter}
-    p_base: str
-        Base path.
-    project_region: str
-        Project and region (ex: "<country_acronym>-<region>).
+    country_region: str
+        Country and region ("<country>-<region>").
     version_pre_migration: float
         Version of workflow, to migrate from.
     version_post_migration: float
@@ -642,13 +640,16 @@ def migrate_project(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    p = p_base + project_region + "/"
+    # Base path of the project.
+    if platform == c.platform_script:
+        p = cntx.d_res
+    else:
+        p = os.getcwd() + cntx.sep + "dashboard" + cntx.sep + "data" + cntx.sep + country_region + cntx.sep
 
     if (version_pre_migration == 1.2) and (version_post_migration == 1.4):
 
         # Determine the path of the directory holding maps and time series.
-        p_map = p
-        p_ts = p
+        p_map, p_ts = p, p
         if platform == c.platform_script:
             p_map += c.cat_fig + cntx.sep
             p_ts += c.cat_fig + cntx.sep
@@ -714,3 +715,29 @@ def migrate_project(
                    update_content=True, recursive=True)
             rename(p_ts, "_era5_land", "_rcp", rename_files=True, rename_directories=False,
                    update_content=False, recursive=True)
+
+
+def deploy():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Deploy a project.
+
+    This copies CSV files from the workflow to the dashboard.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Base path of the dashboard project.
+    p_dash = os.getcwd() + cntx.sep + "dashboard" + cntx.sep + "data" + cntx.sep + cntx.country + "-" +\
+        cntx.region + cntx.sep
+
+    # Copys figures.
+    for view in [c.view_cycle_d, c.view_cycle_ms, c.view_map, c.view_ts, c.view_ts_bias]:
+        for p_work_i in glob.glob(cntx.d_fig(view) + "*_csv"):
+            p_dash_i = p_dash + view + cntx.sep + os.path.basename(p_work_i).replace("_csv", "")
+            dir_util.copy_tree(p_work_i, p_dash_i)
+        if view == c.view_map:
+            shutil.copy(cntx.p_bounds, p_dash + view + cntx.sep + "boundaries.geojson")
+
+    # Copy tables.
+    dir_util.copy_tree(cntx.d_tbl(), p_dash + c.view_tbl)
