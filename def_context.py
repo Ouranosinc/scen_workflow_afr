@@ -680,7 +680,7 @@ class Context(def_context.Context):
         self.export_nc_to_csv = [False] * 2
 
         # Enable/disable exporting to dashboard.
-        self.export_to_dashboard = False
+        self.export_dashboard = False
 
         # Performance --------------------------
 
@@ -931,8 +931,8 @@ class Context(def_context.Context):
                         if ("," not in value) else def_context.str_to_arr_1d(value, bool)
 
                 # Results > Export to dashboard.
-                elif key == "export_to_dashboard":
-                    self.export_to_dashboard = ast.literal_eval(value)
+                elif key == "export_dashboard":
+                    self.export_dashboard = ast.literal_eval(value)
 
                 # Environment.
                 elif key == "n_proc":

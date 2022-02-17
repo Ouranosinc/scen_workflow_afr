@@ -74,13 +74,6 @@ def main():
             idx.params = cntx.idx_params[i]
             cntx.idxs.add(idx)
 
-    # TODO: Migrate project.
-    fu.migrate(c.platform_script, "", 1.2, 1.4)
-
-    # TODO: Step #9: Export to dashboard.
-    if cntx.export_to_dashboard:
-        fu.deploy()
-
     # Step #1: Header --------------------------------------------------------------------------------------------------
 
     fu.log("=")
@@ -153,8 +146,8 @@ def main():
     # Steps #6,8: Calculation of indices, plots and statistics ---------------------------------------------------------
     indices.run()
 
-    # Step #9: Export to dashboard -------------------------------------------------------------------------------------
-    if cntx.export_to_dashboard:
+    # Step #9: Export dashboard ----------------------------------------------------------------------------------------
+    if cntx.export_dashboard:
         fu.deploy()
 
     fu.log("=")
