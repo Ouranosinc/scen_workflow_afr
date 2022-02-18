@@ -395,10 +395,7 @@ def calc_tbl(
                             ds_stat_hor = ds_stat.copy(deep=True)
 
                         # Extract value.
-                        if varidx.is_summable:
-                            val = float(ds_stat_hor[vi_name].sum()) / (hor.year_2 - hor.year_1 + 1)
-                        else:
-                            val = float(ds_stat_hor[vi_name].mean())
+                        val = float(ds_stat_hor[vi_name].mean(dim=c.dim_time).mean())
 
                         # Add row.
                         stn_l.append(stn)
@@ -992,120 +989,111 @@ def calc_map(
             else:
                 da_map = ds_map[vi_name] - ds_map_ref[vi_name]
 
-            # Perform twice (for min/max values specific to a period, then for overall min/max values).
-            for k in range(2):
+            # Calculate minimum and maximum values.
+            z_min = z_min_net[i_per] if j == 0 else z_min_del[i_per]
+            z_max = z_max_net[i_per] if j == 0 else z_max_del[i_per]
 
-                # Specific period.
-                if k == 0:
-                    per_str = str(per[0]) + "-" + str(per[1])
-                    z_min = z_min_net[i_per] if j == 0 else z_min_del[i_per]
-                    z_max = z_max_net[i_per] if j == 0 else z_max_del[i_per]
-                # All periods combined.
-                else:
-                    per_str = str(cntx.per_ref[0]) + "-" + str(cntx.per_hors[len(cntx.per_hors) - 1][1])
-                    z_min = np.nanmin(z_min_net if j == 0 else z_min_del)
-                    z_max = np.nanmax(z_max_net if j == 0 else z_max_del)
+            # PNG and CSV formats ----------------------------------------------------------------------------------
 
-                # PNG and CSV formats ----------------------------------------------------------------------------------
+            # Path of output files.
+            per_str = str(per[0]) + "-" + str(per[1])
+            p_csv, p_fig = p_csv_fig(rcp, per, per_str, stat, j == 1)
 
-                # Path of output files.
-                p_csv, p_fig = p_csv_fig(rcp, per, per_str, stat, j == 1)
+            # Create context.
+            cntx.code   = c.platform_script
+            cntx.view   = View(c.view_map)
+            cntx.lib    = Lib(c.lib_mat)
+            cntx.varidx = VarIdx(vi_name)
+            cntx.rcp    = rcp
+            cntx.hor    = Hor(per)
+            cntx.stats  = Stats()
+            for s in range(len(cntx.opt_map_centiles)):
+                stats.add(Stat(c.stat_centile, cntx.opt_map_centiles[s]))
+            cntx.stat   = stat
+            cntx.delta  = Delta(str(j == 1))
 
-                # Create context.
-                cntx.code   = c.platform_script
-                cntx.view   = View(c.view_map)
-                cntx.lib    = Lib(c.lib_mat)
-                cntx.varidx = VarIdx(vi_name)
-                cntx.rcp    = rcp
-                cntx.hor    = Hor(per)
-                cntx.stats  = Stats()
-                for s in range(len(cntx.opt_map_centiles)):
-                    stats.add(Stat(c.stat_centile, cntx.opt_map_centiles[s]))
-                cntx.stat   = stat
-                cntx.delta  = Delta(str(j == 1))
+            # Update colors.
+            if len(cntx.opt_map_col_temp_var) > 0:
+                cntx.opt_map_col_temp_var = cntx.opt_map_col_temp_var
+            if len(cntx.opt_map_col_temp_idx_1) > 0:
+                cntx.opt_map_col_temp_idx_1 = cntx.opt_map_col_temp_idx_1
+            if len(cntx.opt_map_col_temp_idx_2) > 0:
+                cntx.opt_map_col_temp_idx_2 = cntx.opt_map_col_temp_idx_2
+            if len(cntx.opt_map_col_prec_var) > 0:
+                cntx.opt_map_col_prec_var = cntx.opt_map_col_prec_var
+            if len(cntx.opt_map_col_prec_idx_1) > 0:
+                cntx.opt_map_col_prec_idx_1 = cntx.opt_map_col_prec_idx_1
+            if len(cntx.opt_map_col_prec_idx_2) > 0:
+                cntx.opt_map_col_prec_idx_2 = cntx.opt_map_col_prec_idx_2
+            if len(cntx.opt_map_col_prec_idx_3) > 0:
+                cntx.opt_map_col_prec_idx_3 = cntx.opt_map_col_prec_idx_3
+            if len(cntx.opt_map_col_wind_var) > 0:
+                cntx.opt_map_col_wind_var = cntx.opt_map_col_wind_var
+            if len(cntx.opt_map_col_wind_idx_1) > 0:
+                cntx.opt_map_col_wind_idx_1 = cntx.opt_map_col_wind_idx_1
+            if len(cntx.opt_map_col_default) > 0:
+                cntx.opt_map_col_default = cntx.opt_map_col_default
 
-                # Update colors.
-                if len(cntx.opt_map_col_temp_var) > 0:
-                    cntx.opt_map_col_temp_var = cntx.opt_map_col_temp_var
-                if len(cntx.opt_map_col_temp_idx_1) > 0:
-                    cntx.opt_map_col_temp_idx_1 = cntx.opt_map_col_temp_idx_1
-                if len(cntx.opt_map_col_temp_idx_2) > 0:
-                    cntx.opt_map_col_temp_idx_2 = cntx.opt_map_col_temp_idx_2
-                if len(cntx.opt_map_col_prec_var) > 0:
-                    cntx.opt_map_col_prec_var = cntx.opt_map_col_prec_var
-                if len(cntx.opt_map_col_prec_idx_1) > 0:
-                    cntx.opt_map_col_prec_idx_1 = cntx.opt_map_col_prec_idx_1
-                if len(cntx.opt_map_col_prec_idx_2) > 0:
-                    cntx.opt_map_col_prec_idx_2 = cntx.opt_map_col_prec_idx_2
-                if len(cntx.opt_map_col_prec_idx_3) > 0:
-                    cntx.opt_map_col_prec_idx_3 = cntx.opt_map_col_prec_idx_3
-                if len(cntx.opt_map_col_wind_var) > 0:
-                    cntx.opt_map_col_wind_var = cntx.opt_map_col_wind_var
-                if len(cntx.opt_map_col_wind_idx_1) > 0:
-                    cntx.opt_map_col_wind_idx_1 = cntx.opt_map_col_wind_idx_1
-                if len(cntx.opt_map_col_default) > 0:
-                    cntx.opt_map_col_default = cntx.opt_map_col_default
+            # Determine if PNG and CSV files need to be saved.
+            save_fig = cntx.opt_force_overwrite or\
+                ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_map_format))
+            save_csv = cntx.opt_force_overwrite or\
+                ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_map_format))
 
-                # Determine if PNG and CSV files need to be saved.
-                save_fig = cntx.opt_force_overwrite or\
-                    ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_map_format))
-                save_csv = cntx.opt_force_overwrite or\
-                    ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_map_format))
+            # Create dataframe.
+            arr_lon, arr_lat, arr_val = [], [], []
+            for m in range(len(da_map.longitude.values)):
+                for n in range(len(da_map.latitude.values)):
+                    arr_lon.append(da_map.longitude.values[m])
+                    arr_lat.append(da_map.latitude.values[n])
+                    arr_val.append(da_map.values[n, m])
+            dict_pd = {c.dim_longitude: arr_lon, c.dim_latitude: arr_lat, vi_name: arr_val}
+            df = pd.DataFrame(dict_pd)
 
-                # Create dataframe.
-                arr_lon, arr_lat, arr_val = [], [], []
-                for m in range(len(da_map.longitude.values)):
-                    for n in range(len(da_map.latitude.values)):
-                        arr_lon.append(da_map.longitude.values[m])
-                        arr_lat.append(da_map.latitude.values[n])
-                        arr_val.append(da_map.values[n, m])
-                dict_pd = {c.dim_longitude: arr_lon, c.dim_latitude: arr_lat, vi_name: arr_val}
-                df = pd.DataFrame(dict_pd)
+            # Generate plot and save PNG file.
+            if save_fig:
+                fig = dash_plot.gen_map(df, [z_min, z_max])
+                fu.save_plot(fig, p_fig)
 
-                # Generate plot and save PNG file.
-                if save_fig:
-                    fig = dash_plot.gen_map(df, [z_min, z_max])
-                    fu.save_plot(fig, p_fig)
+            # Save CSV file.
+            if save_csv:
+                fu.save_csv(df, p_csv)
 
-                # Save CSV file.
-                if save_csv:
-                    fu.save_csv(df, p_csv)
+            # TIF format -------------------------------------------------------------------------------------------
 
-                # TIF format -------------------------------------------------------------------------------------------
+            # Path of TIF file.
+            p_tif = p_fig.replace(varidx.code + cntx.sep, varidx.code + "_" + c.f_tif + cntx.sep).\
+                replace(c.f_ext_png, c.f_ext_tif)
 
-                # Path of TIF file.
-                p_tif = p_fig.replace(varidx.code + cntx.sep, varidx.code + "_" + c.f_tif + cntx.sep).\
-                    replace(c.f_ext_png, c.f_ext_tif)
+            if (c.f_tif in cntx.opt_map_format) and ((not os.path.exists(p_tif)) or cntx.opt_force_overwrite):
 
-                if (c.f_tif in cntx.opt_map_format) and ((not os.path.exists(p_tif)) or cntx.opt_force_overwrite):
+                # TODO: da_tif.rio.reproject is now crashing. It was working in July 2021.
 
-                    # TODO: da_tif.rio.reproject is now crashing. It was working in July 2021.
+                # Increase resolution.
+                da_tif = da_map.copy()
+                if cntx.opt_map_resolution > 0:
+                    lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cntx.opt_map_resolution)
+                    lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cntx.opt_map_resolution)
+                    da_tif = da_tif.rename({c.dim_latitude: c.dim_lat, c.dim_longitude: c.dim_lon})
+                    da_grid = xr.Dataset(
+                        {c.dim_lat: ([c.dim_lat], lat_vals), c.dim_lon: ([c.dim_lon], lon_vals)})
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=FutureWarning)
+                        da_tif = xe.Regridder(da_tif, da_grid, "bilinear")(da_tif)
 
-                    # Increase resolution.
-                    da_tif = da_map.copy()
-                    if cntx.opt_map_resolution > 0:
-                        lat_vals = np.arange(min(da_tif.latitude), max(da_tif.latitude), cntx.opt_map_resolution)
-                        lon_vals = np.arange(min(da_tif.longitude), max(da_tif.longitude), cntx.opt_map_resolution)
-                        da_tif = da_tif.rename({c.dim_latitude: c.dim_lat, c.dim_longitude: c.dim_lon})
-                        da_grid = xr.Dataset(
-                            {c.dim_lat: ([c.dim_lat], lat_vals), c.dim_lon: ([c.dim_lon], lon_vals)})
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", category=FutureWarning)
-                            da_tif = xe.Regridder(da_tif, da_grid, "bilinear")(da_tif)
+                # Project data.
+                da_tif.rio.set_crs("EPSG:4326")
+                if cntx.opt_map_spat_ref != "EPSG:4326":
+                    da_tif.rio.set_spatial_dims(c.dim_lon, c.dim_lat, inplace=True)
+                    da_tif = da_tif.rio.reproject(cntx.opt_map_spat_ref)
+                    da_tif.values[da_tif.values == -9999] = np.nan
+                    da_tif = da_tif.rename({"y": c.dim_lat, "x": c.dim_lon})
 
-                    # Project data.
-                    da_tif.rio.set_crs("EPSG:4326")
-                    if cntx.opt_map_spat_ref != "EPSG:4326":
-                        da_tif.rio.set_spatial_dims(c.dim_lon, c.dim_lat, inplace=True)
-                        da_tif = da_tif.rio.reproject(cntx.opt_map_spat_ref)
-                        da_tif.values[da_tif.values == -9999] = np.nan
-                        da_tif = da_tif.rename({"y": c.dim_lat, "x": c.dim_lon})
-
-                    # Save.
-                    d = os.path.dirname(p_tif)
-                    if not (os.path.isdir(d)):
-                        os.makedirs(d)
-                    da_tif.rio.to_raster(p_tif)
+                # Save.
+                d = os.path.dirname(p_tif)
+                if not (os.path.isdir(d)):
+                    os.makedirs(d)
+                da_tif.rio.to_raster(p_tif)
 
 
 def calc_map_rcp(
