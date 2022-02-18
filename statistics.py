@@ -395,7 +395,7 @@ def calc_tbl(
                             ds_stat_hor = ds_stat.copy(deep=True)
 
                         # Extract value.
-                        val = float(ds_stat_hor[vi_name].mean(dim=c.dim_time).mean())
+                        val = float(ds_stat_hor[vi_name].mean())
 
                         # Add row.
                         stn_l.append(stn)
