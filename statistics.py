@@ -351,7 +351,7 @@ def calc_tbl(
             if os.path.exists(p_csv) and (not cntx.opt_force_overwrite):
                 fu.log(msg + "(not required)", True)
                 continue
-                
+
             fu.log(msg, True)
 
             # List simulations to process.
