@@ -342,10 +342,17 @@ def calc_tbl(
             vi_name = vi_name_l[i_vi]
             vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
 
+            # Status message.
+            vi_code_display = vi_code_grp + "." + vi_code if vi_code_grp != vi_code else vi_code
+            msg = "Processing: " + stn + ", " + vi_code_display
+
             # Skip iteration if the file already exists.
             p_csv = cntx.d_tbl(vi_code_grp) + vi_name + c.f_ext_csv
             if os.path.exists(p_csv) and (not cntx.opt_force_overwrite):
+                fu.log(msg + "(not required)", True)
                 continue
+                
+            fu.log(msg, True)
 
             # List simulations to process.
             sim_code_l = [c.ref]
@@ -381,11 +388,6 @@ def calc_tbl(
                     hors = Hors([cntx.per_ref])
                 else:
                     hors = Hors(cntx.per_hors)
-
-                idx_desc = vi_code
-                if vi_code_grp != vi_code:
-                    idx_desc = vi_code_grp + "." + idx_desc
-                fu.log("Processing: " + stn + ", " + idx_desc + ", " + rcp.code + "", True)
 
                 # Loop through statistics.
                 stats = stats_ref if rcp.code == c.ref else stats_rcp
