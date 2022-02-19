@@ -138,7 +138,7 @@ def calc_stats(
 
         # Open dataset.
         ds_i = fu.open_netcdf(p_sim_l[i])
-        units = ds_i[vi_name].attrs[c.attrs_units] if c.attrs_units in ds_i[vi_name].attrs else ""
+        units = utils.units(ds_i, vi_name)
 
         # Aggregate to the annual frequency.
         if varidx.is_summable:
@@ -146,18 +146,9 @@ def calc_stats(
         else:
             ds_i = ds_i.resample(time=c.freq_YS).mean()
 
-        # Convert units.
-        if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and (units == c.unit_K):
-            ds_i = ds_i - c.d_KC
-            ds_i[vi_name].attrs[c.attrs_units] = c.unit_C
-        elif varidx.is_summable:
-            ds_i = ds_i * c.spd
-            ds_i[vi_name].attrs[c.attrs_units] = c.unit_mm
-        elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
-            ds_i = ds_i * c.km_h_per_m_s
-            ds_i[vi_name].attrs[c.attrs_units] = c.unit_km_h
-        else:
-            ds_i[vi_name].attrs[c.attrs_units] = units
+        # Adjust units.
+        ds_i[vi_name].attrs[c.attrs_units] = units
+        ds_i = utils.convert_units(ds_i, vi_name)
 
         # Add to list of Datasets.
         ds_l.append(ds_i)
@@ -1310,7 +1301,7 @@ def calc_map_rcp(
                 return xr.Dataset(None)
             ds_sim = fu.open_netcdf(p_sim)
 
-            # TODO: The following patch was added to fix dimensions for c.i_drought_code.
+            # Patch used to fix dimensions for c.i_drought_code.
             if vi_code in cntx.idxs.code_l:
                 ds_sim = ds_sim.resample(time=c.freq_YS).mean(dim=c.dim_time, keep_attrs=True)
 
@@ -1318,12 +1309,9 @@ def calc_map_rcp(
             ds_sim = utils.remove_feb29(ds_sim)
             ds_sim = utils.sel_period(ds_sim, per)
 
-            # Extract units.
-            units = 1
-            if c.attrs_units in ds_sim[vi_name].attrs:
-                units = ds_sim[vi_name].attrs[c.attrs_units]
-            elif c.attrs_units in ds_sim.data_vars:
-                units = ds_sim[c.attrs_units]
+            # Adjust units.
+            ds_sim = utils.convert_units(ds_sim, vi_name)
+            units = utils.units(ds_sim, vi_name)
 
             # Calculate mean.
             ds_res = ds_sim.mean(dim=c.dim_time)
@@ -1348,22 +1336,19 @@ def calc_map_rcp(
             arr_sim = []
             ds_res  = None
             n_sim   = 0
-            units   = 1
             for p_sim in p_sim_l:
                 if os.path.exists(p_sim) and ((rcp.code in p_sim) or (rcp.code == c.rcpxx)):
 
                     # Open dataset.
                     ds_sim = fu.open_netcdf(p_sim)
 
-                    # TODO: The following patch was added to fix dimensions for c.i_drought_code.
+                    # Patch used to fix dimensions for c.i_drought_code.
                     if vi_code in cntx.idxs.code_l:
                         ds_sim = ds_sim.resample(time=c.freq_YS).mean(dim=c.dim_time, keep_attrs=True)
 
-                    # Extract units.
-                    if c.attrs_units in ds_sim[vi_name].attrs:
-                        units = ds_sim[vi_name].attrs[c.attrs_units]
-                    elif c.attrs_units in ds_sim.data_vars:
-                        units = ds_sim[c.attrs_units]
+                    # Adjust units.
+                    ds_sim = utils.convert_units(ds_sim, vi_name)
+                    units = utils.units(ds_sim, vi_name)
 
                     # Select period.
                     ds_sim = utils.remove_feb29(ds_sim)

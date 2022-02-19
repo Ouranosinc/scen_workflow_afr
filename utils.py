@@ -1387,3 +1387,105 @@ def set_logger_level(
         logger.setLevel(logger_level)
 
     return
+
+
+def units(
+    ds_da: Union[xr.Dataset, xr.DataArray],
+    layer_name: str
+) -> Union[str, int]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Get units.
+
+    Parameters
+    ----------
+    ds_da: Uniont[xr.Dataset, xr.DataArray]
+        Dataset.
+    layer_name: str
+        Layer name.
+
+    Returns
+    -------
+    Union[str, int]
+        Units.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    if isinstance(ds_da, xr.Dataset):
+        if c.attrs_units in ds_da[layer_name].attrs:
+            units = ds_da[layer_name].attrs[c.attrs_units]
+        elif c.attrs_units in ds_da.data_vars:
+            units = ds_da[c.attrs_units]
+        else:
+            units = ""
+    else:
+        if c.attrs_units in ds_da.attrs:
+            units = ds_da.attrs[c.attrs_units]
+        else:
+            units = ""
+
+    return units
+
+
+def convert_units(
+    ds_da: Union[xr.Dataset, xr.DataArray],
+    vi_name: str,
+    units_new: Optional[Union[str, int]] = ""
+) -> Union[xr.Dataset, xr.DataArray]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert units.
+
+    Parameters
+    ----------
+    ds_da: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray.
+    vi_name: str
+        Variable or index name.
+    units_new: Optional[Union[str, int]]
+        Units to convert to. If units are not provided the units are those of the generated visual elements.
+
+    Returns
+    -------
+    Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray with updated units.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Get old units.
+    units_old = units(ds_da, vi_name)
+
+    # Assign new units.
+    if units_new == "":
+        if vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
+            units_new = c.unit_C
+        elif vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
+            units_new = c.unit_mm
+        elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
+            units_new = c.unit_km_h
+
+    # Temperature: K -> C.
+    if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and\
+       (units_old == c.unit_K) and (units_new == c.unit_C):
+        ds_da = ds_da - c.d_KC
+
+    # Precipitation, evaporation, evapotranspiration: kg/m2s2 -> mm.
+    elif (vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]) and\
+         (units_old == c.unit_kg_m2s1) and (units_new == c.unit_mm):
+        ds_da = ds_da * c.spd
+
+    # Wind: m/s -> km/h.
+    elif (vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]) and \
+            (units_old == c.unit_m_s) and (units_new == c.unit_km_h):
+        ds_da = ds_da * c.km_h_per_m_s
+
+    # Set units.
+    if units_old != units_new:
+        if isinstance(ds_da, xr.Dataset):
+            ds_da[vi_name].attrs[c.attrs_units] = units_new
+        else:
+            ds_da.attrs[c.attrs_units] = units_new
+
+    return ds_da
