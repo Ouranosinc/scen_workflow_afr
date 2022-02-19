@@ -23,7 +23,6 @@ import sys
 import warnings
 import xarray as xr
 import xesmf as xe
-from pandas.core.common import SettingWithCopyWarning
 from typing import Union, List, Tuple, Optional
 
 # xclim libraries.
@@ -101,26 +100,10 @@ def calc_stats(
     """
 
     # Extract name and group.
-    vi_code = varidx.code
     vi_name = varidx.name
-    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
-    vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
 
     # List paths to NetCDF files.
-    if rcp.code == c.ref:
-        if varidx.is_var:
-            p_sim_l = [cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc]
-        else:
-            p_sim_l = [cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc]
-    else:
-        if varidx.is_var:
-            d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
-        else:
-            d = cntx.d_idx(vi_code_grp)
-        p_sim_l = []
-        for p in glob.glob(d + "*" + c.f_ext_nc):
-            if ((rcp.code == c.rcpxx) or (rcp.code in p)) and ((sim.code == c.simxx) or (sim.code in p)):
-                p_sim_l.append(p)
+    p_sim_l = list(list_netcdf(stn, varidx, "path", rcp, sim))
 
     # Adjust paths if doing the analysis for bias adjustment time series.
     if (rcp.code != c.ref) and (cat_scen == c.cat_regrid):
@@ -311,27 +294,12 @@ def calc_stats_ref_sims(
     # Variable or index code and group.
     vi_code = varidx.code
     vi_name = varidx.name
-    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
-    vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
 
     # Data frequency.
     freq = c.freq_D if varidx.is_var else c.freq_YS
 
-    # List simulations to process.
-    if varidx.is_var:
-        ref_exists = os.path.exists(cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc)
-        d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
-    else:
-        ref_exists = os.path.exists(cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc)
-        d = cntx.d_idx(vi_code_grp)
-    sim_code_l = []
-    p_l = glob.glob(d + "*" + c.f_ext_nc)
-    for p in p_l:
-        sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace(c.f_ext_nc, "")
-        sim_code_l.append(sim_code_i)
-    sim_code_l.sort()
-    if ref_exists:
-        sim_code_l = [c.ref] + sim_code_l
+    # List simulations associated with NetCDF files.
+    sim_code_l = list(list_netcdf(stn, varidx, "sim_code"))
 
     # View.
     if view.code == c.view_tbl:
@@ -348,6 +316,73 @@ def calc_stats_ref_sims(
         ds_stats_l.append([sim_code_i, ds_stats])
 
     return ds_stats_l
+
+
+def list_netcdf(
+    stn: str,
+    varidx: VarIdx,
+    out_format: str,
+    rcp: Optional[RCP] = RCP(c.rcpxx),
+    sim: Optional[Sim] = Sim(c.simxx)
+) -> List[str]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    List paths to reference data and simulations.
+
+    Parameters
+    ----------
+    stn: str
+        Station name.
+    varidx: VarIdx
+        Variables or index.
+    out_format: str
+        Output format = {"path", sim_code"}
+    rcp: Optional[RCP]
+        Emission scenario.
+    sim: Optional[Sim]
+        Simulation.
+
+    Returns
+    -------
+    List[str]
+        List of paths to reference data and simulations.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Variable or index code and group.
+    vi_code = varidx.code
+    vi_name = varidx.name
+    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
+    vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
+
+    # List paths.
+    if varidx.is_var:
+        ref_exists = os.path.exists(cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc)
+        d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
+    else:
+        ref_exists = os.path.exists(cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc)
+        d = cntx.d_idx(vi_code_grp)
+    p_l = []
+    for p in glob.glob(d + "*" + c.f_ext_nc):
+        if ((rcp.code == c.rcpxx) or (rcp.code in p)) and ((sim.code == c.simxx) or (sim.code in p)):
+            p_l.append(p)
+
+    if ref_exists:
+        p_l = [c.ref] + p_l
+
+    # Return result if the 'path' format is required.
+    if out_format == "path":
+        return p_l
+
+    # Extract simulation codes.
+    sim_code_l = []
+    for p in p_l:
+        sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace(c.f_ext_nc, "")
+        sim_code_l.append(sim_code_i)
+    sim_code_l.sort()
+
+    return sim_code_l
 
 
 def calc_tbl(
@@ -1204,12 +1239,6 @@ def calc_map_rcp(
     fu.log("Processing: " + vi_code + ", " +
            (stat.centile_as_str if stat.centile >= 0 else stat.code) + ", " +
            rcp.desc + ", " + str(per[0]) + "-" + str(per[1]) + "", True)
-
-    # Number of years and stations.
-    if rcp.code == c.ref:
-        n_year = cntx.per_ref[1] - cntx.per_ref[0] + 1
-    else:
-        n_year = cntx.per_fut[1] - cntx.per_ref[1] + 1
 
     # List stations.
     stns = cntx.stns if not cntx.opt_ra else [cntx.obs_src]
