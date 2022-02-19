@@ -323,7 +323,8 @@ def list_netcdf(
     varidx: VarIdx,
     out_format: str,
     rcp: Optional[RCP] = RCP(c.rcpxx),
-    sim: Optional[Sim] = Sim(c.simxx)
+    sim: Optional[Sim] = Sim(c.simxx),
+    include_ref: Optional[bool] = True
 ) -> List[str]:
 
     """
@@ -342,6 +343,8 @@ def list_netcdf(
         Emission scenario.
     sim: Optional[Sim]
         Simulation.
+    include_ref: Optional[bool]
+        If True, include the reference data.
 
     Returns
     -------
@@ -356,7 +359,7 @@ def list_netcdf(
     vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
     vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
 
-    # List paths.
+    # Collect paths to simulation files.
     if varidx.is_var:
         ref_exists = os.path.exists(cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc)
         d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
@@ -368,7 +371,8 @@ def list_netcdf(
         if ((rcp.code == c.rcpxx) or (rcp.code in p)) and ((sim.code == c.simxx) or (sim.code in p)):
             p_l.append(p)
 
-    if ref_exists:
+    # Add path to reference data.
+    if include_ref and ref_exists:
         p_l = [c.ref] + p_l
 
     # Return result if the 'path' format is required.
@@ -1354,12 +1358,8 @@ def calc_map_rcp(
         # Future period.
         else:
 
-            # List scenarios or indices for the current RCP.
-            if varidx.is_var:
-                d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
-            else:
-                d = cntx.d_idx(vi_code_grp)
-            p_sim_l = [i for i in glob.glob(d + "*" + c.f_ext_nc) if i != p_sim_ref]
+            # List scenarios or indices.
+            p_sim_l = list_netcdf(cntx.obs_src, varidx, "path", include_ref=False)
 
             # Collect simulations.
             arr_sim = []
@@ -1503,13 +1503,9 @@ def conv_nc_csv(
 
                 # Extract variable/index information.
                 varidx = VarIdx(vi_code)
-                vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
 
                 # List NetCDF files.
-                if cat != c.cat_idx:
-                    p_l = list(glob.glob(cntx.d_scen(cat, vi_code_grp) + "*" + c.f_ext_nc))
-                else:
-                    p_l = list(glob.glob(cntx.d_fig(vi_code_grp) + "*" + c.f_ext_nc))
+                p_l = list_netcdf(stn, varidx, "path")
                 n_files = len(p_l)
                 if n_files == 0:
                     continue
