@@ -2101,18 +2101,8 @@ def run():
     else:
         fu.log(msg + not_req)
 
-    # Statistics -------------------------------------------------------------------------------------------------------
-
-    fu.log("=")
-    msg = "Step #7a  Calculating statistics tables (indices)"
-    if cntx.opt_tbl[1]:
-        fu.log(msg)
-        gen_per_idx("stats.calc_tbl")
-    else:
-        fu.log(msg + not_req)
-
     fu.log("-")
-    msg = "Step #7b  Converting NetCDF to CSV files (indices)"
+    msg = "Step #7   Converting NetCDF to CSV files (indices)"
     if cntx.export_nc_to_csv[1] and not cntx.opt_ra:
         fu.log(msg)
         fu.log("-")
@@ -2120,7 +2110,7 @@ def run():
     else:
         fu.log(msg + not_req)
 
-    # Plots ------------------------------------------------------------------------------------------------------------
+    # Results ----------------------------------------------------------------------------------------------------------
 
     # Generate plots.
     fu.log("-")
@@ -2131,9 +2121,17 @@ def run():
     else:
         fu.log(msg + not_req)
 
+    fu.log("=")
+    msg = "Step #8c  Calculating statistics tables (indices)"
+    if cntx.opt_tbl[1]:
+        fu.log(msg)
+        gen_per_idx("stats.calc_tbl")
+    else:
+        fu.log(msg + not_req)
+
     # Generate maps.
     fu.log("-")
-    msg = "Step #8d  Generating maps (indices)"
+    msg = "Step #8e  Generating maps (indices)"
     if cntx.opt_ra and cntx.opt_map[1] and (len(cntx.opt_map_format) > 0):
         fu.log(msg)
         gen_per_idx("stats.calc_map")

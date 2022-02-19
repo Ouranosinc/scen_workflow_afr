@@ -1828,18 +1828,8 @@ def run():
     else:
         fu.log(msg + not_req)
 
-    # Statistics -------------------------------------------------------------------------------------------------------
-
-    fu.log("=")
-    msg = "Step #7a  Calculating statistics tables (scenarios)"
-    if cntx.opt_tbl[0]:
-        fu.log(msg)
-        gen_per_var("stats.calc_tbl")
-    else:
-        fu.log(msg + not_req)
-
     fu.log("-")
-    msg = "Step #7b  Converting NetCDF to CSV files (scenarios)"
+    msg = "Step #7   Converting NetCDF to CSV files (scenarios)"
     if cntx.export_nc_to_csv[0] and not cntx.opt_ra:
         fu.log(msg)
         fu.log("-")
@@ -1847,7 +1837,7 @@ def run():
     else:
         fu.log(msg + not_req)
 
-    # Plots ------------------------------------------------------------------------------------------------------------
+    # Results ----------------------------------------------------------------------------------------------------------
 
     fu.log("=")
     msg = "Step #8a  Generating post-process, workflow and cycle plots (scenarios)"
@@ -1866,8 +1856,16 @@ def run():
     else:
         fu.log(msg + not_req)
 
+    fu.log("=")
+    msg = "Step #8c  Calculating statistics tables (scenarios)"
+    if cntx.opt_tbl[0]:
+        fu.log(msg)
+        gen_per_var("stats.calc_tbl")
+    else:
+        fu.log(msg + not_req)
+
     fu.log("-")
-    msg = "Step #8c  Generating time series (scenarios, raw values and bias)"
+    msg = "Step #8d  Generating time series (scenarios, raw values and bias)"
     if cntx.opt_ts_bias and (len(cntx.opt_ts_format) > 0):
         fu.log(msg)
         gen_per_var("stats.calc_ts", c.view_ts_bias)
@@ -1875,7 +1873,7 @@ def run():
         fu.log(msg + not_req)
 
     fu.log("-")
-    msg = "Step #8d  Generating maps (scenarios)"
+    msg = "Step #8e  Generating maps (scenarios)"
     if cntx.opt_ra and cntx.opt_map[0] and (len(cntx.opt_ts_format) > 0):
         fu.log(msg)
         gen_per_var("stats.calc_map")
@@ -1883,7 +1881,7 @@ def run():
         fu.log(msg + " (not required)")
 
     fu.log("-")
-    msg = "Step #8e  Generating cluster plots (scenarios)"
+    msg = "Step #8f  Generating cluster plots (scenarios)"
     if cntx.opt_cluster and (len(cntx.opt_cluster_format) > 0):
         fu.log(msg)
         stats.calc_clusters()

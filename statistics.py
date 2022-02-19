@@ -197,9 +197,9 @@ def calc_stats(
             ds_stats_basic = ensembles.ensemble_mean_std_max_min(ds_ens_y)
 
         # Calculate centiles.
-        ds_stats_cent = None
+        ds_stats_centile = None
         if c.stat_centile in stats.code_l:
-            ds_stats_cent = ensembles.ensemble_percentiles(ds_ens_y, values=stats.centile_l, split=False)
+            ds_stats_centile = ensembles.ensemble_percentiles(ds_ens_y, values=stats.centile_l, split=False)
 
         # Loop through statistics.
         ds_stats_y_l = []
@@ -209,7 +209,7 @@ def calc_stats(
             if stat.code != c.stat_centile:
                 ds_stats_y = ds_stats_basic
             else:
-                ds_stats_y = ds_stats_cent.sel(percentiles=stat.centile)
+                ds_stats_y = ds_stats_centile.sel(percentiles=stat.centile)
                 if c.dim_percentiles in ds_stats_y.dims:
                     ds_stats_y = ds_stats_y.squeeze(dim=c.dim_percentiles)
 
@@ -288,6 +288,77 @@ def calc_stats(
     return ds_stats_dict
 
 
+def calc_stats_ref_sims(
+    stn: str,
+    varidx: VarIdx,
+    view: View,
+    delta: Optional[bool] = False
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate statistics for the reference data and all simulations.
+
+    Parameters
+    ----------
+    stn: str
+        Station name.
+    varidx: VarIdx
+        Variables or index.
+    view: View
+        View = {c.view_tbl, c.view_ts}.
+    delta: Optional[bool]
+        If True, calculate anomalies.
+
+    Returns
+    -------
+    List[List[str, dict]]
+        Array of [simulation code, dictionary of [statistics]].
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Variable or index code and group.
+    vi_code = varidx.code
+    vi_name = varidx.name
+    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
+    vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
+
+    # Data frequency.
+    freq = c.freq_D if varidx.is_var else c.freq_YS
+
+    # List simulations to process.
+    if varidx.is_var:
+        ref_exists = os.path.exists(cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc)
+        d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
+    else:
+        ref_exists = os.path.exists(cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc)
+        d = cntx.d_idx(vi_code_grp)
+    sim_code_l = []
+    p_l = glob.glob(d + "*" + c.f_ext_nc)
+    for p in p_l:
+        sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace(c.f_ext_nc, "")
+        sim_code_l.append(sim_code_i)
+    sim_code_l.sort()
+    if ref_exists:
+        sim_code_l = [c.ref] + sim_code_l
+
+    # View.
+    if view.code == c.view_tbl:
+        squeeze_coords = (freq == c.freq_YS) and varidx.is_var
+    else:
+        squeeze_coords = True
+
+    # Calculate statistics for the reference data and all simulations.
+    ds_stats_l = []
+    for sim_code_i in sim_code_l:
+        rcp_code = Sim(sim_code_i).rcp.code
+        ds_stats = calc_stats(view, stn, varidx, RCP(rcp_code), Sim(sim_code_i), delta, Stats([c.stat_mean]),
+                              squeeze_coords, cntx.opt_tbl_clip)
+        ds_stats_l.append([sim_code_i, ds_stats])
+
+    return ds_stats_l
+
+
 def calc_tbl(
     vi_code_l: List[str],
     i_vi_proc: int,
@@ -321,9 +392,6 @@ def calc_tbl(
     if rcps.count > 2:
         rcps.add(c.rcpxx)
 
-    # Data frequency.
-    freq = c.freq_D if cat == c.cat_scen else c.freq_YS
-
     # Identify the statistics to be calculated.
     stats_ref, stats_rcp = Stats([c.stat_mean]), Stats([c.stat_mean])
     stats_rcp.add([c.stat_min, c.stat_max], inplace=True)
@@ -354,28 +422,16 @@ def calc_tbl(
 
             fu.log(msg, True)
 
-            # List simulations to process.
-            sim_code_l = [c.ref]
-            if varidx.is_var:
-                d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
-            else:
-                d = cntx.d_idx(vi_code_grp)
-            p_l = glob.glob(d + "*" + c.f_ext_nc)
-            for p in p_l:
-                sim_code_i = os.path.basename(p).replace(vi_name + "_", "").replace(c.f_ext_nc, "")
-                sim_code_l.append(sim_code_i)
+            # Try reading values from time series.
+            df_stats = None
+            p = cntx.d_fig(c.view_ts, vi_code + "_" + c.f_csv) + vi_name + "_sim" + c.f_ext_csv
+            if os.path.exists(p):
+                df_stats = pd.read_csv(p)
 
             # Calculate statistics for the reference data and all simulations.
             ds_stats_l = []
-            time_a = utils.current_time()
-            for sim_code_i in sim_code_l:
-                rcp_code = Sim(sim_code_i).rcp.code
-                ds_stats =\
-                    calc_stats(View(c.view_tbl), stn, varidx, RCP(rcp_code), Sim(sim_code_i), False,
-                               Stats([c.stat_mean]), (freq == c.freq_YS) and (cat == c.cat_scen), cntx.opt_tbl_clip)
-                ds_stats_l.append([rcp_code, ds_stats])
-            time_b = utils.current_time()
-            dt = time_b - time_a
+            if df_stats is None:
+                ds_stats_l = calc_stats_ref_sims(stn, varidx, View(c.view_tbl))
 
             # Containers.
             stn_l, rcp_l, hor_l, stat_l, centile_l, val_l = [], [], [], [], [], []
@@ -396,26 +452,33 @@ def calc_tbl(
                     # Loop through horizons.
                     for hor in hors.items:
 
-                        # Collect values for the current simulations.
+                        # Collect values for the simulations included in 'rcp'.
                         val_hor_l = []
-                        for j in range(len(ds_stats_l)):
+                        if df_stats is not None:
+                            df_stats_hor =\
+                                df_stats[(df_stats["year"] >= hor.year_1) & (df_stats["year"] <= hor.year_2)]
+                            for column in df_stats_hor.columns:
+                                if (rcp.code in column) or ((rcp.code == c.rcpxx) and ("rcp" in column)):
+                                    val_hor_l.append(np.nanmean(df_stats_hor[column]))
+                        else:
+                            for i_sim in range(len(ds_stats_l)):
 
-                            # RCP code and statistics associated with current simulation.
-                            rcp_code = ds_stats_l[j][0]
-                            ds_stats = ds_stats_l[j][1][c.stat_mean]
+                                # RCP code and statistics associated with current simulation.
+                                rcp_code = Sim(ds_stats_l[i_sim][0]).rcp.code
+                                ds_stats = ds_stats_l[i_sim][1][c.stat_mean]
 
-                            if (rcp_code != rcp.code) and not (("rcp" in rcp_code) and (rcp.code == c.rcpxx)):
-                                continue
+                                if (rcp_code != rcp.code) and not (("rcp" in rcp_code) and (rcp.code == c.rcpxx)):
+                                    continue
 
-                            # Select period and extract value.
-                            if cntx.opt_ra:
-                                ds_stat_hor =\
-                                    utils.sel_period(ds_stats.squeeze(), [hor.year_1, hor.year_2]).copy(deep=True)
-                            else:
-                                ds_stat_hor = ds_stats.copy(deep=True)
+                                # Select period and extract value.
+                                if cntx.opt_ra:
+                                    ds_stats_hor =\
+                                        utils.sel_period(ds_stats.squeeze(), [hor.year_1, hor.year_2]).copy(deep=True)
+                                else:
+                                    ds_stats_hor = ds_stats.copy(deep=True)
 
-                            # Add value.
-                            val_hor_l.append(float(ds_stat_hor[vi_name].mean()))
+                                # Add value.
+                                val_hor_l.append(float(ds_stats_hor[vi_name].mean()))
 
                         if len(val_hor_l) == 0:
                             continue
@@ -532,7 +595,7 @@ def calc_ts(
 
         # Generate dataframes.
         else:
-            df_stn = calc_ts_stn(stn)
+            df_stn = calc_ts_stn(stn, varidx)
             df_rcp, df_sim, df_rcp_del, df_sim_del =\
                 dict(df_stn)["rcp"], dict(df_stn)["sim"], dict(df_stn)["rcp_delta"], dict(df_stn)["sim_delta"]
 
@@ -582,7 +645,8 @@ def calc_ts(
 
 
 def calc_ts_stn(
-    stn: str
+    stn: str,
+    varidx: VarIdx
 ) -> dict:
 
     """
@@ -599,6 +663,8 @@ def calc_ts_stn(
     ----------
     stn: str
         Station.
+    varidx: VarIdx
+        Variable or index.
 
     Returns
     -------
@@ -610,10 +676,7 @@ def calc_ts_stn(
     df_rcp, df_sim, df_rcp_delta, df_sim_delta = None, None, None, None
 
     # Extract relevant information from the context.
-    vi_code = cntx.varidx.code
-    vi_name = cntx.varidx.name
-    vi_code_grp = VI.group(vi_code) if cntx.varidx.is_group else vi_code
-    vi_name_grp = VI.group(vi_name) if cntx.varidx.is_group else vi_name
+    vi_name = varidx.name
 
     # Complete horizon (inncluding reference period).
     hor = Hor([min(min(cntx.per_hors)), max(max(cntx.per_hors))])
@@ -632,6 +695,9 @@ def calc_ts_stn(
 
     for delta in [False, True]:
 
+        # Calculate statistics for the reference data and all simulations.
+        ds_stats_l = calc_stats_ref_sims(stn, cntx.varidx, View(c.view_ts), delta)
+
         # Initialize the structure that will hold the result for the current 'delta' iteration.
         dict_pd = {"year": list(range(hor.year_1, hor.year_2 + 1))}
         df_rcp_x, df_sim_x = pd.DataFrame(dict_pd), pd.DataFrame(dict_pd)
@@ -643,74 +709,59 @@ def calc_ts_stn(
             # Calculate ensemble statistics.
             if rcp.code != c.ref:
 
-                # Calculate statistics.
-                ds_stats = dict(calc_stats(cntx.view, stn, cntx.varidx, rcp, Sim(c.simxx), delta, stats, True,
-                                           cntx.opt_tbl_clip))
+                # Collect statistics.
+                ds_stats_rcp_l = []
+                for i_sim in range(len(ds_stats_l)):
+                    if rcp.code in ds_stats_l[i_sim][0]:
+                        ds_stats_rcp_l.append(ds_stats_l[i_sim][1][c.stat_mean])
+
+                # Calculate ensemble statistics.
+                xclim_logger_level = utils.get_logger_level("root")
+                utils.set_logger_level("root", logging.CRITICAL)
+                ds_ens = ensembles.create_ensemble(ds_stats_rcp_l)
+                utils.set_logger_level("root", xclim_logger_level)
+                ds_stats_basic = ensembles.ensemble_mean_std_max_min(ds_ens)
+                ds_stats_centile = ensembles.ensemble_percentiles(ds_ens, values=stats.centile_l, split=False)
 
                 # Select years.
-                ds_stats_lower = ds_stats[stat_lower.centile_as_str]
-                ds_stats_lower = utils.sel_period(ds_stats_lower, [hor.year_1, hor.year_2])
-                ds_stats_middle = ds_stats[c.stat_mean]
-                ds_stats_middle = utils.sel_period(ds_stats_middle, [hor.year_1, hor.year_2])
-                ds_stats_upper = ds_stats[stat_upper.centile_as_str]
-                ds_stats_upper = utils.sel_period(ds_stats_upper, [hor.year_1, hor.year_2])
+                da_stats_lower = ds_stats_centile.sel(percentiles=stat_lower.centile)[vi_name]
+                da_stats_lower = utils.sel_period(da_stats_lower, [hor.year_1, hor.year_2])
+                da_stats_middle = ds_stats_basic[vi_name + "_" + c.stat_mean]
+                da_stats_middle = utils.sel_period(da_stats_middle, [hor.year_1, hor.year_2])
+                da_stats_upper = ds_stats_centile.sel(percentiles=stat_upper.centile)[vi_name]
+                da_stats_upper = utils.sel_period(da_stats_upper, [hor.year_1, hor.year_2])
 
                 # Record mean, lower and upper annual values (for each year).
-                df_rcp_x[rcp.code + "_lower"] = ds_stats_lower[vi_name].values
-                df_rcp_x[rcp.code + "_middle"] = ds_stats_middle[vi_name].values
-                df_rcp_x[rcp.code + "_upper"] = ds_stats_upper[vi_name].values
-
-            # List files.
-            if cntx.varidx.is_var:
-                p_ref = cntx.d_stn(vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc
-            else:
-                p_ref = cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc
-            if rcp.code == c.ref:
-                p_sim_l = [p_ref]
-            else:
-                if cntx.varidx.is_var:
-                    d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
-                else:
-                    d = cntx.d_idx(vi_code_grp)
-                p_sim_l = glob.glob(d + "*_" + ("*" if rcp.code == c.rcpxx else rcp.code) + c.f_ext_nc)
-
-            # Exit if there is no file corresponding to the criteria of if statistics have already been calculated for
-            # the current simulation.
-            if (len(p_sim_l) == 0) or\
-               ((len(p_sim_l) > 0) and not (os.path.isdir(os.path.dirname(p_sim_l[0])))) or\
-               (rcp.code == c.rcpxx):
-                continue
+                df_rcp_x[rcp.code + "_lower"] = da_stats_lower.values
+                df_rcp_x[rcp.code + "_middle"] = da_stats_middle.values
+                df_rcp_x[rcp.code + "_upper"] = da_stats_upper.values
 
             # Loop through simulation files.
-            for i_sim in range(len(p_sim_l)):
+            for i_sim in range(len(ds_stats_l)):
 
-                # Extract the description of the current simulation.
-                if "rcp" not in p_sim_l[i_sim]:
-                    sim_code = RCP(c.ref).desc
-                else:
-                    tokens = os.path.basename(p_sim_l[i_sim]).replace(c.f_ext_nc, "").split("_")
-                    n_tokens = len(tokens)
-                    sim_code = (tokens[n_tokens - 4] + "_" + tokens[n_tokens - 3] + "_" +
-                                tokens[n_tokens - 2] + "_" + tokens[n_tokens - 1])
+                # Extract simulation code and description.
+                sim_code = ds_stats_l[i_sim][0]
 
-                # Calculate simulation statistics.
-                ds_stats_i = dict(calc_stats(cntx.view, stn, cntx.varidx, rcp, Sim(sim_code), delta,
-                                             Stats([c.stat_mean]), True, cntx.opt_tbl_clip))[c.stat_mean]
+                # Get statistics.
+                ds_stats_i = None
+                for j in range(len(ds_stats_l)):
+                    if ds_stats_l[j][0] == sim_code:
+                        ds_stats_i = dict(ds_stats_l[j][1])[c.stat_mean]
+                        break
+                if ds_stats_i is None:
+                    continue
 
                 # Select years.
                 ds_stats_i = utils.sel_period(ds_stats_i, [hor.year_1, hor.year_2])
 
                 # Record statistics.
-                if rcp.code == c.ref:
-                    years = utils.extract_date_field(ds_stats_i, "year")
-                    vals = list(ds_stats_i[vi_name].values)
-                    for i in range(len(vals)):
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", category=SettingWithCopyWarning)
-                            df_rcp_x[c.ref][df_rcp_x["year"] == years[i]] = vals[i]
-                            df_sim_x[c.ref][df_sim_x["year"] == years[i]] = vals[i]
-                elif rcp.code != c.rcpxx:
-                    df_sim_x[sim_code] = ds_stats_i[vi_name].values
+                vals = list(ds_stats_i[vi_name].values)
+                if sim_code == c.ref:
+                    n_nan = (hor.year_2 - hor.year_1 + 1 - len(vals))
+                    df_rcp_x[sim_code] = vals + [np.nan] * n_nan
+                    df_sim_x[sim_code] = vals + [np.nan] * n_nan
+                else:
+                    df_sim_x[sim_code] = vals
 
         # Record results.
         if len(df_sim_x.columns) > 1:
