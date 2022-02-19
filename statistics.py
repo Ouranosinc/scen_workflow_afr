@@ -1131,7 +1131,7 @@ def calc_map(
                     arr_lon.append(da_map.longitude.values[m])
                     arr_lat.append(da_map.latitude.values[n])
                     arr_val.append(da_map.values[n, m])
-            dict_pd = {c.dim_longitude: arr_lon, c.dim_latitude: arr_lat, vi_name: arr_val}
+            dict_pd = {c.dim_longitude: arr_lon, c.dim_latitude: arr_lat, "val": arr_val}
             df = pd.DataFrame(dict_pd)
 
             # Generate plot and save PNG file.
