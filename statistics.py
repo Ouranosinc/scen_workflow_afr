@@ -1042,7 +1042,7 @@ def calc_map(
     # Reference map (to calculate deltas).
     ds_map_ref = None
 
-    # Load relevant NetCDF files.
+    # This will hold relevant NetCDF files.
     ds_l = []
 
     def load_netcdf_files():
@@ -1113,13 +1113,13 @@ def calc_map(
                     df = pd.read_csv(p_csv)
 
                     # Convert to DataArray.
-                    df = pd.DataFrame(df, columns=[c.dim_longitude, c.dim_latitude, varidx.code])
+                    df = pd.DataFrame(df, columns=[c.dim_longitude, c.dim_latitude, "val"])
                     df = df.sort_values(by=[c.dim_latitude, c.dim_longitude])
                     lat = list(set(df[c.dim_latitude]))
                     lat.sort()
                     lon = list(set(df[c.dim_longitude]))
                     lon.sort()
-                    arr = np.reshape(list(df[varidx.code]), (len(lat), len(lon)))
+                    arr = np.reshape(list(df["val"]), (len(lat), len(lon)))
                     da = xr.DataArray(data=arr, dims=[c.dim_latitude, c.dim_longitude],
                                       coords=[(c.dim_latitude, lat), (c.dim_longitude, lon)])
                     da.name = vi_name
@@ -1157,7 +1157,7 @@ def calc_map(
                 arr_items.append([stat, rcp, hor])
 
                 # Calculate reference map.
-                if (ds_map_ref is None) and (stat.code == c.stat_mean) and (rcp.code == c.rcpxx) and\
+                if (ds_map_ref is None) and (stat.code == c.stat_mean) and (rcp.code == c.ref) and\
                    (hor_year_l == cntx.per_ref):
                     ds_map_ref = ds_map
 
