@@ -344,9 +344,9 @@ def load_reanalysis(
             var_ra_name = c.v_era5_uv10
         else:
             var_ra_name = var_ra.name
-        if var_ra_name != var_ra.name:
-            if var_ra_name not in list(ds.variables):
-                var_ra_name = var_ra.name
+        if (var_ra_name != var_ra.name) and (var_ra_name not in list(ds.variables)):
+            var_ra_name = var_ra.name
+        if var_name not in list(ds.variables):
             ds = ds.rename({var_ra_name: var_name})
 
         # Subset.
@@ -358,12 +358,16 @@ def load_reanalysis(
             da = utils.apply_mask(ds[var_name], da_mask)
             ds = da.to_dataset(name=var_name)
 
+        # Units are set only for ERA5* reanalysis datasets.
+        is_era5 = cntx.obs_src in [c.ens_era5, c.ens_era5_land]
+
         # Set attributes.
         ds[var_name].attrs[c.attrs_gmap] = "regular_lon_lat"
         if var_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
             ds[var_name].attrs[c.attrs_sname] = "temperature"
             ds[var_name].attrs[c.attrs_lname] = "Temperature"
-            ds[var_name].attrs[c.attrs_units] = c.unit_K
+            if is_era5:
+                ds[var_name].attrs[c.attrs_units] = c.unit_K
         elif var_ra.is_summable:
             if (cntx.obs_src == c.ens_era5) or (cntx.obs_src == c.ens_era5_land):
                 ds[var_name] = ds[var_name] * 1000 / c.spd
@@ -376,7 +380,8 @@ def load_reanalysis(
             elif var_name == c.v_evspsblpot:
                 ds[var_name].attrs[c.attrs_sname] = "evapotranspiration_flux"
                 ds[var_name].attrs[c.attrs_lname] = "Evapotranspiration"
-            ds[var_name].attrs[c.attrs_units] = c.unit_kg_m2s1
+            if is_era5:
+                ds[var_name].attrs[c.attrs_units] = c.unit_kg_m2s1
         elif var_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
             if var_name == c.v_uas:
                 ds[var_name].attrs[c.attrs_sname] = "eastward_wind"
@@ -387,15 +392,18 @@ def load_reanalysis(
             else:
                 ds[var_name].attrs[c.attrs_sname] = "wind"
                 ds[var_name].attrs[c.attrs_lname] = "near-surface wind"
-            ds[var_name].attrs[c.attrs_units] = c.unit_m_s
+            if is_era5:
+                ds[var_name].attrs[c.attrs_units] = c.unit_m_s
         elif var_name == c.v_rsds:
             ds[var_name].attrs[c.attrs_sname] = "surface_solar_radiation_downwards"
             ds[var_name].attrs[c.attrs_lname] = "Surface solar radiation downwards"
-            ds[var_name].attrs[c.attrs_units] = c.unit_J_m2
+            if is_era5:
+                ds[var_name].attrs[c.attrs_units] = c.unit_J_m2
         elif var_name == c.v_huss:
             ds[var_name].attrs[c.attrs_sname] = "specific_humidity"
             ds[var_name].attrs[c.attrs_lname] = "Specific humidity"
-            ds[var_name].attrs[c.attrs_units] = c.unit_1
+            if is_era5:
+                ds[var_name].attrs[c.attrs_units] = c.unit_1
 
         # Change sign to have the same meaning between projections and reanalysis.
         # A positive sign for the following variable means that the transfer direction is from the surface toward the

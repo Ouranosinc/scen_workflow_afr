@@ -128,6 +128,7 @@ def calc_stats(
 
             # Open dataset.
             ds_i = fu.open_netcdf(p_sim_l[i])
+            ds_i = utils.standardize_netcdf(ds_i, vi_name=vi_name)
 
             # Add to list of Datasets.
             ds_l.append(ds_i)
@@ -1043,34 +1044,38 @@ def calc_map(
 
     # Load relevant NetCDF files.
     ds_l = []
-    p_l = list_netcdf(cntx.obs_src, varidx, "path")
-    for p in p_l:
 
-        # Extract simulation code.
-        sim_code_i = c.ref if "rcp" not in p else os.path.basename(p).replace(varidx.name + "_", "").\
-            replace(c.f_ext_nc, "")
+    def load_netcdf_files():
 
-        fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + sim_code_i, True)
+        p_l = list_netcdf(cntx.obs_src, varidx, "path")
+        for p in p_l:
 
-        # Load NetCDF.
-        ds_i = fu.open_netcdf(p)
-        units = utils.units(ds_i, vi_name)
+            # Extract simulation code.
+            sim_code_i = c.ref if "rcp" not in p else os.path.basename(p).replace(varidx.name + "_", "").\
+                replace(c.f_ext_nc, "")
 
-        # Subset years.
-        ds_i = utils.sel_period(ds_i, [cntx.per_ref[0], max(max(cntx.per_hors))]).copy(deep=True)
+            fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + sim_code_i, True)
 
-        # Resample to the annual frequency.
-        if varidx.is_summable:
-            ds_i = ds_i.resample(time=c.freq_YS).sum()
-        else:
-            ds_i = ds_i.resample(time=c.freq_YS).mean()
+            # Load NetCDF and sort/rename dimensions.
+            ds_i = fu.open_netcdf(p)
+            ds_i = utils.standardize_netcdf(ds_i, vi_name=vi_name)
+            units = utils.units(ds_i, vi_name)
 
-        # Adjust units.
-        ds_i[vi_name].attrs[c.attrs_units] = units
-        ds_i = utils.convert_units(ds_i, vi_name)
+            # Subset years.
+            ds_i = utils.sel_period(ds_i, [cntx.per_ref[0], max(max(cntx.per_hors))]).copy(deep=True)
 
-        # Add Dataset to list.
-        ds_l.append([sim_code_i, ds_i])
+            # Resample to the annual frequency.
+            if varidx.is_summable:
+                ds_i = ds_i.resample(time=c.freq_YS).sum()
+            else:
+                ds_i = ds_i.resample(time=c.freq_YS).mean()
+
+            # Adjust units.
+            ds_i[vi_name].attrs[c.attrs_units] = units
+            ds_i = utils.convert_units(ds_i, vi_name)
+
+            # Add Dataset to list.
+            ds_l.append([sim_code_i, ds_i])
 
     # Loop through horizons.
     hors = Hors(cntx.per_hors)
@@ -1120,24 +1125,26 @@ def calc_map(
                     da.name = vi_name
                     ds_map = da.to_dataset()
 
-                else:
+                elif len(ds_stats_rcp_l) == 0:
 
-                    if len(ds_stats_rcp_l) == 0:
+                    # Load NetCDF files.
+                    if len(ds_l) == 0:
+                        load_netcdf_files()
 
-                        # Select simulations.
-                        ds_stats_hor_l = []
-                        for i_sim in range(len(ds_l)):
-                            rcp_code = Sim(ds_l[i_sim][0]).rcp.code
-                            if (rcp_code == rcp.code) or (("rcp" in rcp_code) and (rcp.code == c.rcpxx)):
-                                ds_stats_hor_l.append(ds_l[i_sim][1])
+                    # Select simulations.
+                    ds_stats_hor_l = []
+                    for i_sim in range(len(ds_l)):
+                        rcp_code = Sim(ds_l[i_sim][0]).rcp.code
+                        if (rcp_code == rcp.code) or (("rcp" in rcp_code) and (rcp.code == c.rcpxx)):
+                            ds_stats_hor_l.append(ds_l[i_sim][1])
 
-                        if len(ds_stats_hor_l) == 0:
-                            continue
+                    if len(ds_stats_hor_l) == 0:
+                        continue
 
-                        # Calculate statistics.
-                        ds_stats_rcp_l = dict(calc_stats(view=c.view_map, stn=cntx.obs_src, varidx=varidx, rcp=rcp,
-                                                         sim=Sim(c.simxx), hor=hor, delta=False, stats=stats,
-                                                         squeeze_coords=False, clip=True, ds_l=ds_stats_hor_l))
+                    # Calculate statistics.
+                    ds_stats_rcp_l = dict(calc_stats(view=c.view_map, stn=cntx.obs_src, varidx=varidx, rcp=rcp,
+                                                     sim=Sim(c.simxx), hor=hor, delta=False, stats=stats,
+                                                     squeeze_coords=False, clip=True, ds_l=ds_stats_hor_l))
 
                     # Select the DataArray corresponding to the current statistics.
                     ds_map = ds_stats_rcp_l[stat_code_as_str]

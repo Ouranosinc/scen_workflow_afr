@@ -1245,8 +1245,8 @@ def standardize_netcdf(
     """
 
     # Exit if the types of 'ds_da' and 'template' are different.
-    if type(ds_da) != type(template):
-        return ds_da
+    # if (type(ds_da) != type(template):
+    #     return ds_da
 
     # Determine current dimensions (referring to names in 'ds_da').
     if isinstance(ds_da, xr.Dataset):
