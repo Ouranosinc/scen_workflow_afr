@@ -1457,6 +1457,9 @@ def convert_units(
     # Get old units.
     units_old = units(ds_da, vi_name)
 
+    # Save attributes.
+    attrs = ds_da[vi_name].attrs if isinstance(ds_da, xr.Dataset) else ds_da.attrs
+
     # Assign new units.
     if units_new == "":
         if vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
@@ -1487,11 +1490,13 @@ def convert_units(
         else:
             ds_da = ds_da / c.km_h_per_m_s
 
-    # Set units.
+    # Restore attributes and set new units.
     if units_old != units_new:
         if isinstance(ds_da, xr.Dataset):
+            ds_da[vi_name].attrs = attrs
             ds_da[vi_name].attrs[c.attrs_units] = units_new
         else:
+            ds_da.attrs = attrs
             ds_da.attrs[c.attrs_units] = units_new
 
     return ds_da
