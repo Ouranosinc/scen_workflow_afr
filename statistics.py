@@ -11,7 +11,6 @@
 import functools
 import glob
 import logging
-import math
 import multiprocessing
 import numpy as np
 import os
@@ -54,10 +53,12 @@ def calc_stats(
     varidx: VarIdx,
     rcp: RCP,
     sim: Sim,
+    hor: Union[None, Hor],
     delta: bool,
     stats: Stats,
     squeeze_coords: bool,
     clip: bool,
+    ds_l: Optional[List[xr.Dataset]] = [],
     cat_scen: Optional[str] = ""
 ) -> Union[dict, None]:
 
@@ -78,9 +79,11 @@ def calc_stats(
     varidx: VarIdx
         Climate variable or index.
     rcp: RCP
-        Emission scenario.
+        Emission scenario. All RCPs are considered if rcp.code == c.rcpxx.
     sim: Sim
         Simulation. All simulations are considered if sim.code == c.simxx.
+    hor: Union[None, Hor]
+        Horizon. No constraint is applied if None is specified.
     delta: bool
         If True, calculate climate anomalies.
     stats: Stats
@@ -89,6 +92,8 @@ def calc_stats(
         If True, squeeze coordinates.l
     clip: bool
         If True, clip according to 'cntx.p_bounds'.
+    ds_l: Optional[List[xr.Dataset]]
+        List of Datasets
     cat_scen: Optional[str]
         Scenario category = {c.cat_obs, c.cat_raw, c.cat_regrid, c.cat_qqmap}
 
@@ -102,28 +107,43 @@ def calc_stats(
     # Extract name and group.
     vi_name = varidx.name
 
-    # List paths to NetCDF files.
-    p_sim_l = list(list_netcdf(stn, varidx, "path", rcp, sim))
+    # Collect Datasets.
+    if len(ds_l) == 0:
 
-    # Adjust paths if doing the analysis for bias adjustment time series.
-    if (rcp.code != c.ref) and (cat_scen == c.cat_regrid):
-        for i_sim in range(len(p_sim_l)):
-            p_sim_l[i_sim] = p_sim_l[i_sim].replace(cntx.sep + c.cat_qqmap, cntx.sep + c.cat_regrid).\
-                replace(c.f_ext_nc, "_4" + c.cat_qqmap + c.f_ext_nc)
+        # List paths to NetCDF files.
+        p_sim_l = list(list_netcdf(stn, varidx, "path", rcp, sim))
 
-    # Exit if there is no file corresponding to the criteria.
-    if (len(p_sim_l) == 0) or ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
-        return None
+        # Adjust paths if doing the analysis for bias adjustment time series.
+        if (rcp.code != c.ref) and (cat_scen == c.cat_regrid):
+            for i_sim in range(len(p_sim_l)):
+                p_sim_l[i_sim] = p_sim_l[i_sim].replace(cntx.sep + c.cat_qqmap, cntx.sep + c.cat_regrid).\
+                    replace(c.f_ext_nc, "_4" + c.cat_qqmap + c.f_ext_nc)
 
-    # Create array of Datasets.
-    ds_l = []
-    for i in range(len(p_sim_l)):
+        # Exit if there is no file corresponding to the criteria.
+        if (len(p_sim_l) == 0) or ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
+            return None
 
-        # Open dataset.
-        ds_i = fu.open_netcdf(p_sim_l[i])
+        # Create array of Datasets.
+        for i in range(len(p_sim_l)):
+
+            # Open dataset.
+            ds_i = fu.open_netcdf(p_sim_l[i])
+
+            # Add to list of Datasets.
+            ds_l.append(ds_i)
+
+    # Subset, resample and adjust units.
+    for i in range(len(ds_l)):
+
+        # Select dataset.
+        ds_i = ds_l[i]
         units = utils.units(ds_i, vi_name)
 
-        # Aggregate to the annual frequency.
+        # Subset years.
+        if hor is not None:
+            ds_i = utils.sel_period(ds_i, [hor.year_1, hor.year_2]).copy(deep=True)
+
+        # Resample to the annual frequency.
         if varidx.is_summable:
             ds_i = ds_i.resample(time=c.freq_YS).sum()
         else:
@@ -133,8 +153,7 @@ def calc_stats(
         ds_i[vi_name].attrs[c.attrs_units] = units
         ds_i = utils.convert_units(ds_i, vi_name)
 
-        # Add to list of Datasets.
-        ds_l.append(ds_i)
+        ds_l[i] = ds_i
 
     # Create ensemble.
     xclim_logger_level = utils.get_logger_level("root")
@@ -148,7 +167,7 @@ def calc_stats(
         return None
 
     # Calculate statistics by year if there are multiple years.
-    calc_by_year = (len(p_sim_l) > 1)
+    calc_by_year = (len(ds_l) > 1)
 
     # Loop through years.
     # The analysis is broken down into years to accomodate large datasets.
@@ -234,10 +253,13 @@ def calc_stats(
 
         # Bias time series: adjusted simulation - non-adjusted simulation.
         if (view.code == c.view_ts_bias) and varidx.is_var:
-            ds_stats_ref = calc_stats(view, stn, varidx, rcp, sim, False, stats, True, clip, c.cat_regrid)[c.stat_mean]
+            ds_stats_ref = calc_stats(view=view, stn=stn, varidx=varidx, rcp=rcp, sim=sim, hor=None, delta=False,
+                                      stats=stats, squeeze_coords=True, clip=clip,
+                                      cat_scen=c.cat_regrid)[c.stat_mean]
         else:
-            ds_stats_ref = calc_stats(view, stn, varidx, RCP(c.ref), sim, False, Stats([c.stat_mean]), True, clip,
-                                      c.cat_qqmap)[c.stat_mean]
+            ds_stats_ref = calc_stats(view=view, stn=stn, varidx=varidx, rcp=RCP(c.ref), sim=sim, hor=None, delta=False,
+                                      stats=Stats([c.stat_mean]), squeeze_coords=True, clip=clip,
+                                      cat_scen=c.cat_qqmap)[c.stat_mean]
         units = ds_stats_ref[vi_name].attrs[c.attrs_units]
 
         # Adjust values.
@@ -264,8 +286,9 @@ def calc_stats(
 
 def calc_stats_ref_sims(
     stn: str,
-    varidx: VarIdx,
     view: View,
+    varidx: VarIdx,
+    hor: Optional[Union[None, Hor]] = None,
     delta: Optional[bool] = False
 ):
 
@@ -277,10 +300,12 @@ def calc_stats_ref_sims(
     ----------
     stn: str
         Station name.
-    varidx: VarIdx
-        Variables or index.
     view: View
         View = {c.view_tbl, c.view_ts}.
+    varidx: VarIdx
+        Variables or index.
+    hor: Optional[Union[None, Hor]]
+        Horizon
     delta: Optional[bool]
         If True, calculate anomalies.
 
@@ -291,10 +316,6 @@ def calc_stats_ref_sims(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Variable or index code and group.
-    vi_code = varidx.code
-    vi_name = varidx.name
-
     # Data frequency.
     freq = c.freq_D if varidx.is_var else c.freq_YS
 
@@ -304,15 +325,27 @@ def calc_stats_ref_sims(
     # View.
     if view.code == c.view_tbl:
         squeeze_coords = (freq == c.freq_YS) and varidx.is_var
-    else:
+    elif view.code == c.view_ts:
         squeeze_coords = True
+    else:
+        squeeze_coords = False
+
+    # Statistics.
+    stats = Stats([c.stat_mean])
+    if view.code == c.view_map:
+        if cntx.opt_map_centiles is not None:
+            for centile in cntx.opt_map_centiles:
+                stats.add(Stat(c.stat_centile, centile))
 
     # Calculate statistics for the reference data and all simulations.
     ds_stats_l = []
     for sim_code_i in sim_code_l:
+
+        fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + sim_code_i, True)
+
         rcp_code = Sim(sim_code_i).rcp.code
-        ds_stats = calc_stats(view, stn, varidx, RCP(rcp_code), Sim(sim_code_i), delta, Stats([c.stat_mean]),
-                              squeeze_coords, cntx.opt_tbl_clip)
+        ds_stats = calc_stats(view=view, stn=stn, varidx=varidx, rcp=RCP(rcp_code), sim=Sim(sim_code_i), hor=hor,
+                              delta=delta, stats=stats, squeeze_coords=squeeze_coords, clip=cntx.opt_tbl_clip)
         ds_stats_l.append([sim_code_i, ds_stats])
 
     return ds_stats_l
@@ -361,32 +394,43 @@ def list_netcdf(
 
     # Collect paths to simulation files.
     if varidx.is_var:
-        ref_exists = os.path.exists(cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc)
+        p_ref = cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + stn + c.f_ext_nc
+        ref_exists = os.path.exists(p_ref)
         d = cntx.d_scen(c.cat_qqmap, vi_code_grp)
     else:
-        ref_exists = os.path.exists(cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc)
+        p_ref = cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.f_ext_nc
+        ref_exists = os.path.exists(p_ref)
         d = cntx.d_idx(vi_code_grp)
     p_l = []
     for p in glob.glob(d + "*" + c.f_ext_nc):
         if ((rcp.code == c.rcpxx) or (rcp.code in p)) and ((sim.code == c.simxx) or (sim.code in p)):
             p_l.append(p)
 
-    # Add path to reference data.
-    if include_ref and ref_exists:
-        p_l = [c.ref] + p_l
-
-    # Return result if the 'path' format is required.
+    # Return paths.
     if out_format == "path":
+
+        # Add reference data.
+        if include_ref and ref_exists:
+            p_l = [p_ref] + p_l
+
+        # Return paths.
         return p_l
 
-    # Extract simulation codes.
-    sim_code_l = []
-    for p in p_l:
-        sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace(c.f_ext_nc, "")
-        sim_code_l.append(sim_code_i)
-    sim_code_l.sort()
+    # Return simulations codes.
+    else:
 
-    return sim_code_l
+        # Extract simulation codes.
+        sim_code_l = []
+        for p in p_l:
+            sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace(c.f_ext_nc, "")
+            sim_code_l.append(sim_code_i)
+        sim_code_l.sort()
+
+        # Add reference data.
+        if include_ref and ref_exists:
+            sim_code_l = [c.ref] + sim_code_l
+
+        return sim_code_l
 
 
 def calc_tbl(
@@ -461,7 +505,7 @@ def calc_tbl(
             # Calculate statistics for the reference data and all simulations.
             ds_stats_l = []
             if df_stats is None:
-                ds_stats_l = calc_stats_ref_sims(stn, varidx, View(c.view_tbl))
+                ds_stats_l = calc_stats_ref_sims(stn, View(c.view_tbl), varidx)
 
             # Containers.
             stn_l, rcp_l, hor_l, stat_l, centile_l, val_l = [], [], [], [], [], []
@@ -726,7 +770,7 @@ def calc_ts_stn(
     for delta in [False, True]:
 
         # Calculate statistics for the reference data and all simulations.
-        ds_stats_l = calc_stats_ref_sims(stn, cntx.varidx, View(c.view_ts), delta)
+        ds_stats_l = calc_stats_ref_sims(stn, View(c.view_ts), cntx.varidx, delta=delta)
 
         # Initialize the structure that will hold the result for the current 'delta' iteration.
         dict_pd = {"year": list(range(hor.year_1, hor.year_2 + 1))}
@@ -927,15 +971,14 @@ def calc_map(
 
     varidx = VarIdx(vi_code_l[i_vi_proc])
 
+    fu.log("Processing: " + cntx.obs_src + ", " + varidx.code, True)
+
     # Extract variable name, group and RCPs.
     cat = c.cat_scen if varidx.is_var else c.cat_idx
     varidx = VarIdx(varidx.code)
-    vi_name = varidx.name
+    vi_name = str(varidx.name)
     vi_code_grp = VI.group(varidx.code) if varidx.is_group else varidx.code
-    rcps = RCPs([c.ref, c.rcpxx] + cntx.rcps.code_l)
-
-    msg = "Calculating maps."
-    fu.log(msg, True)
+    rcps = RCPs([c.ref] + cntx.rcps.code_l + [c.rcpxx])
 
     # Get statistic string.
     def stat_str(
@@ -952,24 +995,24 @@ def calc_map(
     # Get the path of the CSV and PNG files.
     def p_csv_fig(
         _rcp: RCP,
-        _per: List[int],
-        _per_str: str,
+        _hor: Hor,
         _stat: Stat,
         _delta: Optional[bool] = False
     ) -> Tuple[str, str]:
 
         # PNG file.
         _d_fig = cntx.d_fig(c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
-                            varidx.code + cntx.sep + per_str)
+                            varidx.code + cntx.sep + _hor.code)
         _stat_str = stat_str(_stat)
-        _fn_fig = vi_name + "_" + _rcp.code + "_" + str(_per[0]) + "_" + str(_per[1]) + "_" + _stat_str + c.f_ext_png
+        _fn_fig = vi_name + "_" + _rcp.code + "_" + str(_hor.year_1) + "_" + str(_hor.year_2) + "_" + _stat_str +\
+            c.f_ext_png
         _p_fig = _d_fig + _fn_fig
         if _delta:
             _p_fig = _p_fig.replace(c.f_ext_png, "_delta" + c.f_ext_png)
 
         # CSV file.
         _d_csv = cntx.d_fig(c.view_map, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
-                            varidx.code + "_csv" + cntx.sep + _per_str)
+                            varidx.code + "_csv" + cntx.sep + _hor.code)
         _fn_csv = _fn_fig.replace(c.f_ext_png, c.f_ext_csv)
         _p_csv = _d_csv + _fn_csv
         if _delta:
@@ -981,11 +1024,9 @@ def calc_map(
 
     # Calculate the overall minimum and maximum values (considering all maps for the current 'varidx').
     # There is one z-value per period.
-    n_per = len(cntx.per_hors)
-    z_min_net = [np.nan] * n_per
-    z_max_net = [np.nan] * n_per
-    z_min_del = [np.nan] * n_per
-    z_max_del = [np.nan] * n_per
+    n_hor = len(cntx.per_hors)
+    z_min_abs, z_max_abs = [np.nan] * n_hor, [np.nan] * n_hor
+    z_min_del, z_max_del = [np.nan] * n_hor, [np.nan] * n_hor
 
     # Calculated datasets and item description.
     arr_ds_maps = []
@@ -1000,21 +1041,66 @@ def calc_map(
     # Reference map (to calculate deltas).
     ds_map_ref = None
 
-    # Loop through statistics.
-    for stat in stats.items:
+    # Load relevant NetCDF files.
+    ds_l = []
+    p_l = list_netcdf(cntx.obs_src, varidx, "path")
+    for p in p_l:
+
+        # Extract simulation code.
+        sim_code_i = c.ref if "rcp" not in p else os.path.basename(p).replace(varidx.name + "_", "").\
+            replace(c.f_ext_nc, "")
+
+        fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + sim_code_i, True)
+
+        # Load NetCDF.
+        ds_i = fu.open_netcdf(p)
+        units = utils.units(ds_i, vi_name)
+
+        # Subset years.
+        ds_i = utils.sel_period(ds_i, [cntx.per_ref[0], max(max(cntx.per_hors))]).copy(deep=True)
+
+        # Resample to the annual frequency.
+        if varidx.is_summable:
+            ds_i = ds_i.resample(time=c.freq_YS).sum()
+        else:
+            ds_i = ds_i.resample(time=c.freq_YS).mean()
+
+        # Adjust units.
+        ds_i[vi_name].attrs[c.attrs_units] = units
+        ds_i = utils.convert_units(ds_i, vi_name)
+
+        # Add Dataset to list.
+        ds_l.append([sim_code_i, ds_i])
+
+    # Loop through horizons.
+    hors = Hors(cntx.per_hors)
+    for h in range(hors.count):
+        hor = hors.items[h]
+        hor_year_l = [hor.year_1, hor.year_2]
 
         # Loop through categories of emission scenarios.
-        for j in range(rcps.count):
-            rcp = rcps.items[j]
+        for rcp in rcps.items:
 
-            # Loop through horizons.
-            pers = [cntx.per_ref] if (j == 0) else cntx.per_hors
-            for k_per in range(len(pers)):
-                per = pers[k_per]
-                per_str = str(per[0]) + "-" + str(per[1])
+            # Skip if looking at the reference data and future period.
+            if (rcp.code == c.ref) and (hor_year_l != cntx.per_ref):
+                continue
+
+            fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + hor.code + ", " + rcp.code, True)
+
+            ds_stats_rcp_l = []
+
+            # Loop through statistics.
+            for stat in stats.items:
+
+                # Skip if looking at the reference data and a statistic other than the mean.
+                if (rcp.code == c.ref) and (stat.code != c.stat_mean):
+                    continue
+
+                # Statistics code as a string (ex: "mean", "c010").
+                stat_code_as_str = stat.centile_as_str if stat.is_centile else stat.code
 
                 # Path of CSV and PNG files.
-                p_csv, p_fig = p_csv_fig(rcp, per, per_str, stat)
+                p_csv, p_fig = p_csv_fig(rcp, hor, stat)
 
                 if os.path.exists(p_csv) and not cntx.opt_force_overwrite:
 
@@ -1036,42 +1122,52 @@ def calc_map(
 
                 else:
 
-                    # Calculate map.
-                    ds_map = calc_map_rcp(varidx, rcp, per, stat)
+                    if len(ds_stats_rcp_l) == 0:
 
-                    # Clip to geographic boundaries.
-                    if cntx.opt_map_clip and (cntx.p_bounds != ""):
-                        ds_map = utils.subset_shape(ds_map)
+                        # Select simulations.
+                        ds_stats_hor_l = []
+                        for i_sim in range(len(ds_l)):
+                            rcp_code = Sim(ds_l[i_sim][0]).rcp.code
+                            if (rcp_code == rcp.code) or (("rcp" in rcp_code) and (rcp.code == c.rcpxx)):
+                                ds_stats_hor_l.append(ds_l[i_sim][1])
+
+                        if len(ds_stats_hor_l) == 0:
+                            continue
+
+                        # Calculate statistics.
+                        ds_stats_rcp_l = dict(calc_stats(view=c.view_map, stn=cntx.obs_src, varidx=varidx, rcp=rcp,
+                                                         sim=Sim(c.simxx), hor=hor, delta=False, stats=stats,
+                                                         squeeze_coords=False, clip=True, ds_l=ds_stats_hor_l))
+
+                    # Select the DataArray corresponding to the current statistics.
+                    ds_map = ds_stats_rcp_l[stat_code_as_str]
+
+                    # Calculate mean value (over time).
+                    ds_map = ds_map.mean(dim=c.dim_time)
 
                 # Record current map, statistic and centile, RCP and period.
                 arr_ds_maps.append(ds_map)
-                arr_items.append([stat.code, stat.centile, rcp.code, per])
+                arr_items.append([stat, rcp, hor])
 
                 # Calculate reference map.
                 if (ds_map_ref is None) and (stat.code == c.stat_mean) and (rcp.code == c.rcpxx) and\
-                   (per == cntx.per_ref):
+                   (hor_year_l == cntx.per_ref):
                     ds_map_ref = ds_map
 
                 # Extract values.
-                vals_net = ds_map[vi_name].values
+                vals_abs = ds_map[vi_name].values
                 vals_del = None
-                if per != cntx.per_ref:
+                if hor_year_l != cntx.per_ref:
                     vals_del = ds_map[vi_name].values - ds_map_ref[vi_name].values
 
-                # Record mean absolute values.
-                z_min_j = np.nanmin(vals_net)
-                z_max_j = np.nanmax(vals_net)
-                z_min_net[k_per] = z_min_j if np.isnan(z_min_net[k_per]) else min(z_min_net[k_per], z_min_j)
-                z_max_net[k_per] = z_max_j if np.isnan(z_max_net[k_per]) else max(z_max_net[k_per], z_max_j)
-
-                # Record mean delta values.
+                # Record minimum and maximum values.
+                z_min, z_max = np.nanmin(vals_abs), np.nanmax(vals_abs)
+                z_min_abs[h] = z_min if np.isnan(z_min_abs[h]) else np.nanmin(np.array([z_min, z_min_abs[h]]))
+                z_max_abs[h] = z_max if np.isnan(z_max_abs[h]) else np.nanmax(np.array([z_max, z_max_abs[h]]))
                 if vals_del is not None:
-                    z_min_del_j = np.nanmin(vals_del)
-                    z_max_del_j = np.nanmax(vals_del)
-                    z_min_del[k_per] = z_min_del_j if np.isnan(z_min_del[k_per])\
-                        else min(z_min_del[k_per], z_min_del_j)
-                    z_max_del[k_per] = z_max_del_j if np.isnan(z_max_del[k_per])\
-                        else max(z_max_del[k_per], z_max_del_j)
+                    z_min, z_max = np.nanmin(vals_del), np.nanmax(vals_del)
+                    z_min_del[h] = z_min if np.isnan(z_min_del[h]) else np.nanmin(np.array([z_min, z_min_del[h]]))
+                    z_max_del[h] = z_max if np.isnan(z_max_del[h]) else np.nanmax(np.array([z_max, z_max_del[h]]))
 
     # Generate maps ----------------------------------------------------------------------------------------------------
 
@@ -1082,17 +1178,18 @@ def calc_map(
         ds_map = arr_ds_maps[i]
 
         # Current RCP and horizon.
-        stat  = Stat(arr_items[i][0], arr_items[i][1])
-        rcp   = RCP(arr_items[i][2])
-        per   = arr_items[i][3]
-        i_per = cntx.per_hors.index(per)
+        stat     = arr_items[i][0]
+        rcp      = arr_items[i][1]
+        hor      = arr_items[i][2]
+        hor_as_l = [hor.year_1, hor.year_2]
+        i_hor    = cntx.per_hors.index([hor.year_1, hor.year_2])
 
         # Perform twice (for values, then for deltas).
         for j in range(2):
 
             # Skip if delta map generation if the option is disabled or if it's the reference period.
             if (j == 1) and\
-                ((per == cntx.per_ref) or
+                ((hor_as_l == cntx.per_ref) or
                  ((cat == c.cat_scen) and (not cntx.opt_map_delta[0])) or
                  ((cat == c.cat_idx) and (not cntx.opt_map_delta[1]))):
                 continue
@@ -1104,14 +1201,13 @@ def calc_map(
                 da_map = ds_map[vi_name] - ds_map_ref[vi_name]
 
             # Calculate minimum and maximum values.
-            z_min = z_min_net[i_per] if j == 0 else z_min_del[i_per]
-            z_max = z_max_net[i_per] if j == 0 else z_max_del[i_per]
+            z_min = z_min_abs[i_hor] if j == 0 else z_min_del[i_hor]
+            z_max = z_max_abs[i_hor] if j == 0 else z_max_del[i_hor]
 
             # PNG and CSV formats ----------------------------------------------------------------------------------
 
             # Path of output files.
-            per_str = str(per[0]) + "-" + str(per[1])
-            p_csv, p_fig = p_csv_fig(rcp, per, per_str, stat, j == 1)
+            p_csv, p_fig = p_csv_fig(rcp, hor, stat, j == 1)
 
             # Create context.
             cntx.code   = c.platform_script
@@ -1119,7 +1215,7 @@ def calc_map(
             cntx.lib    = Lib(c.lib_mat)
             cntx.varidx = VarIdx(vi_name)
             cntx.rcp    = rcp
-            cntx.hor    = Hor(per)
+            cntx.hor    = hor
             cntx.stats  = Stats()
             for s in range(len(cntx.opt_map_centiles)):
                 stats.add(Stat(c.stat_centile, cntx.opt_map_centiles[s]))
@@ -1208,268 +1304,6 @@ def calc_map(
                 if not (os.path.isdir(d)):
                     os.makedirs(d)
                 da_tif.rio.to_raster(p_tif)
-
-
-def calc_map_rcp(
-    varidx: VarIdx,
-    rcp: RCP,
-    per: [int],
-    stat: Stat
-) -> xr.Dataset:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Calculate heat map for a given RCP.
-
-    Parameters
-    ----------
-    varidx: VarIdx
-        Climate variable or index.
-    rcp: RCP
-        Emission scenario.
-    per: [int]
-        Period.
-    stat: Stat
-        Statistic.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Extract variable name and group.
-    vi_code = varidx.code
-    vi_name = varidx.name
-    vi_code_grp = VI.group(vi_code) if varidx.is_group else vi_code
-    vi_name_grp = VI.group(vi_name) if varidx.is_group else vi_name
-
-    fu.log("Processing: " + vi_code + ", " +
-           (stat.centile_as_str if stat.centile >= 0 else stat.code) + ", " +
-           rcp.desc + ", " + str(per[0]) + "-" + str(per[1]) + "", True)
-
-    # List stations.
-    stns = cntx.stns if not cntx.opt_ra else [cntx.obs_src]
-
-    # Observations -----------------------------------------------------------------------------------------------------
-
-    if not cntx.opt_ra:
-
-        # TODO: Warning: this part has never been tested.
-
-        # Get information on stations.
-        p_stn = glob.glob(cntx.d_stn() + c.f_ext_csv)[0]
-        df = pd.read_csv(p_stn, sep=cntx.f_sep)
-
-        # Collect values for each station and determine overall boundaries.
-        fu.log("Collecting emissions scenarios at each station.", True)
-        data_lon_l, data_lat_l, data_val_l = [], [], []
-        for stn in stns:
-
-            # Get coordinates.
-            lon = df[df["station"] == stn][c.dim_lon].values[0]
-            lat = df[df["station"] == stn][c.dim_lat].values[0]
-
-            # Calculate statistics.
-            ds_stat = calc_stats(c.view_map, stn, varidx, rcp, Sim(c.simxx), False, Stats(stat), False,
-                                 cntx.opt_map_clip)[c.stat_mean]
-            if ds_stat is None:
-                continue
-
-            # Extract data from stations.
-            n = ds_stat.dims[c.dim_time]
-            for year in range(0, n):
-
-                # Collect data.
-                lon = float(lon)
-                lat = float(lat)
-                val = float(ds_stat[vi_name][0][0][year])
-                if math.isnan(val):
-                    val = float(0)
-                data_lon_l.append(lon)
-                data_lat_l.append(lat)
-                data_val_l.append(val)
-
-        fu.log("Performing interpolation.", True)
-
-        # Build a Dataset containing the x-y-z locations of data points.
-        df_data = pd.Dataframe({vi_name: data_val_l, c.dim_latitude: data_lat_l, c.dim_longitude: data_lon_l})
-        df_data = df_data.pivot(index=c.dim_latitude, columns=c.dim_longitude)
-        df_data = df_data.droplevel(0, axis=1)
-        da_data = xr.DataArray(df_data)
-        ds_data = da_data.to_dataset(name=vi_name)
-
-        # Build a list of x-y locations at which interpolation is needed.
-        grid_lon_l = np.arange(min(data_lon_l), max(data_lon_l) + cntx.opt_map_resolution, cntx.opt_map_resolution)
-        grid_lat_l = np.arange(min(data_lat_l), max(data_lat_l) + cntx.opt_map_resolution, cntx.opt_map_resolution)
-
-        # Create a Dataset for the new grid.
-        ds_grid = xr.Dataset({c.dim_latitude: ([c.dim_latitude], grid_lat_l),
-                              c.dim_longitude: ([c.dim_longitude], grid_lon_l)})
-
-        # Interpolate.
-        regridder = xe.Regridder(ds_data, ds_grid, "bilinear")
-        da_res = regridder(ds_data[vi_name])
-
-        # Apply and create mask.
-        if (cntx.obs_src == c.ens_era5_land) and (vi_name not in [c.v_tas, c.v_tasmin, c.v_tasmax]):
-            da_mask = fu.create_mask()
-            if da_mask is not None:
-                da_res = utils.apply_mask(da_res, da_mask)
-
-        # Create dataset.
-        ds_res = da_res.to_dataset(name=vi_name)
-        ds_res[vi_name].attrs[c.attrs_units] = da_data.attrs[c.attrs_units]
-
-    # There is no need to interpolate.
-    else:
-
-        # Reference period.
-        if varidx.is_var:
-            p_sim_ref =\
-                cntx.d_scen(c.cat_obs, vi_code_grp) + vi_name_grp + "_" + cntx.obs_src + c.f_ext_nc
-        else:
-            p_sim_ref = cntx.d_idx(vi_code_grp) + vi_name_grp + "_" + c.ref + c.f_ext_nc
-        if rcp.code == c.ref:
-
-            # Open dataset.
-            p_sim = p_sim_ref
-            if not os.path.exists(p_sim):
-                return xr.Dataset(None)
-            ds_sim = fu.open_netcdf(p_sim)
-
-            # Patch used to fix dimensions for c.i_drought_code.
-            if vi_code in cntx.idxs.code_l:
-                ds_sim = ds_sim.resample(time=c.freq_YS).mean(dim=c.dim_time, keep_attrs=True)
-
-            # Select period.
-            ds_sim = utils.remove_feb29(ds_sim)
-            ds_sim = utils.sel_period(ds_sim, per)
-
-            # Adjust units.
-            ds_sim = utils.convert_units(ds_sim, vi_name)
-            units = utils.units(ds_sim, vi_name)
-
-            # Calculate mean.
-            ds_res = ds_sim.mean(dim=c.dim_time)
-            if varidx.is_summable:
-                ds_res = ds_res * 365
-            if varidx.is_var:
-                ds_res[vi_name].attrs[c.attrs_units] = units
-            else:
-                ds_res.attrs[c.attrs_units] = units
-
-        # Future period.
-        else:
-
-            # List scenarios or indices.
-            p_sim_l = list_netcdf(cntx.obs_src, varidx, "path", include_ref=False)
-
-            # Collect simulations.
-            arr_sim = []
-            ds_res  = None
-            n_sim   = 0
-            for p_sim in p_sim_l:
-                if os.path.exists(p_sim) and ((rcp.code in p_sim) or (rcp.code == c.rcpxx)):
-
-                    # Open dataset.
-                    ds_sim = fu.open_netcdf(p_sim)
-
-                    # Patch used to fix dimensions for c.i_drought_code.
-                    if vi_code in cntx.idxs.code_l:
-                        ds_sim = ds_sim.resample(time=c.freq_YS).mean(dim=c.dim_time, keep_attrs=True)
-
-                    # Adjust units.
-                    ds_sim = utils.convert_units(ds_sim, vi_name)
-                    units = utils.units(ds_sim, vi_name)
-
-                    # Select period.
-                    ds_sim = utils.remove_feb29(ds_sim)
-                    ds_sim = utils.sel_period(ds_sim, per)
-
-                    # Calculate mean and add to array.
-                    ds_sim = ds_sim.mean(dim=c.dim_time)
-                    if varidx.is_summable:
-                        ds_sim = ds_sim * 365
-                    if varidx.is_var:
-                        ds_sim[vi_name].attrs[c.attrs_units] = units
-                    else:
-                        ds_sim.attrs[c.attrs_units] = units
-                    arr_sim.append(ds_sim)
-
-                    # The first dataset will be used to return result.
-                    if n_sim == 0:
-                        ds_res = ds_sim.copy(deep=True)
-                        ds_res[vi_name][:, :] = np.nan
-                    n_sim = n_sim + 1
-
-            if ds_res is None:
-                return xr.Dataset(None)
-
-            # Get longitude and latitude.
-            lon_l, lat_l = utils.coords(arr_sim[0][vi_name], True)
-
-            # Calculate statistics.
-            len_lat = len(lat_l)
-            len_lon = len(lon_l)
-            for i_lat in range(len_lat):
-                for j_lon in range(len_lon):
-
-                    # Extract the value for the current cell for all simulations.
-                    vals = []
-                    for ds_sim_k in arr_sim:
-                        dims_sim = ds_sim_k[vi_name].dims
-                        if c.dim_rlat in dims_sim:
-                            val_sim = float(ds_sim_k[vi_name].isel(rlon=j_lon, rlat=i_lat))
-                        elif c.dim_lat in dims_sim:
-                            val_sim = float(ds_sim_k[vi_name].isel(lon=j_lon, lat=i_lat))
-                        else:
-                            val_sim = float(ds_sim_k[vi_name].isel(longitude=j_lon, latitude=i_lat))
-                        vals.append(val_sim)
-
-                    # Calculate statistic.
-                    val = np.nan
-                    if stat.code == c.stat_mean:
-                        val = np.mean(vals)
-                    elif stat.code == c.stat_min:
-                        val = np.min(vals)
-                    elif stat.code == c.stat_max:
-                        val = np.max(vals)
-                    elif stat.code == c.stat_centile:
-                        val = np.percentile(vals, stat.centile)
-
-                    # Record value.
-                    ds_res[vi_name][i_lat, j_lon] = val
-
-        # Remember units.
-        units = ds_res[vi_name].attrs[c.attrs_units] if varidx.is_var else ds_res.attrs[c.attrs_units]
-
-        # Convert units.
-        if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and\
-           (ds_res[vi_name].attrs[c.attrs_units] == c.unit_K):
-            ds_res = ds_res - c.d_KC
-            ds_res[vi_name].attrs[c.attrs_units] = c.unit_C
-        elif varidx.is_summable and (ds_res[vi_name].attrs[c.attrs_units] == c.unit_kg_m2s1):
-            ds_res = ds_res * c.spd
-            ds_res[vi_name].attrs[c.attrs_units] = c.unit_mm
-        elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
-            ds_res = ds_res * c.km_h_per_m_s
-            ds_res[vi_name].attrs[c.attrs_units] = c.unit_km_h
-        else:
-            ds_res[vi_name].attrs[c.attrs_units] = units
-
-        # Adjust coordinate names (required for clipping).
-        if c.dim_longitude not in list(ds_res.dims):
-            if c.dim_rlon in ds_res.dims:
-                ds_res = ds_res.rename_dims({c.dim_rlon: c.dim_longitude, c.dim_rlat: c.dim_latitude})
-                ds_res[c.dim_longitude] = ds_res[c.dim_rlon]
-                del ds_res[c.dim_rlon]
-                ds_res[c.dim_latitude] = ds_res[c.dim_rlat]
-                del ds_res[c.dim_rlat]
-            else:
-                ds_res = ds_res.rename_dims({c.dim_lon: c.dim_longitude, c.dim_lat: c.dim_latitude})
-                ds_res[c.dim_longitude] = ds_res[c.dim_lon]
-                del ds_res[c.dim_lon]
-                ds_res[c.dim_latitude] = ds_res[c.dim_lat]
-                del ds_res[c.dim_lat]
-
-    return ds_res
 
 
 def conv_nc_csv(

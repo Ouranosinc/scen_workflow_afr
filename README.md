@@ -176,13 +176,13 @@ Implemented features:
 - created a unit testing module that can be enabled using 'opt_test';
 - increased the performance of 'rain_season*' and 'dry_spell_total_length' indices.
 
-### v1.4.0 (under development)
+### v1.4.0
 
 Implemented features:
 - relocated plotting functions within a distinct Github project (see note in the introduction);
 - added compatibility with ENACTS reanalysis ensemble;
-- restructured code to make it easier to maintain (object-oriented), which takes the form of a partial inheritance from
-  the dashboard;
+- restructured the code to make it easier to maintain (object-oriented), which takes the form of a partial inheritance
+  from the dashboard;
 - regridding and interpolation is now performed with xesmf, which considerably reduces the duration of the analysis;
 - parallel processing per variable during the generation of statistics and visual elements;
 - cluster analysis in n dimensions; a plot is produced if two variables are provided by the used;
@@ -194,7 +194,10 @@ Implemented features:
 - now saving NetCDF files with the same coordinate names ('longitude' and 'latitude') and eliminating unnecssary
   variables to reduce the volume of files generated during the analysis;
 - removed the option to optimize the selection of quantile mapping parameters;
-- the lower and upper boundaries of RCP grops in time-series is now defined using centiles (instead of min-max).
+- the lower and upper boundaries of RCP grops in time-series is now defined using centiles (instead of min-max);
+- disabled map generation for at-a-station analyses since the results of the interpolation was not great;
+- statistics are calculated by a more efficient function that is called when generating statistics tables, maps and
+  time series.
 
 ## Contributing
 
