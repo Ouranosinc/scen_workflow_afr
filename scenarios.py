@@ -360,13 +360,16 @@ def load_reanalysis(
 
         # Units are set only for ERA5* reanalysis datasets.
         is_era5 = cntx.obs_src in [c.ens_era5, c.ens_era5_land]
+        is_enacts = cntx.obs_src == c.ens_enacts
 
         # Set attributes.
         ds[var_name].attrs[c.attrs_gmap] = "regular_lon_lat"
         if var_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
             ds[var_name].attrs[c.attrs_sname] = "temperature"
             ds[var_name].attrs[c.attrs_lname] = "Temperature"
-            if is_era5:
+            if is_enacts:
+                ds = utils.convert_units(ds, var_name, c.unit_K)
+            elif is_era5:
                 ds[var_name].attrs[c.attrs_units] = c.unit_K
         elif var_ra.is_summable:
             if (cntx.obs_src == c.ens_era5) or (cntx.obs_src == c.ens_era5_land):
