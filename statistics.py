@@ -60,13 +60,13 @@ def calc_stats(
     squeeze_coords: bool,
     clip: bool,
     cat_scen: Optional[str] = ""
-) -> Union[dict, None]:
+) -> Union[None, dict]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
     Calculate statistics using xclim libraries.
 
-    The function returns a dictrionary of Dataset instances, each of which is associated with a statistic. The
+    The function returns a dictrionary of Datasets, each of which is associated with a statistic. The
     statistics returned by the function are the following: mean, std (standard deviation), max, min, cXX (a centile,
     where XX is an integer between 01 and 99).
 
@@ -99,8 +99,8 @@ def calc_stats(
 
     Returns
     -------
-    Union[dict, None]
-        Dictionary of Dataset instances (of statistics).
+    Union[None, dict]
+        Dictionary of Datasets (containing statistics).
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -157,8 +157,9 @@ def calc_stats(
         else:
             ds_i = ds_i.resample(time=c.freq_YS).mean()
 
-        # Adjust units.
+        # Adjust units (1st call set units; 2nd call converts units).
         ds_i = utils.set_units(ds_i, vi_name, units)
+        ds_i = utils.set_units(ds_i, vi_name)
 
         ds_l[i] = ds_i
 
@@ -242,8 +243,12 @@ def calc_stats(
             for i in range(len(ds_stats)):
                 ds_stats[i] = xr.Dataset.merge(ds_stats[i], ds_stats_y_l[i])
 
+    # All anomalies are zero for the reference set.
+    if delta and rcp.is_ref:
+        ds_stats_delta = xr.zeros_like(ds_stats)
+
     # Calculate anomalies.
-    if delta and (rcp.code != c.ref):
+    elif delta and not rcp.is_ref:
 
         # Bias time series: adjusted simulation - non-adjusted simulation.
         if (view.code == c.view_ts_bias) and varidx.is_var:
@@ -261,19 +266,35 @@ def calc_stats(
             val_ref = ds_stats_ref[vi_name]
         else:
             val_ref = float(ds_stats_ref[vi_name].mean().values)
-        for i in range(len(ds_stats)):
-            ds_stats[i][vi_name] = ds_stats[i][vi_name] - val_ref
-            ds_stats[i][vi_name][c.attrs_units] = units
+        ds_stats_delta = ds_stats.copy()
+        for i in range(len(ds_stats_delta)):
+            ds_stats_delta[i][vi_name] = ds_stats[i][vi_name] - val_ref
+            ds_stats_delta[i][vi_name][c.attrs_units] = units
 
-    # Convert the array of Datasets into a dictionary.
-    stat_str_l = []
-    for stat in stats.items:
+    # Anomalies are not required.
+    else:
+        ds_stats_delta = None
+
+    # Convert the arrays of Datasets into dictionaries.
+    stat_code_l, ds_stats_l = [], []
+    for s in range(stats.count):
+
+        stat = stats.items[s]
+
+        # Code.
         if stat.code != c.stat_centile:
             stat_code = stat.code
         else:
             stat_code = stat.centile_as_str
-        stat_str_l.append(stat_code)
-    ds_stats_dict = dict(zip(stat_str_l, ds_stats))
+        stat_code_l.append(stat_code)
+
+        # Dataset(s).
+        if not delta:
+            ds_stats_l.append(ds_stats[s])
+        else:
+            ds_stats_l.append([ds_stats[s], ds_stats_delta[stat_code]])
+
+    ds_stats_dict = dict(zip(stat_code_l, ds_stats_l))
 
     return ds_stats_dict
 
@@ -338,9 +359,11 @@ def calc_stats_ref_sims(
         fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + sim_code_i, True)
 
         rcp_code = Sim(sim_code_i).rcp.code
-        ds_stats = calc_stats(ds_l=[], view=view, stn=stn, varidx=varidx, rcp=RCP(rcp_code), sim=Sim(sim_code_i),
-                              hor=hor, delta=delta, stats=stats, squeeze_coords=squeeze_coords, clip=cntx.opt_tbl_clip)
-        ds_stats_l.append([sim_code_i, ds_stats])
+
+        dict_stats = calc_stats(ds_l=[], view=view, stn=stn, varidx=varidx, rcp=RCP(rcp_code), sim=Sim(sim_code_i),
+                                hor=hor, delta=delta, stats=stats, squeeze_coords=squeeze_coords,
+                                clip=cntx.opt_tbl_clip)
+        ds_stats_l.append([sim_code_i, dict_stats])
 
     return ds_stats_l
 
@@ -746,13 +769,16 @@ def calc_ts_stn(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    df_rcp, df_sim, df_rcp_delta, df_sim_delta = None, None, None, None
-
     # Extract relevant information from the context.
     vi_name = varidx.name
 
     # Complete horizon (inncluding reference period).
     hor = Hor([min(min(cntx.per_hors)), max(max(cntx.per_hors))])
+
+    # Initialize the structure that will hold the result for the current 'delta' iteration.
+    dict_pd = {"year": list(range(hor.year_1, hor.year_2 + 1))}
+    df_rcp, df_sim, df_rcp_delta, df_sim_delta =\
+        pd.DataFrame(dict_pd), pd.DataFrame(dict_pd), pd.DataFrame(dict_pd), pd.DataFrame(dict_pd)
 
     # List required statistics.
     stats = Stats()
@@ -763,74 +789,75 @@ def calc_ts_stn(
     stats.add(stat_middle)
     stats.add(stat_upper)
 
-    for delta in [False, True]:
+    # Calculate statistics for the reference data and each simulation.
+    if cntx.view.code == c.view_ts:
+        ds_stats_l = calc_stats_ref_sims(stn, View(c.view_ts), cntx.varidx, delta=False)
+    else:
+        ds_stats_l = calc_stats_ref_sims(stn, View(c.view_ts), cntx.varidx, delta=True)
 
-        # Calculate statistics for the reference data and each simulation.
-        ds_stats_l = calc_stats_ref_sims(stn, View(c.view_ts), cntx.varidx, delta=delta)
+    # Reference data.
+    df_ref = None
 
-        # Initialize the structure that will hold the result for the current 'delta' iteration.
-        dict_pd = {"year": list(range(hor.year_1, hor.year_2 + 1))}
-        df_rcp_x, df_sim_x = pd.DataFrame(dict_pd), pd.DataFrame(dict_pd)
-        df_rcp_x[c.ref], df_sim_x[c.ref] = np.nan, np.nan
+    # Individual time series.
+    for i_sim in range(len(ds_stats_l)):
 
-        # Loop through emission scenarios.
-        for rcp in RCPs(cntx.rcps.code_l).items:
+        # Extract simulation code and description.
+        sim_code = ds_stats_l[i_sim][0]
+        if len(ds_stats_l[i_sim][1]) == 1:
+            ds_stats_i = ds_stats_l[i_sim][1][c.stat_mean]
+            ds_stats_delta_i = None
+        else:
+            ds_stats_i = ds_stats_l[i_sim][1][c.stat_mean]
+            ds_stats_delta_i = ds_stats_l[i_sim][2][c.stat_mean]
 
-            # Collect statistics.
-            ds_stats_rcp_l = []
-            for i_sim in range(len(ds_stats_l)):
-                if rcp.code in ds_stats_l[i_sim][0]:
-                    ds_stats_rcp_l.append(ds_stats_l[i_sim][1][c.stat_mean])
+        # Subset years.
+        ds_stats_i = utils.sel_period(ds_stats_i, [hor.year_1, hor.year_2])
+        if ds_stats_delta_i is not None:
+            ds_stats_delta_i = utils.sel_period(ds_stats_delta_i, [hor.year_1, hor.year_2])
 
-            # Calculate ensemble statistics.
-            xclim_logger_level = utils.get_logger_level("root")
-            utils.set_logger_level("root", logging.CRITICAL)
-            ds_ens = ensembles.create_ensemble(ds_stats_rcp_l)
-            utils.set_logger_level("root", xclim_logger_level)
-            ds_stats_basic = ensembles.ensemble_mean_std_max_min(ds_ens)
-            ds_stats_centile = ensembles.ensemble_percentiles(ds_ens, values=stats.centile_l, split=False)
+        # Record statistics.
+        vals = list(ds_stats_i[vi_name].values)
+        if sim_code == c.ref:
+            n_nan = (hor.year_2 - hor.year_1 + 1 - len(vals))
+            df_rcp[sim_code] = vals + [np.nan] * n_nan
+            df_sim[sim_code] = vals + [np.nan] * n_nan
+            if cntx.view.code == c.view_ts:
+                df_ref = float(df_sim[sim_code].mean())
+            else:
+                df_ref = ds_stats_delta_i
+        else:
+            df_sim[sim_code] = vals
+            df_sim_delta[sim_code] = df_sim[sim_code] - df_ref
 
-            # Select years.
-            da_stats_lower = ds_stats_centile.sel(percentiles=stat_lower.centile)[vi_name]
-            da_stats_lower = utils.sel_period(da_stats_lower, [hor.year_1, hor.year_2])
-            da_stats_middle = ds_stats_basic[vi_name + "_" + c.stat_mean]
-            da_stats_middle = utils.sel_period(da_stats_middle, [hor.year_1, hor.year_2])
-            da_stats_upper = ds_stats_centile.sel(percentiles=stat_upper.centile)[vi_name]
-            da_stats_upper = utils.sel_period(da_stats_upper, [hor.year_1, hor.year_2])
+    # Loop through emission scenarios.
+    for rcp in RCPs(cntx.rcps.code_l).items:
 
-            # Record mean, lower and upper annual values (for each year).
-            df_rcp_x[rcp.code + "_lower"] = da_stats_lower.values
-            df_rcp_x[rcp.code + "_middle"] = da_stats_middle.values
-            df_rcp_x[rcp.code + "_upper"] = da_stats_upper.values
-
-        # Loop through simulation files.
+        # Collect statistics.
+        ds_stats_rcp_l = []
         for i_sim in range(len(ds_stats_l)):
+            if rcp.code in ds_stats_l[i_sim][0]:
+                ds_stats_rcp_l.append(ds_stats_l[i_sim][1][c.stat_mean])
 
-            # Extract simulation code and description.
-            sim_code = ds_stats_l[i_sim][0]
-            ds_stats_i = dict(ds_stats_l[i_sim][1])[c.stat_mean]
+        # Calculate ensemble statistics.
+        xclim_logger_level = utils.get_logger_level("root")
+        utils.set_logger_level("root", logging.CRITICAL)
+        ds_ens = ensembles.create_ensemble(ds_stats_rcp_l)
+        utils.set_logger_level("root", xclim_logger_level)
+        ds_stats_basic = ensembles.ensemble_mean_std_max_min(ds_ens)
+        ds_stats_centile = ensembles.ensemble_percentiles(ds_ens, values=stats.centile_l, split=False)
 
-            # Subset years.
-            ds_stats_i = utils.sel_period(ds_stats_i, [hor.year_1, hor.year_2])
+        # Select years.
+        da_stats_lower = ds_stats_centile.sel(percentiles=stat_lower.centile)[vi_name]
+        da_stats_lower = utils.sel_period(da_stats_lower, [hor.year_1, hor.year_2])
+        da_stats_middle = ds_stats_basic[vi_name + "_" + c.stat_mean]
+        da_stats_middle = utils.sel_period(da_stats_middle, [hor.year_1, hor.year_2])
+        da_stats_upper = ds_stats_centile.sel(percentiles=stat_upper.centile)[vi_name]
+        da_stats_upper = utils.sel_period(da_stats_upper, [hor.year_1, hor.year_2])
 
-            # Record statistics.
-            vals = list(ds_stats_i[vi_name].values)
-            if sim_code == c.ref:
-                n_nan = (hor.year_2 - hor.year_1 + 1 - len(vals))
-                df_rcp_x[sim_code] = vals + [np.nan] * n_nan
-                df_sim_x[sim_code] = vals + [np.nan] * n_nan
-            else:
-                df_sim_x[sim_code] = vals
-
-        # Record results.
-        if len(df_sim_x.columns) > 1:
-
-            if not delta:
-                df_rcp = df_rcp_x.copy()
-                df_sim = df_sim_x.copy()
-            else:
-                df_rcp_delta = df_rcp_x.copy()
-                df_sim_delta = df_sim_x.copy()
+        # Record mean, lower and upper annual values (for each year).
+        df_rcp[rcp.code + "_lower"] = da_stats_lower.values
+        df_rcp[rcp.code + "_middle"] = da_stats_middle.values
+        df_rcp[rcp.code + "_upper"] = da_stats_upper.values
 
     # Convert the array of instances of pd.DataFrame into a dictionary.
     df_dict = dict(zip(["rcp", "sim", "rcp_delta", "sim_delta"], [df_rcp, df_sim, df_rcp_delta, df_sim_delta]))

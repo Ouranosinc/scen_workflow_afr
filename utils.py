@@ -1475,21 +1475,21 @@ def set_units(
     if vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
         if (units_old == c.unit_K) and (units_new == c.unit_C):
             ds_da = ds_da - c.d_KC
-        else:
+        elif (units_old == c.unit_C) and (units_new == c.unit_K):
             ds_da = ds_da + c.d_KC
 
     # Precipitation, evaporation, evapotranspiration: kg/m2s2 -> mm.
     elif vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
         if (units_old == c.unit_kg_m2s1) and (units_new == c.unit_mm):
             ds_da = ds_da * c.spd
-        else:
+        elif (units_old == c.unit_mm) and (units_new == c.unit_kg_m2s1):
             ds_da = ds_da / c.spd
 
     # Wind: m/s -> km/h.
     elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
         if (units_old == c.unit_m_s) and (units_new == c.unit_km_h):
             ds_da = ds_da * c.km_h_per_m_s
-        else:
+        elif (units_old == c.unit_km_h) and (units_new == c.unit_m_s):
             ds_da = ds_da / c.km_h_per_m_s
 
     # Restore attributes and set new units.
