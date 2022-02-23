@@ -1428,7 +1428,7 @@ def units(
     return units
 
 
-def convert_units(
+def set_units(
     ds_da: Union[xr.Dataset, xr.DataArray],
     vi_name: str,
     units_new: Optional[Union[str, int]] = ""
@@ -1459,6 +1459,8 @@ def convert_units(
 
     # Save attributes.
     attrs = ds_da[vi_name].attrs if isinstance(ds_da, xr.Dataset) else ds_da.attrs
+    if len(attrs) == 0:
+        attrs = {c.attrs_units: ""}
 
     # Assign new units.
     if units_new == "":

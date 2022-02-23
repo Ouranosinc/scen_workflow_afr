@@ -368,7 +368,7 @@ def load_reanalysis(
             ds[var_name].attrs[c.attrs_sname] = "temperature"
             ds[var_name].attrs[c.attrs_lname] = "Temperature"
             if is_enacts:
-                ds = utils.convert_units(ds, var_name, c.unit_K)
+                ds = utils.set_units(ds, var_name, c.unit_K)
             elif is_era5:
                 ds[var_name].attrs[c.attrs_units] = c.unit_K
         elif var_ra.is_summable:
@@ -981,29 +981,20 @@ def postprocess(
         da_sim_adj     = ds_sim_adj[var.name]
         da_qmf         = ds_qmf[var.name]
 
-        def convert_units(da: xr.DataArray, units: str) -> xr.DataArray:
-            if (da.units == c.unit_kg_m2s1) and (units == c.unit_mm):
-                da = da * c.spd
-                da.attrs[c.attrs_units] = units
-            elif (da.units == c.unit_K) and (units == c.unit_C):
-                da = da - c.d_KC
-                da[c.attrs_units] = units
-            return da
-
         # Convert units.
         if var.is_summable:
-            da_stn         = convert_units(da_stn, c.unit_mm)
-            da_obs         = convert_units(da_obs, c.unit_mm)
-            da_sim         = convert_units(da_sim, c.unit_mm)
-            da_sim_adj     = convert_units(da_sim_adj, c.unit_mm)
-            da_sim_adj_ref = convert_units(da_sim_adj_ref, c.unit_mm)
-            da_qmf       = convert_units(da_qmf, c.unit_mm)
+            da_stn         = utils.set_units(da_stn, "", c.unit_mm)
+            da_obs         = utils.set_units(da_obs, "", c.unit_mm)
+            da_sim         = utils.set_units(da_sim, "", c.unit_mm)
+            da_sim_adj     = utils.set_units(da_sim_adj, "", c.unit_mm)
+            da_sim_adj_ref = utils.set_units(da_sim_adj_ref, "", c.unit_mm)
+            da_qmf       = utils.set_units(da_qmf, "", c.unit_mm)
         elif var.name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
-            da_stn         = convert_units(da_stn, c.unit_C)
-            da_obs         = convert_units(da_obs, c.unit_C)
-            da_sim         = convert_units(da_sim, c.unit_C)
-            da_sim_adj     = convert_units(da_sim_adj, c.unit_C)
-            da_sim_adj_ref = convert_units(da_sim_adj_ref, c.unit_C)
+            da_stn         = utils.set_units(da_stn, "", c.unit_C)
+            da_obs         = utils.set_units(da_obs, "", c.unit_C)
+            da_sim         = utils.set_units(da_sim, "", c.unit_C)
+            da_sim_adj     = utils.set_units(da_sim_adj, "", c.unit_C)
+            da_sim_adj_ref = utils.set_units(da_sim_adj_ref, "", c.unit_C)
 
         # Select center coordinates.
         da_stn_xy         = da_stn
