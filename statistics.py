@@ -804,12 +804,11 @@ def calc_ts_stn(
 
         # Record statistics.
         if sim_code == c.ref:
-            n_year = hor.year_2 - hor.year_1 + 1
-            n_nan = (n_year - len(vals_abs))
+            n_nan = (hor.year_2 - hor.year_1 + 1 - len(vals_abs))
             df_rcp[sim_code] = vals_abs + [np.nan] * n_nan
             df_sim[sim_code] = vals_abs + [np.nan] * n_nan
-            df_rcp_delta[sim_code] = [0.0] * n_year + [np.nan] * n_nan
-            df_sim_delta[sim_code] = [0.0] * n_year + [np.nan] * n_nan
+            df_rcp_delta[sim_code] = [0.0] * len(vals_abs) + [np.nan] * n_nan
+            df_sim_delta[sim_code] = [0.0] * len(vals_abs) + [np.nan] * n_nan
         else:
             df_sim[sim_code] = vals_abs
             df_sim_delta[sim_code] = vals_del
