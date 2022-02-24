@@ -348,7 +348,6 @@ def calc_stats_ref_sims(
 
         rcp_code = Sim(sim_code_i).rcp.code
 
-        # Caculate absolute values.
         stats_dict =\
             dict(calc_stats(ds_l=[], view=view, stn=stn, varidx=varidx, rcp=RCP(rcp_code), sim=Sim(sim_code_i),
                             hor=hor, delta=delta, stats=stats, squeeze_coords=squeeze_coords,
