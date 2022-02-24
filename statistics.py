@@ -245,7 +245,9 @@ def calc_stats(
 
     # All anomalies are zero for the reference set.
     if delta and rcp.is_ref:
-        ds_stats_delta = xr.zeros_like(ds_stats)
+        ds_stats_delta = ds_stats.copy()
+        for s in range(len(ds_stats)):
+            ds_stats_delta[s][vi_name] = xr.zeros_like(ds_stats[s][vi_name])
 
     # Calculate anomalies.
     elif delta and not rcp.is_ref:
@@ -267,9 +269,9 @@ def calc_stats(
         else:
             val_ref = float(ds_stats_ref[vi_name].mean().values)
         ds_stats_delta = ds_stats.copy()
-        for i in range(len(ds_stats_delta)):
-            ds_stats_delta[i][vi_name] = ds_stats[i][vi_name] - val_ref
-            ds_stats_delta[i][vi_name][c.attrs_units] = units
+        for s in range(len(ds_stats_delta)):
+            ds_stats_delta[s][vi_name] = ds_stats[s][vi_name] - val_ref
+            ds_stats_delta[s][vi_name][c.attrs_units] = units
 
     # Anomalies are not required.
     else:
@@ -292,7 +294,7 @@ def calc_stats(
         if not delta:
             ds_stats_l.append(ds_stats[s])
         else:
-            ds_stats_l.append([ds_stats[s], ds_stats_delta[stat_code]])
+            ds_stats_l.append([ds_stats[s], ds_stats_delta[s]])
 
     ds_stats_dict = dict(zip(stat_code_l, ds_stats_l))
 
@@ -340,7 +342,7 @@ def calc_stats_ref_sims(
     # View.
     if view.code == c.view_tbl:
         squeeze_coords = (freq == c.freq_YS) and varidx.is_var
-    elif view.code == c.view_ts:
+    elif view.code in [c.view_ts, c.view_ts_bias]:
         squeeze_coords = True
     else:
         squeeze_coords = False
@@ -793,7 +795,7 @@ def calc_ts_stn(
     if cntx.view.code == c.view_ts:
         ds_stats_l = calc_stats_ref_sims(stn, View(c.view_ts), cntx.varidx, delta=False)
     else:
-        ds_stats_l = calc_stats_ref_sims(stn, View(c.view_ts), cntx.varidx, delta=True)
+        ds_stats_l = calc_stats_ref_sims(stn, View(c.view_ts_bias), cntx.varidx, delta=True)
 
     # Reference data.
     df_ref = None
