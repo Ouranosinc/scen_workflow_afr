@@ -40,7 +40,7 @@ def main():
 
     # Migrate project.
     # fu.migrate(c.platform_script, "", 1.2, 1.4)
-    
+
     # Step #0: Structure: project, variables and indices ---------------------------------------------------------------
 
     # Project.

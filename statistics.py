@@ -820,11 +820,13 @@ def calc_ts_stn(
         if sim_code == c.ref:
             n_nan = (hor.year_2 - hor.year_1 + 1 - len(vals))
             df_rcp[sim_code] = vals + [np.nan] * n_nan
+            df_rcp_delta[sim_code] = [0.0] + [np.nan] * n_nan
             df_sim[sim_code] = vals + [np.nan] * n_nan
             if cntx.view.code == c.view_ts:
                 df_ref = float(df_sim[sim_code].mean())
             else:
                 df_ref = ds_stats_delta_i
+            df_sim_delta[sim_code] = [0.0] + [np.nan] * n_nan
         else:
             df_sim[sim_code] = vals
             df_sim_delta[sim_code] = df_sim[sim_code] - df_ref
@@ -858,6 +860,9 @@ def calc_ts_stn(
         df_rcp[rcp.code + "_lower"] = da_stats_lower.values
         df_rcp[rcp.code + "_middle"] = da_stats_middle.values
         df_rcp[rcp.code + "_upper"] = da_stats_upper.values
+        df_rcp_delta[rcp.code + "_lower"] = da_stats_lower.values - df_ref
+        df_rcp_delta[rcp.code + "_middle"] = da_stats_middle.values - df_ref
+        df_rcp_delta[rcp.code + "_upper"] = da_stats_upper.values - df_ref
 
     # Convert the array of instances of pd.DataFrame into a dictionary.
     df_dict = dict(zip(["rcp", "sim", "rcp_delta", "sim_delta"], [df_rcp, df_sim, df_rcp_delta, df_sim_delta]))
