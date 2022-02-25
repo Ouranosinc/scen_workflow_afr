@@ -242,6 +242,7 @@ def calc_stats(
         else:
             for i in range(len(ds_stats_l)):
                 ds_stats_l[i] = xr.Dataset.merge(ds_stats_l[i], ds_stats_y_l[i])
+                ds_stats_l[i] = utils.set_units(ds_stats_l[i], vi_name, units)
 
     if delta:
 
