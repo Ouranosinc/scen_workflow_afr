@@ -961,8 +961,8 @@ def postprocess(
 
             # Adjust simulation.
             interp = (True if not cntx.opt_ra else False)
-            da_sim_adj = xr.DataArray(predict(da_sim_365.squeeze(), ds_qmf[var.name].squeeze(),
-                                      interp=interp, detrend_order=c.detrend_order))
+            da_sim_adj = xr.DataArray(predict(da_sim_365, ds_qmf[var.name], interp=interp,
+                                              detrend_order=c.detrend_order))
             ds_sim_adj = da_sim_adj.to_dataset(name=var.name)
             del ds_sim_adj[var.name].attrs[c.attrs_bias]
             ds_sim_adj[var.name].attrs[c.attrs_sname] = da_stn.attrs[c.attrs_sname]
