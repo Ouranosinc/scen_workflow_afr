@@ -1910,6 +1910,9 @@ def calc_workflow(
                 else:
                     da_ref = utils.squeeze_lon_lat(da_ref)
                     da_sim = utils.squeeze_lon_lat(da_sim)
+            else:
+                da_ref = da_ref.squeeze()
+                da_sim = da_sim.squeeze()
 
         # Convert date format if the need is.
         if da_ref.time.dtype == c.dtype_obj:
@@ -1922,7 +1925,7 @@ def calc_workflow(
         n_ref = len(list(da_ref.values))
         n_sim = len(list(da_sim.values))
         dict_pd = {"year": list(range(1, n_sim + 1)),
-                   c.cat_obs: list(da_ref.values) + [np.nan] * (n_sim - n_ref),
+                   c.cat_obs: list(da_ref.squeeze().values) + [np.nan] * (n_sim - n_ref),
                    c.cat_sim: list(da_sim.values)}
         df = pd.DataFrame(dict_pd)
 

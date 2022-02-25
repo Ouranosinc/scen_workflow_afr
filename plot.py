@@ -227,11 +227,15 @@ def plot_workflow(
         if units[1] == c.unit_K:
             delta_sim = -c.d_KC
 
-    # Fit.
-    x     = [*range(len(df["year"]))]
-    y     = (df[c.cat_obs] * coef + delta_ref).values
-    coefs = poly.polyfit(x, y, 4)
-    ffit  = poly.polyval(x, coefs)
+    # Actual data.
+    x = [*range(len(df["year"]))]
+    y = (df[c.cat_obs] * coef + delta_ref).values
+
+    # Predictions.
+    y_wo_nan = [i for i in y if not np.isnan(i)]
+    x_wo_nan = [*range(len(y_wo_nan))]
+    coefs = poly.polyfit(x_wo_nan, y_wo_nan, 4)
+    y_hat = list(poly.polyval(x_wo_nan, coefs)) + [np.nan] * (len(x) - len(x_wo_nan))
 
     # Font size.
     fs           = 8
@@ -250,10 +254,10 @@ def plot_workflow(
 
         # Upper plot: Reference period.
         ax = fig.add_subplot(211)
-        ax.plot(df["year"], y, color=col_sim_ref)
-        ax.plot(df["year"], ffit, color="black")
+        ax.plot(x, y, color=col_sim_ref)
+        ax.plot(x, y_hat, color="black")
         plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
-        plt.xlabel("Année", fontsize=fs_axes)
+        plt.xlabel("Jour", fontsize=fs_axes)
         plt.ylabel(varidx.label, fontsize=fs_axes)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
@@ -263,12 +267,12 @@ def plot_workflow(
         fig.add_subplot(212)
         arr_y_detrend = signal.detrend(df[c.cat_sim][np.isnan(df[c.cat_sim]) == False] * coef + delta_sim)
         arr_x_detrend = cntx.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
-        arr_y_error  = (y - ffit)
+        arr_y_error  = (y - y_hat)
         arr_x_error = cntx.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
         plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=col_sim)
         plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=col_sim_ref)
         plt.legend(["Simulation", "Simulation (réf.)"], fontsize=fs_legend, frameon=False)
-        plt.xlabel("Jours", fontsize=fs_axes)
+        plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(varidx.label, fontsize=fs_axes)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
