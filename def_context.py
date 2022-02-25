@@ -157,6 +157,9 @@ class Context(def_context.Context):
         self.obs_src_username = ""
         self.obs_src_password = ""
 
+        # Tells wether the analysis is based on reanalysis data.
+        self.opt_ra = False
+
         # Variables (based on CORDEX names).
         self.variables = []
         self.vars = None
@@ -237,9 +240,6 @@ class Context(def_context.Context):
         """
         Data extraction and scenarios --------------
         """
-
-        # Tells wether the analysis is based on reanalysis data.
-        self.opt_ra = False
 
         # Enable/disable the production of climate scenarios.
         self.opt_scen = True

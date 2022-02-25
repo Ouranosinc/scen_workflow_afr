@@ -349,7 +349,7 @@ def load_reanalysis(
         if var_name not in list(ds.variables):
             ds = ds.rename({var_ra_name: var_name})
 
-        # Subset.
+        # Calculate resolution of Dataset, then subset.
         ds = utils.subset_lon_lat_time(ds, var_name, cntx.lon_bnds, cntx.lat_bnds)
 
         # Apply and create mask.
@@ -457,10 +457,10 @@ def extract(
     if not cntx.opt_ra:
 
         # Assume a square around the location.
-        lat_stn = round(float(ds_stn.lat.values), 1)
         lon_stn = round(float(ds_stn.lon.values), 1)
-        lat_l = [lat_stn - cntx.radius, lat_stn + cntx.radius]
+        lat_stn = round(float(ds_stn.lat.values), 1)
         lon_l = [lon_stn - cntx.radius, lon_stn + cntx.radius]
+        lat_l = [lat_stn - cntx.radius, lat_stn + cntx.radius]
 
     # Reanalysis.
     # When using reanalysis data, need to include extra cells in case the resolution of the reanalysis dataset is lower
@@ -475,20 +475,37 @@ def extract(
         except xcv.MissingDimensionsError:
             ds_proj = xr.open_dataset(p_proj, drop_variables=["time_bnds"]).load()
         fu.close_netcdf(ds_proj)
-        res_proj_lat = abs(ds_proj.rlat.values[1] - ds_proj.rlat.values[0])
-        res_proj_lon = abs(ds_proj.rlon.values[1] - ds_proj.rlon.values[0])
 
-        # Reanalysis.
-        res_ra_lat = abs(ds_stn.latitude.values[1] - ds_stn.latitude.values[0])
-        res_ra_lon = abs(ds_stn.longitude.values[1] - ds_stn.longitude.values[0])
+        # Resolution of projections (based on the distance between coordinates, in each direction).
+        res_proj_lon = abs(ds_proj.rlon.values[1] - ds_proj.rlon.values[0])
+        res_proj_lat = abs(ds_proj.rlat.values[1] - ds_proj.rlat.values[0])
+
+        # Resolution of reanalysis dataset.
+        # Two different strategies are used for reanalysis data.
+        # - If the grid has more than one cell in each direction, the approach used for the projections is used here.
+        # - Otherwise, one of NetCDF files holding reanalysis data must be opened again, because it's impossible to
+        #   determine resolution using a 1x1 grid.
+        if (len(ds_stn.longitude.values) > 1) and (len(ds_stn.latitude.values) > 1):
+            res_ra_lon = abs(ds_stn.longitude.values[1] - ds_stn.longitude.values[0])
+            res_ra_lat = abs(ds_stn.latitude.values[1] - ds_stn.latitude.values[0])
+        else:
+            var_ra_name = var.convert_name(cntx.obs_src)
+            p_stn_l = list(glob.glob(cntx.d_ra_day + var_ra_name + cntx.sep + "*" + c.f_ext_nc))
+            if len(p_stn_l) > 0:
+                ds_stn = fu.open_netcdf(p_stn_l[0])
+                res_ra_lon = abs(ds_stn.longitude.values[1] - ds_stn.longitude.values[0])
+                res_ra_lat = abs(ds_stn.latitude.values[1] - ds_stn.latitude.values[0])
+            else:
+                res_ra_lon = res_proj_lon
+                res_ra_lat = res_proj_lat
 
         # Calculate the number of points needed along each dimension.
-        n_lat_ext = float(max(1.0, math.ceil(res_proj_lat / res_ra_lat)))
         n_lon_ext = float(max(1.0, math.ceil(res_proj_lon / res_ra_lon)))
+        n_lat_ext = float(max(1.0, math.ceil(res_proj_lat / res_ra_lat)))
 
         # Calculate extended boundaries.
-        lat_l = [cntx.lat_bnds[0] - n_lat_ext * res_ra_lat, cntx.lat_bnds[1] + n_lat_ext * res_ra_lat]
         lon_l = [cntx.lon_bnds[0] - n_lon_ext * res_ra_lon, cntx.lon_bnds[1] + n_lon_ext * res_ra_lon]
+        lat_l = [cntx.lat_bnds[0] - n_lat_ext * res_ra_lat, cntx.lat_bnds[1] + n_lat_ext * res_ra_lat]
 
     # Data extraction --------------------------------------------------------------------------------------------------
 
