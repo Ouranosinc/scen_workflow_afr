@@ -723,14 +723,14 @@ def subset_lon_lat_time(
             invert_coords = (float(ds_res.longitude[0]) > float(ds_res.longitude[len(ds_res.longitude) - 1])) and \
                             (lon_min < lon_max)
             lon_l = [lon_min, lon_max] if not invert_coords else [lon_max, lon_min]
-            ds_res = ds_res.sel(longitude=lon_l)
+            ds_res = ds_res.sel(longitude=lon_l, method="nearest")
         else:
             lon_min = max(float(ds_res.rlon.min()), min(lon))
             lon_max = min(float(ds_res.rlon.max()), max(lon))
             invert_coords = (float(ds_res.rlon[0]) > float(ds_res.rlon[len(ds_res.rlon) - 1])) and \
                             (lon_min < lon_max)
             lon_l = [lon_min, lon_max] if not invert_coords else [lon_max, lon_min]
-            ds_res = ds_res.sel(rlon=lon_l)
+            ds_res = ds_res.sel(rlon=lon_l, method="nearest")
 
     # Latitude.
     if len(lat) > 0:
@@ -742,14 +742,14 @@ def subset_lon_lat_time(
             invert_coords = (((lat_min_res > lat_max_res) and (lat_min < lat_max)) or
                              ((lat_min_res < lat_max_res) and (lat_min > lat_max)))
             lat_l = [lat_min, lat_max] if not invert_coords else [lat_max, lat_min]
-            ds_res = ds_res.sel(latitude=lat_l)
+            ds_res = ds_res.sel(latitude=lat_l, method="nearest")
         else:
             lat_min = max(float(ds_res.rlat.min()), min(lat))
             lat_max = min(float(ds_res.rlat.max()), max(lat))
             invert_coords = (float(ds_res.rlat[0]) > float(ds_res.rlat[len(ds_res.rlat) - 1])) and \
                             (lat_min < lat_max)
             lat_l = [lat_min, lat_max] if not invert_coords else [lat_max, lat_min]
-            ds_res = ds_res.sel(rlat=lat_l)
+            ds_res = ds_res.sel(rlat=lat_l, method="nearest")
 
     # Time.
     if (len(time) > 0) and (c.dim_time in ds_res.dims):
