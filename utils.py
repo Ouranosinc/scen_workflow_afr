@@ -722,32 +722,34 @@ def subset_lon_lat_time(
             lon_max = min(float(ds_res.longitude.max()), max(lon))
             invert_coords = (float(ds_res.longitude[0]) > float(ds_res.longitude[len(ds_res.longitude) - 1])) and \
                             (lon_min < lon_max)
-            slice_coords = slice(lon_min, lon_max) if not invert_coords else slice(lon_max, lon_min)
-            ds_res = ds_res.sel(longitude=slice_coords)
+            lon_l = [lon_min, lon_max] if not invert_coords else [lon_max, lon_min]
+            ds_res = ds_res.sel(longitude=lon_l)
         else:
             lon_min = max(float(ds_res.rlon.min()), min(lon))
             lon_max = min(float(ds_res.rlon.max()), max(lon))
             invert_coords = (float(ds_res.rlon[0]) > float(ds_res.rlon[len(ds_res.rlon) - 1])) and \
                             (lon_min < lon_max)
-            slice_coords = slice(lon_min, lon_max) if not invert_coords else slice(lon_max, lon_min)
-            ds_res = ds_res.sel(rlon=slice_coords)
+            lon_l = [lon_min, lon_max] if not invert_coords else [lon_max, lon_min]
+            ds_res = ds_res.sel(rlon=lon_l)
 
     # Latitude.
     if len(lat) > 0:
         if c.dim_latitude in ds_res.dims:
+            lat_min_res = float(ds_res.latitude[0])
+            lat_max_res = float(ds_res.latitude[len(ds_res.latitude) - 1])
             lat_min = max(float(ds_res.latitude.min()), min(lat))
             lat_max = min(float(ds_res.latitude.max()), max(lat))
-            invert_coords = (float(ds_res.latitude[0]) > float(ds_res.latitude[len(ds_res.latitude) - 1])) and \
-                            (lat_min < lat_max)
-            slice_coords = slice(lat_min, lat_max) if not invert_coords else slice(lat_max, lat_min)
-            ds_res = ds_res.sel(latitude=slice_coords)
+            invert_coords = (((lat_min_res > lat_max_res) and (lat_min < lat_max)) or
+                             ((lat_min_res < lat_max_res) and (lat_min > lat_max)))
+            lat_l = [lat_min, lat_max] if not invert_coords else [lat_max, lat_min]
+            ds_res = ds_res.sel(latitude=lat_l)
         else:
             lat_min = max(float(ds_res.rlat.min()), min(lat))
             lat_max = min(float(ds_res.rlat.max()), max(lat))
             invert_coords = (float(ds_res.rlat[0]) > float(ds_res.rlat[len(ds_res.rlat) - 1])) and \
                             (lat_min < lat_max)
-            slice_coords = slice(lat_min, lat_max) if not invert_coords else slice(lat_max, lat_min)
-            ds_res = ds_res.sel(rlat=slice_coords)
+            lat_l = [lat_min, lat_max] if not invert_coords else [lat_max, lat_min]
+            ds_res = ds_res.sel(rlat=lat_l)
 
     # Time.
     if (len(time) > 0) and (c.dim_time in ds_res.dims):
