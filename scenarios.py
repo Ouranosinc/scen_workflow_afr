@@ -931,8 +931,7 @@ def postprocess(
     # Calculate transfer function.
     else:
 
-        da_qmf = xr.DataArray(train(da_obs.squeeze(), da_stn.squeeze(), nq, c.group, kind, time_win,
-                                    detrend_order=c.detrend_order))
+        da_qmf = xr.DataArray(train(da_obs, da_stn, nq, c.group, kind, time_win, detrend_order=c.detrend_order))
         if var.is_summable:
             da_qmf.values[da_qmf > up_qmf] = up_qmf
             da_qmf.values[da_qmf < -up_qmf] = -up_qmf
