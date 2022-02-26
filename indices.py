@@ -824,7 +824,7 @@ def gen_single(
                 da_idx = utils.interpolate_na_fix(da_idx)
 
             # Sort dimensions to fit input data.
-            utils.standardize_netcdf(da_idx, template=ds_vi_l[0][varidx_0.name])
+            da_idx = utils.standardize_netcdf(da_idx, template=ds_vi_l[0][varidx_0.name])
 
             # Apply mask.
             if da_mask is not None:
@@ -842,8 +842,8 @@ def gen_single(
             ds_idx[idx_name_l[i]] = utils.copy_coords(ds_vi_l[0][varidx_0.name], da_idx)
 
         # Adjust calendar.
-        if (len(ds_idx[c.dim_longitude]) == 1) and (len(ds_idx[c.dim_latitude]) == 1):
-            ds_idx = ds_idx.squeeze(dim={c.dim_longitude, c.dim_latitude})
+        # if (len(ds_idx[c.dim_longitude]) == 1) and (len(ds_idx[c.dim_latitude]) == 1):
+        #     ds_idx = ds_idx.squeeze(dim={c.dim_longitude, c.dim_latitude})
         years = utils.extract_date_field(ds_vi_l[0], "year")
         ds_idx[c.dim_time] = utils.reset_calendar(ds_idx, min(years), max(years), c.freq_YS)
 
