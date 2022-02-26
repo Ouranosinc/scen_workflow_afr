@@ -134,6 +134,7 @@ def calc_stats(
             ds_l.append(ds_i)
 
     # Subset, resample and adjust units.
+    units = ""
     for i in range(len(ds_l)):
 
         # Select dataset.
@@ -229,7 +230,7 @@ def calc_stats(
                 ds_stats_y = ds_stats_y.mean(dim=utils.coord_names(ds_stats_y))
 
             # Put units back in.
-            ds_stats_y = utils.set_units(ds_stats_y, vi_name, ds_ens[vi_name].attrs[c.attrs_units])
+            ds_stats_y = utils.set_units(ds_stats_y, vi_name, units)
 
             # Record this result.
             ds_stats_y_l.append(ds_stats_y)
