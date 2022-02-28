@@ -197,7 +197,9 @@ Implemented features:
 - the lower and upper boundaries of RCP grops in time-series is now defined in terms of centiles (instead of min-max);
 - disabled map generation for at-a-station analyses since the results of the interpolation was not great;
 - statistics are calculated by a more efficient function that is called when generating statistics tables, maps and
-  time series.
+  time series;
+- improved the efficiency of 'rain_season*' and 'dry_spell_total_length' indices;
+- tested the script against high-resolution datasets and ajusted the algorithms to limit the use of RAM memory.
 
 ## Contributing
 
