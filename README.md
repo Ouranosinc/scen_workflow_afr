@@ -184,17 +184,17 @@ Implemented features:
 - restructured the code to make it easier to maintain (object-oriented), which takes the form of a partial inheritance
   from the dashboard;
 - regridding and interpolation is now performed with xesmf, which considerably reduces the duration of the analysis;
-- parallel processing per variable during the generation of statistics and visual elements;
+- parallel processing per variable for the generation of statistics and visual elements;
 - cluster analysis in n dimensions; a plot is produced if two variables are provided by the used;
 - fragmentation of former configuration file into a context (parameters of the analysis that depend on user
-  input) and a se of constants (constant.py) (parameters that are constant throughout the analysis);
-- grouping of figures under the 'fig' directory with improved directory access from the context;
+  input) and constants (constant.py) (parameters that are constant throughout the analysis);
+- grouping of figures under the 'fig' directory with improved/simplified access to the directory from the context;
 - data shown on plots always saved as .csv files; an attempt is made to load these files to regenerate plots;
 - improved aesthetics of visual elements (using matplotlib, hvplot, altair and plotly, depending on the context);
-- now saving NetCDF files with the same coordinate names ('longitude' and 'latitude') and eliminating unnecssary
+- now saving NetCDF files with unique coordinate names ('longitude' and 'latitude') and eliminating unnecssary
   variables to reduce the volume of files generated during the analysis;
 - removed the option to optimize the selection of quantile mapping parameters;
-- the lower and upper boundaries of RCP grops in time-series is now defined using centiles (instead of min-max);
+- the lower and upper boundaries of RCP grops in time-series is now defined in terms of centiles (instead of min-max);
 - disabled map generation for at-a-station analyses since the results of the interpolation was not great;
 - statistics are calculated by a more efficient function that is called when generating statistics tables, maps and
   time series.
