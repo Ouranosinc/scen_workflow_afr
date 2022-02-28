@@ -150,8 +150,14 @@ def main():
     indices.run()
 
     # Step #9: Export dashboard ----------------------------------------------------------------------------------------
+
+    fu.log("=")
+    msg = "Step #9   Exporting dashboard"
     if cntx.export_dashboard:
+        fu.log(msg)
         fu.deploy()
+    else:
+        fu.log(msg + " (not required)")
 
     fu.log("=")
     fu.log("Script completed: " + utils.datetime_str())
