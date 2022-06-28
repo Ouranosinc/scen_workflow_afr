@@ -25,9 +25,9 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import List, Optional, Tuple, Union
 
 # Workflow libraries.
-import file_utils as fu
-from def_constant import const as c
-from def_context import cntx
+import wf_file_utils as fu
+from cl_constant import const as c
+from cl_context import cntx
 
 
 def natural_sort(
@@ -119,7 +119,7 @@ def sfcwind_2_uas_vas(
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=Warning)
-            sfcwind = sfcwind.resample(time=resample).mean(dim=c.dim_time, keep_attrs=True)
+            sfcwind = sfcwind.resample(time=resample).mean(dim=c.DIM_TIME, keep_attrs=True)
 
         # TODO.MAB: Remove nb_per_day and calculate it.
 
@@ -187,7 +187,7 @@ def calendar(
     ts      = x.assign_coords(time=x.time.dt.dayofyear / n_days_old * n_days_new)
     ts_year = (ts.backup.dt.year.values - ts.backup.dt.year.values[0]) * n_days_new
     ts_time = ts.time.values
-    ts[c.dim_time] = ts_year + ts_time
+    ts[c.DIM_TIME] = ts_year + ts_time
 
     nb_year  = (ts.backup.dt.year.values[-1] - ts.backup.dt.year.values[0]) + 1
     time_new = np.arange(1, (nb_year*n_days_new)+1)
@@ -213,7 +213,7 @@ def calendar(
     ref_365 = ts.interp(time=time_new, kwargs={"fill_value": "extrapolate"}, method="nearest")
 
     # Recreate 365 time series.
-    ref_365[c.dim_time] = time_date
+    ref_365[c.DIM_TIME] = time_date
 
     # DEBUG: Plot data.
     # DEBUG: plt.plot(np.arange(1,n_days_new+1),ref_365[:n_days_new].values)
@@ -318,7 +318,7 @@ def reset_calendar(
     ds: Union[xr.Dataset, xr.DataArray],
     year_1=-1,
     year_n=-1,
-    freq=c.freq_D
+    freq=c.FREQ_D
 ) -> pd.DatetimeIndex:
 
     """
@@ -334,7 +334,7 @@ def reset_calendar(
     year_n : int
         Last year.
     freq : str
-        Frequency: const.freq_D=daily; const.freq_YS=annual
+        Frequency: c.FREQ_D=daily; c.FREQ_YS=annual
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -350,8 +350,8 @@ def reset_calendar(
 
     # Exactly the right number of time items.
     n_time = len(ds.time.values)
-    if (freq != c.freq_D) or (n_time == ((year_n - year_1 + 1) * 365)):
-        mult = 365 if freq == c.freq_D else 1
+    if (freq != c.FREQ_D) or (n_time == ((year_n - year_1 + 1) * 365)):
+        mult = 365 if freq == c.FREQ_D else 1
         new_time = pd.date_range(str(year_1) + "-01-01", periods=(year_n - year_1 + 1) * mult, freq=freq)
     else:
         arr_time = []
@@ -406,9 +406,9 @@ def convert_to_365_calender(
         ds_365 = ds
     else:
         cf = ds.time.values[0].calendar
-        if cf in [c.cal_noleap, c.cal_365day]:
+        if cf in [c.CAL_NOLEAP, c.CAL_365DAY]:
             ds_365 = ds
-        elif cf in [c.cal_360day]:
+        elif cf in [c.CAL_360DAY]:
             ds_365 = calendar(ds)
         else:
             ds_365 = None
@@ -465,7 +465,7 @@ def calc_error(
 
     # TODO: Ensure that the length of datasets is the same in both datasets.
     #       The algorithm is extremely inefficient. There must be a better way to do it.
-    if len(da_obs[c.dim_time]) != len(da_pred[c.dim_time]):
+    if len(da_obs[c.DIM_TIME]) != len(da_pred[c.DIM_TIME]):
 
         # Extract dates (year, month, day).
         dates_obs  = extract_date_field(da_obs)
@@ -492,7 +492,7 @@ def calc_error(
     values_pred = da_pred.values.ravel()
 
     # Remove values that are nan in at least one of the two datasets.
-    sel = (np.isnan(values_obs) == False) & (np.isnan(values_pred) == False)
+    sel = (np.isnan(values_obs).astype(int) == 0) & (np.isnan(values_pred).astype(int) == 0)
     da_obs = xr.DataArray(values_obs)
     da_obs = da_obs[sel]
     da_pred = xr.DataArray(values_pred)
@@ -503,19 +503,19 @@ def calc_error(
     if len(values_obs) == len(values_pred):
 
         # Method #1: Coefficient of determination.
-        if cntx.opt_bias_err_meth == c.opt_bias_err_meth_r2:
+        if cntx.opt_bias_err_meth == c.OPT_BIAS_ERR_METH_R2:
             error = r2_score(values_obs, values_pred)
 
         # Method #2: Mean absolute error.
-        elif cntx.opt_bias_err_meth == c.opt_bias_err_meth_mae:
+        elif cntx.opt_bias_err_meth == c.OPT_BIAS_ERR_METH_MAE:
             error = mean_absolute_error(values_obs, values_pred)
 
         # Method #3: Root mean square error.
-        elif cntx.opt_bias_err_meth == c.opt_bias_err_meth_rmse:
+        elif cntx.opt_bias_err_meth == c.OPT_BIAS_ERR_METH_RMSE:
             error = sqrt(mean_squared_error(values_obs, values_pred))
 
         # Method #4: Relative root mean square error.
-        elif cntx.opt_bias_err_meth == c.opt_bias_err_meth_rrmse:
+        elif cntx.opt_bias_err_meth == c.OPT_BIAS_ERR_METH_RRMSE:
             if np.std(values_obs) != 0:
                 error = np.sqrt(np.sum(np.square((values_obs - values_pred) / np.std(values_obs))) / len(values_obs))
             else:
@@ -579,12 +579,12 @@ def squeeze_lon_lat(
     # Squeeze data.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        if c.dim_lon in ds.dims:
-            ds_res = ds.mean([c.dim_lon, c.dim_lat])
-        elif c.dim_rlon in ds.dims:
-            ds_res = ds.mean([c.dim_rlon, c.dim_rlat])
-        elif c.dim_longitude in ds.dims:
-            ds_res = ds.mean([c.dim_longitude, c.dim_latitude])
+        if c.DIM_LON in ds.dims:
+            ds_res = ds.mean([c.DIM_LON, c.DIM_LAT])
+        elif c.DIM_RLON in ds.dims:
+            ds_res = ds.mean([c.DIM_RLON, c.DIM_RLAT])
+        elif c.DIM_LONGITUDE in ds.dims:
+            ds_res = ds.mean([c.DIM_LONGITUDE, c.DIM_LATITUDE])
 
     # Transfer units.
     ds_res = copy_attributes(ds, ds_res, varidx_name)
@@ -621,11 +621,11 @@ def subset_ctrl_pt(
         lon = cntx.ctrl_pt[0]
         lat = cntx.ctrl_pt[1]
     else:
-        if c.dim_rlon in ds.dims:
+        if c.DIM_RLON in ds.dims:
             if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
                 lon = round(len(ds.rlon) / 2.0)
                 lat = round(len(ds.rlat) / 2.0)
-        elif c.dim_lon in ds.dims:
+        elif c.DIM_LON in ds.dims:
             if (len(ds.lat) > 1) or (len(ds.lon) > 1):
                 lon = round(len(ds.lon) / 2.0)
                 lat = round(len(ds.lat) / 2.0)
@@ -635,10 +635,10 @@ def subset_ctrl_pt(
                 lat = round(len(ds.latitude) / 2.0)
 
     # Perform subset.
-    if c.dim_rlon in ds.dims:
+    if c.DIM_RLON in ds.dims:
         if (len(ds.rlat) > 1) or (len(ds.rlon) > 1):
             ds_res = ds.isel(rlon=lon, rlat=lat, drop=True)
-    elif c.dim_lon in ds.dims:
+    elif c.DIM_LON in ds.dims:
         if (len(ds.lat) > 1) or (len(ds.lon) > 1):
             ds_res = ds.isel(lon=lon, lat=lat, drop=True)
     else:
@@ -684,89 +684,247 @@ def subset_doy(
     return da_or_ds_res
 
 
-def subset_lon_lat_time(
-    ds: xr.Dataset,
-    vi_name: str,
-    lon: List[float] = [],
-    lat: List[float] = [],
-    time: List[int] = []
-) -> xr.Dataset:
+def grid_properties(
+    ds_da: Union[xr.Dataset, xr.DataArray]
+) -> Tuple[float, float, int, int]:
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Subset a dataset using a box described by a range of longitudes and latitudes.
-    That's probably not the best way to do it, but using 'xarray.sel' and 'xarray.where' did not work.
-    The rank of cells is increasing for longitude and is decreasing for latitude.
+    Calculate grid properties.
+
+    This calculates cell size and cell count along each direction (longitude and latitude).
 
     Parameters
     ----------
-    ds : xr.Dataset
-        Dataset.
-    vi_name : str
-        Variable or index name.
-    lon : List[float]
-        Longitude.
-    lat : List[float]
-        Latitude.
-    time : List[int]
-        Time.
+    ds_da: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray.
+
+    Returns
+    -------
+    Tuple[float, float, int, int]
+        Cell size (longitude), cell size (latitude), cell count (longitude), cell count (latitude).
+        A value of zero is returned if resolution could not be calculated along a dimension.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    ds_res = ds.copy(deep=True)
+    # Longitude: List values.
+    if c.DIM_LONGITUDE in ds_da.dims:
+        lon_vals = ds_da.longitude
+    elif c.DIM_LON in ds_da.dims:
+        lon_vals = ds_da.lon
+    else:
+        lon_vals = ds_da.rlon
 
-    # Longitude.
-    if len(lon) > 0:
-        if c.dim_longitude in ds_res.dims:
-            lon_min = max(float(ds_res.longitude.min()), min(lon))
-            lon_max = min(float(ds_res.longitude.max()), max(lon))
-            invert_coords = (float(ds_res.longitude[0]) > float(ds_res.longitude[len(ds_res.longitude) - 1])) and \
-                            (lon_min < lon_max)
-            lon_l = [lon_min, lon_max] if not invert_coords else [lon_max, lon_min]
-            ds_res = ds_res.sel(longitude=lon_l, method="nearest")
-        else:
-            lon_min = max(float(ds_res.rlon.min()), min(lon))
-            lon_max = min(float(ds_res.rlon.max()), max(lon))
-            invert_coords = (float(ds_res.rlon[0]) > float(ds_res.rlon[len(ds_res.rlon) - 1])) and \
-                            (lon_min < lon_max)
-            lon_l = [lon_min, lon_max] if not invert_coords else [lon_max, lon_min]
-            ds_res = ds_res.sel(rlon=lon_l, method="nearest")
+    # Longitude: Extract lower an upper values, along with the number of cells between center cells.
+    lon_min, lon_max = 0, 0
+    lon_n = len(lon_vals)
+    if lon_n > 0:
+        lon_min = float(lon_vals[0])
+        lon_max = float(lon_vals[lon_n - 1])
 
-    # Latitude.
-    if len(lat) > 0:
-        if c.dim_latitude in ds_res.dims:
-            lat_min_res = float(ds_res.latitude[0])
-            lat_max_res = float(ds_res.latitude[len(ds_res.latitude) - 1])
-            lat_min = max(float(ds_res.latitude.min()), min(lat))
-            lat_max = min(float(ds_res.latitude.max()), max(lat))
-            invert_coords = (((lat_min_res > lat_max_res) and (lat_min < lat_max)) or
-                             ((lat_min_res < lat_max_res) and (lat_min > lat_max)))
+    # Latitude: List values.
+    if c.DIM_LATITUDE in ds_da.dims:
+        lat_vals = ds_da.latitude
+    elif c.DIM_LAT in ds_da.dims:
+        lat_vals = ds_da.lat
+    else:
+        lat_vals = ds_da.rlat
+
+    # Latitude: Extract lower an upper values, along with the number of cells between center cells.
+    lat_min, lat_max = 0, 0
+    lat_n = len(lat_vals)
+    if lat_n > 0:
+        lat_min = float(lat_vals[0])
+        lat_max = float(lat_vals[lat_n - 1])
+
+    # Calculate cell size.
+    lon_cs = abs((lon_max - lon_min) / (lon_n - 1) if lon_n > 0 else 0)
+    lat_cs = abs((lat_max - lat_min) / (lat_n - 1) if lat_n > 0 else 0)
+
+    return lon_cs, lat_cs, lon_n, lat_n
+
+
+def subset_lon_lat_time(
+    ds_da: Union[xr.Dataset, xr.DataArray],
+    vi_name: str,
+    lon: List[float] = [],
+    lat: List[float] = [],
+    t: List[int] = [],
+    force_2x2_grid: Optional[bool] = True
+) -> Union[xr.Dataset, xr.DataArray]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Perform a spatiotemporal subset using a box described by a range of longitudes and latitudes.
+
+    Parameters
+    ----------
+    ds_da: Union[xr.Dataset, xr.DataArray]
+        Dataset.
+    vi_name: str
+        Variable or index name.
+    lon: List[float]
+        Longitude.
+    lat: List[float]
+        Latitude.
+    t: List[int]
+        Time.
+    force_2x2_grid: Optional[bool]
+         If True, the algorithm attempts to produce a grid that is at least 2x2. This is done by enlarging the search
+         box in each direction by 1/2 x cell size, then by 1.0 x cell size (if required).
+         Between 4 and 9 cells should be selected, given that the dataset comprises these cells.
+
+    Returns
+    -------
+    Union[xr.Dataset, xr.DataArray]
+        Spatiotemporal subset of Dataset or DataArray.
+
+    Notes
+    -----
+    The 'force_2x2_grid' option enlarges the search box by 0.5 to 1.0 x cell size in each direction.
+    This option will have an effect only if a single cell is selected along an axis (longitude or latitude) prior
+    to the extension of the search box.
+
+    Initial search box (only cell 5)     Enlarged once (cells 2, 3, 5, 6)     Enlarged twice (all cells)
+    +---------+---------+---------+      +---------+---------+---------+      +---------+---------+---------+
+    |         |         |         |      |         |         |         |      |    #======================# |
+    |         |         |         |      |         |         |         |      |    #    |         |       # |
+    |         |         |         |      |         |#==========#       |      |    #    |         |       # |
+    | 1       | 2       | 3       |      | 1       |# 2      | #     3 |      | 1  #    | 2       | 3     # |
+    +---------+---------+---------+      +---------+#--------+-#-------+      +----#----+---------+-------#-+
+    |         |    #==# |         |      |         |#      5 | #       |      |    #    |         |       # |
+    |         |    #==# |         | ===> |         |#        | #       | ===> |    #    |         |       # |
+    |         |         |         |      |         |#        | #       |      |    #    |         |       # |
+    | 4       | 5       | 6       |      | 4       |#==========#     6 |      | 4  #    | 5       | 6     # |
+    +---------+---------+---------+      +---------+---------+---------+      +----#----+---------+-------#-+
+    |         |         |         |      |         |         |         |      |    #    |         |       # |
+    |         |         |         |      |         |         |         |      |    #======================# |
+    |         |         |         |      |         |         |         |      |         |         |         |
+    | 7       | 8       | 9       |      | 7       | 8       | 9       |      | 7       | 8       | 9       |
+    +---------+---------+---------+      +---------+---------+---------+      +---------+---------+---------+
+
+    Examples
+    --------
+    Assuming that 'ds_da' has a 3x3 grid.
+
+    +---+---+---+    Initial search box ===> Enlarged search box
+    | 1 | 2 | 3 |    (1,4)              ===> (1,4) and (2,5)
+    +---+---+---+    (2,5)              ===> (2,5) and ((1,4) or (3,6))
+    | 4 | 5 | 6 |    (5)                ===> (5) and ((1,2,3,4,6,7,8,9) or (1,2,4) or (4,7,8) or (2,3,6) or (6,8,9))
+    +---+---+---+    (6)                ===> (6) and ((2,3,5,8,9) or (2,3,5) or (5,8,9))
+    | 7 | 8 | 9 |    (3)                ===> (3) and (2,5,6)
+    +---+---+---+
+    The 'or' in the returned cells depends on how centered the selection box is with respect to the grid.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    lon_buffer, lat_buffer = 0.0, 0.0
+
+    # Calculate resolution.
+    lon_cs, lat_cs, lon_n, lat_n = grid_properties(ds_da)
+
+    # Loop twice: without a buffer (first attempt) and with a bufffer (if a single cell was selected).
+    ds_da_sub = None
+    n_pass = 3
+    for i_pass in range(n_pass):
+
+        # Create a copy of the dataset.
+        ds_da_sub = ds_da.copy(deep=True)
+
+        # Longitude.
+        if len(lon) > 0:
+
+            # List values.
+            if c.DIM_LONGITUDE in ds_da_sub.dims:
+                lon_vals = ds_da_sub.longitude
+            elif c.DIM_LON in ds_da_sub.dims:
+                lon_vals = ds_da_sub.lon
+            else:
+                lon_vals = ds_da_sub.rlon
+
+            # Determine minimum an maximum values.
+            lon_min_data = float(lon_vals[0])
+            lon_max_data = float(lon_vals[len(lon_vals) - 1])
+            lon_min = max(float(lon_vals.min()), min(lon) - lon_buffer)
+            lon_max = min(float(lon_vals.max()), max(lon) + lon_buffer)
+
+            # Invert coordinates, then add minimum and maximum values in array.
+            invert_coords = (lon_min_data > lon_max_data) and (lon_min < lon_max)
+            lon_l = [lon_min, lon_max] if not invert_coords else [lon_max, lon_min]
+
+            # Select cells.
+            if c.DIM_LONGITUDE in ds_da_sub.dims:
+                ds_da_sub = ds_da_sub.sel(longitude=slice(*lon_l))
+                lon_n = len(ds_da_sub.longitude)
+            elif c.DIM_LON in ds_da_sub.dims:
+                ds_da_sub = ds_da_sub.sel(lon=slice(*lon_l))
+                lon_n = len(ds_da_sub.lon)
+            else:
+                ds_da_sub = ds_da_sub.sel(rlon=slice(*lon_l))
+                lon_n = len(ds_da_sub.rlon)
+
+        # Latitude.
+        if len(lat) > 0:
+
+            # List values.
+            if c.DIM_LATITUDE in ds_da_sub.dims:
+                lat_vals = ds_da_sub.latitude
+            elif c.DIM_LAT in ds_da_sub.dims:
+                lat_vals = ds_da_sub.lat
+            else:
+                lat_vals = ds_da_sub.rlat
+
+            # Determine minimum an maximum values.
+            lat_min_data = float(lat_vals[0])
+            lat_max_data = float(lat_vals[len(lat_vals) - 1])
+            lat_min = max(float(lat_vals.min()), min(lat) - lat_buffer)
+            lat_max = min(float(lat_vals.max()), max(lat) + lat_buffer)
+
+            # Invert coordinates, then add minimum and maximum values in array.
+            invert_coords = (((lat_min_data > lat_max_data) and (lat_min < lat_max)) or
+                             ((lat_min_data < lat_max_data) and (lat_min > lat_max)))
             lat_l = [lat_min, lat_max] if not invert_coords else [lat_max, lat_min]
-            ds_res = ds_res.sel(latitude=lat_l, method="nearest")
+
+            # Select cells.
+            if c.DIM_LATITUDE in ds_da_sub.dims:
+                ds_da_sub = ds_da_sub.sel(latitude=slice(*lat_l))
+                lat_n = len(ds_da_sub.latitude)
+            elif c.DIM_LAT in ds_da_sub.dims:
+                ds_da_sub = ds_da_sub.sel(lat=slice(*lat_l))
+                lat_n = len(ds_da_sub.lat)
+            else:
+                ds_da_sub = ds_da_sub.sel(rlat=slice(*lat_l))
+                lat_n = len(ds_da_sub.rlat)
+
+        # Perform subset again, this time with a buffer (equivalent to data resolution).
+        if (i_pass < n_pass - 1) and force_2x2_grid:
+            if (lon_n <= 1) or (lat_n <= 1):
+                if lon_n <= 1:
+                    lon_buffer = lon_cs * 0.5 * float(i_pass + 1)
+                if lat_n <= 1:
+                    lat_buffer = lat_cs * 0.5 * float(i_pass + 1)
+            else:
+                break
+
         else:
-            lat_min = max(float(ds_res.rlat.min()), min(lat))
-            lat_max = min(float(ds_res.rlat.max()), max(lat))
-            invert_coords = (float(ds_res.rlat[0]) > float(ds_res.rlat[len(ds_res.rlat) - 1])) and \
-                            (lat_min < lat_max)
-            lat_l = [lat_min, lat_max] if not invert_coords else [lat_max, lat_min]
-            ds_res = ds_res.sel(rlat=lat_l, method="nearest")
+            break
 
     # Time.
-    if (len(time) > 0) and (c.dim_time in ds_res.dims):
-        time_l = list(np.unique(ds_res.time.dt.year))
-        time_min = max(min(time_l), min(time))
-        time_max = min(max(time_l), max(time))
-        ds_res = ds_res.sel(time=slice(str(time_min), str(time_max)))
+    if (len(t) > 0) and (c.DIM_TIME in ds_da_sub.dims):
+        time_l = list(np.unique(ds_da_sub.time.dt.year))
+        time_min = max(min(time_l), min(t))
+        time_max = min(max(time_l), max(t))
+        ds_da_sub = ds_da_sub.sel(time=slice(str(time_min), str(time_max)))
 
     # Adjust grid.
-    if (len(lon) > 0) or (len(lat) > 0) or (len(time) > 0):
+    if (len(lon) > 0) or (len(lat) > 0) or (len(t) > 0):
         try:
-            grid = ds[vi_name].attrs[c.attrs_gmap]
-            ds_res[grid] = ds[grid]
+            grid = ds_da[vi_name].attrs[c.ATTRS_GMAP] if isinstance(ds_da, xr.Dataset) else ds_da.attrs[c.ATTRS_GMAP]
+            ds_da_sub[grid] = ds_da[grid]
         except KeyError:
             pass
 
-    return ds_res
+    return ds_da_sub
 
 
 def remove_feb29(
@@ -838,15 +996,15 @@ def coords(
     """
 
     # Extract longitude and latitude.
-    if c.dim_longitude in list(ds.dims):
-        da_lon = ds[c.dim_longitude]
-        da_lat = ds[c.dim_latitude]
-    elif c.dim_lon in list(ds.dims):
-        da_lon = ds[c.dim_lon]
-        da_lat = ds[c.dim_lat]
+    if c.DIM_LONGITUDE in list(ds.dims):
+        da_lon = ds[c.DIM_LONGITUDE]
+        da_lat = ds[c.DIM_LATITUDE]
+    elif c.DIM_LON in list(ds.dims):
+        da_lon = ds[c.DIM_LON]
+        da_lat = ds[c.DIM_LAT]
     else:
-        da_lon = ds[c.dim_rlon]
-        da_lat = ds[c.dim_rlat]
+        da_lon = ds[c.DIM_RLON]
+        da_lat = ds[c.DIM_RLAT]
 
     # Need to return an array.
     if array_format:
@@ -892,15 +1050,15 @@ def copy_coords(
     lon_vals, lat_vals = coords(ds_from, True)
 
     # Assign coordinates.
-    if c.dim_longitude in list(ds_to.dims):
-        ds_to[c.dim_longitude] = lon_vals
-        ds_to[c.dim_latitude] = lat_vals
-    elif c.dim_rlon in list(ds_to.dims):
-        ds_to[c.dim_rlon] = lon_vals
-        ds_to[c.dim_rlat] = lat_vals
+    if c.DIM_LONGITUDE in list(ds_to.dims):
+        ds_to[c.DIM_LONGITUDE] = lon_vals
+        ds_to[c.DIM_LATITUDE] = lat_vals
+    elif c.DIM_RLON in list(ds_to.dims):
+        ds_to[c.DIM_RLON] = lon_vals
+        ds_to[c.DIM_RLAT] = lat_vals
     else:
-        ds_to[c.dim_lon] = lon_vals
-        ds_to[c.dim_lat] = lat_vals
+        ds_to[c.DIM_LON] = lon_vals
+        ds_to[c.DIM_LAT] = lat_vals
 
     return ds_to
 
@@ -927,11 +1085,11 @@ def copy_attributes(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if c.attrs_units in ds_from.attrs:
-        ds_to.attrs[c.attrs_units] = ds_from.attrs[c.attrs_units]
+    if c.ATTRS_UNITS in ds_from.attrs:
+        ds_to.attrs[c.ATTRS_UNITS] = ds_from.attrs[c.ATTRS_UNITS]
     if isinstance(ds_from, xr.Dataset) and (var in ds_from.data_vars):
-        if c.attrs_units in ds_from[var].attrs:
-            ds_to[var].attrs[c.attrs_units] = ds_from[var].attrs[c.attrs_units]
+        if c.ATTRS_UNITS in ds_from[var].attrs:
+            ds_to[var].attrs[c.ATTRS_UNITS] = ds_from[var].attrs[c.ATTRS_UNITS]
 
     return ds_to
 
@@ -961,11 +1119,11 @@ def subset_shape(
         try:
             # Memorize dimension names and attributes.
             dim_lon, dim_lat = coord_names(ds_res)
-            if dim_lat != c.dim_lat:
-                ds_res = ds_res.rename({dim_lon: c.dim_lon, dim_lat: c.dim_lat})
+            if dim_lat != c.DIM_LAT:
+                ds_res = ds_res.rename({dim_lon: c.DIM_LON, dim_lat: c.DIM_LAT})
             if var != "":
-                if c.attrs_gmap not in ds_res[var].attrs:
-                    ds_res[var].attrs[c.attrs_gmap] = "regular_lon_lat"
+                if c.ATTRS_GMAP not in ds_res[var].attrs:
+                    ds_res[var].attrs[c.ATTRS_GMAP] = "regular_lon_lat"
 
             # Subset by shape.
             logger = logging.getLogger()
@@ -975,8 +1133,8 @@ def subset_shape(
             logger.setLevel(level)
 
             # Recover initial dimension names.
-            if dim_lat != c.dim_lat:
-                ds_res = ds_res.rename({c.dim_lon: dim_lon, c.dim_lat: dim_lat})
+            if dim_lat != c.DIM_LAT:
+                ds_res = ds_res.rename({c.DIM_LON: dim_lon, c.DIM_LAT: dim_lat})
 
         except (TypeError, ValueError):
             return ds.copy(deep=True)
@@ -1009,29 +1167,32 @@ def apply_mask(
     dims_mask = coord_names(da_mask)
 
     # Record units.
-    units = None
-    if c.attrs_units in da_res.attrs:
-        units = da_res.attrs[c.attrs_units]
+    _units = None
+    if c.ATTRS_UNITS in da_res.attrs:
+        _units = da_res.attrs[c.ATTRS_UNITS]
 
     # Rename spatial dimensions.
     if dims_data != dims_mask:
         da_res = da_res.rename({list(dims_data)[0]: list(dims_mask)[0], list(dims_data)[1]: list(dims_mask)[1]})
 
     # Apply mask.
-    n_time = len(da[c.dim_time])
-    da_res[0:n_time, :, :] = da_res[0:n_time, :, :].values * da_mask.values
+    if c.DIM_TIME in da.dims:
+        n_time = len(da[c.DIM_TIME])
+        da_res[0:n_time, :, :] = da_res[0:n_time, :, :].values * da_mask.values
+    else:
+        da_res[:, :] = da_res[:, :].values * da_mask.values
 
     # Restore spatial dimensions.
     if dims_data != dims_mask:
         da_res = da_res.rename({list(dims_mask)[0]: list(dims_data)[0], list(dims_mask)[1]: list(dims_data)[1]})
 
     # Restore units.
-    if units is not None:
-        da_res.attrs[c.attrs_units] = units
+    if _units is not None:
+        da_res.attrs[c.ATTRS_UNITS] = _units
 
     # Drop coordinates.
     try:
-        da_res = da_res.reset_coords(names=c.dim_time, drop=True)
+        da_res = da_res.reset_coords(names=c.DIM_TIME, drop=True)
     except ValueError:
         pass
 
@@ -1058,20 +1219,20 @@ def coord_names(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    if c.dim_lat in ds_or_da.dims:
-        coord_dict = [c.dim_lon, c.dim_lat]
-    elif c.dim_rlat in ds_or_da.dims:
-        coord_dict = [c.dim_rlon, c.dim_rlat]
+    if c.DIM_LAT in ds_or_da.dims:
+        coord_dict = [c.DIM_LON, c.DIM_LAT]
+    elif c.DIM_RLAT in ds_or_da.dims:
+        coord_dict = [c.DIM_RLON, c.DIM_RLAT]
     else:
-        coord_dict = [c.dim_longitude, c.dim_latitude]
+        coord_dict = [c.DIM_LONGITUDE, c.DIM_LATITUDE]
 
     return coord_dict
 
 
 def rename_dimensions(
     da: xr.DataArray,
-    lat_name: str = c.dim_latitude,
-    lon_name: str = c.dim_longitude
+    lat_name: str = c.DIM_LATITUDE,
+    lon_name: str = c.DIM_LONGITUDE
 ) -> xr.DataArray:
 
     """
@@ -1092,16 +1253,16 @@ def rename_dimensions(
     if (lat_name not in da.dims) or (lon_name not in da.dims):
 
         if "dim_0" in list(da.dims):
-            da = da.rename({"dim_0": c.dim_time})
+            da = da.rename({"dim_0": c.DIM_TIME})
             da = da.rename({"dim_1": lat_name, "dim_2": lon_name})
-        elif (c.dim_lat in list(da.dims)) or (c.dim_lon in list(da.dims)):
-            da = da.rename({c.dim_lat: lat_name, c.dim_lon: lon_name})
-        elif (c.dim_rlat in list(da.dims)) or (c.dim_rlon in list(da.dims)):
-            da = da.rename({c.dim_rlat: lat_name, c.dim_rlon: lon_name})
+        elif (c.DIM_LAT in list(da.dims)) or (c.DIM_LON in list(da.dims)):
+            da = da.rename({c.DIM_LAT: lat_name, c.DIM_LON: lon_name})
+        elif (c.DIM_RLAT in list(da.dims)) or (c.DIM_RLON in list(da.dims)):
+            da = da.rename({c.DIM_RLAT: lat_name, c.DIM_RLON: lon_name})
         elif (lat_name not in list(da.dims)) and (lon_name not in list(da.dims)):
-            if lat_name == c.dim_latitude:
+            if lat_name == c.DIM_LATITUDE:
                 da = da.expand_dims(latitude=1)
-            if lon_name == c.dim_longitude:
+            if lon_name == c.DIM_LONGITUDE:
                 da = da.expand_dims(longitude=1)
 
     return da
@@ -1128,19 +1289,19 @@ def interpolate_na_fix(
     ds_or_da_res = ds_or_da.copy(deep=True)
 
     # Extract coordinates and determine if they are increasing.
-    lon_vals = ds_or_da_res[c.dim_longitude]
-    lat_vals = ds_or_da_res[c.dim_latitude]
+    lon_vals = ds_or_da_res[c.DIM_LONGITUDE]
+    lat_vals = ds_or_da_res[c.DIM_LATITUDE]
     lon_monotonic_inc = bool(lon_vals[0] < lon_vals[len(lon_vals) - 1])
     lat_monotonic_inc = bool(lat_vals[0] < lat_vals[len(lat_vals) - 1])
 
     # Flip values.
     if not lon_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(c.dim_longitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(c.DIM_LONGITUDE, ascending=True)
     if not lat_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(c.dim_latitude, ascending=True)
+        ds_or_da_res = ds_or_da_res.sortby(c.DIM_LATITUDE, ascending=True)
 
     # Interpolate, layer by layer (limit=1).
-    for t in range(len(ds_or_da_res[c.dim_time])):
+    for t in range(len(ds_or_da_res[c.DIM_TIME])):
         n_i = max(len(ds_or_da_res[t].longitude), len(ds_or_da_res[t].latitude))
         for i in range(n_i):
             df_t = ds_or_da_res[t].to_pandas()
@@ -1159,9 +1320,9 @@ def interpolate_na_fix(
 
     # Unflip values.
     if not lon_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(c.dim_longitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(c.DIM_LONGITUDE, ascending=False)
     if not lat_monotonic_inc:
-        ds_or_da_res = ds_or_da_res.sortby(c.dim_latitude, ascending=False)
+        ds_or_da_res = ds_or_da_res.sortby(c.DIM_LATITUDE, ascending=False)
 
     return ds_or_da_res
 
@@ -1276,7 +1437,8 @@ def standardize_netcdf(
     elif isinstance(template, List):
         dims_template = list(template)
     else:
-        dims_template = [c.dim_time, c.dim_latitude, c.dim_longitude]
+        dims_template = [c.DIM_TIME] if c.DIM_TIME in ds_da.dims else []
+        dims_template = dims_template + [c.DIM_LATITUDE, c.DIM_LONGITUDE]
 
     # Sort dimensions.
     if sort:
@@ -1285,27 +1447,27 @@ def standardize_netcdf(
         sort_needed = False
         dims_order = []
         for dim_template in dims_template:
-            dim = str(dim_template).replace(c.dim_rlat, c.dim_lat).replace(c.dim_rlon, c.dim_lon).\
-                replace(c.dim_latitude, c.dim_lat).replace(c.dim_longitude, c.dim_lon)
+            dim = str(dim_template).replace(c.DIM_RLAT, c.DIM_LAT).replace(c.DIM_RLON, c.DIM_LON).\
+                replace(c.DIM_LATITUDE, c.DIM_LAT).replace(c.DIM_LONGITUDE, c.DIM_LON)
             dim_current = [i for i in dims_current if dim in i][0]
             dims_order.append(dim_current)
 
         # Sort dimensions.
         if sort_needed:
             if isinstance(ds_da, xr.Dataset):
-                if c.dim_location in dims_order:
+                if c.DIM_LOCATION in dims_order:
                     ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1])
                 else:
                     ds_da[vi_name] = ds_da[vi_name].transpose(dims_order[0], dims_order[1], dims_order[2])
             else:
-                if c.dim_location in dims_order:
+                if c.DIM_LOCATION in dims_order:
                     ds_da = ds_da.transpose(dims_order[0], dims_order[1])
                 else:
                     ds_da = ds_da.transpose(dims_order[0], dims_order[1], dims_order[2])
 
     # Rename dimensions.
     if rename:
-        for dim in [c.dim_lat, c.dim_lon]:
+        for dim in [c.DIM_LAT, c.DIM_LON]:
             dim_current = [i for i in dims_current if dim in i][0]
             dim_template = [i for i in dims_template if dim in i][0]
             if dim_current != dim_template:
@@ -1319,6 +1481,10 @@ def standardize_netcdf(
         for column in columns:
             if column in list(ds_da.variables):
                 ds_da = ds_da.drop_vars([column])
+
+    # Sort by time dimension to avoid non-monotonic issue during resampling.
+    if c.DIM_TIME in ds_da.dims:
+        ds_da = ds_da.sortby(c.DIM_TIME)
 
     return ds_da
 
@@ -1427,19 +1593,19 @@ def units(
     """
 
     if isinstance(ds_da, xr.Dataset):
-        if c.attrs_units in ds_da[layer_name].attrs:
-            units = ds_da[layer_name].attrs[c.attrs_units]
-        elif c.attrs_units in ds_da.data_vars:
-            units = ds_da[c.attrs_units]
+        if c.ATTRS_UNITS in ds_da[layer_name].attrs:
+            _units = ds_da[layer_name].attrs[c.ATTRS_UNITS]
+        elif c.ATTRS_UNITS in ds_da.data_vars:
+            _units = ds_da[c.ATTRS_UNITS]
         else:
-            units = ""
+            _units = ""
     else:
-        if c.attrs_units in ds_da.attrs:
-            units = ds_da.attrs[c.attrs_units]
+        if c.ATTRS_UNITS in ds_da.attrs:
+            _units = ds_da.attrs[c.ATTRS_UNITS]
         else:
-            units = ""
+            _units = ""
 
-    return units
+    return _units
 
 
 def set_units(
@@ -1474,45 +1640,45 @@ def set_units(
     # Save attributes.
     attrs = ds_da[vi_name].attrs if isinstance(ds_da, xr.Dataset) else ds_da.attrs
     if len(attrs) == 0:
-        attrs = {c.attrs_units: ""}
+        attrs = {c.ATTRS_UNITS: ""}
 
     # Assign new units.
     if units_new == "":
-        if vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
-            units_new = c.unit_C
-        elif vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
-            units_new = c.unit_mm
-        elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
-            units_new = c.unit_km_h
+        if vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]:
+            units_new = c.UNIT_C
+        elif vi_name in [c.V_PR, c.V_EVSPSBL, c.V_EVSPSBLPOT]:
+            units_new = c.UNIT_mm
+        elif vi_name in [c.V_UAS, c.V_VAS, c.V_SFCWINDMAX]:
+            units_new = c.UNIT_km_h
 
     # Temperature: K -> C.
-    if vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]:
-        if (units_old == c.unit_K) and (units_new == c.unit_C):
+    if vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]:
+        if (units_old == c.UNIT_K) and (units_new == c.UNIT_C):
             ds_da = ds_da - c.d_KC
-        elif (units_old == c.unit_C) and (units_new == c.unit_K):
+        elif (units_old == c.UNIT_C) and (units_new == c.UNIT_K):
             ds_da = ds_da + c.d_KC
 
     # Precipitation, evaporation, evapotranspiration: kg/m2s2 -> mm.
-    elif vi_name in [c.v_pr, c.v_evspsbl, c.v_evspsblpot]:
-        if (units_old == c.unit_kg_m2s1) and (units_new == c.unit_mm):
-            ds_da = ds_da * c.spd
-        elif (units_old == c.unit_mm) and (units_new == c.unit_kg_m2s1):
-            ds_da = ds_da / c.spd
+    elif vi_name in [c.V_PR, c.V_EVSPSBL, c.V_EVSPSBLPOT]:
+        if (units_old == c.UNIT_kg_m2s1) and (units_new == c.UNIT_mm):
+            ds_da = ds_da * c.SPD
+        elif (units_old == c.UNIT_mm) and (units_new == c.UNIT_kg_m2s1):
+            ds_da = ds_da / c.SPD
 
     # Wind: m/s -> km/h.
-    elif vi_name in [c.v_uas, c.v_vas, c.v_sfcwindmax]:
-        if (units_old == c.unit_m_s) and (units_new == c.unit_km_h):
-            ds_da = ds_da * c.km_h_per_m_s
-        elif (units_old == c.unit_km_h) and (units_new == c.unit_m_s):
-            ds_da = ds_da / c.km_h_per_m_s
+    elif vi_name in [c.V_UAS, c.V_VAS, c.V_SFCWINDMAX]:
+        if (units_old == c.UNIT_m_s) and (units_new == c.UNIT_km_h):
+            ds_da = ds_da * c.KM_H_PER_M_S
+        elif (units_old == c.UNIT_km_h) and (units_new == c.UNIT_m_s):
+            ds_da = ds_da / c.KM_H_PER_M_S
 
     # Restore attributes and set new units.
     if units_old != units_new:
         if isinstance(ds_da, xr.Dataset):
             ds_da[vi_name].attrs = attrs
-            ds_da[vi_name].attrs[c.attrs_units] = units_new
+            ds_da[vi_name].attrs[c.ATTRS_UNITS] = units_new
         else:
             ds_da.attrs = attrs
-            ds_da.attrs[c.attrs_units] = units_new
+            ds_da.attrs[c.ATTRS_UNITS] = units_new
 
     return ds_da

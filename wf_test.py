@@ -19,11 +19,14 @@
 # External libraries.
 import copy
 import datetime
+import getpass
 import numpy as np
 import pandas as pd
 import sys
 import xarray as xr
-from typing import List, Union
+import xclim.core.indicator
+from pathlib import Path
+from typing import List, Union, Optional
 
 # xclim libraries.
 import xclim.testing._utils as xutils
@@ -31,14 +34,14 @@ from xclim.testing.tests import test_indices, test_precip, test_locales
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 # Workflow libraries.
-import file_utils as fu
-import indices
-import utils
-from def_constant import const as c
+import wf_file_utils as fu
+import wf_indices
+import wf_utils
+from cl_constant import const as c
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard.def_varidx import VarIdx
+from dashboard.cl_varidx import VarIdx
 
 
 def sample_data(var: str) -> Union[xr.DataArray, None]:
@@ -60,7 +63,7 @@ def sample_data(var: str) -> Union[xr.DataArray, None]:
     """
 
     path = ""
-    if var == c.v_pr:
+    if var == c.V_PR:
         path = "ERA5/daily_surface_cancities_1990-1993.nc"
 
     if path != "":
@@ -116,18 +119,18 @@ def gen(
 
     # Coordinates.
     if n_loc == 0:
-        dims = [c.dim_longitude, c.dim_latitude, c.dim_time]
+        dims = [c.DIM_LONGITUDE, c.DIM_LATITUDE, c.DIM_TIME]
         longitude = [0]
         latitude = [0]
         coords = dict(
-            longitude=([c.dim_longitude], longitude),
-            latitude=([c.dim_latitude], latitude),
+            longitude=([c.DIM_LONGITUDE], longitude),
+            latitude=([c.DIM_LATITUDE], latitude),
             time=time
         )
     else:
-        dims = [c.dim_location, c.dim_time]
+        dims = [c.DIM_LOCATION, c.DIM_TIME]
         coords = dict(
-            location=([c.dim_location], locations),
+            location=([c.DIM_LOCATION], locations),
             time=time
         )
 
@@ -144,13 +147,13 @@ def gen(
 
     # Reorder dimensions.
     if n_loc == 0:
-        da = da.transpose(c.dim_time, c.dim_latitude, c.dim_longitude)
+        da = da.transpose(c.DIM_TIME, c.DIM_LATITUDE, c.DIM_LONGITUDE)
     else:
-        da = da.transpose(c.dim_location, c.dim_time)
+        da = da.transpose(c.DIM_LOCATION, c.DIM_TIME)
 
     # Assign values.
     da = xr.ones_like(da).astype(bool) * val
-    da.attrs[c.attrs_units] = units
+    da.attrs[c.ATTRS_UNITS] = units
 
     return da
 
@@ -213,7 +216,7 @@ def assign(
         year_n, doy_n = extract_year_doy(end_str)
         t1 = (year_1 - int(da["time"].dt.year.min())) * n + (doy_1 - 1)
         tn = (year_n - int(da["time"].dt.year.min())) * n + (doy_n - 1)
-        da.loc[slice(da[c.dim_time][t1], da[c.dim_time][tn])] = vals
+        da.loc[slice(da[c.DIM_TIME][t1], da[c.DIM_TIME][tn])] = vals
 
     else:
         da[da.location == loc] = vals
@@ -330,7 +333,7 @@ def dry_spell_total_length() -> bool:
     algo = 2
 
     # Variable.
-    var = c.v_pr
+    var = c.V_PR
 
     # Operators.
     op_max = "max"
@@ -397,7 +400,7 @@ def dry_spell_total_length() -> bool:
             # Case #4: real data.
             elif (i == 4) and (op in [op_max_data, op_sum_data]):
                 thresh, window = 3, 7
-                da_pr = sample_data(c.v_pr)
+                da_pr = sample_data(c.V_PR)
                 if op == op_sum_data:
                     if algo == 1:
                         res_expect = [[50, 60, 73, 65],
@@ -693,8 +696,8 @@ def dry_spell_total_length() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / c.spd
-                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
+                da_pr = da_pr / c.SPD
+                da_pr.attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
             else:
                 op = op_sum if op == op_sum_data else op_max
 
@@ -719,12 +722,12 @@ def dry_spell_total_length() -> bool:
                 # date_bounds = None if ((start_date == "") or (end_date == "")) else (start_date, end_date)
                 # da_idx = indices.dry_spell_total_length_20220120(da_pr, str(thresh) + " mm", window, op, freq,
                 #                                                  date_bounds=date_bounds)
-                da_idx = indices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, freq,
-                                                        start_date, end_date)
+                da_idx = wf_indices.dry_spell_total_length(da_pr, str(thresh) + " mm", window, op, freq,
+                                                           start_date, end_date)
 
             # Sort dimensions.
             if len(list(da_idx.dims)) > 1:
-                da_idx = utils.standardize_netcdf(da_idx, template=da_pr)
+                da_idx = wf_utils.standardize_netcdf(da_idx, template=da_pr)
 
             # Extract results.
             res = np.array(da_idx.squeeze())
@@ -748,7 +751,7 @@ def rain_season_start() -> bool:
     """
 
     # Variable.
-    var = c.v_pr
+    var = c.V_PR
 
     # Years.
     n_years = 2
@@ -798,7 +801,7 @@ def rain_season_start() -> bool:
             elif (i == 2) and (op == op_data):
                 start_date, end_date = "03-01", "05-30"  # A, B
                 thresh_wet = 25  # Tw
-                da_pr = sample_data(c.v_pr)
+                da_pr = sample_data(c.V_PR)
                 res_expect = [[89, 61, 66, 63],
                               [92, 97, 70, 90],
                               [np.nan, np.nan, np.nan, np.nan],
@@ -893,16 +896,16 @@ def rain_season_start() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / c.spd
-                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
+                da_pr = da_pr / c.SPD
+                da_pr.attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
 
             # Calculate index.
-            da_start = indices.rain_season_start(da_pr, str(thresh_wet) + " mm", window_wet,
-                                                 str(thresh_dry) + " mm", dry_days, window_dry, start_date, end_date)
+            da_start = wf_indices.rain_season_start(da_pr, str(thresh_wet) + " mm", window_wet,
+                                                    str(thresh_dry) + " mm", dry_days, window_dry, start_date, end_date)
 
             # Sort dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = utils.standardize_netcdf(da_start, template=da_pr)
+                da_start = wf_utils.standardize_netcdf(da_start, template=da_pr)
 
             # Verify results.
             res = np.array(da_start.squeeze())
@@ -926,7 +929,7 @@ def rain_season_end() -> bool:
     """
 
     # Variable.
-    var = c.v_pr
+    var = c.V_PR
 
     # Methods.
     op_max      = "max"
@@ -1002,9 +1005,9 @@ def rain_season_end() -> bool:
                 else:
                     thresh = 20.0  # T
                 window = 10
-                da_pr = sample_data(c.v_pr)
+                da_pr = sample_data(c.V_PR)
                 locations = list(xr.DataArray(da_pr).location.values)
-                da_start = gen(c.i_rain_season_start, 1990, 4, np.nan, "YS", locations)
+                da_start = gen(c.I_RAIN_SEASON_START, 1990, 4, np.nan, "YS", locations)
                 assign(da_start, [], [], [89, 61, 66, 63], locations[0])
                 assign(da_start, [], [], [92, 97, 70, 90], locations[1])
                 assign(da_start, [], [], [np.nan, np.nan, np.nan, np.nan], locations[2])
@@ -1187,21 +1190,22 @@ def rain_season_end() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / c.spd
-                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
+                da_pr = da_pr / c.SPD
+                da_pr.attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
                 if da_etp is not None:
-                    da_etp = da_etp / c.spd
-                    da_etp.attrs[c.attrs_units] = c.unit_kg_m2s1
+                    da_etp = da_etp / c.SPD
+                    da_etp.attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
             else:
                 op = op_max if op == op_max_data else op_sum if op == op_sum_data else op_etp
 
             # Calculate index.
-            da_end = indices.rain_season_end(da_pr, da_etp, da_start, da_start_next, op, str(thresh) + " mm", window,
-                                             (str(etp_rate_i) if op == op_etp else "0") + " mm", start_date, end_date)
+            da_end = wf_indices.rain_season_end(da_pr, da_etp, da_start, da_start_next, op, str(thresh) + " mm", window,
+                                                (str(etp_rate_i) if op == op_etp else "0") + " mm", start_date,
+                                                end_date)
 
             # Sort dimensions.
             if len(list(da_end.dims)) > 1:
-                da_end = utils.standardize_netcdf(da_end, template=da_pr)
+                da_end = wf_utils.standardize_netcdf(da_end, template=da_pr)
 
             # Verify results.
             res = np.array(da_end.squeeze())
@@ -1225,7 +1229,7 @@ def rain_season_length_prcptot() -> bool:
     """
 
     # Variable.
-    var = c.v_pr
+    var = c.V_PR
 
     # Years.
     n_years = 2
@@ -1262,9 +1266,9 @@ def rain_season_length_prcptot() -> bool:
                 assign(da_pr, [y1, 10, 17], [y1, 10, 17], 3.01)
                 assign(da_pr, [y1, 10, 18], [y1, 10, 18], 2.01)
                 assign(da_pr, [y1, 10, 19], [y1, 10, 19], 1.01)
-                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.I_RAIN_SEASON_START, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.I_RAIN_SEASON_END, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 288)
                 res_expect_length = [198, np.nan]
                 res_expect_prcptot = [871, np.nan]
@@ -1273,15 +1277,15 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #2: real data.
             elif (i == 2) and (op == op_data):
-                da_pr = sample_data(c.v_pr)
+                da_pr = sample_data(c.V_PR)
                 locations = list(xr.DataArray(da_pr).location.values)
-                da_start = gen(c.i_rain_season_start, 1990, 4, np.nan, "YS", locations)
+                da_start = gen(c.I_RAIN_SEASON_START, 1990, 4, np.nan, "YS", locations)
                 assign(da_start, [], [], [89, 61, 66, 63], locations[0])
                 assign(da_start, [], [], [92, 97, 70, 90], locations[1])
                 assign(da_start, [], [], [np.nan, np.nan, np.nan, np.nan], locations[2])
                 assign(da_start, [], [], [np.nan, 115, 130, np.nan], locations[3])
                 assign(da_start, [], [], [np.nan, 60, 106, 62], locations[4])
-                da_end = gen(c.i_rain_season_end, 1990, 4, np.nan, "YS", locations)
+                da_end = gen(c.I_RAIN_SEASON_END, 1990, 4, np.nan, "YS", locations)
                 assign(da_end, [], [], [190, 152, 256, 217], locations[0])
                 assign(da_end, [], [], [204, 152, 202, 179], locations[1])
                 assign(da_end, [], [], [176, 152, 152, 152], locations[2])
@@ -1302,45 +1306,45 @@ def rain_season_length_prcptot() -> bool:
 
             # Case #3: | . A1 . B1 . | . A2 . B2 . |
             elif (i == 3) and (op == op_synthetic):
-                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.I_RAIN_SEASON_START, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_start, y1 + j, y1 + j, 91 + j)
-                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.I_RAIN_SEASON_END, y1, n_years, np.nan, "YS")
                 for j in range(n_years):
                     assign(da_end, y1 + j, y1 + j, 273 - j)
                 res_expect_length = res_expect_prcptot = [273 - 91 + 1, 272 - 92 + 1]
 
             # Case #4: | . A1 . | . B1 . |
             elif (i == 4) and (op == op_synthetic):
-                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.I_RAIN_SEASON_START, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 273)
-                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.I_RAIN_SEASON_END, y1, n_years, np.nan, "YS")
                 assign(da_end, y2, y2, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #5: | . B0 . A1 . | . B1 . A2 . |
             elif (i == 5) and (op == op_synthetic):
-                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.I_RAIN_SEASON_START, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_start, y, y, 273)
-                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.I_RAIN_SEASON_END, y1, n_years, np.nan, "YS")
                 for y in [y1, y2]:
                     assign(da_end, y, y, 91)
                 res_expect_length = res_expect_prcptot = [365 - 273 + 1 + 91, np.nan]
 
             # Case #6: | . B1 . | . A2 . |
             elif (i == 6) and (op == op_synthetic):
-                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.I_RAIN_SEASON_START, y1, n_years, np.nan, "YS")
                 assign(da_start, y2, y2, 91)
-                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.I_RAIN_SEASON_END, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 273)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
             # Case #7: | . B1 A1 . | . |
             elif (i == 7) and (op == op_synthetic):
-                da_start = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
+                da_start = gen(c.I_RAIN_SEASON_START, y1, n_years, np.nan, "YS")
                 assign(da_start, y1, y1, 91)
-                da_end = gen(c.i_rain_season_end, y1, n_years, np.nan, "YS")
+                da_end = gen(c.I_RAIN_SEASON_END, y1, n_years, np.nan, "YS")
                 assign(da_end, y1, y1, 90)
                 res_expect_length = res_expect_prcptot = [np.nan, np.nan]
 
@@ -1351,18 +1355,18 @@ def rain_season_length_prcptot() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / c.spd
-                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
+                da_pr = da_pr / c.SPD
+                da_pr.attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
 
             # Calculate indices.
-            da_length = xr.DataArray(indices.rain_season_length(da_start, da_end))
-            da_prcptot = xr.DataArray(indices.rain_season_prcptot(da_pr, da_start, da_end))
+            da_length = xr.DataArray(wf_indices.rain_season_length(da_start, da_end))
+            da_prcptot = xr.DataArray(wf_indices.rain_season_prcptot(da_pr, da_start, da_end))
 
             # Reorder dimensions.
             if len(list(da_length.dims)) > 1:
-                da_length = utils.standardize_netcdf(da_length, template=da_pr)
+                da_length = wf_utils.standardize_netcdf(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = utils.standardize_netcdf(da_prcptot, template=da_pr)
+                da_prcptot = wf_utils.standardize_netcdf(da_prcptot, template=da_pr)
 
             # Verify results.
             res_length = np.array(da_length.squeeze())
@@ -1388,7 +1392,7 @@ def rain_season() -> bool:
     """
 
     # Variable.
-    var = c.v_pr
+    var = c.V_PR
 
     # Methods.
     e_op_max = "max"
@@ -1475,7 +1479,7 @@ def rain_season() -> bool:
                 e_etp_rate   = 5
                 e_start_date = "06-01"
                 e_end_date   = "09-30"
-                da_pr = sample_data(c.v_pr)
+                da_pr = sample_data(c.V_PR)
                 res_expect_start = [[89, 61, 66, 63],
                                     [92, 97, 70, 90],
                                     [np.nan, np.nan, np.nan, np.nan],
@@ -1509,8 +1513,8 @@ def rain_season() -> bool:
                 assign(da_pr, [y1, 4, 1], [y1, 4, 3], s_thresh_wet / s_window_wet)
                 assign(da_pr, [y1, 4, 4], [y1, 9, 30], s_thresh_dry)
                 if i == 4:
-                    da_start_next = gen(c.i_rain_season_start, y1, n_years, np.nan, "YS")
-                    assign(da_start_next, y1, y1, utils.doy_str_to_doy("09-05"))
+                    da_start_next = gen(c.I_RAIN_SEASON_START, y1, n_years, np.nan, "YS")
+                    assign(da_start_next, y1, y1, wf_utils.doy_str_to_doy("09-05"))
                 res_expect_start = [91, np.nan]
                 if i == 3:
                     res_expect_end = [260, np.nan]
@@ -1527,30 +1531,30 @@ def rain_season() -> bool:
 
             # Convert from precipitation amount to rate.
             if is_synthetic:
-                da_pr = da_pr / c.spd
-                da_pr.attrs[c.attrs_units] = c.unit_kg_m2s1
+                da_pr = da_pr / c.SPD
+                da_pr.attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
                 if da_etp is not None:
-                    da_etp = xr.DataArray(da_etp) / c.spd
-                    da_etp.attrs[c.attrs_units] = c.unit_kg_m2s1
+                    da_etp = xr.DataArray(da_etp) / c.SPD
+                    da_etp.attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
             else:
                 e_op = e_op_max if e_op == e_op_max_data else e_op
 
             # Calculate indices.
             da_start, da_end, da_length, da_prcptot =\
-                indices.rain_season(da_pr, da_etp, da_start_next, str(s_thresh_wet) + " mm", s_window_wet,
-                                    str(s_thresh_dry) + " mm", s_dry_days, s_window_dry, s_start_date, s_end_date,
-                                    e_op, str(e_thresh) + " mm", e_window,
-                                    (str(e_etp_rate) if e_op == e_op_etp else "0") + " mm", e_start_date, e_end_date)
+                wf_indices.rain_season(da_pr, da_etp, da_start_next, str(s_thresh_wet) + " mm", s_window_wet,
+                                       str(s_thresh_dry) + " mm", s_dry_days, s_window_dry, s_start_date, s_end_date,
+                                       e_op, str(e_thresh) + " mm", e_window,
+                                       (str(e_etp_rate) if e_op == e_op_etp else "0") + " mm", e_start_date, e_end_date)
 
             # Reorder dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = utils.standardize_netcdf(da_start, template=da_pr)
+                da_start = wf_utils.standardize_netcdf(da_start, template=da_pr)
             if len(list(da_end.dims)) > 1:
-                da_end = utils.standardize_netcdf(da_end, template=da_pr)
+                da_end = wf_utils.standardize_netcdf(da_end, template=da_pr)
             if len(list(da_length.dims)) > 1:
-                da_length = utils.standardize_netcdf(da_length, template=da_pr)
+                da_length = wf_utils.standardize_netcdf(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = utils.standardize_netcdf(da_prcptot, template=da_pr)
+                da_prcptot = wf_utils.standardize_netcdf(da_prcptot, template=da_pr)
 
             #  Verify results.
             res_start = np.array(da_start.squeeze())
@@ -1567,12 +1571,151 @@ def rain_season() -> bool:
 
 
 def official_indicators():
-    import xclim.core.indicator
+
     registry_cp = xclim.core.indicator.registry.copy()
     for cls in xclim.core.indicator.registry.values():
         if cls.identifier.upper() != cls._registry_id:
             registry_cp.pop(cls._registry_id)
     return registry_cp
+
+
+def crop_netcdfs(
+    ens_l: List[str],
+    country_region: str,
+    media_in: str,
+    media_out: Optional[str] = "",
+    save_in_documents: Optional[bool] = False
+):
+
+    """
+    ---------------------------------------------------------------------------------------------------------------------
+    Crop NetCDF files recursively.
+
+    Parameters
+    ----------
+    ens_l: List[str]
+        List of ensemble names.
+    country_region: str
+        Country and region (<country>_<region>).
+    media_in: str
+        Name of media (storage unit) containing the input data.
+    media_out: Optional[str]
+        Name of media (storage unit) on which data will be saved.
+    save_in_documents: Optional[bool]
+        If True, save in ~/Documents/. Otherwise, save on the original drive in a different directory.
+
+    Notes
+    -----
+    - 'items' is a list of directories to look into, with each item having a list of keywords associated with it.
+      A file will be selected and cropped only if one of the keywords is found in the path. This allows to select
+      the files for the variables of interest.
+    - 'p_out': cropped files will end up in the directory: 'p_out'/items[i][0]
+    - 'lon_l' and 'lat_l define the boundary box that will be used to crop data.
+
+    ---------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Username and media name.
+    usr = getpass.getuser()
+
+    # Country acronym.
+    items, lon_l, lat_l = [], [], []
+
+    # Keyworkds (variables with underscore) and paths.
+    v_l, p = [], ""
+
+    if country_region == "bf":
+        for ens in ens_l:
+            if ens == c.ENS_CORDEX:
+                v_l = [c.V_SFTLF + "_", c.V_TAS + "_", c.V_TASMIN + "_", c.V_TASMAX + "_", c.V_PR + "_", c.V_UAS + "_",
+                       c.V_VAS + "_", c.V_SFCWINDMAX + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/cordex_afr/"
+            elif ens == c.ENS_ECMWF:
+                v_l = [c.V_ECMWF_LSM + "_", c.V_ECMWF_T2M + "_", c.V_ECMWF_T2MMIN + "_", c.V_ECMWF_T2MMAX + "_",
+                       c.V_ECMWF_TP + "_", c.V_ECMWF_U10 + "_", c.V_ECMWF_U10MAX + "_", c.V_ECMWF_V10 + "_",
+                       c.V_ECMWF_V10MAX + "_", c.V_ECMWF_UV10MAX + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/ecmwf_afr_west/"
+            if p != "":
+                items.append([p, v_l])
+        lon_l = [-6.5, 3.5]
+        lat_l = [8.0, 16.0]
+
+    elif country_region == "ci":
+        for ens in ens_l:
+            if ens == c.ENS_CORDEX:
+                v_l = [c.V_SFTLF + "_", c.V_TAS + "_", c.V_TASMIN + "_", c.V_TASMAX + "_", c.V_PR + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/cordex_afr/"
+            elif ens == c.ENS_ECMWF:
+                v_l = [c.V_ECMWF_LSM + "_", c.V_ECMWF_T2M + "_", c.V_ECMWF_T2MMIN + "_", c.V_ECMWF_T2MMAX + "_",
+                       c.V_ECMWF_TP + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/ecmwf_afr_west/"
+            elif ens == c.ENS_CHIRPS:
+                v_l = ["chirps-"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/chirps/"
+            if p != "":
+                items.append([p, v_l])
+        lon_l = [-9.5, -1.5]
+        lat_l = [3.0, 12.0]
+
+    elif country_region == "ma_tt":
+        for ens in ens_l:
+            if ens == c.ENS_CORDEX:
+                v_l = [c.V_SFTLF + "_", c.V_TAS + "_", c.V_TASMIN + "_", c.V_TASMAX + "_", c.V_PR + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/cordex_afr/"
+            elif ens == c.ENS_ECMWF:
+                v_l = [c.V_ECMWF_LSM + "_", c.V_ECMWF_T2M + "_", c.V_ECMWF_T2MMIN + "_", c.V_ECMWF_T2MMAX + "_",
+                       c.V_ECMWF_TP + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/ecmwf_ma/"
+            if p != "":
+                items.append([p, v_l])
+        lon_l = [-7.5, -2.5]
+        lat_l = [33.5, 37.0]
+
+    elif country_region == "sn":
+        for ens in ens_l:
+            if ens == c.ENS_CORDEX:
+                v_l = [c.V_SFTLF + "_", c.V_TAS + "_", c.V_TASMIN + "_", c.V_TASMAX + "_", c.V_PR + "_",
+                       c.V_EVSPSBL + "_", c.V_EVSPSBLPOT + "_", c.V_UAS + "_", c.V_VAS + "_", c.V_SFCWINDMAX + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/cordex_afr/"
+            elif ens == c.ENS_ECMWF:
+                v_l = [c.V_ECMWF_LSM + "_", c.V_ECMWF_T2M + "_", c.V_ECMWF_T2MMIN + "_", c.V_ECMWF_T2MMAX + "_",
+                       c.V_ECMWF_TP + "_", c.V_ECMWF_E + "_", c.V_ECMWF_PEV + "_", c.V_ECMWF_U10 + "_",
+                       c.V_ECMWF_U10MAX + "_", c.V_ECMWF_V10 + "_", c.V_ECMWF_V10MAX + "_", c.V_ECMWF_UV10MAX + "_"]
+                p = "/media/" + usr + "/" + media_in + "/scenario/external_data/ecmwf_afr_west/"
+            if p != "":
+                items.append([p, v_l])
+        lon_l = [-18.0, -10.5]
+        lat_l = [11.5, 17.5]
+
+    if media_out == "":
+        media_out = media_in
+
+    # Loop through items.
+    for item in items:
+
+        # List input paths.
+        p_l = list(Path(item[0]).rglob("*.nc"))
+        p_l.sort()
+
+        # Loop through input paths.
+        for i in range(len(p_l)):
+            p_in = str(p_l[i])
+
+            # Determine output path.
+            if save_in_documents:
+                p_out = "/home/" + usr + "/Documents/" + country_region + p_in
+            else:
+                p_out = p_in.\
+                    replace("/" + media_in + "/", "/" + media_out + "/").\
+                    replace("/ecmwf_afr_west/", "/ecmwf_" + country_region + "/").\
+                    replace("/ecmwf_ma/", "/ecmwf_" + country_region + "/").\
+                    replace("/cordex_afr/", "/cordex_" + country_region + "/").\
+                    replace("/chirps/", "/chirps_" + country_region + "/")
+
+            fu.log(str(i + 1) + "/" + str(len(p_l)) + ": " + p_out, True)
+
+            # Crop.
+            fu.crop_netcdf(p_in, item[1], lon_l, lat_l, p_out)
 
 
 def run():
@@ -1583,22 +1726,29 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Crop NetCDF files.
+    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "bf", "WD_BLACK", "WD_BLACK", False)
+    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF, c.ENS_CHIRPS], "ci", "WD_BLACK", "WD_BLACK", False)
+    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "ma_tt", "WD_BLACK", "WD_BLACK", False)
+    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "sn", "WD_BLACK", "ROCKET-XTRM", False)
+    # exit()
+
     fu.log("=")
     fu.log("Step #0   Testing indices")
 
     fu.log("Step #0a  translations")
-    # test_locales.test_xclim_translations("fr", official_indicators())
+    test_locales.test_xclim_translations("fr", official_indicators())
 
     fu.log("Step #0b  dry_spell_total_length")
-    # dry_spell_total_length()
-    # test_precip.test_dry_spell()
-    # test_indices.test_dry_spell(pr_series)
+    dry_spell_total_length()
+    test_precip.test_dry_spell()
+    test_indices.test_dry_spell(pr_series)
 
     fu.log("Step #0c  rain_season_start")
-    # rain_season_start()
+    rain_season_start()
 
     fu.log("Step #0d  rain_season_end")
-    # rain_season_end()
+    rain_season_end()
 
     fu.log("Step #0e  rain_season_length/prcptot")
     rain_season_length_prcptot()

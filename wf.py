@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 # ----------------------------------------------------------------------------------------------------------------------
+# Climate scenarization tool.
+#
 # Script launcher.
 #
 # Contributors:
@@ -11,23 +13,23 @@
 import sys
 
 # Workflow libraries.
-import aggregate
-import download
-import file_utils as fu
-import indices
-import scenarios
-import test
-import utils
+import wf_aggregate
+import wf_download
+import wf_file_utils as fu
+import wf_indices
+import wf_scenarios
+import wf_test
+import wf_utils
 
 # Dashboard libraries.
-from def_constant import const as c
-from def_context import cntx
+from cl_constant import const as c
+from cl_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard import def_project
-from dashboard.def_rcp import RCPs
-from dashboard.def_varidx import VarIdx, VarIdxs
+from dashboard import cl_project
+from dashboard.cl_rcp import RCPs
+from dashboard.cl_varidx import VarIdx, VarIdxs
 
 
 def main():
@@ -39,31 +41,34 @@ def main():
     """
 
     # Migrate project.
-    # fu.migrate(c.platform_script, "", 1.2, 1.4)
+    # fu.migrate(c.PLATFORM_SCRIPT, "", 1.2, 1.4)
 
     # Step #0: Structure: project, variables and indices ---------------------------------------------------------------
 
     # Project.
-    cntx.code = c.platform_script
-    cntx.project = def_project.Project(str(cntx.project))
+    cntx.code = c.PLATFORM_SCRIPT
+    cntx.project = cl_project.Project(str(cntx.project))
+    cntx.project.p_bounds = cntx.p_bounds
 
     # Emission scenarios.
     cntx.rcps = RCPs(cntx.emission_scenarios)
 
     # CORDEX variables.
     if len(cntx.variables) > 0:
+
+        # Remove variables that are not compatible with the reanalysis ensemble.
+        if (c.V_SFTLF in cntx.variables) and (cntx.obs_src != c.ENS_ERA5):
+            cntx.variables.remove(c.V_SFTLF)
+
+        # Convert list of variables to instances.
         cntx.vars = VarIdxs(cntx.variables)
 
         # Reanalysis variables.
-        if cntx.obs_src in [c.ens_era5, c.ens_era5_land, c.ens_enacts]:
+        if cntx.obs_src in [c.ENS_ERA5, c.ENS_ERA5_LAND, c.ENS_ENACTS, c.ENS_CHIRPS]:
             variables_ra = []
             for var in cntx.vars.items:
                 variables_ra.append(var.convert_name(cntx.obs_src))
             cntx.vars_ra = VarIdxs(variables_ra)
-
-    # ERA5* variables to download.
-    if len(cntx.opt_download_variables) > 0:
-        cntx.opt_download_vars = VarIdxs(cntx.opt_download_variables)
 
     # CORDEX variables used for clustering.
     if len(cntx.opt_cluster_variables) > 0:
@@ -82,17 +87,18 @@ def main():
     fu.log("=")
     fu.log("PRODUCTION OF CLIMATE SCENARIOS & CALCULATION OF CLIMATE INDICES                ")
     fu.log("Python Script created by Ouranos, based on xclim and xarray libraries.          ")
-    fu.log("Script launched: " + utils.datetime_str())
+    fu.log("Script launched: " + wf_utils.datetime_str())
 
     # Display configuration.
     fu.log("=")
     fu.log("Country                : " + cntx.country)
     fu.log("Project                : " + cntx.project.code)
     fu.log("Variables (CORDEX)     : " + str(cntx.vars.code_l).replace("'", ""))
-    for i in range(cntx.idxs.count):
-        params_i =\
-            str(cntx.idxs.items[i].params).replace("'", "").replace("(", "[").replace(")", "]").replace("\\n", "")
-        fu.log("Climate index #" + ("0" if i < 9 else "") + str(i + 1) + "      : " + params_i)
+    if cntx.idxs is not None:
+        for i in range(cntx.idxs.count):
+            params_i =\
+                str(cntx.idxs.items[i].params).replace("'", "").replace("(", "[").replace(")", "]").replace("\\n", "")
+            fu.log("Climate index #" + ("0" if i < 9 else "") + str(i + 1) + "      : " + params_i)
     if cntx.opt_ra:
         fu.log("Reanalysis set         : " + cntx.obs_src)
         fu.log("Variables (reanalysis) : " + str(cntx.vars_ra.code_l).replace("'", ""))
@@ -112,16 +118,16 @@ def main():
     msg = "Step #2a  Downloading climate data"
     if cntx.opt_download:
         fu.log(msg)
-        download.run()
+        wf_download.run()
     else:
         fu.log(msg + " (not required)")
 
-    # Aggregate reanalysis data to daily frequency
+    # Aggregate reanalysis data to daily frequency.
     fu.log("=")
     msg = "Step #2b  Aggregating hourly data"
     if cntx.opt_aggregate and cntx.opt_ra:
         fu.log(msg)
-        aggregate.run()
+        wf_aggregate.run()
     else:
         fu.log(msg + " (not required)")
 
@@ -137,17 +143,17 @@ def main():
             fu.clean_netcdf(cntx.d_idx(idx.code))
 
     # Initialization.
-    scenarios.init_bias_params()
+    wf_scenarios.init_bias_params()
 
     # Launch units tests.
     if cntx.opt_test:
-        test.run()
+        wf_test.run()
 
     # Steps #2-5,8: Production of scenarios, plots and statistics ------------------------------------------------------
-    scenarios.run()
+    wf_scenarios.run()
 
     # Steps #6,8: Calculation of indices, plots and statistics ---------------------------------------------------------
-    indices.run()
+    wf_indices.run()
 
     # Step #9: Export dashboard ----------------------------------------------------------------------------------------
 
@@ -160,8 +166,9 @@ def main():
         fu.log(msg + " (not required)")
 
     fu.log("=")
-    fu.log("Script completed: " + utils.datetime_str())
+    fu.log("Script completed: " + wf_utils.datetime_str())
 
 
 if __name__ == "__main__":
+
     main()

@@ -24,23 +24,16 @@ from scipy import signal
 from typing import List
 
 # Workflow libraries.
-import file_utils as fu
-import utils
-from def_constant import const as c
-from def_context import cntx
+import wf_file_utils as fu
+import wf_utils
+from cl_constant import const as c
+from cl_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard.def_stat import Stat
-from dashboard.def_varidx import VarIdx
-
-
-# Color associated with specific datasets (bias plots).
-col_obs         = "green"   # Observed data.
-col_sim         = "purple"  # Simulation data (non-adjusted).
-col_sim_ref     = "orange"  # Simulation data (non-adjusted, reference period).
-col_sim_adj     = "red"     # Simulation data (bias-adjusted).
-col_sim_adj_ref = "blue"    # Simulation data (bias-adjusted, reference period).
+from dashboard.cl_stat import Stat
+from dashboard.cl_varidx import VarIdx
+from dashboard.dash_plot import get_cmap, get_cmap_name, get_hex_l
 
 
 def plot_year(
@@ -153,14 +146,14 @@ def plot_postprocess(
 
     # Legend.
     legend_items = ["Simulation", "Référence"]
-    if c.cat_sim_adj in df.columns:
+    if c.CAT_SIM_ADJ in df.columns:
         legend_items.insert(0, "Sim. ajustée")
 
     # Draw curves.
-    if c.cat_sim_adj in df.columns:
-        ax.plot(df["year"], df[c.cat_sim_adj], color=col_sim_adj)
-    ax.plot(df["year"], df[c.cat_sim], color=col_sim)
-    ax.plot(df["year"], df[c.cat_obs], color=col_obs)
+    if c.CAT_SIM_ADJ in df.columns:
+        ax.plot(df["year"], df[c.CAT_SIM_ADJ], color=c.COL_SIM_ADJ)
+    ax.plot(df["year"], df[c.CAT_SIM], color=c.COL_SIM)
+    ax.plot(df["year"], df[c.CAT_OBS], color=c.COL_OBS)
 
     # Font size.
     fs        = 8
@@ -220,16 +213,16 @@ def plot_workflow(
     delta_ref = 0
     delta_sim = 0
     if varidx.is_summable:
-        coef = c.spd
-    if (vi_name in [c.v_tas, c.v_tasmin, c.v_tasmax]) and (len(units) > 0):
-        if units[0] == c.unit_K:
+        coef = c.SPD
+    if (vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]) and (len(units) > 0):
+        if units[0] == c.UNIT_K:
             delta_ref = -c.d_KC
-        if units[1] == c.unit_K:
+        if units[1] == c.UNIT_K:
             delta_sim = -c.d_KC
 
     # Actual data.
     x = [*range(len(df["year"]))]
-    y = (df[c.cat_obs] * coef + delta_ref).values
+    y = (df[c.CAT_OBS] * coef + delta_ref).values
 
     # Predictions.
     y_wo_nan = [i for i in y if not np.isnan(i)]
@@ -254,7 +247,7 @@ def plot_workflow(
 
         # Upper plot: Reference period.
         ax = fig.add_subplot(211)
-        ax.plot(x, y, color=col_sim_ref)
+        ax.plot(x, y, color=c.COL_SIM_REF)
         ax.plot(x, y_hat, color="black")
         plt.legend(["Simulation (réf.)", "Tendance"], fontsize=fs_legend, frameon=False)
         plt.xlabel("Jour", fontsize=fs_axes)
@@ -265,12 +258,12 @@ def plot_workflow(
 
         # Lower plot: Complete simulation.
         fig.add_subplot(212)
-        arr_y_detrend = signal.detrend(df[c.cat_sim][np.isnan(df[c.cat_sim]) == False] * coef + delta_sim)
+        arr_y_detrend = signal.detrend(df[c.CAT_SIM][np.isnan(df[c.CAT_SIM]).astype(int) == 0] * coef + delta_sim)
         arr_x_detrend = cntx.per_ref[0] + np.arange(0, len(arr_y_detrend), 1) / 365
         arr_y_error  = (y - y_hat)
         arr_x_error = cntx.per_ref[0] + np.arange(0, len(arr_y_error), 1) / 365
-        plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=col_sim)
-        plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=col_sim_ref)
+        plt.plot(arr_x_detrend, arr_y_detrend, alpha=0.5, color=c.COL_SIM)
+        plt.plot(arr_x_error, arr_y_error, alpha=0.5, color=c.COL_SIM_REF)
         plt.legend(["Simulation", "Simulation (réf.)"], fontsize=fs_legend, frameon=False)
         plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(varidx.label, fontsize=fs_axes)
@@ -326,8 +319,8 @@ def plot_bias(
     vi_name = str(varidx.name)
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.f_csv + cntx.sep).\
-        replace(c.f_ext_png, c.f_ext_csv)
+    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.F_CSV + cntx.sep).\
+        replace(c.F_EXT_PNG, c.F_EXT_CSV)
 
     # Quantile ---------------------------------------------------------------------------------------------------------
 
@@ -343,14 +336,26 @@ def plot_bias(
     ax = fig.add_subplot(431)
     plt.subplots_adjust(top=0.930, bottom=0.065, left=0.070, right=0.973, hspace=0.90, wspace=0.250)
 
+    # Build color map (custom or matplotlib).
+    z_min, z_max = float(min(da_qmf.values)), float(max(da_qmf.values))
+    z_min = -abs(max(z_min, z_max))
+    z_max = -z_min
+    n_cluster = 10
+    cmap_name = str(get_cmap_name(z_min, z_max))
+    hex_l = get_hex_l(cmap_name)
+    if hex_l is not None:
+        cmap = get_cmap(cmap_name, hex_l, n_cluster)
+    else:
+        cmap = plt.cm.get_cmap(cmap_name, n_cluster)
+
     # Quantile mapping function.
-    img1 = ax.imshow(da_qmf, extent=[0, 1, 365, 1], cmap="coolwarm")
+    img1 = ax.imshow(da_qmf, extent=[0, 1, 365, 1], cmap=cmap, vmin=z_min, vmax=z_max)
     cb = fig.colorbar(img1, ax=ax)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=UserWarning)
         cb.ax.set_yticklabels(cb.ax.get_yticks(), fontsize=fs_axes)
     cb.ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.2e"))
-    plt.title("QMF", fontsize=fs_title)
+    plt.title("Fonction de Quantile Mapping", fontsize=fs_title)
     plt.xlabel("Quantile", fontsize=fs_axes)
     plt.ylabel("Jour de l'année", fontsize=fs_axes)
     plt.tick_params(axis="x", labelsize=fs_axes)
@@ -365,7 +370,7 @@ def plot_bias(
 
     # Plot.
     ax = fig.add_subplot(432)
-    draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, Stat(c.stat_mean), p_csv)
+    draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, Stat(c.STAT_MEAN), p_csv)
     plt.title("Moyenne", fontsize=fs_title)
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlim([1, 12])
@@ -381,11 +386,13 @@ def plot_bias(
 
         ax = plt.subplot(433 + i - 1)
 
-        stat = Stat(c.stat_centile, cntx.opt_tbl_centiles[i - 1])
+        stat = Stat(c.STAT_CENTILE, cntx.opt_tbl_centiles[i - 1])
+        title = stat.desc
+
         if stat.centile == 0:
-            stat = Stat(c.stat_min)
+            stat = Stat(c.STAT_MIN)
         elif stat.centile == 1:
-            stat = Stat(c.stat_max)
+            stat = Stat(c.STAT_MAX)
 
         draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat, p_csv)
 
@@ -394,22 +401,22 @@ def plot_bias(
         plt.xlabel("Mois", fontsize=fs_axes)
         plt.ylabel(y_label, fontsize=fs_axes)
         plt.legend(legend_items, fontsize=fs_legend, frameon=False)
-        plt.title(stat.centile_as_str, fontsize=fs_title)
+        plt.title(title, fontsize=fs_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
 
     # Time series ------------------------------------------------------------------------------------------------------
 
     # Convert date format if the need is.
-    if da_sim_adj.time.time.dtype == c.dtype_obj:
-        da_sim_adj[c.dim_time] = utils.reset_calendar(da_sim_adj.time)
-    if da_sim_ref.time.time.dtype == c.dtype_obj:
-        da_sim_ref[c.dim_time] = utils.reset_calendar(da_sim_ref.time)
+    if da_sim_adj.time.time.dtype == c.DTYPE_OBJ:
+        da_sim_adj[c.DIM_TIME] = wf_utils.reset_calendar(da_sim_adj.time)
+    if da_sim_ref.time.time.dtype == c.DTYPE_OBJ:
+        da_sim_ref[c.DIM_TIME] = wf_utils.reset_calendar(da_sim_ref.time)
 
     plt.subplot(313)
-    da_sim_adj.plot.line(alpha=0.5, color=col_sim_adj)
-    da_sim_ref.plot.line(alpha=0.5, color=col_sim_ref)
-    da_obs.plot.line(alpha=0.5, color=col_obs)
+    da_sim_adj.plot.line(alpha=0.5, color=c.COL_SIM_ADJ)
+    da_sim_ref.plot.line(alpha=0.5, color=c.COL_SIM_REF)
+    da_obs.plot.line(alpha=0.5, color=c.COL_OBS)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(y_label, fontsize=fs_axes)
     plt.legend(["Sim. ajustée", "Sim. (réf.)", "Référence"], fontsize=fs_legend, frameon=False)
@@ -419,8 +426,8 @@ def plot_bias(
     plt.tick_params(axis="x", labelsize=fs_axes)
     plt.tick_params(axis="y", labelsize=fs_axes)
 
-    if c.attrs_bias in da_sim_adj.attrs:
-        del da_sim_adj.attrs[c.attrs_bias]
+    if c.ATTRS_BIAS in da_sim_adj.attrs:
+        del da_sim_adj.attrs[c.ATTRS_BIAS]
 
     # Save plot.
     if p_fig != "":
@@ -463,12 +470,12 @@ def plot_bias_ts(
     vi_name = str(varidx.name)
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.f_csv + cntx.sep). \
-        replace(c.f_ext_png, c.f_ext_csv)
+    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.F_CSV + cntx.sep). \
+        replace(c.F_EXT_PNG, c.F_EXT_CSV)
 
     # Determine if the analysis is required.
-    save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.f_png in cntx.opt_diagnostic_format)))
-    save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format)))
+    save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.F_PNG in cntx.opt_diagnostic_format)))
+    save_csv = (cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.F_CSV in cntx.opt_diagnostic_format)))
     if not (save_fig or save_csv):
         return
 
@@ -480,20 +487,20 @@ def plot_bias_ts(
     else:
 
         # Convert date format if the need is.
-        if da_obs.time.dtype == c.dtype_obj:
-            da_obs[c.dim_time] = utils.reset_calendar(da_obs)
-        if da_sim.time.dtype == c.dtype_obj:
-            da_sim[c.dim_time] = utils.reset_calendar(da_sim)
-        if da_sim_adj.time.dtype == c.dtype_obj:
-            da_sim_adj[c.dim_time] = utils.reset_calendar(da_sim_adj)
+        if da_obs.time.dtype == c.DTYPE_OBJ:
+            da_obs[c.DIM_TIME] = wf_utils.reset_calendar(da_obs)
+        if da_sim.time.dtype == c.DTYPE_OBJ:
+            da_sim[c.DIM_TIME] = wf_utils.reset_calendar(da_sim)
+        if da_sim_adj.time.dtype == c.DTYPE_OBJ:
+            da_sim_adj[c.DIM_TIME] = wf_utils.reset_calendar(da_sim_adj)
 
         # Create dataframe.
         n_obs = len(list(da_obs.values))
         n_sim_adj = len(list(da_sim_adj.values))
         dict_pd = {"day": list(range(1, n_sim_adj + 1)),
-                   c.cat_obs: list(da_obs.values) + [np.nan] * (n_sim_adj - n_obs),
-                   c.cat_sim_adj: list(da_sim_adj.values),
-                   c.cat_sim: list(da_sim.values)}
+                   c.CAT_OBS: list(da_obs.values) + [np.nan] * (n_sim_adj - n_obs),
+                   c.CAT_SIM_ADJ: list(da_sim_adj.values),
+                   c.CAT_SIM: list(da_sim.values)}
         df = pd.DataFrame(dict_pd)
 
     # Generate and save plot.
@@ -512,9 +519,9 @@ def plot_bias_ts(
 
         # Add curves.
         x_column = "day" if "day" in df.columns else "month"
-        ax.plot(df[x_column], df[c.cat_sim_adj], alpha=0.5, color=col_sim_adj)
-        ax.plot(df[x_column], df[c.cat_sim], alpha=0.5, color=col_sim)
-        ax.plot(df[x_column], df[c.cat_obs], alpha=0.5, color=col_obs)
+        ax.plot(df[x_column], df[c.CAT_SIM_ADJ], alpha=0.5, color=c.COL_SIM_ADJ)
+        ax.plot(df[x_column], df[c.CAT_SIM], alpha=0.5, color=c.COL_SIM)
+        ax.plot(df[x_column], df[c.CAT_OBS], alpha=0.5, color=c.COL_OBS)
 
         # Customize.
         plt.legend(["Sim. ajustée", "Sim. (réf.)", "Référence"], fontsize=fs_legend, frameon=False)
@@ -575,20 +582,15 @@ def draw_curves(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    vi_name = str(varidx.name)
-
     # Paths.
-    if stat.code in [c.stat_mean, c.stat_min, c.stat_max, c.stat_sum]:
+    if stat.code in [c.STAT_MEAN, c.STAT_MIN, c.STAT_MAX, c.STAT_SUM]:
         suffix = stat.code
     else:
         suffix = stat.centile_as_str
-    p_csv = p_csv.replace(c.f_ext_csv, "_" + suffix + c.f_ext_csv)
+    p_csv = p_csv.replace(c.F_EXT_CSV, "_" + suffix + c.F_EXT_CSV)
 
     # Determine if the analysis is required.
-    save_csv = cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.f_csv in cntx.opt_diagnostic_format))
-
-    if not save_csv:
-        return
+    save_csv = cntx.opt_force_overwrite or ((not os.path.exists(p_csv)) and (c.F_CSV in cntx.opt_diagnostic_format))
 
     # Load existing CSV file.
     if (not cntx.opt_force_overwrite) and os.path.exists(p_csv):
@@ -605,24 +607,24 @@ def draw_curves(
 
             da_group = da.groupby(da.time.dt.month)
             da_group_stat = None
-            if _stat.code == c.stat_min:
-                da_group_stat = da_group.min(dim=c.dim_time)
-            elif _stat.code == c.stat_max:
-                da_group_stat = da_group.max(dim=c.dim_time)
-            elif _stat.code == c.stat_mean:
-                da_group_stat = da_group.mean(dim=c.dim_time)
-            elif _stat.code == c.stat_centile:
-                da_group_stat = da_group.quantile(float(_stat.centile) / 100.0, dim=c.dim_time)
-            elif _stat.code == c.stat_sum:
-                n_years = da[c.dim_time].size / 12
-                da_group_stat = da_group.sum(dim=c.dim_time) / n_years
+            if _stat.code == c.STAT_MIN:
+                da_group_stat = da_group.min(dim=c.DIM_TIME)
+            elif _stat.code == c.STAT_MAX:
+                da_group_stat = da_group.max(dim=c.DIM_TIME)
+            elif _stat.code == c.STAT_MEAN:
+                da_group_stat = da_group.mean(dim=c.DIM_TIME)
+            elif _stat.code == c.STAT_CENTILE:
+                da_group_stat = da_group.quantile(float(_stat.centile) / 100.0, dim=c.DIM_TIME)
+            elif _stat.code == c.STAT_SUM:
+                n_years = da[c.DIM_TIME].size / 12
+                da_group_stat = da_group.sum(dim=c.DIM_TIME) / n_years
             return da_group_stat
 
         # Determine if sum is needed.
         stat_actual = stat
         if varidx.is_summable:
-            if stat.code == c.stat_mean:
-                stat_actual.code = c.stat_sum
+            if stat.code == c.STAT_MEAN:
+                stat_actual.code = c.STAT_SUM
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
                 da_obs         = da_obs.resample(time="1M").sum()
@@ -640,19 +642,19 @@ def draw_curves(
 
         # Create dataframe.
         dict_pd = {"month": list(range(1, 13)),
-                   c.cat_obs: list(da_obs.values),
-                   c.cat_sim_ref: list(da_sim_ref.values),
-                   c.cat_sim: list(da_sim.values),
-                   c.cat_sim_adj: list(da_sim_adj.values),
-                   c.cat_sim_adj_ref: list(da_sim_adj_ref.values)}
+                   c.CAT_OBS: list(da_obs.values),
+                   c.CAT_SIM_REF: list(da_sim_ref.values),
+                   c.CAT_SIM: list(da_sim.values),
+                   c.CAT_SIM_ADJ: list(da_sim_adj.values),
+                   c.CAT_SIM_ADJ_REF: list(da_sim_adj_ref.values)}
         df = pd.DataFrame(dict_pd)
 
     # Draw curves.
-    ax.plot(df["month"], df[c.cat_obs], color=col_obs)
-    ax.plot(df["month"], df[c.cat_sim_ref], color=col_sim_ref)
-    ax.plot(df["month"], df[c.cat_sim], color=col_sim)
-    ax.plot(df["month"], df[c.cat_sim_adj], color=col_sim_adj)
-    ax.plot(df["month"], df[c.cat_sim_adj_ref], color=col_sim_adj_ref)
+    ax.plot(df["month"], df[c.CAT_OBS], color=c.COL_OBS)
+    ax.plot(df["month"], df[c.CAT_SIM_REF], color=c.COL_SIM_REF)
+    ax.plot(df["month"], df[c.CAT_SIM], color=c.COL_SIM)
+    ax.plot(df["month"], df[c.CAT_SIM_ADJ], color=c.COL_SIM_ADJ)
+    ax.plot(df["month"], df[c.CAT_SIM_ADJ_REF], color=c.COL_SIM_ADJ_REF)
 
     # Save to CSV.
     if save_csv and (p_csv != ""):

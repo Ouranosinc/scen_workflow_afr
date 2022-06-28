@@ -2,23 +2,23 @@
 
 ## Purpose
 
-This code produces climate scenarios using CORDEX NetCDF files and observations. It also performs the following tasks:
+This code produces climate scenarios and calculates climate indices based on projections and reference data. It also
+performs the following tasks:
 - download of reanalysis data;
 - aggregation of hourly data to a daily frequency for reanalysis data;
 - bias adjustment and statistical downscaling when producing climate scenarios (with error calculation) based on
-  at-a-station observations or reanalysed data (ERA5 and ERA5-Land datasets are supported);
-- calculation of climate indices;
-- calculation of statistics related to climate scenarios and indices (min., max., mean or sum, centiles);
-- generation of time series;
-- generation of maps;
-- multiprocesssing (per simulation).
+  at-a-station observations or reanalysed data (ERA5, ERA5-Land, CHRIPS and ENACTS datasets are supported);
+- calculation of statistics related to climate scenarios and indices (minimum, maximum, mean, sum, and centiles);
+- multiprocesssing (per simulation, or per climate variable/index);
+- preparation of the data required to produce diagrams, maps and statistics; visual elements are assembled in the 
+  dashboard project (see notes below).  
 
 ## Notes
 
 The latest version of the code requires the following project:
 - https://github.com/yrouranos/dashboard
-
-- This project, which is essentially a plot generator, must be downloaded within the scen_workflow_afr directory/project. 
+- This project, which is essentially a plot generator, must be downloaded within the scen_workflow_afr
+  directory/project. 
 
 Technical documentation can be found [here](https://ouranos-my.sharepoint.com/:f:/g/personal/yanrou1_ouranos_ca/EknV5GO46cxChVpilQwKzMQBrB3wu4e6aS3bUfoUlZ3gwg?e=R1Ju2C).
 
@@ -201,8 +201,20 @@ Implemented features:
 - improved the efficiency of 'rain_season*' and 'dry_spell_total_length' indices;
 - tested the script against high-resolution datasets and ajusted the algorithms to limit the use of RAM memory.
 
+### v1.4.1
+
+Implemented features:
+- removed climate index 'rnnmm', which was equivalent to 'wet_days';
+- added a new parameter to climate index 'wet_days' to allow specfying an interval (lower and upper boundaries);
+- created the climate index 'hot_spell_total_length';
+- added an option to automatically enlarge the search radius during subset (lon, lat, time), which prevents returning 
+  a single cell;
+- improved the color map in the bias plot (quantile mapping function diagram) so that white is centered at zero;
+- fixed a bug introduce in v1.4.0 (maps were identical for different centiles);
+- standardized the attributes of NetCDF files produced (longitude, latitude, time, units, etc.). 
+
 ## Contributing
 
-This is a private development that is being used in production by climate services specialists. If you're interested in
-being involved in the development, want to suggest features or report bugs, please leave us a message on the
+This is a project that is being used in production by climate services specialists. If you're interested in being
+involved in the development, want to suggest features or report bugs, please leave us a message on the
 [issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).

@@ -19,16 +19,16 @@ import os
 import sys
 
 # Workflow libraries.
-import file_utils as fu
-from def_constant import const as c
-from def_context import cntx
+import wf_file_utils as fu
+from cl_constant import const as c
+from cl_context import cntx
 
 # Dashboard libraries.
 sys.path.append("dashboard")
-from dashboard.def_varidx import VarIdx
+from dashboard.cl_varidx import VarIdx, VarIdxs
 
 
-def download_from_copernicus(
+def download_from_ecmwf(
     p_base: str,
     obs_src: str,
     area: [float],
@@ -38,14 +38,14 @@ def download_from_copernicus(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Downloads a data set from Copernicus.
+    Downloads a data set from ECMWF.
 
     Parameters
     ----------
     p_base: str
         Path of directory where data is saved.
     obs_src: str
-        Set code: {def_varidx.ens_era5, def_varidx.ens_era5_land}
+        Set code: {cl_varidx.ens_era5, cl_varidx.ens_era5_land}
     area: [float]
         Bounding box defining the 4 limits of the area of interest (in decimal degrees):
         [North, West, South, East].
@@ -60,56 +60,66 @@ def download_from_copernicus(
 
     # Basic configuration.
     set_name = ""
-    if obs_src == c.ens_era5:
+    if obs_src == c.ENS_ERA5:
         set_name = "era5-single-levels"
-    elif obs_src == c.ens_era5_land:
+    elif obs_src == c.ENS_ERA5_LAND:
         set_name = "era5-land"
 
     # Lists of months, days and times.
-    months = [str(d).zfill(2) for d in range(13)]
-    days   = [str(d).zfill(2) for d in range(32)]
-    times  = ["{}:00".format(str(t).zfill(2)) for t in range(24)]
+    if var.name != c.V_ECMWF_LSM:
+        months = [str(d).zfill(2) for d in range(13)]
+        days   = [str(d).zfill(2) for d in range(32)]
+        times  = ["{}:00".format(str(t).zfill(2)) for t in range(24)]
+    else:
+        months = ["01"]
+        days   = ["01"]
+        times  = ["01:00"]
 
     # Variable names.
     var_ra_name = ""
-    # Equivalent to c.v_huss.
-    if var.name == c.v_era5_d2m:
+    # Equivalent to c.V_HUSS.
+    if var.name == c.V_ECMWF_D2M:
         var_ra_name = "2m_dewpoint_temperature"
-    # Equivalent to c.v_evspsbl.
-    elif var.name == c.v_era5_e:
+    # Equivalent to c.V_EVSPSBL.
+    elif var.name == c.V_ECMWF_E:
         var_ra_name = "evaporation"
-    # Equivalent to c.v_evspsblpot.
-    elif var.name == c.v_era5_pev:
+    # Equivalent to c.V_EVSPSBLPOT.
+    elif var.name == c.V_ECMWF_PEV:
         var_ra_name = "potential_evaporation"
-    # Equivalent to c.v_ps.
-    elif var.name == c.v_era5_sp:
+    # Equivalent to c.V_PS.
+    elif var.name == c.V_ECMWF_SP:
         var_ra_name = "surface_pressure"
-    # Equivalent to c.v_rsds.
-    elif var.name == c.v_era5_ssrd:
+    # Equivalent to c.V_RSDS.
+    elif var.name == c.V_ECMWF_SSRD:
         var_ra_name = "surface_solar_radiation_downwards"
-    # Equivalent to c.v_tas.
-    elif var.name == c.v_era5_t2m:
+    # Equivalent to c.V_TAS.
+    elif var.name == c.V_ECMWF_T2M:
         var_ra_name = "2m_temperature"
-    # Equivalent to c.v_pr.
-    elif var.name == c.v_era5_tp:
+    # Equivalent to c.V_PR.
+    elif var.name == c.V_ECMWF_TP:
         var_ra_name = "total_precipitation"
-    # Equivalent to c.v_uas.
-    elif var.name == c.v_era5_u10:
+    # Equivalent to c.V_UAS.
+    elif var.name == c.V_ECMWF_U10:
         var_ra_name = "10m_u_component_of_wind"
-    # Equivalent to c.v_vas.
-    elif var.name == c.v_era5_v10:
+    # Equivalent to c.V_VAS.
+    elif var.name == c.V_ECMWF_V10:
         var_ra_name = "10m_v_component_of_wind"
-    # Equivalent to c.v_sfcwindmax.
-    elif var.name == c.v_era5_uv10:
+    # Equivalent to c.V_SFCWINDMAX.
+    elif var.name == c.V_ECMWF_UV10:
         var_ra_name = "10m_wind"
+    # Equivalent to c.V_SFTLF.
+    elif var.name == c.V_ECMWF_LSM:
+        var_ra_name = "land_sea_mask"
 
     # Form file name.
-    fn = p_base + var.name + cntx.sep + var.name + "_" + obs_src + "_hour_" + str(year) + c.f_ext_nc
+    fn = p_base + var.name + cntx.sep + var.name + "_" + obs_src + "_hour_" + str(year) + c.F_EXT_NC
     if not os.path.exists(fn):
 
         p = os.path.dirname(fn)
         if not(os.path.isdir(p)):
             os.makedirs(p)
+
+        fu.log("Getting:" + fn, True)
 
         client = cdsapi.Client()
         api_request = {
@@ -159,7 +169,7 @@ def download_merra2(
     pwd = cntx.obs_src_password
 
     # Loop through years.
-    for year in range(1980, 2020):
+    for year in range(cntx.opt_download_per[0], cntx.opt_download_per[1] + 1):
         year_str = str(year)
 
         # URL template.
@@ -172,7 +182,7 @@ def download_merra2(
         else:
             set_name = "MERRA2_400.statD_2d_slv_Nx"
         url_template = "https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2/" + set_version + \
-                       "/<year>/<month>/" + set_name + ".<year><month><day>" + c.f_ext_nc4
+                       "/<year>/<month>/" + set_name + ".<year><month><day>" + c.F_EXT_NC4
 
         # Loop through months.
         for month in range(1, 13):
@@ -195,7 +205,7 @@ def download_merra2(
                 d = p_base + year_str + cntx.sep
                 if not (os.path.isdir(d)):
                     os.makedirs(d)
-                p = d + "merra2_day_" + year_str + month_str + day_str + c.f_ext_nc4
+                p = d + "merra2_day_" + year_str + month_str + day_str + c.F_EXT_NC4
 
                 # Download.
                 cmd = "wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --keep-session-cookies " +\
@@ -212,26 +222,52 @@ def run():
     """
 
     # Area: [North, West, South, East, ]
-    # Ex1: Africa      = [47, -29, -50, 65, ]
-    # Ex2: West Africa = [40, -30, -15, 30, ]
-    area = [cntx.opt_download_lat_bnds[1], cntx.opt_download_lon_bnds[1],
-            cntx.opt_download_lat_bnds[0], cntx.opt_download_lon_bnds[0]]
+    # Ex1: Africa      = [47, -29, -50, 65]
+    # Ex2: West Africa = [40, -30, -15, 30]
+    area = [cntx.opt_download_lat_bnds[1], cntx.opt_download_lon_bnds[0],
+            cntx.opt_download_lat_bnds[0], cntx.opt_download_lon_bnds[1]]
 
     # Path of input data.
     d_prefix = os.path.dirname(cntx.d_ra_raw) + cntx.sep
 
     # ERA5 or ERA5_LAND.
-    if (cntx.obs_src == c.ens_era5_land) or (cntx.obs_src == c.ens_era5):
+    if cntx.obs_src in [c.ENS_ERA5_LAND, c.ENS_ERA5]:
 
-        # Path, set code and years.
-        years = []
-        if cntx.obs_src == c.ens_era5_land:
-            years = range(1981, 2019 + 1)
-        elif cntx.obs_src == c.ens_era5:
-            years = range(1979, 2019 + 1)
+        # List variables to download, which involves translating variable names from CORDEX to ECMWF.
+        var_ra_name_l = []
+        for var in cntx.vars.items:
+
+            # Skip if variable does not exist in the current dataset.
+            if (cntx.obs_src == c.ENS_ERA5_LAND) and (var.name == c.V_SFTLF):
+                continue
+
+            # Convert name.
+            var_ra_name = var.convert_name(cntx.obs_src)
+            if var_ra_name in [c.V_ECMWF_T2MMIN, c.V_ECMWF_T2MMAX]:
+                var_ra_name_l.append(c.V_ECMWF_T2M)
+            elif var_ra_name == c.V_ECMWF_UV10MAX:
+                var_ra_name_l.append(c.V_ECMWF_U10)
+                var_ra_name_l.append(c.V_ECMWF_V10)
+            else:
+                var_ra_name_l.append(var_ra_name)
+
+        # Create list of variables into an instance.
+        var_ra_name_l = list(set(var_ra_name_l))
+        var_ra_name_l.sort()
+        vars_ra = VarIdxs(var_ra_name_l)
 
         # Loop through variable codes.
-        for var in cntx.opt_download_vars.code_l:
+        for var_ra in vars_ra.items:
+
+            # Determine years.
+            years = []
+            year_n = cntx.opt_download_per[1]
+            if cntx.obs_src == c.ENS_ERA5_LAND:
+                year_0 = cntx.opt_download_per[0]
+                years = [year_0] if var_ra.code == c.V_ECMWF_LSM else range(year_0, year_n + 1)
+            elif cntx.obs_src == c.ENS_ERA5:
+                year_0 = cntx.opt_download_per[0] if var_ra.code != c.V_ECMWF_LSM else 1981
+                years = [year_0] if var_ra.code == c.V_ECMWF_LSM else range(year_0, year_n + 1)
 
             # Need to loop until all files were generated.
             done = False
@@ -240,15 +276,15 @@ def run():
                 # Scalar processing mode.
                 if cntx.n_proc == 1:
                     for year in years:
-                        download_from_copernicus(d_prefix, cntx.obs_src, area, var, year)
+                        download_from_ecmwf(d_prefix, cntx.obs_src, area, var_ra, year)
 
                 # Parallel processing mode.
                 else:
                     try:
-                        fu.log("Processing: " + var.name, True)
+                        fu.log("Processing: " + var_ra.name, True)
                         fu.log("Splitting work between " + str(cntx.n_proc) + " threads.", True)
                         pool = multiprocessing.Pool(processes=min(cntx.n_proc, len(years)))
-                        func = functools.partial(download_from_copernicus, d_prefix, cntx.obs_src, area, var)
+                        func = functools.partial(download_from_ecmwf, d_prefix, cntx.obs_src, area, var_ra)
                         pool.map(func, list(range(len(years))))
                         pool.close()
                         pool.join()
@@ -258,15 +294,18 @@ def run():
                         pass
 
                 # Verify if treatment is done. Files are sometimes forgotten.
-                years_processed = glob.glob(d_prefix + var.name + cntx.sep + "*" + c.f_ext_nc)
+                years_processed = glob.glob(d_prefix + var_ra.name + cntx.sep + "*" + c.F_EXT_NC)
                 years_processed.sort()
                 for i in range(len(years_processed)):
-                    years_processed[i] = int(years_processed[i].replace(c.f_ext_nc, "")[-4:])
-                years_processed.sort()
-                done = (list(years) == years_processed)
+                    years_processed[i] = int(years_processed[i].replace(c.F_EXT_NC, "")[-4:])
+                done = True
+                for year in list(years):
+                    if year not in years_processed:
+                        done = False
+                        break
 
     # MERRA2.
-    elif cntx.obs_src == c.ens_merra2:
+    elif cntx.obs_src == c.ENS_MERRA2:
 
         # Download.
         download_merra2(d_prefix, "M2SDNXSLV.5.12.4")
