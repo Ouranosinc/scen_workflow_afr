@@ -217,4 +217,4 @@ Implemented features:
 
 This is a project that is being used in production by climate services specialists. If you're interested in being
 involved in the development, want to suggest features or report bugs, please leave us a message on the
-[issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues)..
+[issue tracker](https://github.com/Ouranosinc/scen_workflow_afr/issues).
