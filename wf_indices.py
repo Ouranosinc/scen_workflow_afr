@@ -287,7 +287,7 @@ def gen_single(
         return
 
     # Create mask.
-    da_mask = xr.DataArray(fu.create_mask(p_sim_l[0]))
+    da_mask = fu.create_mask(p_sim_l[0])
 
     # Load datasets (one per variable or index).
     ds_vi_l: List[xr.Dataset] = []
@@ -827,7 +827,7 @@ def gen_single(
 
             # Apply mask.
             if da_mask is not None:
-                da_idx = wf_utils.apply_mask(da_idx, da_mask)
+                da_idx = wf_utils.apply_mask(da_idx, xr.DataArray(da_mask))
 
             # Create dataset.
             if i == 0:

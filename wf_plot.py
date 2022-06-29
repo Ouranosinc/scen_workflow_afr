@@ -337,7 +337,7 @@ def plot_bias(
     plt.subplots_adjust(top=0.930, bottom=0.065, left=0.070, right=0.973, hspace=0.90, wspace=0.250)
 
     # Build color map (custom or matplotlib).
-    z_min, z_max = float(min(da_qmf.values)), float(max(da_qmf.values))
+    z_min, z_max = float(da_qmf.values.min()), float(da_qmf.values.max())
     z_min = -abs(max(z_min, z_max))
     z_max = -z_min
     n_cluster = 10

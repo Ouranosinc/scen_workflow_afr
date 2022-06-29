@@ -362,11 +362,11 @@ def load_reanalysis_ecmwf_enacts(
 
         # Apply and create mask.
         if var_name != c.V_SFTLF:
-            da_mask = xr.DataArray(fu.create_mask(ds if cntx.obs_src == c.ENS_ERA5_LAND else ""))
+            da_mask = fu.create_mask(ds if cntx.obs_src == c.ENS_ERA5_LAND else "")
         else:
             da_mask = None
         if da_mask is not None:
-            da = wf_utils.apply_mask(ds[var_name], da_mask)
+            da = wf_utils.apply_mask(ds[var_name], xr.DataArray(da_mask))
             ds = da.to_dataset(name=var_name)
 
         # Units are set only for ERA5* reanalysis datasets.
@@ -753,12 +753,15 @@ def regrid(
     # Remove grid points for which there is no data (not comprised within the data domain).
     # This is useful if data domain (derived from climatie simulations) is smaller than grid domain (derived from
     # reanalysis data), or not perfectly centered on the grid.
+    grid_lon_tmp_l, grid_lat_tmp_l = [], []
     for lon in grid_lon_l:
-        if (lon < min(data_lon_l)) or (lon > max(data_lon_l)):
-            grid_lon_l.remove(lon)
+        if (lon >= min(data_lon_l)) or (lon <= max(data_lon_l)):
+            grid_lon_tmp_l.append(lon)
     for lat in grid_lat_l:
-        if (lat < min(data_lat_l)) or (lat > max(data_lat_l)):
-            grid_lat_l.remove(lat)
+        if (lat >= min(data_lat_l)) or (lat <= max(data_lat_l)):
+            grid_lat_tmp_l.append(lat)
+    grid_lon_l = grid_lon_tmp_l
+    grid_lat_l = grid_lat_tmp_l
 
     # Create a Dataset for the new grid.
     ds_grid = xr.Dataset({c.DIM_LATITUDE: ([c.DIM_LATITUDE], grid_lat_l),
@@ -769,9 +772,9 @@ def regrid(
     da_regrid = regridder(ds_data[var.name])
 
     # Apply and create mask.
-    da_mask = xr.DataArray(fu.create_mask())
+    da_mask = fu.create_mask()
     if da_mask is not None:
-        da_regrid = wf_utils.apply_mask(da_regrid, da_mask)
+        da_regrid = wf_utils.apply_mask(da_regrid, xr.DataArray(da_mask))
 
     # Create dataset.
     ds_regrid = da_regrid.to_dataset(name=var.name)
