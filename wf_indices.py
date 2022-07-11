@@ -23,10 +23,15 @@ from typing import Tuple, List, Optional, Union
 # xclim libraries.
 import xclim.indices as indices
 import xclim.indices.generic as indices_gen
-from xclim.core.calendar import percentile_doy, select_time
+from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to, declare_units, rate2amount, to_agg_units
 from xclim.indices import run_length as rl
 from xclim.indices.generic import compare
+# The try-except claude is necessary because a function has been relocated.
+try:
+    from xclim.core.calendar import select_time
+except ImportError:
+    from xclim.indices.generic import select_time
 
 # Workflow libraries.
 import wf_file_utils as fu
