@@ -213,6 +213,12 @@ Implemented features:
 - fixed a bug introduce in v1.4.0 (maps were identical for different centiles);
 - standardized the attributes of NetCDF files produced (longitude, latitude, time, units, etc.). 
 
+### v1.4.2 (under developement)
+
+Implemented features:
+- Updated the algorithm of the 'rain_season_start' index to detect a start if an amount of precipitation above
+  'thresh_wet' is received over a period between 1 to 'window_wet' days, as long as it rains on the first of these days.
+
 ## Contributing
 
 This is a project that is being used in production by climate services specialists. If you're interested in being

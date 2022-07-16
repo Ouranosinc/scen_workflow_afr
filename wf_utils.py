@@ -1465,15 +1465,18 @@ def standardize_netcdf(
                 else:
                     ds_da = ds_da.transpose(dims_order[0], dims_order[1], dims_order[2])
 
-    # Rename dimensions.
+    # Rename dimensions (coordinates only).
     if rename:
         for dim in [c.DIM_LAT, c.DIM_LON]:
-            dim_current = [i for i in dims_current if dim in i][0]
-            dim_template = [i for i in dims_template if dim in i][0]
-            if dim_current != dim_template:
-                ds_da = ds_da.rename({dim_current: dim_template})
-            if drop and (dim in ds_da.dims) and (dim != dim_template):
-                ds_da = ds_da.drop_vars(dim)
+            dim_current = [i for i in dims_current if dim in i]
+            dim_current = "" if len(dim_current) == 0 else dim_current[0]
+            dim_template = [i for i in dims_template if dim in i]
+            dim_template = "" if len(dim_template) == 0 else dim_template[0]
+            if (dim_current != "") and (dim_template != ""):
+                if dim_current[0] != dim_template:
+                    ds_da = ds_da.rename({dim_current: dim_template})
+                if drop and (dim in ds_da.dims) and (dim != dim_template):
+                    ds_da = ds_da.drop_vars(dim)
 
     # Drop columns.
     if drop and isinstance(ds_da, xr.Dataset):

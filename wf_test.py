@@ -770,7 +770,7 @@ def rain_season_start() -> bool:
 
     # Loop through cases.
     error = False
-    n_cases = 11
+    n_cases = 13
     for i in range(1, n_cases + 1):
 
         for op in [op_synthetic, op_data]:
@@ -802,10 +802,10 @@ def rain_season_start() -> bool:
                 start_date, end_date = "03-01", "05-30"  # A, B
                 thresh_wet = 25  # Tw
                 da_pr = sample_data(c.V_PR)
-                res_expect = [[89, 61, 66, 63],
-                              [92, 97, 70, 90],
+                res_expect = [[90, 61, 67, 64],
+                              [92, 97, 70, 91],
                               [np.nan, np.nan, np.nan, np.nan],
-                              [np.nan, 115, 130, np.nan],
+                              [np.nan, 116, 130, np.nan],
                               [np.nan, 60, 106, 62]]
 
             # Additional cases -----------------------------------------------------------------------------------------
@@ -888,6 +888,22 @@ def rain_season_start() -> bool:
                 assign(da_pr, [y1, 10, 1], [y1, 10, 3], thresh_wet / window_wet)
                 assign(da_pr, [y1, 10, 4], [y1, 11, 2], thresh_dry)
                 res_expect = [274, np.nan]
+
+            # Case #12: | . A . Tw 1x0 20xTd 9x0 . B | . |
+            elif (i == 12) and is_synthetic:
+                start_date, end_date = "03-01", "12-31"  # A, B
+                da_pr = gen(var, y1, n_years, 0.0)
+                assign(da_pr, [y1, 4, 1], [y1, 4, 1], thresh_wet)
+                assign(da_pr, [y1, 4, 3], [y1, 4, 22], thresh_dry)
+                res_expect = [91, np.nan]
+
+            # Case #13: | . A . Tw 1x0 19xTd 10x0 . B | . |
+            elif (i == 13) and is_synthetic:
+                start_date, end_date = "03-01", "12-31"  # A, B
+                da_pr = gen(var, y1, n_years, 0.0)
+                assign(da_pr, [y1, 4, 1], [y1, 4, 1], thresh_wet)
+                assign(da_pr, [y1, 4, 3], [y1, 4, 21], thresh_dry)
+                res_expect = [np.nan, np.nan]
 
             else:
                 continue

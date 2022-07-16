@@ -27,7 +27,7 @@ from xclim.core.calendar import percentile_doy
 from xclim.core.units import convert_units_to, declare_units, rate2amount, to_agg_units
 from xclim.indices import run_length as rl
 from xclim.indices.generic import compare
-# The try-except claude is necessary because a function has been relocated.
+# The try-except clause is necessary because a function has been relocated.
 try:
     from xclim.core.calendar import select_time
 except ImportError:
@@ -336,7 +336,7 @@ def gen_single(
     for i in range(len(idx.params)):
         vi_param = idx.params[i]
 
-        # Convert thresholds (percentile to absolute value) ------------------------------------------------
+        # Convert thresholds (percentile to absolute value) ------------------------------------------------------------
 
         if (idx.name == c.I_TX90P) or ((idx.name == c.I_WSDI) and (i == 0)):
             vi_param = "90p"
@@ -376,7 +376,7 @@ def gen_single(
                 else:
                     vi_param = cntx.idx_params[cntx.idxs.name_l.index(idx.name)][i]
 
-        # Combine threshold and unit -----------------------------------------------------------------------
+        # Combine threshold and unit -----------------------------------------------------------------------------------
 
         if (idx.name in [c.I_TX90P, c.I_TROPICAL_NIGHTS]) or\
            ((idx.name in [c.I_HOT_SPELL_FREQUENCY, c.I_HOT_SPELL_MAX_LENGTH, c.I_HOT_SPELL_TOTAL_LENGTH, c.I_WSDI,
@@ -1516,12 +1516,16 @@ def rain_season_start(
 
     Examples
     --------
-    Successful season start:
+    Successful season start (initial accumulation over a period of 3 days):
         . . . . 10 10 10 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
+                 ^
+    Successful season start (initial accumulation during a single day):
+        . . . . 30  0  0 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 . . .
                  ^
     False start:
         . . . . 10 10 10 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
-    Not even a start:
+                                                         x => dry sequence
+    No start:
         . . . .  8  8  8 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . .
     given the numbers correspond to daily precipitation, based on default parameter values.
 
@@ -1542,6 +1546,18 @@ def rain_season_start(
     https://doi.org/10.1002/joc.3370010107
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Hardcoded method used to specify the conditions required for a dry period:
+    # - "max": a dry period occurs if daily precipitation amount is smaller than a threshold on each day.
+    # - "sum": a dry period occurs if the sum of precipitation over a period is smaller than a threshold.
+    op_dry = "max"
+
+    # If True, the number of wet days marking the onset of the rain season could be any value between 1 and
+    # 'window_wet'. This period varies in length spatially. If False, this period is constant.
+    # In both cases, 'window_wet' is transformed from an integer to DataArray.
+    op_flexible = True
+
+    # It's not clear whether 'op_dry' and 'op_flexible' should be user-specified or not.
 
     # Unit conversion.
     pram = rate2amount(pr, out_units="mm")
@@ -1564,39 +1580,60 @@ def rain_season_start(
     elif (start_date != "") and (end_date == ""):
         end_doy = 365 if start_doy == 1 else start_doy - 1
 
-    # Flag the first day of each sequence of {window_wet} days with a total of {thresh_wet} in precipitation
-    # (assign True).
-    # Current version: constant window size
-    wet = xr.DataArray(pram.rolling(time=window_wet).sum() >= thresh_wet)\
-        .shift(time=-(window_wet - 1), fill_value=False)
-    # Potential version: variable window size
-    # wet = None
-    # for i in range(window_wet):
-    #     wet_i = xr.DataArray(pram.rolling(time=i+1).sum() >= thresh_wet) \
-    #         .shift(time=-(window_wet - 1), fill_value=False)
-    #     if i == 0:
-    #         wet = wet_i
-    #     else:
-    #         wet = wet | wet_i
+    # List the possible lengths of the wet period.
+    if not op_flexible:
+        window_wet_l = [window_wet]
+    else:
+        window_wet_l = list(range(1, window_wet + 1))
+        window_wet_l.reverse()
 
-    # Identify dry days (assign 1).
-    # Current version, which is based on a daily precipitation rate.
-    dry_day = xr.where(pram < thresh_dry, 1, 0)
-    # Potential version, which is based on an accumulation over a number of days.
-    # dry_day = xr.DataArray(pram.rolling(time=dry_days).sum() < thresh_dry) \
-    #     .shift(time=-(dry_days - 1), fill_value=False)
+    # Flag the first day of each sequence of {window_wet} days with a total of {thresh_wet} in precipitation
+    # (assign True) and put the result in 'wet'.
+    # Also determine the length of the period associated with wet days marking the start of the season.
+    wet = None
+    da_window_wet = xr.ones_like(pram) * window_wet
+    if op_flexible:
+        for i in window_wet_l:
+            wet_i = xr.DataArray(pram.rolling(time=i).sum() >= thresh_wet).shift(time=-(i - 1), fill_value=False) &\
+                (pram > thresh_dry)
+            if i == window_wet_l[0]:
+                wet = wet_i
+            else:
+                da_window_wet_i = xr.DataArray((wet_i.astype(float) == 1).astype(float) * i)
+                da_window_wet = xr.where((da_window_wet_i > 0) & (da_window_wet_i < da_window_wet), da_window_wet_i,
+                                         da_window_wet)
+
+    # Identify dry days or the first day of a dry sequence (assign 1).
+    if op_dry == "max":
+        dry_day = xr.where(pram < thresh_dry, 1, 0)
+    else:
+        dry_day = xr.DataArray(pram.rolling(time=dry_days).sum() < thresh_dry).\
+            shift(time=-(dry_days - 1), fill_value=False)
 
     # Identify each day that is not followed by a sequence of {window_dry} days within a period of {window_tot} days,
-    # starting after {window_wet} days (assign True).
+    # starting after 1 to {window_wet} days (assign True).
     dry_seq = None
     for i in range(window_dry - dry_days - 1):
-        dry_day_i = dry_day.shift(time=-(i + window_wet), fill_value=False)
-        dry_seq_i = xr.DataArray(dry_day_i.rolling(time=dry_days).sum() >= dry_days)\
-            .shift(time=-(dry_days - 1), fill_value=False)
+
+        # Determine if the current sequence is dry.
+        dry_seq_i = xr.zeros_like(pram)
+        for j in window_wet_l:
+
+            # Shift a potential dry sequence to the potential start day.
+            dry_day_j = dry_day.shift(time=(-i - window_wet + j - 1), fill_value=False)
+
+            # Verify if there is the sequence is dry.
+            dry_seq_j = xr.DataArray(dry_day_j.rolling(time=dry_days).sum() >= dry_days).\
+                shift(time=-(dry_days - 1), fill_value=False)
+
+            # Only apply results to the cells with the current 'window_wet' value.
+            dry_seq_i = xr.where(da_window_wet == j, dry_seq_j, dry_seq_i)
+
+        # Combine with previous results.
         if i == 0:
             dry_seq = dry_seq_i.copy()
         else:
-            dry_seq = dry_seq | dry_seq_i
+            dry_seq = (dry_seq + dry_seq_i).astype(bool)
     no_dry_seq = (dry_seq.astype(bool) == 0)
 
     # Flag days between {start_date} and {end_date} (or the opposite).
@@ -1610,8 +1647,7 @@ def rain_season_start(
         )
 
     # Obtain the first day of each year when conditions apply.
-    start = (wet & no_dry_seq & doy).resample(time="YS").\
-        map(rl.first_run, window=1, dim="time", coord="dayofyear")
+    start = (wet & no_dry_seq & doy).resample(time="YS").map(rl.first_run, window=1, dim="time", coord="dayofyear")
     start = xr.where((start < 1) | (start > 365), np.nan, start)
     start.attrs["units"] = "1"
 
