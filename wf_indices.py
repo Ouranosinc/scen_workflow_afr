@@ -2211,6 +2211,8 @@ def gen_per_idx(
                 stats.calc_map(cntx.idxs.code_l, i_idx)
             elif func_name == "stats.calc_ts":
                 stats.calc_ts(view_code, cntx.idxs.code_l, i_idx)
+            elif func_name == "stats.calc_taylor":
+                stats.calc_taylor(cntx.idxs.code_l, i_idx)
             else:
                 stats.calc_tbl(cntx.idxs.code_l, i_idx)
 
@@ -2232,6 +2234,8 @@ def gen_per_idx(
                     func = functools.partial(stats.calc_map, idx_codes)
                 elif func_name == "stats.calc_ts":
                     func = functools.partial(stats.calc_ts, view_code, idx_codes)
+                elif func_name == "stats.calc_taylor":
+                    func = functools.partial(stats.calc_taylor, idx_codes)
                 else:
                     func = functools.partial(stats.calc_tbl, idx_codes)
                 pool.map(func, list(range(len(idx_codes))))
@@ -2299,6 +2303,14 @@ def run():
     if cntx.opt_ra and cntx.opt_map[1] and (len(cntx.opt_map_format) > 0):
         fu.log(msg)
         gen_per_idx("stats.calc_map")
+    else:
+        fu.log(msg + " (not required)")
+
+    fu.log("-")
+    msg = "Step #8f  Generating Taylor diagrams (indices)"
+    if cntx.opt_taylor[1] and (len(cntx.opt_taylor_format) > 0):
+        fu.log(msg)
+        gen_per_idx("stats.calc_taylor")
     else:
         fu.log(msg + " (not required)")
 

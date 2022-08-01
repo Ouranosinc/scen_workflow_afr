@@ -20,8 +20,11 @@ import pandas as pd
 import sys
 import warnings
 import xarray as xr
+import mpl_toolkits.axisartist.floating_axes as fa
+import mpl_toolkits.axisartist.grid_finder as gf
+from matplotlib.projections import PolarAxes
 from scipy import signal
-from typing import List
+from typing import List, Tuple, Union
 
 # Workflow libraries.
 import wf_file_utils as fu

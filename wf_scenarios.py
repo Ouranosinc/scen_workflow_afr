@@ -906,7 +906,7 @@ def preprocess(
 
         # Convert to a 365-day calendar.
         if c.DIM_TIME in ds_fut.dims:
-            ds_regrid_fut = wf_utils.convert_to_365_calender(ds_regrid_fut)
+            ds_regrid_fut = wf_utils.convert_to_365_calendar(ds_regrid_fut)
 
         # Save NetCDF.
         desc = cntx.sep + c.CAT_REGRID + cntx.sep + os.path.basename(p_regrid_fut)
@@ -1006,7 +1006,7 @@ def postprocess(
     # Simulation -------------------------------------------------------------------------------------------------------
 
     # Convert to a 365-day calendar.
-    da_sim_365 = wf_utils.convert_to_365_calender(ds_sim)[var.name]
+    da_sim_365 = wf_utils.convert_to_365_calendar(ds_sim)[var.name]
 
     # Observation ------------------------------------------------------------------------------------------------------
 
@@ -1162,7 +1162,7 @@ def bias_adj(
 ):
 
     """
-    -------------------------------------------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------------------------------------------
     Performs bias adjustment.
 
     Parameters
@@ -1175,7 +1175,7 @@ def bias_adj(
         Simulation name.
     calc_err: bool
         If True, only calculate the error (will not work properly in parallel mode).
-    -------------------------------------------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------------------------------------------
     """
 
     # List regrid files.
@@ -1259,7 +1259,7 @@ def bias_adj(
                 p_csv_exists = False
                 break
 
-        # Bias adjustment ----------------------------------------------------------------------------------
+        # Bias adjustment ----------------------------------------------------------------------------------------------
 
         if not calc_err:
 
@@ -1282,7 +1282,7 @@ def bias_adj(
             else:
                 fu.log(msg + " (not required)", True)
 
-        # Bias error ---------------------------------------------------------------------------------------
+        # Bias error ---------------------------------------------------------------------------------------------------
 
         elif os.path.exists(p_qqmap):
 
@@ -1292,8 +1292,14 @@ def bias_adj(
             ds_qqmap_ref = wf_utils.remove_feb29(ds_qqmap_ref)
             ds_qqmap_ref = wf_utils.sel_period(ds_qqmap_ref, cntx.per_ref)
 
-            # Calculate the error between observations and simulation for the reference period.
-            bias_err_current = float(round(wf_utils.calc_error(ds_stn[var.name], ds_qqmap_ref[var.name]), 4))
+            # Calculate the error between reference and simulation datasets for the reference period, after resampling
+            # at the monthly frequency.
+            try:
+                bias_err_current = float(round(
+                    wf_utils.calc_error(ds_stn[var.name].resample(time=c.FREQ_MS).sum(dim=c.DIM_TIME),
+                                        ds_qqmap_ref[var.name].resample(time=c.FREQ_MS).sum(dim=c.DIM_TIME)), 4))
+            except ValueError:
+                bias_err_current = -1.0000
 
             # Set bias adjustment parameters (nq, up_qmf and time_win) and calculate error according to the
             # selected method.
@@ -1792,6 +1798,8 @@ def gen_per_var(
                 stats.calc_map(var_code_l, i_var)
             elif func_name == "stats.calc_ts":
                 stats.calc_ts(view_code, var_code_l, i_var)
+            elif func_name == "stats.calc_taylor":
+                stats.calc_taylor(var_code_l, i_var)
             else:
                 stats.calc_tbl(var_code_l, i_var)
 
@@ -1816,6 +1824,8 @@ def gen_per_var(
                     func = functools.partial(stats.calc_map, var_name_l)
                 elif func_name == "stats.calc_ts":
                     func = functools.partial(stats.calc_ts, view_code, var_name_l)
+                elif func_name == "stats.calc_taylor":
+                    func = functools.partial(stats.calc_taylor, var_name_l)
                 else:
                     func = functools.partial(stats.calc_tbl, var_name_l)
                 pool.map(func, list(range(len(var_name_l))))
@@ -2026,7 +2036,15 @@ def run():
         fu.log(msg + " (not required)")
 
     fu.log("-")
-    msg = "Step #8f  Generating cluster plots (scenarios)"
+    msg = "Step #8f  Generating Taylor diagrams (scenarios)"
+    if cntx.opt_taylor[0] and (len(cntx.opt_taylor_format) > 0):
+        fu.log(msg)
+        gen_per_var("stats.calc_taylor")
+    else:
+        fu.log(msg + " (not required)")
+
+    fu.log("-")
+    msg = "Step #8g  Generating cluster plots (scenarios)"
     if cntx.opt_cluster and (len(cntx.opt_cluster_format) > 0):
         fu.log(msg)
         stats.calc_clusters()

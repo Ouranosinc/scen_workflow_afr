@@ -387,7 +387,7 @@ def reset_calendar_l(
     return new_time
 
 
-def convert_to_365_calender(
+def convert_to_365_calendar(
     ds: Union[xr.Dataset, xr.DataArray]
 ) -> Union[xr.Dataset, xr.DataArray]:
 

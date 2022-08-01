@@ -884,7 +884,7 @@ def deploy():
         cntx.region + "-" + cntx.obs_src + cntx.sep
 
     # Copy figures.
-    for view in [c.VIEW_CYCLE_D, c.VIEW_CYCLE_MS, c.VIEW_MAP, c.VIEW_TS, c.VIEW_TS_BIAS]:
+    for view in [c.VIEW_CYCLE_D, c.VIEW_CYCLE_MS, c.VIEW_MAP, c.VIEW_TS, c.VIEW_TS_BIAS, c.VIEW_TAYLOR]:
         for p_work_i in glob.glob(cntx.d_fig(view) + "*_csv"):
             p_dash_i = p_dash + view + cntx.sep + os.path.basename(p_work_i).replace("_csv", "")
             dir_util.copy_tree(p_work_i, p_dash_i)

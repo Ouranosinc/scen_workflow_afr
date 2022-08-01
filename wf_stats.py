@@ -17,7 +17,8 @@ import os
 import pandas as pd
 # Do not delete the line below: 'rioxarray' must be added even if it's not explicitly used in order to have a 'rio'
 # variable in DataArrays.
-import rioxarray as rio
+import rioxarray
+import skill_metrics as sm
 import sys
 import warnings
 import xarray as xr
@@ -437,7 +438,8 @@ def list_netcdf(
         sim_code_l = []
         for p in p_l:
             sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace(c.F_EXT_NC, "")
-            sim_code_l.append(sim_code_i)
+            if sim_code_i != c.REF:
+                sim_code_l.append(sim_code_i)
         sim_code_l.sort()
 
         # Add reference data.
@@ -445,6 +447,198 @@ def list_netcdf(
             sim_code_l = [c.REF] + sim_code_l
 
         return sim_code_l
+
+
+def calc_taylor(
+    vi_code_l: List[str],
+    i_vi_proc: int
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Calculate Taylor diagram.
+
+    Parameters
+    ----------
+    vi_code_l: List[str],
+        Variables or index codes.
+    i_vi_proc: int
+        Rank of variable or index to process.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    varidx = VarIdx(vi_code_l[i_vi_proc])
+
+    # Resampling frequency.
+    freq = c.FREQ_MS if varidx.is_var else c.FREQ_YS
+
+    cat = c.CAT_SCEN if varidx.is_var else c.CAT_IDX
+    if (cat == c.CAT_SCEN) or (not varidx.is_group):
+        vi_code_l = [varidx.code]
+        vi_name_l = [varidx.name]
+    else:
+        vi_code_l = vi.explode_idx_l([varidx.code])
+        vi_name_l = vi.explode_idx_l([varidx.name])
+
+    # Adjust the dataset by filling missing values (interpolating), removing February 29th, selecting reference period,
+    # clipping and squeezing.
+    def adjust_ds(
+        _ds: xr.Dataset,
+        _vi_name: str
+    ) -> xr.Dataset:
+
+        # Interpolating along time dimnension to fill missing data.
+        if freq == c.FREQ_D:
+            _ds_days = wf_utils.remove_feb29(_ds).resample(time=c.FREQ_YS).count(dim=c.DIM_TIME, keep_attrs=True)
+            if int(_ds_days[_vi_name].min()) != int(_ds_days[_vi_name].max()):
+                if VarIdx(_vi_name).is_summable:
+                    _ds = _ds.resample(time=freq).sum(dim=c.DIM_TIME, keep_attrs=True)
+                else:
+                    _ds = _ds.resample(time=freq).mean(dim=c.DIM_TIME, keep_attrs=True)
+                _ds = _ds.interpolate_na(dim=c.DIM_TIME)
+
+        # Subset (in time and space).
+        _ds = wf_utils.remove_feb29(_ds)
+        _ds = wf_utils.sel_period(_ds, cntx.per_ref)
+        if cntx.opt_ra and cntx.opt_taylor_clip and cntx.p_bounds != "":
+            _ds = wf_utils.subset_shape(_ds)
+        _ds = wf_utils.squeeze_lon_lat(_ds)
+
+        # Daily frequency.
+        # TODO: Get rid of the following warning : 'numpy.datetime64' object has no attribute 'year'
+        if freq == c.FREQ_D:
+            _ds = wf_utils.convert_to_365_calendar(_ds)
+            _ds[c.DIM_TIME] = wf_utils.reset_calendar(_ds)
+
+        # Yearly or monthly frequency.
+        else:
+            if VarIdx(_vi_name).is_summable:
+                _ds = _ds.resample(time=freq).sum(dim=c.DIM_TIME, keep_attrs=True)
+            else:
+                _ds = _ds.resample(time=freq).mean(dim=c.DIM_TIME, keep_attrs=True)
+
+        # Adjust units.
+        if ((_vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]) and
+            (((c.ATTRS_UNITS in _ds[_vi_name].attrs) and (c.UNIT_C not in _ds[_vi_name].attrs[c.ATTRS_UNITS])) or
+             ((c.ATTRS_UNITS not in _ds[_vi_name].attrs) and (float(_ds[_vi_name].max()) > 100)))):
+            _ds[_vi_name] = _ds[_vi_name] - c.d_KC
+            _ds[_vi_name].attrs[c.ATTRS_UNITS] = c.UNIT_C
+        elif (varidx.is_summable and
+              (((c.ATTRS_UNITS in _ds[_vi_name].attrs) and (c.UNIT_mm not in _ds[_vi_name].attrs[c.ATTRS_UNITS])) or
+               ((c.ATTRS_UNITS not in _ds[_vi_name].attrs) and (float(_ds[_vi_name].max()) < 1)))):
+            _ds[_vi_name] = _ds[_vi_name] * c.SPD
+            _ds[_vi_name].attrs[c.ATTRS_UNITS] = c.UNIT_mm
+
+        return _ds
+
+    # Loop through stations.
+    stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
+    for stn in stns:
+
+        # Loop through variables or indices.
+        # There should be a single item in the list, unless 'vi_code' is a group of indices.
+        for i_vi in range(len(vi_name_l)):
+            vi_code = vi_code_l[i_vi]
+            vi_name = vi_name_l[i_vi]
+            vi_code_grp = vi.group(vi_code) if varidx.is_group else vi_code
+
+            # Loop through categories of simulation data.
+            cat_l = [c.CAT_REGRID, c.CAT_QQMAP] if varidx.is_var else [c.CAT_IDX]
+            for cat in cat_l:
+
+                # Paths.
+                p_fig = cntx.d_fig(c.VIEW_TAYLOR, vi_code_grp) + vi_name + ("_" + cat if varidx.is_var else "") +\
+                    c.F_EXT_PNG
+                p_csv = p_fig.replace(cntx.sep + vi_code_grp + cntx.sep,
+                                      cntx.sep + vi_code_grp + "_" + c.F_CSV + cntx.sep).\
+                    replace(c.F_EXT_PNG, c.F_EXT_CSV)
+
+                # Determine if the analysis is required.
+                save_fig = (cntx.opt_force_overwrite or
+                            ((not os.path.exists(p_fig)) and (c.F_PNG in cntx.opt_taylor_format)))
+                save_csv = (cntx.opt_force_overwrite or
+                            ((not os.path.exists(p_csv)) and (c.F_CSV in cntx.opt_taylor_format)))
+                if not (save_fig or save_csv):
+                    return
+
+                # Arrays that will hold statistics.
+                sim_code_l, sdev_l, crmsd_l, ccoef_l = [], [], [], []
+
+                # Load data.
+                if os.path.exists(p_csv):
+                    df = pd.read_csv(p_csv)
+
+                # Prepare data.
+                else:
+
+                    # Status message.
+                    vi_code_display = vi_code_grp + "." + vi_code if vi_code_grp != vi_code else vi_code
+                    msg = "Processing: " + stn + ", " + vi_code_display + ", " + cat
+                    fu.log(msg)
+
+                    # List simulations associated with NetCDF files.
+                    sim_code_l = list(list_netcdf(stn, varidx, "sim_code"))
+                    if c.REF in sim_code_l:
+                        sim_code_l.remove(c.REF)
+                    sim_code_l.sort()
+
+                    # Load reference data.
+                    if varidx.is_var:
+                        p_ref = cntx.d_scen(c.CAT_OBS, vi_name) + vi_name + "_" + cntx.obs_src + c.F_EXT_NC
+                    else:
+                        p_ref = cntx.d_idx(vi_code_grp) + vi_name + "_" + c.REF + c.F_EXT_NC
+                    ds_ref = None
+                    if os.path.exists(p_ref):
+
+                        # Load NetCDF (reference data).
+                        ds_ref = fu.open_netcdf(p_ref)
+
+                        # Select the days associated with the reference data, discard February 29th, and squeeze.
+                        ds_ref = adjust_ds(ds_ref, vi_name)
+
+                    # Loop through simulations.
+                    for i_sim in range(len(sim_code_l)):
+
+                        # Load NetCDF (simulation data).
+                        if varidx.is_var:
+                            p_sim = cntx.d_scen(cat, vi_name) + vi_name + "_" + sim_code_l[i_sim] + c.F_EXT_NC
+                            if cat == c.CAT_REGRID:
+                                p_sim = p_sim.replace(c.F_EXT_NC, "_ref_4qqmap" + c.F_EXT_NC)
+                        else:
+                            p_sim = cntx.d_idx(vi_code_grp) + vi_name + "_" + sim_code_l[i_sim] + c.F_EXT_NC
+                        ds_sim = fu.open_netcdf(p_sim)
+
+                        # Select the days associated with the reference data, discard February 29th, and squeeze.
+                        ds_sim = adjust_ds(ds_sim, vi_name)
+
+                        # Calculate and store statistics.
+                        # The first array element (e.g. taylor_stats[0]) corresponds to the reference series while the
+                        # second and subsequent elements (e.g. taylor_stats[1:]) are those for the predicted series.
+                        taylor_stats = sm.taylor_statistics(ds_sim[vi_name].values, ds_ref[vi_name].values, "data")
+                        for j in range(2):
+                            if ((i_sim == 0) and (j == 0)) or (j == 1):
+                                sdev_l.append(taylor_stats["sdev"][j])
+                                crmsd_l.append(taylor_stats["crmsd"][j])
+                                ccoef_l.append(taylor_stats["ccoef"][j])
+
+                    # Adjust precision.
+                    sim_code_l = ["Référence"] + sim_code_l
+                    sdev_l = list(dash_plot.adjust_precision(sdev_l, n_dec_max=2, output_type="float"))
+                    crmsd_l = list(dash_plot.adjust_precision(crmsd_l, n_dec_max=2, output_type="float"))
+                    ccoef_l = list(dash_plot.adjust_precision(ccoef_l, n_dec_max=2, output_type="float"))
+
+                    # Convert to a DataFrame.
+                    dict_pd = {"sim_code": sim_code_l, "sdev": sdev_l, "crmsd": crmsd_l, "ccoef": ccoef_l}
+                    df = pd.DataFrame(dict_pd)
+
+                # Save CSV file.
+                if save_csv and (p_csv != ""):
+                    fu.save_csv(df, p_csv)
+
+                # Generate figure.
+                if save_fig:
+                    fig = dash_plot.gen_taylor_plot(df)
+                    fu.save_plot(fig, p_fig)
 
 
 def calc_tbl(

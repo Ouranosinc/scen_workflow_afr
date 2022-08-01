@@ -651,6 +651,15 @@ class Context(cl_context.Context):
         # Spatial reference (starts with: EPSG).
         self.opt_map_spat_ref = ""
 
+        # Enable/diasble generation of Taylor diagrams for [scenarios, indices].
+        self.opt_taylor = [True] * 2
+
+        # Enable/disable clipping according to 'p_bounds'.
+        self.opt_taylor_clip = False
+
+        # Format of Taylor diagrams.
+        self.opt_taylor_format = ["png", "csv"]
+
         # Enable/disable the calculation of statistics tables for [scenarios, indices].
         self.opt_tbl = [True] * 2
 
@@ -898,7 +907,16 @@ class Context(cl_context.Context):
                 elif key == "opt_map_spat_ref":
                     self.opt_map_spat_ref = ast.literal_eval(value)
 
-                # Results > Statistics table.
+                # Results > Taylor diagram:
+                elif key == "opt_taylor":
+                    self.opt_taylor = ast.literal_eval(value)\
+                        if ("," not in value) else cl_context.str_to_arr_1d(value, bool)
+                elif key == "opt_taylor_clip":
+                    self.opt_taylor_clip = ast.literal_eval(value)
+                elif key == "opt_taylor_format":
+                    self.opt_taylor_format = cl_context.str_to_arr_1d(value, str)
+
+                # Results > Statistics table:
                 elif key == "opt_tbl":
                     self.opt_tbl = ast.literal_eval(value)\
                         if ("," not in value) else cl_context.str_to_arr_1d(value, bool)
@@ -1111,7 +1129,7 @@ class Context(cl_context.Context):
         Parameters
         ----------
         cat: Optional[str]
-            Category of figure = {c.CAT_FIG*, c.VIEW_TS, c.VIEW_MAP, c.VIEW_CLUSTER*, c.VIEW_CYCLE*}
+            Category of figure = {c.CAT_FIG*, c.VIEW_TS, c.VIEW_MAP, c.VIEW_CLUSTER*, c.VIEW_CYCLE, c.VIEW_TAYLOR*}
         vi_name: Optional[str]
             Climate variable or index name.
 
