@@ -360,6 +360,9 @@ def load_reanalysis_ecmwf_enacts(
         # Subset.
         ds = wf_utils.subset_lon_lat_time(ds, var_name, cntx.lon_bnds, cntx.lat_bnds)
 
+        # Resample at a daily frequency to eliminate duplicates (preventive).
+        ds = ds.resample(time=c.FREQ_D).mean(dim=c.DIM_TIME)
+
         # Apply and create mask.
         if var_name != c.V_SFTLF:
             da_mask = fu.create_mask(ds if cntx.obs_src == c.ENS_ERA5_LAND else "")
@@ -394,7 +397,9 @@ def load_reanalysis_ecmwf_enacts(
             elif var_name == c.V_EVSPSBLPOT:
                 ds[var_name].attrs[c.ATTRS_SNAME] = "evapotranspiration_flux"
                 ds[var_name].attrs[c.ATTRS_LNAME] = "Evapotranspiration"
-            if is_era5:
+            if is_enacts:
+                ds = wf_utils.set_units(ds, var_name, c.UNIT_kg_m2s1)
+            elif is_era5:
                 ds[var_name].attrs[c.ATTRS_UNITS] = c.UNIT_kg_m2s1
         elif var_name in [c.V_UAS, c.V_VAS, c.V_SFCWINDMAX]:
             if var_name == c.V_UAS:
