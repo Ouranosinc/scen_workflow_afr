@@ -587,7 +587,7 @@ def calc_taylor(
                         p_ref = cntx.d_scen(c.CAT_OBS, vi_name) + vi_name + "_" + cntx.obs_src + c.F_EXT_NC
                     else:
                         p_ref = cntx.d_idx(vi_code_grp) + vi_name + "_" + c.REF + c.F_EXT_NC
-                    ds_ref = None
+                    ref_l = []
                     if os.path.exists(p_ref):
 
                         # Load NetCDF (reference data).
@@ -595,34 +595,48 @@ def calc_taylor(
 
                         # Select the days associated with the reference data, discard February 29th, and squeeze.
                         ds_ref = adjust_ds(ds_ref, vi_name)
+                        ref_l = ds_ref[vi_name].values
+                        if len([i for i in list(range(len(ref_l))) if not np.isnan(ref_l[i])]) == 0:
+                            continue
 
                     # Loop through simulations.
-                    for i_sim in range(len(sim_code_l)):
+                    sim_code_sel_l = []
+                    for sim_code in sim_code_l:
 
                         # Load NetCDF (simulation data).
                         if varidx.is_var:
-                            p_sim = cntx.d_scen(cat, vi_name) + vi_name + "_" + sim_code_l[i_sim] + c.F_EXT_NC
+                            p_sim = cntx.d_scen(cat, vi_name) + vi_name + "_" + sim_code + c.F_EXT_NC
                             if cat == c.CAT_REGRID:
                                 p_sim = p_sim.replace(c.F_EXT_NC, "_ref_4qqmap" + c.F_EXT_NC)
                         else:
-                            p_sim = cntx.d_idx(vi_code_grp) + vi_name + "_" + sim_code_l[i_sim] + c.F_EXT_NC
+                            p_sim = cntx.d_idx(vi_code_grp) + vi_name + "_" + sim_code + c.F_EXT_NC
                         ds_sim = fu.open_netcdf(p_sim)
 
                         # Select the days associated with the reference data, discard February 29th, and squeeze.
                         ds_sim = adjust_ds(ds_sim, vi_name)
+                        sim_l = ds_sim[vi_name].values
+                        if (len([i for i in list(range(len(sim_l))) if not np.isnan(sim_l[i])]) == 0) or\
+                           (len(ref_l) != len(sim_l)):
+                            continue
+
+                        # Select the values that are not equal to np.nan (in the reference and simulation datasets).
+                        sel = ref_l * sim_l
+                        sel = [i for i in list(range(len(sel))) if not(np.isnan(sel[i]))]
 
                         # Calculate and store statistics.
-                        # The first array element (e.g. taylor_stats[0]) corresponds to the reference series while the
-                        # second and subsequent elements (e.g. taylor_stats[1:]) are those for the predicted series.
-                        taylor_stats = sm.taylor_statistics(ds_sim[vi_name].values, ds_ref[vi_name].values, "data")
+                        # The first array element (e.g. taylor_stats[0]) corresponds to the reference series while
+                        # the second and subsequent elements (e.g. taylor_stats[1:]) are those for the predicted
+                        # series.
+                        taylor_stats = sm.taylor_statistics([sim_l[i] for i in sel], [ref_l[i] for i in sel], "data")
                         for j in range(2):
-                            if ((i_sim == 0) and (j == 0)) or (j == 1):
+                            if (len(sdev_l) == 0) or (j == 1):
+                                sim_code_sel_l.append(sim_code)
                                 sdev_l.append(taylor_stats["sdev"][j])
                                 crmsd_l.append(taylor_stats["crmsd"][j])
                                 ccoef_l.append(taylor_stats["ccoef"][j])
 
                     # Adjust precision.
-                    sim_code_l = ["Référence"] + sim_code_l
+                    sim_code_l = ["Référence"] + sim_code_sel_l
                     sdev_l = list(dash_plot.adjust_precision(sdev_l, n_dec_max=2, output_type="float"))
                     crmsd_l = list(dash_plot.adjust_precision(crmsd_l, n_dec_max=2, output_type="float"))
                     ccoef_l = list(dash_plot.adjust_precision(ccoef_l, n_dec_max=2, output_type="float"))

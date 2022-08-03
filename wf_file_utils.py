@@ -520,6 +520,101 @@ def crop_netcdf(
     save_netcdf(ds_i_out, p_out)
 
 
+def evaluate_canswe(
+    p: str,
+    var_name: str,
+    n_values_per_year: int = 1,
+    n_years: int = -1,
+    per: List[int] = None
+):
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Explore NetCDF file.
+
+    Parameters
+    ----------
+    p: str
+        Path.
+    var_name: str
+        Variable name.
+    n_values_per_year: int
+        Minimum number of values per year required.
+    n_years: int
+        Minimum number of years required.
+    per: List[int]
+        Period of interest (first and last year).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    log("=")
+    log("Evaluating CanSWE.")
+
+    # Load NetCDF.
+    ds = open_netcdf(p)
+
+    # Select the records for the years of interest.
+    if per is not None:
+        ds = ds.sel(time=slice(str(per[0]), str(per[1])))
+
+    # List of years.
+    year_l = list(set(list(ds[c.DIM_TIME].dt.year.values)))
+    year_l.sort()
+
+    # List of stations.
+    stn_id_l = list(ds["station_id"].values)
+
+    # Initialize DataFrame.
+    dict_pd = {"year": year_l}
+    df = pd.DataFrame(dict_pd)
+    stn_name_l, lon_l, lat_l = [], [], []
+
+    # Loop through stations.
+    i = 1
+    for stn_id in stn_id_l:
+
+        log("Analyzing station " + str(i) + "/" + str(len(stn_id_l)) + ": " + stn_id, True)
+
+        # Identify the years that are comprised in the sought range.
+        ds_stn = ds.sel(station_id=stn_id)
+
+        # Count the number of days per year with values (not np.nan).
+        da_not_nan = xr.DataArray((ds_stn[var_name].isnull()).astype(int) == 0)
+        days_per_year_l = da_not_nan.resample(time=c.FREQ_YS).sum(c.DIM_TIME).values
+
+        # Calculate the number of years that don't meet the minimum number of values per year required.
+        n_years_stn = sum(days_per_year_l >= n_values_per_year)
+
+        # Extract station name and coordinates.
+        stn_name = str(ds_stn["station_name"].values)
+        lon = float(ds_stn[c.DIM_LON].values)
+        lat = float(ds_stn[c.DIM_LAT].values)
+
+        # Add current result to DataFrame (only if it has enough years).
+        if n_years_stn >= n_years:
+            df[stn_id] = days_per_year_l
+            stn_name_l.append(stn_name)
+            lon_l.append(lon)
+            lat_l.append(lat)
+
+        i += 1
+
+    # Transpose.
+    df_t = df.set_index("year")
+    df_t = df_t.transpose().rename_axis("stn_id").reset_index()
+
+    # Add station names and coordinates.
+    df_t.insert(loc=1, column="stn_name", value=stn_name_l)
+    df_t.insert(loc=2, column=c.DIM_LONGITUDE, value=lon_l)
+    df_t.insert(loc=3, column=c.DIM_LATITUDE, value=lat_l)
+
+    # Save CSV.
+    p_csv = p.replace(c.F_EXT_NC, c.F_EXT_CSV)
+    save_csv(df_t, p_csv)
+
+    # TODO: Save PNG.
+    p_png = p.replace(c.F_EXT_NC, c.F_EXT_PNG)
+
+
 def save_plot(
     plot: Union[alt.Chart, any, plt.Figure],
     p: str,
