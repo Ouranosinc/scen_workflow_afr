@@ -360,6 +360,9 @@ def load_reanalysis_ecmwf_enacts(
         # Subset.
         ds = wf_utils.subset_lon_lat_time(ds, var_name, cntx.lon_bnds, cntx.lat_bnds)
 
+        # Sort by time dimension to avoid non-monotonic issue during resampling.
+        ds = ds.sortby(c.DIM_TIME)
+
         # Resample at a daily frequency to eliminate duplicates (preventive).
         ds = ds.resample(time=c.FREQ_D).mean(dim=c.DIM_TIME)
 

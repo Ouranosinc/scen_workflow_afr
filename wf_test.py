@@ -1742,6 +1742,8 @@ def run():
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    fu.log("=")
+
     # Crop NetCDF files.
     # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "bf", "WD_BLACK", "WD_BLACK", False)
     # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF, c.ENS_CHIRPS], "ci", "WD_BLACK", "WD_BLACK", False)
@@ -1749,7 +1751,16 @@ def run():
     # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "sn", "WD_BLACK", "ROCKET-XTRM", False)
     # exit()
 
-    fu.log("=")
+    # Explore CanSWE.
+    p            = "/home/yrousseau/scenario/external_data/canswe/CanSWE-CanEEN_1928-2021_v4.nc"
+    var_name     = "snw"
+    per          = [1971, 2015]
+    case_id      = 3
+    stn_key_l    = ["HQ", "total"]
+    d_out        = "20220803"
+    fu.evaluate_canswe(case_id, p, var_name, per, stn_key_l, d_out)
+    exit()
+
     fu.log("Step #0   Testing indices")
 
     fu.log("Step #0a  translations")

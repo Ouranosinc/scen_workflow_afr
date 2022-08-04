@@ -111,10 +111,6 @@ def main():
     if (cntx.region != "") and cntx.opt_ra:
         fu.log("Region                 : " + cntx.region)
 
-    # TODO: Explore NetCDF file.
-    # fu.evaluate_canswe(p="/home/yrousseau/scenario/external_data/canswe/CanSWE-CanEEN_1928-2021_v4.nc",
-    #                    var_name="snw", n_values_per_year=300, n_years=20, per=[1971, 2015])
-
     # Step #2: Download and aggregation --------------------------------------------------------------------------------
 
     # Download data.

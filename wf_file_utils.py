@@ -521,15 +521,109 @@ def crop_netcdf(
 
 
 def evaluate_canswe(
+    case_id: int,
     p: str,
     var_name: str,
-    n_values_per_year: int = 1,
-    n_years: int = -1,
-    per: List[int] = None
+    per: List[int] = None,
+    stn_key_l: List[str] = None,
+    d_out: str = ""
 ):
+
     """
     --------------------------------------------------------------------------------------------------------------------
-    Explore NetCDF file.
+    Explore CanSWE dataset.
+
+    Parameters
+    ----------
+    case_id: int
+        Case identifier.
+    p: str
+        Path.
+    var_name: str
+        Variable name.
+    per: List[int]
+        Period of interest (first and last year).
+    stn_key_l: List[str]
+        Stations for which statistics are required
+    d_out: str
+        Output directory.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    log("=")
+    log("Evaluating CanSWE.")
+
+    # Structure to save into.
+    content = []
+
+    # Case #1: No criterion.
+    if case_id == 1:
+        evaluate_canswe_case(p=p, var_name=var_name, d_out=d_out)
+
+    # Case #2: At least X year(s) with at least Y% of values available, between 1971-2015.
+    elif case_id == 2:
+        n_years_w_data_req_l = [1, 20]
+        pct_vals_per_req_l = [0.27, 10.0]
+        for n_years_w_data_req in n_years_w_data_req_l:
+            for pct_vals_per_req in pct_vals_per_req_l:
+                n_stn_l = evaluate_canswe_case(p=p, var_name=var_name, n_years_w_data_req=n_years_w_data_req,
+                                               pct_vals_per_req=pct_vals_per_req, pct_vals_freq=c.FREQ_YS,
+                                               per=per, stn_key_l=stn_key_l, d_out=d_out)
+                content.append([n_years_w_data_req, pct_vals_per_req, "nan", per] + list(n_stn_l))
+
+    # Case #3: At least X year(s) in which at least Y% of values available, between 1971-2015.
+    elif case_id == 3:
+        n_years_w_data_req_l = [1, 5, 10, 15, 20]
+        pct_vals_per_req_l = [1, 5, 10, 25, 50, 75]
+        month_l_l = [[1, 2], [1, 2, 12], [1, 2, 3], [1, 2, 3, 12], [1, 2, 3, 11, 12], [1, 2, 3, 4, 12],
+                     [1, 2, 3, 4, 11, 12]]
+        for n_years_w_data_req in n_years_w_data_req_l:
+            for pct_vals_per_req in pct_vals_per_req_l:
+                for month_l in month_l_l:
+                    n_stn_l = evaluate_canswe_case(p=p, var_name=var_name, n_years_w_data_req=n_years_w_data_req,
+                                                   pct_vals_per_req=pct_vals_per_req, pct_vals_freq=c.FREQ_MS,
+                                                   per=per, month_l=month_l, stn_key_l=stn_key_l, d_out=d_out)
+                    content.append([n_years_w_data_req, pct_vals_per_req, month_l, per] + list(n_stn_l))
+
+    # Export synthesis.
+    if len(content) > 0:
+
+        # Transpose array.
+        content_t = [[row[i] for row in content] for i in range(len(content[0]))]
+
+        # Create DataFrame.
+        df = pd.DataFrame()
+        df["n_years"] = content_t[0]
+        df["pct_vals"] = content_t[1]
+        df["months"] = content_t[2]
+        df["period"] = content_t[3]
+        for i_stn_key in range(len(stn_key_l)):
+            df[stn_key_l[i_stn_key]] = content_t[4 + i_stn_key]
+
+        # Path.
+        p_csv = p.replace(c.F_EXT_NC, c.F_EXT_CSV)
+        if d_out != "":
+            p_csv = os.path.dirname(p_csv) + "/" + d_out + "/" + os.path.basename(p_csv)
+
+        # Save CSV.
+        save_csv(df, p_csv)
+
+
+def evaluate_canswe_case(
+    p: str,
+    var_name: str,
+    n_years_w_data_req: int = 1,
+    pct_vals_per_req: float = 0.27,
+    pct_vals_freq: str = c.FREQ_YS,
+    per: List[int] = None,
+    month_l: List[int] = None,
+    stn_key_l: List[str] = None,
+    d_out: str = ""
+) -> List[int]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Explore CanSWE dataset (specific case).
 
     Parameters
     ----------
@@ -537,20 +631,34 @@ def evaluate_canswe(
         Path.
     var_name: str
         Variable name.
-    n_values_per_year: int
-        Minimum number of values per year required.
-    n_years: int
+    n_years_w_data_req: int
         Minimum number of years required.
+    pct_vals_per_req: float
+        Minimum number of values per period (yearr or month) required.
+    pct_vals_freq: str
+        Frequency associated with 'pct_values_per_req' = {c.FREQ_YS, c.FREQ_MS}.
     per: List[int]
         Period of interest (first and last year).
+    month_l: List[int]
+        Months to consider.
+    stn_key_l: List[str]
+        Stations for which statistics are required.
+    d_out: str
+        Output directory.
+
+    Returns
+    -------
+    List[int]
+        Number of years with data for each station in 'stn_l'.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    log("=")
-    log("Evaluating CanSWE.")
-
     # Load NetCDF.
     ds = open_netcdf(p)
+
+    # Debug: Select a station.
+    # ds_test = ds.sel(station_id="BCE-1D15P")
+    # ds_test = ds_test[var_name][ds_test[c.DIM_TIME].dt.year.values == 1992]
 
     # Select the records for the years of interest.
     if per is not None:
@@ -560,59 +668,173 @@ def evaluate_canswe(
     year_l = list(set(list(ds[c.DIM_TIME].dt.year.values)))
     year_l.sort()
 
-    # List of stations.
-    stn_id_l = list(ds["station_id"].values)
+    # Determine complete period.
+    if per is None:
+        per = [min(year_l), max(year_l)]
 
-    # Initialize DataFrame.
-    dict_pd = {"year": year_l}
-    df = pd.DataFrame(dict_pd)
-    stn_name_l, lon_l, lat_l = [], [], []
+    # Select all months if they were not specified.
+    if (pct_vals_freq == c.FREQ_MS) and (len(month_l) == 0):
+        month_l = list(range(1, 13))
 
-    # Loop through stations.
-    i = 1
-    for stn_id in stn_id_l:
+    # Paths.
+    months_str = ("".join(("" if i == 0 else "-") + str(month_l[i]) for i in range(len(month_l))))
+    per_str = str(per[0]) + "-" + str(per[1])
+    suffix = "_" + ("nan" if n_years_w_data_req < 0 else str(n_years_w_data_req)) + \
+             "_" + ("nan" if pct_vals_per_req < 0 else str(round(pct_vals_per_req, 2))) + \
+             ("_" if len(month_l) > 0 else "") + months_str + "_" + per_str
+    p_csv = p.replace(c.F_EXT_NC, suffix + c.F_EXT_CSV)
+    if d_out != "":
+        p_csv = os.path.dirname(p_csv) + "/" + d_out + "/" + os.path.basename(p_csv)
+    p_fig = p_csv.replace(c.F_EXT_CSV, "")
 
-        log("Analyzing station " + str(i) + "/" + str(len(stn_id_l)) + ": " + stn_id, True)
+    # Load CSV if it already exists.
+    if os.path.exists(p_csv):
 
-        # Identify the years that are comprised in the sought range.
-        ds_stn = ds.sel(station_id=stn_id)
+        log("Processing : " + suffix.lstrip("_") + " (from existing CSV)")
+        df_t = pd.read_csv(p_csv)
+        df_t = df_t.sort_values(by="stn_id")
 
-        # Count the number of days per year with values (not np.nan).
-        da_not_nan = xr.DataArray((ds_stn[var_name].isnull()).astype(int) == 0)
-        days_per_year_l = da_not_nan.resample(time=c.FREQ_YS).sum(c.DIM_TIME).values
+    # Generate CSV.
+    else:
 
-        # Calculate the number of years that don't meet the minimum number of values per year required.
-        n_years_stn = sum(days_per_year_l >= n_values_per_year)
+        log("Processing : " + suffix.lstrip("_") + " (analysis required)")
 
-        # Extract station name and coordinates.
-        stn_name = str(ds_stn["station_name"].values)
-        lon = float(ds_stn[c.DIM_LON].values)
-        lat = float(ds_stn[c.DIM_LAT].values)
+        # List of stations.
+        stn_id_l = list(ds["station_id"].values)
 
-        # Add current result to DataFrame (only if it has enough years).
-        if n_years_stn >= n_years:
-            df[stn_id] = days_per_year_l
-            stn_name_l.append(stn_name)
-            lon_l.append(lon)
-            lat_l.append(lat)
+        # Initialize DataFrame.
+        dict_pd = {"year": year_l}
+        df = pd.DataFrame(dict_pd)
+        stn_name_l, lon_l, lat_l, n_years_w_data_l = [], [], [], []
 
-        i += 1
+        # Loop through stations.
+        i = 1
+        for stn_id in stn_id_l:
 
-    # Transpose.
-    df_t = df.set_index("year")
-    df_t = df_t.transpose().rename_axis("stn_id").reset_index()
+            # log("Processing station " + str(i) + "/" + str(len(stn_id_l)) + ": " + stn_id)
 
-    # Add station names and coordinates.
-    df_t.insert(loc=1, column="stn_name", value=stn_name_l)
-    df_t.insert(loc=2, column=c.DIM_LONGITUDE, value=lon_l)
-    df_t.insert(loc=3, column=c.DIM_LATITUDE, value=lat_l)
+            # Identify the years that are comprised in the sought range.
+            ds_stn = ds.sel(station_id=stn_id)
 
-    # Save CSV.
-    p_csv = p.replace(c.F_EXT_NC, c.F_EXT_CSV)
+            # Count the number of days per year with data, i.e. with a value > 0.
+            def count_days_per_year(
+                _month: int = -1
+            ) -> List[int]:
+
+                if _month > 0:
+                    _da_stn = ds_stn[var_name][ds_stn[c.DIM_TIME].dt.month.values == _month]
+                else:
+                    _da_stn = ds_stn[var_name]
+                _da_days_w_data = xr.where(_da_stn.isnull(), 0, 1)
+                _days_per_year_l = _da_days_w_data.resample(time=c.FREQ_YS).sum(c.DIM_TIME).values
+
+                return _days_per_year_l
+
+            # Calculate the number of years that meet the minimum number of values per year required.
+            days_per_year_l = []
+            if pct_vals_freq == c.FREQ_YS:
+                days_per_year_l = list(count_days_per_year())
+                n_years_w_data = sum([days_per_year_l[i] >= (pct_vals_per_req / 100 * 365) for i in days_per_year_l])
+
+            # Determine if each month has the required proportion of values.
+            else:
+                enough_vals_w_data_l = [True] * len(year_l)
+                n_years_w_data = len(year_l)
+                for month in month_l:
+
+                    # Extract data for the current month.
+                    da_stn_month = ds_stn[var_name][ds_stn[c.DIM_TIME].dt.month.values == month]
+
+                    # Extract the number of days in the current month.
+                    days_in_month_l = da_stn_month[c.DIM_TIME].dt.day.resample(time=c.FREQ_YS).max(c.DIM_TIME).values
+
+                    # Calculate the number of days with data in the current month.
+                    days_per_month_l = list(count_days_per_year(month))
+
+                    # Update the array that tells wether there are enough values, considering all months of each year.
+                    enough_vals_w_data_stn_l = [days_per_month_l[i] / days_in_month_l[i] * 100 >= pct_vals_per_req
+                                                for i in range(len(days_per_month_l))]
+                    enough_vals_w_data_stn_l = xr.where(enough_vals_w_data_stn_l, 1, 0)
+                    enough_vals_w_data_l = enough_vals_w_data_l * enough_vals_w_data_stn_l
+
+                    # Sum up the number of days.
+                    if len(days_per_year_l) == 0:
+                        days_per_year_l = days_per_month_l
+                    else:
+                        days_per_year_l = [days_per_year_l[i] + days_per_month_l[i]
+                                           for i in range(len(days_per_year_l))]
+
+                    # Determine the number of years with data.
+                    n_years_w_data = sum(enough_vals_w_data_l)
+                    if n_years_w_data < n_years_w_data_req:
+                        break
+
+            # Extract station name and coordinates.
+            stn_name = str(ds_stn["station_name"].values)
+            lon = float(ds_stn[c.DIM_LON].values)
+            lat = float(ds_stn[c.DIM_LAT].values)
+
+            # Add current result to DataFrame (only if it has enough years).
+            if n_years_w_data >= n_years_w_data_req:
+                df[stn_id] = days_per_year_l
+                stn_name_l.append(stn_name)
+                lon_l.append(lon)
+                lat_l.append(lat)
+                n_years_w_data_l.append(n_years_w_data)
+
+            i += 1
+
+        # Transpose.
+        df_t = df.set_index("year")
+        df_t = df_t.transpose().rename_axis("stn_id").reset_index()
+
+        # Add station names and coordinates.
+        df_t.insert(loc=1, column="stn_name", value=stn_name_l)
+        df_t.insert(loc=2, column=c.DIM_LONGITUDE, value=lon_l)
+        df_t.insert(loc=3, column=c.DIM_LATITUDE, value=lat_l)
+        df_t.insert(loc=4, column="n_years_w_data", value=n_years_w_data_l)
+        df_t = df_t.sort_values(by="stn_id")
+
+    # Save the information about the stations to CSV.
     save_csv(df_t, p_csv)
 
-    # TODO: Save PNG.
-    p_png = p.replace(c.F_EXT_NC, c.F_EXT_PNG)
+    # Calculate de the number of HQ stations and the total number of stations.
+    n_stn_l = []
+    for stn_key in stn_key_l:
+        n_stn = 0
+        if stn_key == "total":
+            n_stn = len(df_t)
+        else:
+            for stn_id in df_t["stn_id"]:
+                if stn_key in stn_id:
+                    n_stn += 1
+        n_stn_l.append(n_stn)
+
+    # Generate figure.
+    # This may require:
+    # $ conda install -c pyviz geoviews
+    # $ pip install geoviews
+    if not os.path.exists(p_fig + c.F_EXT_HTML) or not os.path.exists(p_fig + c.F_EXT_PNG):
+
+        title = var_name + " - At least " + str(n_years_w_data_req) + " year(s) with " + \
+            " at least " + str(pct_vals_per_req) + "% of values " + \
+            ("during months [" + months_str.replace("-", ",") + "]" if len(month_l) > 0 else "") + " between " + per_str
+        xlabel = c.DIM_LONGITUDE.capitalize() + " (°)"
+        ylabel = c.DIM_LATITUDE.capitalize() + " (°)"
+        hv.extension("bokeh")
+        renderer = hv.renderer("bokeh")
+        fig = df_t.hvplot.points(x=c.DIM_LONGITUDE, y=c.DIM_LATITUDE, geo=True, color="red", alpha=1.0, size=10,
+                                 tiles="ESRI", title=title, hover_cols=["stn_id", "stn_name", "n_years_w_data"])
+        fig = fig.options(legend_position="top_left", legend_opts={"click_policy": "hide", "orientation": "horizontal"},
+                          frame_width=1920, frame_height=1080, xlabel=xlabel, ylabel=ylabel)
+
+        # Save figure to HTML.
+        renderer.save(fig, p_fig)
+
+        # Save figure to PNG.
+        renderer.save(fig, p_fig, fmt=c.F_PNG)
+
+    return n_stn_l
 
 
 def save_plot(

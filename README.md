@@ -216,8 +216,13 @@ Implemented features:
 ### v1.4.2 (under developement)
 
 Implemented features:
-- Updated the algorithm of the 'rain_season_start' index to detect a start if an amount of precipitation above
+- updated the algorithm of the 'rain_season_start' index to detect a start if an amount of precipitation above
   'thresh_wet' is received over a period between 1 to 'window_wet' days, as long as it rains on the first of these days.
+- added functions to analyze spatial (i.e. stations) and temporal coverage (i.e. number of years with sufficient
+  data) of the CanSWE dataset;
+- added functions to generate Taylor diagrams. These diagrams are useful to compare reference and simulation data;
+- modified the in which the difference between reference and bias-adjusted simulation data is calculated (monthly rather
+  than daily frequency); 
 
 ## Contributing
 
