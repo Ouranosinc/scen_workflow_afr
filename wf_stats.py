@@ -36,16 +36,16 @@ from cl_constant import const as c
 from cl_context import cntx
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard import dash_plot, dash_stats as dash_stats, dash_utils, cl_varidx as vi
-from dashboard.cl_delta import Delta
-from dashboard.cl_hor import Hor, Hors
-from dashboard.cl_lib import Lib
-from dashboard.cl_rcp import RCP, RCPs
-from dashboard.cl_sim import Sim
-from dashboard.cl_stat import Stat, Stats
-from dashboard.cl_varidx import VarIdx
-from dashboard.cl_view import View
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard import dash_plot, dash_stats as dash_stats, dash_utils, cl_varidx as vi
+from scen_workflow_afr_dashboard.cl_delta import Delta
+from scen_workflow_afr_dashboard.cl_hor import Hor, Hors
+from scen_workflow_afr_dashboard.cl_lib import Lib
+from scen_workflow_afr_dashboard.cl_rcp import RCP, RCPs
+from scen_workflow_afr_dashboard.cl_sim import Sim
+from scen_workflow_afr_dashboard.cl_stat import Stat, Stats
+from scen_workflow_afr_dashboard.cl_varidx import VarIdx, VarIdxs
+from scen_workflow_afr_dashboard.cl_view import View
 
 
 def calc_stats(
@@ -111,14 +111,15 @@ def calc_stats(
     # Collect Datasets.
     if len(ds_l) == 0:
 
-        # List paths to NetCDF files.
-        p_sim_l = list(list_netcdf(stn, varidx, "path", rcp, sim))
+        # List paths to data files.
+        p_sim_l = list(list_datasets(stn, varidx, "path", rcp, sim))
 
         # Adjust paths if doing the analysis for bias adjustment time series.
         if (rcp.code != c.REF) and (cat_scen == c.CAT_REGRID):
             for i_sim in range(len(p_sim_l)):
-                p_sim_l[i_sim] = p_sim_l[i_sim].replace(cntx.sep + c.CAT_QQMAP, cntx.sep + c.CAT_REGRID).\
-                    replace(c.F_EXT_NC, "_4" + c.CAT_QQMAP + c.F_EXT_NC)
+                sim_code = os.path.basename(p_sim_l[i_sim]).replace(vi_name + "_", "").\
+                    replace("." + cntx.f_data_out, "")
+                p_sim_l[i_sim] = cntx.p_scen(c.CAT_REGRID, vi_name, sim_code=sim_code)
 
         # Exit if there is no file corresponding to the criteria.
         if (len(p_sim_l) == 0) or ((len(p_sim_l) > 0) and not(os.path.isdir(os.path.dirname(p_sim_l[0])))):
@@ -128,8 +129,8 @@ def calc_stats(
         for i in range(len(p_sim_l)):
 
             # Open dataset.
-            ds_i = fu.open_netcdf(p_sim_l[i])
-            ds_i = wf_utils.standardize_netcdf(ds_i, vi_name=vi_name)
+            ds_i = fu.open_dataset(p_sim_l[i])
+            ds_i = wf_utils.standardize_dataset(ds_i, vi_name=vi_name)
 
             # Add to list of Datasets.
             ds_l.append(ds_i)
@@ -146,12 +147,12 @@ def calc_stats(
         if hor is not None:
             ds_i = wf_utils.sel_period(ds_i, [hor.year_1, hor.year_2]).copy(deep=True)
 
-        # Subset by location (at a point or on a surface).
-        if cntx.opt_ra:
-            if cntx.p_bounds == "":
-                ds_i = wf_utils.subset_ctrl_pt(ds_i)
-            elif clip:
+        # Subset by location (within a polygon or at a point).
+        if cntx.ens_ref_grid != "":
+            if (cntx.p_bounds != "") and clip:
                 ds_i = wf_utils.subset_shape(ds_i)
+            elif cntx.ctrl_pt is not None:
+                ds_i = wf_utils.subset_ctrl_pt(ds_i)
 
         # Resample to the annual frequency.
         if varidx.is_summable:
@@ -227,7 +228,7 @@ def calc_stats(
                 ds_stats_y[vi_name] = xr.zeros_like(ds_stats_y[vi_name])
 
             # Calculate the mean value for each year (i.e., all coordinates combined).
-            if cntx.opt_ra and squeeze_coords:
+            if (cntx.ens_ref_grid != "") and squeeze_coords:
                 ds_stats_y = ds_stats_y.mean(dim=wf_utils.coord_names(ds_stats_y))
 
             # Put units back in.
@@ -325,8 +326,8 @@ def calc_stats_ref_sims(
     # Data frequency.
     freq = c.FREQ_D if varidx.is_var else c.FREQ_YS
 
-    # List simulations associated with NetCDF files.
-    sim_code_l = list(list_netcdf(stn, varidx, "sim_code"))
+    # List simulations associated with data files.
+    sim_code_l = list(list_datasets(stn, varidx, "sim_code"))
 
     # View.
     if view.code == c.VIEW_TBL:
@@ -347,26 +348,26 @@ def calc_stats_ref_sims(
     ds_stats_l = []
     for sim_code_i in sim_code_l:
 
-        fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + sim_code_i, True)
+        fu.log("Processing: " + cntx.ens_ref + ", " + varidx.code + ", " + sim_code_i, True)
 
         rcp_code = Sim(sim_code_i).rcp.code
 
         stats_dict =\
             dict(calc_stats(ds_l=[], view=view, stn=stn, varidx=varidx, rcp=RCP(rcp_code), sim=Sim(sim_code_i),
                             hor=hor, delta=delta, stats=stats, squeeze_coords=squeeze_coords,
-                            clip=cntx.opt_tbl_clip))
+                            clip=cntx.opt_stat_clip))
 
         ds_stats_l.append([sim_code_i, stats_dict])
 
     return ds_stats_l
 
 
-def list_netcdf(
+def list_datasets(
     stn: str,
     varidx: VarIdx,
     out_format: str,
-    rcp: Optional[RCP] = RCP(""),
-    sim: Optional[Sim] = Sim(""),
+    rcp: Optional[RCP] = None,
+    sim: Optional[Sim] = None,
     include_ref: Optional[bool] = True
 ) -> List[str]:
 
@@ -404,22 +405,27 @@ def list_netcdf(
     vi_code = varidx.code
     vi_name = varidx.name
     vi_code_grp = vi.group(vi_code) if varidx.is_group else vi_code
-    vi_name_grp = vi.group(vi_name) if varidx.is_group else vi_name
+
+    # Emission scenario.
+    rcp_code = rcp.code if rcp is not None else "*"
+
+    # Simulation.
+    sim_code = sim.code if sim is not None else "*"
 
     # Collect paths to simulation files.
-    ref_in_rcp_sim = (rcp.code in ["", c.REF]) and (sim.code in ["", c.REF])
+    ref_in_rcp_sim = (rcp_code in ["*", c.REF]) and (sim_code in ["*", c.REF])
     if varidx.is_var:
-        p_ref = cntx.d_scen(c.CAT_OBS, vi_code_grp) + vi_name_grp + "_" + stn + c.F_EXT_NC
+        p_ref = cntx.p_scen(c.CAT_OBS, vi_name, c.REF)
         include_ref = include_ref and os.path.exists(p_ref) and ref_in_rcp_sim
-        d = cntx.d_scen(c.CAT_QQMAP, vi_code_grp)
+        p = cntx.p_scen(c.CAT_QQMAP, vi_name, sim_code)
     else:
-        p_ref = cntx.d_idx(vi_code_grp) + vi_name_grp + "_ref" + c.F_EXT_NC
+        p_ref = cntx.p_idx(vi_code_grp, vi_name, sim_code=c.REF)
         include_ref = include_ref and os.path.exists(p_ref) and ref_in_rcp_sim
-        d = cntx.d_idx(vi_code_grp)
+        p = cntx.p_idx(vi_code_grp, vi_name, sim_code)
     p_l = []
-    for p in glob.glob(d + "*" + c.F_EXT_NC):
-        if ((rcp.code in ["", c.RCPXX]) or (rcp.code in p)) and ((sim.code in ["", c.SIMXX]) or (sim.code in p)):
-            p_l.append(p)
+    for p_i in glob.glob(p):
+        if ((rcp_code in ["*", c.RCPXX]) or (rcp_code in p_i)) and ((sim_code in ["*", c.SIMXX]) or (sim_code in p_i)):
+            p_l.append(p_i)
 
     # Return paths.
     if out_format == "path":
@@ -437,7 +443,7 @@ def list_netcdf(
         # Extract simulation codes.
         sim_code_l = []
         for p in p_l:
-            sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace(c.F_EXT_NC, "")
+            sim_code_i = os.path.basename(p).replace(varidx.name + "_", "").replace("." + cntx.f_data_out, "")
             if sim_code_i != c.REF:
                 sim_code_l.append(sim_code_i)
         sim_code_l.sort()
@@ -450,8 +456,8 @@ def list_netcdf(
 
 
 def calc_taylor(
-    vi_code_l: List[str],
-    i_vi_proc: int
+    varidxs: VarIdxs,
+    i_proc: int
 ):
 
     """
@@ -460,14 +466,15 @@ def calc_taylor(
 
     Parameters
     ----------
-    vi_code_l: List[str],
-        Variables or index codes.
-    i_vi_proc: int
+    varidxs: VarIdxs
+        Climate variables/indices.
+    i_proc: int
         Rank of variable or index to process.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    varidx = VarIdx(vi_code_l[i_vi_proc])
+    # Climate variable.
+    varidx = varidxs.items[i_proc]
 
     # Resampling frequency.
     freq = c.FREQ_MS if varidx.is_var else c.FREQ_YS
@@ -500,9 +507,17 @@ def calc_taylor(
         # Subset (in time and space).
         _ds = wf_utils.remove_feb29(_ds)
         _ds = wf_utils.sel_period(_ds, cntx.per_ref)
-        if cntx.opt_ra and cntx.opt_taylor_clip and cntx.p_bounds != "":
+        if (cntx.ens_ref_grid != "") and cntx.opt_stat_clip and (cntx.p_bounds != ""):
             _ds = wf_utils.subset_shape(_ds)
         _ds = wf_utils.squeeze_lon_lat(_ds)
+
+        # Group.
+        if freq == c.FREQ_D:
+            group = "time.day"
+        elif freq == c.FREQ_MS:
+            group = "time.month"
+        else:
+            group = "time.year"
 
         # Daily frequency.
         # TODO: Get rid of the following warning : 'numpy.datetime64' object has no attribute 'year'
@@ -510,12 +525,18 @@ def calc_taylor(
             _ds = wf_utils.convert_to_365_calendar(_ds)
             _ds[c.DIM_TIME] = wf_utils.reset_calendar(_ds)
 
-        # Yearly or monthly frequency.
-        else:
-            if VarIdx(_vi_name).is_summable:
-                _ds = _ds.resample(time=freq).sum(dim=c.DIM_TIME, keep_attrs=True)
+        # Group data according to frequency.
+        if VarIdx(_vi_name).is_summable:
+            n_years = len(list(set(list(_ds[c.DIM_TIME].dt.year.values))))
+            if freq == c.FREQ_YS:
+                _ds = _ds.sum(keep_attrs=True) / float(n_years)
             else:
-                _ds = _ds.resample(time=freq).mean(dim=c.DIM_TIME, keep_attrs=True)
+                _ds = _ds.groupby(group).sum(dim=c.DIM_TIME, keep_attrs=True) / float(n_years)
+        else:
+            if freq == c.FREQ_YS:
+                _ds = _ds.mean(keep_attrs=True)
+            else:
+                _ds = _ds.groupby(group).mean(dim=c.DIM_TIME, keep_attrs=True)
 
         # Adjust units.
         if ((_vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]) and
@@ -523,7 +544,7 @@ def calc_taylor(
              ((c.ATTRS_UNITS not in _ds[_vi_name].attrs) and (float(_ds[_vi_name].max()) > 100)))):
             _ds[_vi_name] = _ds[_vi_name] - c.d_KC
             _ds[_vi_name].attrs[c.ATTRS_UNITS] = c.UNIT_C
-        elif (varidx.is_summable and
+        elif (varidx.is_volumetric and
               (((c.ATTRS_UNITS in _ds[_vi_name].attrs) and (c.UNIT_mm not in _ds[_vi_name].attrs[c.ATTRS_UNITS])) or
                ((c.ATTRS_UNITS not in _ds[_vi_name].attrs) and (float(_ds[_vi_name].max()) < 1)))):
             _ds[_vi_name] = _ds[_vi_name] * c.SPD
@@ -532,7 +553,7 @@ def calc_taylor(
         return _ds
 
     # Loop through stations.
-    stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
+    stns = (cntx.ens_ref_stns if cntx.ens_ref_grid == "" else [cntx.ens_ref_grid])
     for stn in stns:
 
         # Loop through variables or indices.
@@ -547,11 +568,9 @@ def calc_taylor(
             for cat in cat_l:
 
                 # Paths.
-                p_fig = cntx.d_fig(c.VIEW_TAYLOR, vi_code_grp) + vi_name + ("_" + cat if varidx.is_var else "") +\
-                    c.F_EXT_PNG
-                p_csv = p_fig.replace(cntx.sep + vi_code_grp + cntx.sep,
-                                      cntx.sep + vi_code_grp + "_" + c.F_CSV + cntx.sep).\
-                    replace(c.F_EXT_PNG, c.F_EXT_CSV)
+                suffix = "_" + cat if varidx.is_var else ""
+                p_csv = cntx.p_fig(c.VIEW_TAYLOR, vi_code_grp, vi_name, c.F_CSV, suffix=suffix)
+                p_fig = cntx.p_fig(c.VIEW_TAYLOR, vi_code_grp, vi_name, c.F_PNG, suffix=suffix)
 
                 # Determine if the analysis is required.
                 save_fig = (cntx.opt_force_overwrite or
@@ -576,26 +595,28 @@ def calc_taylor(
                     msg = "Processing: " + stn + ", " + vi_code_display + ", " + cat
                     fu.log(msg)
 
-                    # List simulations associated with NetCDF files.
-                    sim_code_l = list(list_netcdf(stn, varidx, "sim_code"))
+                    # List simulations associated with data files.
+                    sim_code_l = list(list_datasets(stn, varidx, "sim_code"))
                     if c.REF in sim_code_l:
                         sim_code_l.remove(c.REF)
                     sim_code_l.sort()
 
                     # Load reference data.
                     if varidx.is_var:
-                        p_ref = cntx.d_scen(c.CAT_OBS, vi_name) + vi_name + "_" + cntx.obs_src + c.F_EXT_NC
+                        p_ref = cntx.p_scen(c.CAT_OBS, vi_name, c.REF)
                     else:
-                        p_ref = cntx.d_idx(vi_code_grp) + vi_name + "_" + c.REF + c.F_EXT_NC
+                        p_ref = cntx.p_idx(vi_code_grp, vi_name, c.REF)
                     ref_l = []
                     if os.path.exists(p_ref):
 
-                        # Load NetCDF (reference data).
-                        ds_ref = fu.open_netcdf(p_ref)
+                        # Load dataset (reference data).
+                        ds_ref = fu.open_dataset(p_ref)
 
                         # Select the days associated with the reference data, discard February 29th, and squeeze.
                         ds_ref = adjust_ds(ds_ref, vi_name)
                         ref_l = ds_ref[vi_name].values
+                        if len(ref_l.shape) == 0:
+                            ref_l = np.array([ref_l])
                         if len([i for i in list(range(len(ref_l))) if not np.isnan(ref_l[i])]) == 0:
                             continue
 
@@ -603,18 +624,30 @@ def calc_taylor(
                     sim_code_sel_l = []
                     for sim_code in sim_code_l:
 
-                        # Load NetCDF (simulation data).
+                        # Simulation.
+                        sim = Sim(sim_code)
+
+                        # Emission scenario.
+                        rcp = sim.rcp if sim is not None else None
+                        rcp_code = rcp.code if rcp is not None else ""
+
+                        # Skip variable-simulation.
+                        if sim_code not in varidx.list_simulations(rcp_code):
+                            continue
+
+                        # Load dataset (simulation data).
                         if varidx.is_var:
-                            p_sim = cntx.d_scen(cat, vi_name) + vi_name + "_" + sim_code + c.F_EXT_NC
-                            if cat == c.CAT_REGRID:
-                                p_sim = p_sim.replace(c.F_EXT_NC, "_ref_4qqmap" + c.F_EXT_NC)
+                            p_sim = cntx.p_scen(c.CAT_REGRID_REF if cat == c.CAT_REGRID else cat, vi_name,
+                                                sim_code=sim_code)
                         else:
-                            p_sim = cntx.d_idx(vi_code_grp) + vi_name + "_" + sim_code + c.F_EXT_NC
-                        ds_sim = fu.open_netcdf(p_sim)
+                            p_sim = cntx.p_idx(vi_code_grp, vi_name, sim_code)
+                        ds_sim = fu.open_dataset(p_sim)
 
                         # Select the days associated with the reference data, discard February 29th, and squeeze.
                         ds_sim = adjust_ds(ds_sim, vi_name)
                         sim_l = ds_sim[vi_name].values
+                        if len(sim_l.shape) == 0:
+                            sim_l = np.array([sim_l])
                         if (len([i for i in list(range(len(sim_l))) if not np.isnan(sim_l[i])]) == 0) or\
                            (len(ref_l) != len(sim_l)):
                             continue
@@ -636,7 +669,7 @@ def calc_taylor(
                                 ccoef_l.append(taylor_stats["ccoef"][j])
 
                     # Adjust precision.
-                    sim_code_l = ["Référence"] + sim_code_sel_l
+                    sim_code_l = sim_code_sel_l
                     sdev_l = list(dash_plot.adjust_precision(sdev_l, n_dec_max=2, output_type="float"))
                     crmsd_l = list(dash_plot.adjust_precision(crmsd_l, n_dec_max=2, output_type="float"))
                     ccoef_l = list(dash_plot.adjust_precision(ccoef_l, n_dec_max=2, output_type="float"))
@@ -646,18 +679,18 @@ def calc_taylor(
                     df = pd.DataFrame(dict_pd)
 
                 # Save CSV file.
-                if save_csv and (p_csv != ""):
+                if save_csv and (p_csv != "") and (len(df) > 0):
                     fu.save_csv(df, p_csv)
 
                 # Generate figure.
-                if save_fig:
+                if save_fig and (len(df) > 0):
                     fig = dash_plot.gen_taylor_plot(df)
                     fu.save_plot(fig, p_fig)
 
 
 def calc_tbl(
-    vi_code_l: List[str],
-    i_vi_proc: int,
+    varidxs: VarIdxs,
+    i_proc: int,
 ):
 
     """
@@ -666,14 +699,15 @@ def calc_tbl(
 
     Parameters
     ----------
-    vi_code_l: List[str],
-        Variables or index codes.
-    i_vi_proc: int
-        Rank of variable or index to process.
+    varidxs: VarIdxs
+        Climate variables/indices.
+    i_proc: int
+        Rank of variable/index to process.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    varidx = VarIdx(vi_code_l[i_vi_proc])
+    # Climate variable/index.
+    varidx = varidxs.items[i_proc]
 
     cat = c.CAT_SCEN if varidx.is_var else c.CAT_IDX
     if (cat == c.CAT_SCEN) or (not varidx.is_group):
@@ -696,7 +730,7 @@ def calc_tbl(
             stats_rcp.add(Stat(c.STAT_CENTILE, centile), inplace=True)
 
     # Loop through stations.
-    stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
+    stns = (cntx.ens_ref_stns if cntx.ens_ref_grid == "" else [cntx.ens_ref_grid])
     for stn in stns:
 
         # Loop through variables or indices.
@@ -711,7 +745,7 @@ def calc_tbl(
             msg = "Processing: " + stn + ", " + vi_code_display
 
             # Skip iteration if the file already exists.
-            p_csv = cntx.d_tbl(vi_code_grp) + vi_name + c.F_EXT_CSV
+            p_csv = cntx.p_fig(c.VIEW_TBL, vi_code_grp, vi_name, c.F_CSV)
             if os.path.exists(p_csv) and (not cntx.opt_force_overwrite):
                 fu.log(msg + "(not required)", True)
                 continue
@@ -720,7 +754,7 @@ def calc_tbl(
 
             # Try reading values from time series.
             df_stats = None
-            p = cntx.d_fig(c.VIEW_TS, vi_code + "_" + c.F_CSV) + vi_name + "_sim" + c.F_EXT_CSV
+            p = cntx.p_fig(c.VIEW_TS, vi_code, vi_name, c.F_CSV, suffix=dash_plot.MODE_SIM)
             if os.path.exists(p):
                 df_stats = pd.read_csv(p)
 
@@ -759,15 +793,22 @@ def calc_tbl(
                         else:
                             for i_sim in range(len(ds_stats_l)):
 
-                                # RCP code and statistics associated with current simulation.
-                                rcp_code = Sim(ds_stats_l[i_sim][0]).rcp.code
-                                ds_stats = ds_stats_l[i_sim][1][c.STAT_MEAN]
+                                # Simulation.
+                                sim = Sim(ds_stats_l[i_sim][0])
+                                sim_code = sim.code if sim is not None else ""
 
-                                if (rcp_code != rcp.code) and not (("rcp" in rcp_code) and (rcp.code == c.RCPXX)):
+                                # Emission scenario.
+                                rcp = sim.rcp if sim is not None else None
+                                rcp_code = rcp.code if rcp is not None else ""
+
+                                if ((rcp_code != rcp.code) and not (("rcp" in rcp_code) and (rcp.code == c.RCPXX))) or\
+                                    (sim_code not in varidx.list_simulations(rcp_code)):
                                     continue
 
+                                ds_stats = ds_stats_l[i_sim][1][c.STAT_MEAN]
+
                                 # Select period and extract value.
-                                if cntx.opt_ra:
+                                if cntx.ens_ref_grid != "":
                                     ds_stats_hor = wf_utils.sel_period(ds_stats.squeeze(),
                                                                        [hor.year_1, hor.year_2]).copy(deep=True)
                                 else:
@@ -811,8 +852,8 @@ def calc_tbl(
 
 def calc_ts(
     view_code: str,
-    vi_code_l: List[str],
-    i_vi_proc: int,
+    varidxs: VarIdxs,
+    i_proc: int,
 ):
 
     """
@@ -823,18 +864,20 @@ def calc_ts(
     ----------
     view_code : str
         View code.
-    vi_code_l: List[str],
-        Variables or index codes.
-    i_vi_proc: int
+    varidxs: VarIdxs,
+        Climate variables/indices.
+    i_proc: int
         Rank of variable or index to process.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    varidx = VarIdx(vi_code_l[i_vi_proc])
+    # Climate variable/index.
+    varidx = varidxs.items[i_proc]
     vi_code_grp = str(vi.group(varidx.code)) if varidx.is_group else varidx.code
+    vi_name = varidx.name
 
     # Loop through stations.
-    stns = cntx.stns if not cntx.opt_ra else [cntx.obs_src]
+    stns = cntx.ens_ref_stns if cntx.ens_ref_grid == "" else [cntx.ens_ref_grid]
     for stn in stns:
 
         # Status message.
@@ -844,17 +887,16 @@ def calc_ts(
         fu.log("Processing: " + stn + ", " + msg, True)
 
         # Path of files to be created.
-        fn = varidx.name + "_" + dash_plot.MODE_RCP
         # CSV files:
-        p_rcp_csv = cntx.d_fig(view_code, vi_code_grp + "_" + c.F_CSV) + fn + c.F_EXT_CSV
-        p_sim_csv = p_rcp_csv.replace("_" + dash_plot.MODE_RCP, "_" + dash_plot.MODE_SIM)
-        p_rcp_del_csv = p_rcp_csv.replace(c.F_EXT_CSV, "_delta" + c.F_EXT_CSV)
-        p_sim_del_csv = p_sim_csv.replace(c.F_EXT_CSV, "_delta" + c.F_EXT_CSV)
+        p_rcp_csv     = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_CSV, suffix="_"+dash_plot.MODE_RCP)
+        p_sim_csv     = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_CSV, suffix="_"+dash_plot.MODE_SIM)
+        p_rcp_del_csv = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_CSV, suffix="_"+dash_plot.MODE_RCP + "_delta")
+        p_sim_del_csv = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_CSV, suffix="_"+dash_plot.MODE_SIM + "_delta")
         # PNG files.
-        p_rcp_fig = cntx.d_fig(view_code, vi_code_grp) + fn + c.F_EXT_PNG
-        p_sim_fig = p_rcp_fig.replace("_" + dash_plot.MODE_RCP + c.F_EXT_PNG, "_" + dash_plot.MODE_SIM + c.F_EXT_PNG)
-        p_rcp_del_fig = p_rcp_fig.replace(c.F_EXT_PNG, "_delta" + c.F_EXT_PNG)
-        p_sim_del_fig = p_sim_fig.replace(c.F_EXT_PNG, "_delta" + c.F_EXT_PNG)
+        p_rcp_png     = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_PNG, suffix="_"+dash_plot.MODE_RCP)
+        p_sim_png     = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_PNG, suffix="_"+dash_plot.MODE_SIM)
+        p_rcp_del_png = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_PNG, suffix="_"+dash_plot.MODE_RCP + "_delta")
+        p_sim_del_png = cntx.p_fig(view_code, vi_code_grp, vi_name, c.F_PNG, suffix="_"+dash_plot.MODE_SIM + "_delta")
 
         # Skip if no work required.
         save_csv = ((not os.path.exists(p_rcp_csv) or
@@ -862,10 +904,10 @@ def calc_ts(
                      not os.path.exists(p_rcp_del_csv) or
                      not os.path.exists(p_sim_del_csv)) and
                     (c.F_CSV in cntx.opt_ts_format))
-        save_fig = ((not os.path.exists(p_rcp_fig) or
-                     not os.path.exists(p_sim_fig) or
-                     not os.path.exists(p_rcp_del_fig) or
-                     not os.path.exists(p_sim_del_fig)) and
+        save_fig = ((not os.path.exists(p_rcp_png) or
+                     not os.path.exists(p_sim_png) or
+                     not os.path.exists(p_rcp_del_png) or
+                     not os.path.exists(p_sim_del_png)) and
                     (c.F_PNG in cntx.opt_ts_format))
         if (not save_csv) and (not save_fig) and (not cntx.opt_force_overwrite):
             continue
@@ -884,8 +926,8 @@ def calc_ts(
         # Attempt loading CSV files into dataframes.
         if os.path.exists(p_rcp_csv) and os.path.exists(p_sim_csv) and \
            os.path.exists(p_rcp_del_csv) and os.path.exists(p_sim_del_csv):
-            df_rcp = pd.read_csv(p_rcp_csv)
-            df_sim = pd.read_csv(p_sim_csv)
+            df_rcp     = pd.read_csv(p_rcp_csv)
+            df_sim     = pd.read_csv(p_sim_csv)
             df_rcp_del = pd.read_csv(p_rcp_del_csv)
             df_sim_del = pd.read_csv(p_sim_del_csv)
 
@@ -922,22 +964,22 @@ def calc_ts(
                     if mode == dash_plot.MODE_RCP:
                         if delta == "False":
                             df_mode = df_rcp
-                            p_fig = p_rcp_fig
+                            p_png = p_rcp_png
                         else:
                             df_mode = df_rcp_del
-                            p_fig = p_rcp_del_fig
+                            p_png = p_rcp_del_png
                     else:
                         if delta == "False":
                             df_mode  = df_sim
-                            p_fig = p_sim_fig
+                            p_png = p_sim_png
                         else:
                             df_mode = df_sim_del
-                            p_fig = p_sim_del_fig
+                            p_png = p_sim_del_png
 
                     # Generate plot.
-                    if (not os.path.exists(p_fig)) or cntx.opt_force_overwrite:
+                    if (not os.path.exists(p_png)) or cntx.opt_force_overwrite:
                         fig = dash_plot.gen_ts(df_mode, mode)
-                        fu.save_plot(fig, p_fig)
+                        fu.save_plot(fig, p_png)
 
 
 def calc_ts_stn(
@@ -960,7 +1002,7 @@ def calc_ts_stn(
     stn: str
         Station.
     varidx: VarIdx
-        Variable or index.
+        Climate variable/index.
 
     Returns
     -------
@@ -990,18 +1032,29 @@ def calc_ts_stn(
     stats.add(stat_upper)
 
     # Calculate statistics for the reference data and each simulation.
-    fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", absolute values", True)
+    fu.log("Processing: " + cntx.ens_ref + ", " + varidx.code + ", absolute values", True)
     ds_stats_abs_l = calc_stats_ref_sims(stn, cntx.view, cntx.varidx, delta=False)
-    fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", delta values", True)
+    fu.log("Processing: " + cntx.ens_ref + ", " + varidx.code + ", delta values", True)
     ds_stats_del_l = calc_stats_ref_sims(stn, cntx.view, cntx.varidx, delta=True)
 
     # Individual time series.
     for i_sim in range(len(ds_stats_abs_l)):
 
-        # Extract simulation code and description.
+        # Simulation.
         sim_code = ds_stats_abs_l[i_sim][0]
+        sim = Sim(sim_code)
+
+        # Emission scenario.
+        rcp = sim.rcp if sim is not None else None
+        rcp_code = rcp.code if rcp is not None else ""
+
+        # Extract simulation code and description.
         ds_stats_abs_i = ds_stats_abs_l[i_sim][1][c.STAT_MEAN]
         ds_stats_del_i = ds_stats_del_l[i_sim][1][c.STAT_MEAN]
+
+        # Skip variable-simulation.
+        if (sim_code != c.REF) and (sim_code not in varidx.list_simulations(rcp_code)):
+            continue
 
         # Subset years.
         ds_stats_abs_i = wf_utils.sel_period(ds_stats_abs_i, [hor.year_1, hor.year_2])
@@ -1025,6 +1078,9 @@ def calc_ts_stn(
     # Loop through emission scenarios.
     for rcp in RCPs(cntx.rcps.code_l).items:
 
+        # List the simulations that belong to the current RCP.
+        list_simulations_rcp = varidx.list_simulations(rcp.code)
+
         for val_type in ["abs", "del"]:
 
             if val_type == "abs":
@@ -1035,6 +1091,13 @@ def calc_ts_stn(
             # Collect statistics.
             ds_stats_rcp_l = []
             for i_sim in range(len(ds_stats_l)):
+
+                # Skip variable-simulation.
+                sim_code = ds_stats_abs_l[i_sim][0]
+                if sim_code not in list_simulations_rcp:
+                    continue
+
+                # Collect.
                 if rcp.code in ds_stats_l[i_sim][0]:
                     ds_stats_rcp_l.append(ds_stats_l[i_sim][1][c.STAT_MEAN])
 
@@ -1112,8 +1175,13 @@ def calc_by_freq(
     # Summarize data per month.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=Warning)
-        if cntx.opt_ra:
+
+        # Subset by location (within a polygon) and squeeze dimensions.
+        if cntx.ens_ref_grid != "":
+            if cntx.opt_stat_clip and (cntx.p_bounds != ""):
+                da_m = wf_utils.subset_shape(da_m)
             da_m = da_m.mean(dim={c.DIM_LONGITUDE, c.DIM_LATITUDE})
+
         if freq != c.FREQ_MS:
 
             # Extract values.
@@ -1137,7 +1205,7 @@ def calc_by_freq(
                     ds_m = da_max.to_dataset()
 
                 # No longitude and latitude for a station.
-                if not cntx.opt_ra:
+                if cntx.ens_ref_grid == "":
                     ds_m = ds_m.squeeze()
 
                 ds_m[var.name].attrs[c.ATTRS_UNITS] = ds[var.name].attrs[c.ATTRS_UNITS]
@@ -1169,8 +1237,8 @@ def calc_by_freq(
 
 
 def calc_map(
-    vi_code_l: List[str],
-    i_vi_proc: int
+    varidxs: VarIdxs,
+    i_proc: int
 ):
 
     """
@@ -1179,16 +1247,17 @@ def calc_map(
 
     Parameters
     ----------
-    vi_code_l: List[str],
-        Variables or indices.
-    i_vi_proc: int
+    varidxs: VarIdxs
+        Climate variables/indices.
+    i_proc: int
         Rank of variable or index to process.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    varidx = VarIdx(vi_code_l[i_vi_proc])
+    # Climate variable/index.
+    varidx = varidxs.items[i_proc]
 
-    fu.log("Processing: " + cntx.obs_src + ", " + varidx.code, True)
+    fu.log("Processing: " + cntx.ens_ref + ", " + varidx.code, True)
 
     # Extract variable name, group and RCPs.
     varidx = VarIdx(varidx.code)
@@ -1209,32 +1278,22 @@ def calc_map(
         return _stat_str
 
     # Get the path of the CSV and PNG files.
-    def p_csv_fig(
+    def p_csv_png_tif(
         _rcp: RCP,
         _hor: Hor,
         _stat: Stat,
         _delta: Optional[bool] = False
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, str, str]:
 
-        # PNG file.
-        _d_fig = cntx.d_fig(c.VIEW_MAP, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
-                            varidx.code + cntx.sep + _hor.code)
-        _stat_str = stat_str(_stat)
-        _fn_fig = vi_name + "_" + _rcp.code + "_" + str(_hor.year_1) + "_" + str(_hor.year_2) + "_" + _stat_str +\
-            c.F_EXT_PNG
-        _p_fig = _d_fig + _fn_fig
-        if _delta:
-            _p_fig = _p_fig.replace(c.F_EXT_PNG, "_delta" + c.F_EXT_PNG)
+        suffix = "_" + stat_str(_stat) + ("_delta" if _delta else "")
+        _p_csv = cntx.p_fig(c.VIEW_MAP, vi_code_grp, varidx.name, c.F_CSV, per=_hor.year_l, sim_code=_rcp.code,
+                            suffix=suffix)
+        _p_png = cntx.p_fig(c.VIEW_MAP, vi_code_grp, varidx.name, c.F_PNG, per=_hor.year_l, sim_code=_rcp.code,
+                            suffix=suffix)
+        _p_tif = cntx.p_fig(c.VIEW_MAP, vi_code_grp, varidx.name, c.F_TIF, per=_hor.year_l, sim_code=_rcp.code,
+                            suffix=suffix)
 
-        # CSV file.
-        _d_csv = cntx.d_fig(c.VIEW_MAP, (vi_code_grp + cntx.sep if vi_code_grp != varidx.code else "") +
-                            varidx.code + "_csv" + cntx.sep + _hor.code)
-        _fn_csv = _fn_fig.replace(c.F_EXT_PNG, c.F_EXT_CSV)
-        _p_csv = _d_csv + _fn_csv
-        if _delta:
-            _p_csv = _p_csv.replace(c.F_EXT_CSV, "_delta" + c.F_EXT_CSV)
-
-        return _p_csv, _p_fig
+        return _p_csv, _p_png, _p_tif
 
     # Prepare data -----------------------------------------------------------------------------------------------------
 
@@ -1257,23 +1316,29 @@ def calc_map(
     # Reference map (to calculate deltas).
     ds_map_ref = None
 
-    # This will hold relevant NetCDF files.
+    # This will hold relevant data files.
     ds_l = []
 
-    def load_netcdf_files():
+    def load_dataset_files(
+        include_ref: bool
+    ):
 
-        p_l = list_netcdf(cntx.obs_src, varidx, "path")
+        p_l = list_datasets(cntx.ens_ref, varidx, "path")
         for p in p_l:
 
+            # Skip reference dataset.
+            if not include_ref:
+                continue
+
             # Extract simulation code.
-            sim_code_i = c.REF if "rcp" not in p else os.path.basename(p).replace(varidx.name + "_", "").\
-                replace(c.F_EXT_NC, "")
+            sim_code = c.REF if "rcp" not in p else os.path.basename(p).replace(varidx.name + "_", "").\
+                replace("." + cntx.f_data_out, "")
 
-            fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + sim_code_i, True)
+            fu.log("Processing: " + cntx.ens_ref + ", " + varidx.code + ", " + sim_code, True)
 
-            # Load NetCDF and sort/rename dimensions.
-            ds_i = fu.open_netcdf(p)
-            ds_i = wf_utils.standardize_netcdf(ds_i, vi_name=vi_name)
+            # Load dataset and sort/rename dimensions.
+            ds_i = fu.open_dataset(p)
+            ds_i = wf_utils.standardize_dataset(ds_i, vi_name=vi_name)
             units = wf_utils.units(ds_i, vi_name)
 
             # Subset years.
@@ -1290,11 +1355,13 @@ def calc_map(
             ds_i = wf_utils.set_units(ds_i, vi_name)
 
             # Add Dataset to list.
-            ds_l.append([sim_code_i, ds_i])
+            ds_l.append([sim_code, ds_i])
 
     # Loop through horizons.
     hors = Hors(cntx.per_hors)
     for h in range(hors.count):
+
+        # Current horizon.
         hor = hors.items[h]
         hor_year_l = [hor.year_1, hor.year_2]
 
@@ -1305,7 +1372,7 @@ def calc_map(
             if (rcp.code == c.REF) and (hor_year_l != cntx.per_ref):
                 continue
 
-            fu.log("Processing: " + cntx.obs_src + ", " + varidx.code + ", " + hor.code + ", " + rcp.code, True)
+            fu.log("Processing: " + cntx.ens_ref + ", " + varidx.code + ", " + hor.code + ", " + rcp.code, True)
 
             ds_stats_rcp_l = []
 
@@ -1320,7 +1387,7 @@ def calc_map(
                 stat_code_as_str = stat.centile_as_str if stat.is_centile else stat.code
 
                 # Path of CSV and PNG files.
-                p_csv, p_fig = p_csv_fig(rcp, hor, stat)
+                p_csv, p_png, p_tif = p_csv_png_tif(rcp, hor, stat)
 
                 if os.path.exists(p_csv) and not cntx.opt_force_overwrite:
 
@@ -1342,22 +1409,31 @@ def calc_map(
 
                 else:
 
-                    # Load NetCDF files.
+                    # Load datasets.
                     if len(ds_l) == 0:
-                        load_netcdf_files()
+                        load_dataset_files(hor_year_l == cntx.per_ref)
 
                     # Select simulations.
                     ds_stats_hor_l = []
                     for i_sim in range(len(ds_l)):
-                        rcp_code = Sim(ds_l[i_sim][0]).rcp.code
-                        if (rcp_code == rcp.code) or (("rcp" in rcp_code) and (rcp.code == c.RCPXX)):
+                        sim = Sim(ds_l[i_sim][0])
+
+                        # List the simulations that belong to the current RCP.
+                        list_simulations_rcp = varidx.list_simulations(sim.rcp.code)
+                        if sim.rcp.code == c.REF:
+                            list_simulations_rcp = [c.REF] + list_simulations_rcp
+
+                        # Select.
+                        if ((sim.rcp.code == rcp.code) or (("rcp" in sim.rcp.code) and (rcp.code == c.RCPXX))) and \
+                            (sim.code in list_simulations_rcp):
                             ds_stats_hor_l.append(ds_l[i_sim][1])
 
                     # Calculate statistics.
                     if len(ds_stats_rcp_l) == 0:
-                        ds_stats_rcp_l = dict(calc_stats(ds_l=ds_stats_hor_l, view=c.VIEW_MAP, stn=cntx.obs_src,
-                                                         varidx=varidx, rcp=rcp, sim=Sim(c.SIMXX), hor=hor, delta=False,
-                                                         stats=stats, squeeze_coords=False, clip=True))
+                        ds_stats_rcp_l = dict(calc_stats(ds_l=ds_stats_hor_l, view=c.VIEW_MAP, stn=cntx.ens_ref,
+                                                         varidx=varidx, rcp=rcp, sim=Sim(c.SIMXX), hor=hor,
+                                                         delta=False, stats=stats, squeeze_coords=False,
+                                                         clip=cntx.opt_map_clip))
 
                     # Select the DataArray corresponding to the current statistics.
                     ds_map = ds_stats_rcp_l[stat_code_as_str]
@@ -1424,7 +1500,7 @@ def calc_map(
             # PNG and CSV formats ----------------------------------------------------------------------------------
 
             # Path of output files.
-            p_csv, p_fig = p_csv_fig(rcp, hor, stat, j == 1)
+            p_csv, p_png, p_tif = p_csv_png_tif(rcp, hor, stat, j == 1)
 
             # Create context.
             cntx.code   = c.PLATFORM_SCRIPT
@@ -1463,7 +1539,7 @@ def calc_map(
 
             # Determine if PNG and CSV files need to be saved.
             save_fig = cntx.opt_force_overwrite or\
-                ((not os.path.exists(p_fig)) and (c.F_PNG in cntx.opt_map_format))
+                ((not os.path.exists(p_png)) and (c.F_PNG in cntx.opt_map_format))
             save_csv = cntx.opt_force_overwrite or\
                 ((not os.path.exists(p_csv)) and (c.F_CSV in cntx.opt_map_format))
 
@@ -1480,17 +1556,13 @@ def calc_map(
             # Generate plot and save PNG file.
             if save_fig:
                 fig = dash_plot.gen_map(df, [z_min, z_max])
-                fu.save_plot(fig, p_fig)
+                fu.save_plot(fig, p_png)
 
             # Save CSV file.
             if save_csv:
                 fu.save_csv(df, p_csv)
 
             # TIF format -------------------------------------------------------------------------------------------
-
-            # Path of TIF file.
-            p_tif = p_fig.replace(varidx.code + cntx.sep, varidx.code + "_" + c.F_TIF + cntx.sep).\
-                replace(c.F_EXT_PNG, c.F_EXT_TIF)
 
             if (c.F_TIF in cntx.opt_map_format) and ((not os.path.exists(p_tif)) or cntx.opt_force_overwrite):
 
@@ -1529,7 +1601,7 @@ def conv_nc_csv(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Convert NetCDF to CSV files.
+    Convert dataset to CSV files.
 
     Parameters
     ----------
@@ -1541,7 +1613,7 @@ def conv_nc_csv(
     """
 
     # Loop through stations.
-    stns = cntx.stns if not cntx.opt_ra else [cntx.obs_src]
+    stns = cntx.ens_ref_stns if cntx.ens_ref_grid == "" else [cntx.ens_ref_grid]
     for stn in stns:
 
         # Identify categories.
@@ -1562,8 +1634,8 @@ def conv_nc_csv(
                 # Extract variable/index information.
                 varidx = VarIdx(vi_code)
 
-                # List NetCDF files.
-                p_l = list(list_netcdf(stn, varidx, "path"))
+                # List data files.
+                p_l = list(list_datasets(stn, varidx, "path"))
                 n_files = len(p_l)
                 if n_files == 0:
                     continue
@@ -1584,7 +1656,7 @@ def conv_nc_csv(
 
                         # Directory.
                         if cat == c.CAT_STN:
-                            d_cat = cntx.d_stn(vi_code)
+                            d_cat = cntx.d_ref(vi_code)
                         elif cat == c.CAT_SCEN:
                             d_cat = cntx.d_scen(cat, vi_code)
                         else:
@@ -1622,7 +1694,7 @@ def conv_nc_csv_single(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Convert a single NetCDF to CSV file.
+    Convert a single dataset to CSV file.
 
     Parameters
     ----------
@@ -1642,7 +1714,7 @@ def conv_nc_csv_single(
 
     # Paths.
     p = p_l[i_file]
-    p_csv = p.replace(c.F_EXT_NC, c.F_EXT_CSV).\
+    p_csv = p.replace("." + cntx.f_data_out, c.F_EXT_CSV).\
         replace(cntx.sep + vi_code_grp + "_", cntx.sep + vi_name + "_").\
         replace(cntx.sep + vi_code_grp + cntx.sep, cntx.sep + vi_code_grp + "_" + c.F_CSV + cntx.sep)
 
@@ -1670,13 +1742,13 @@ def conv_nc_csv_single(
     # Calculate average values (only if the analysis is based on observations at a station).
     lon_l = None
     lat_l = None
-    if cntx.opt_ra:
+    if cntx.ens_ref_grid != "":
         lon_l, lat_l = wf_utils.coords(ds, True)
 
     # Extract values.
     # Calculate average values (only if the analysis is based on observations at a station).
     val_l = list(ds[vi_name].values)
-    if not cntx.opt_ra:
+    if cntx.ens_ref_grid == "":
         if vi_name not in cntx.idxs.name_l:
             for i in range(n_time):
                 val_l[i] = val_l[i].mean()
@@ -1688,16 +1760,18 @@ def conv_nc_csv_single(
                 val_l = list(val_l[0][0])
 
     # Convert values to more practical units (if required).
-    if varidx.is_summable and (ds[vi_name].attrs[c.ATTRS_UNITS] == c.UNIT_kg_m2s1):
+    if varidx.is_volumetric and (ds[vi_name].attrs[c.ATTRS_UNITS] == c.UNIT_kg_m2s1):
         for i in range(n_time):
             val_l[i] = val_l[i] * c.SPD
-    elif (vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]) and\
-         (ds[vi_name].attrs[c.ATTRS_UNITS] == c.UNIT_K):
+    elif (vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]) and (ds[vi_name].attrs[c.ATTRS_UNITS] == c.UNIT_K):
         for i in range(n_time):
             val_l[i] = val_l[i] - c.d_KC
 
+    # Close NetCDF.
+    fu.close_netcdf(ds)
+
     # Build pandas dataframe.
-    if not cntx.opt_ra:
+    if cntx.ens_ref_grid == "":
         dict_pd = {c.DIM_TIME: time_l, vi_name: val_l}
     else:
         time_l_1d = []
@@ -1722,9 +1796,10 @@ def conv_nc_csv_single(
 
 
 def calc_cycle(
-    ds: xr.Dataset,
+    cat: str,
     stn: str,
-    varidx: VarIdx,
+    var: VarIdx,
+    sim_code: str,
     per: [int, int],
     freq: str,
     title: str,
@@ -1737,12 +1812,14 @@ def calc_cycle(
 
     Parameters
     ----------
-    ds: xr.Dataset
-        Dataset.
+    cat: str
+        Categor = {c.CAT_OBS, c.CAT_QQMAP}
     stn: str
         Station.
-    varidx: VarIdx
-        Climate variable or index.
+    var: VarIdx
+        Climate variable.
+    sim_code: str
+        Simulation code.
     per: [int, int]
         Period of interest, for instance, [1981, 2010].
     freq: str
@@ -1755,11 +1832,17 @@ def calc_cycle(
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Determine view.
+    view_code = c.VIEW_CYCLE_D if freq == c.FREQ_D else c.VIEW_CYCLE_MS
+
+    # Information on climate variable or index.
+    var_code = var.code
+    var_name = var.name
+
     # Paths.
-    cat_fig = c.VIEW_CYCLE_MS if freq == c.FREQ_MS else c.VIEW_CYCLE_D
-    p_fig = cntx.d_fig(cat_fig, varidx.name + cntx.sep + cntx.hor.desc) + title + c.F_EXT_PNG
-    p_csv = p_fig.replace(cntx.sep + varidx.name + cntx.sep, cntx.sep + varidx.name + "_" + c.F_CSV + cntx.sep).\
-        replace(c.F_EXT_PNG, c.F_EXT_CSV)
+    p_data = cntx.p_scen(cat, var_name, sim_code=sim_code)
+    p_fig = cntx.p_fig(view_code, var_code, var_name, c.F_PNG, per=per, sim_code=sim_code)
+    p_csv = cntx.p_fig(view_code, var_code, var_name, c.F_CSV, per=per, sim_code=sim_code)
 
     # Determine if the analysis is required.
     save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.F_PNG in cntx.opt_cycle_format)))
@@ -1774,6 +1857,10 @@ def calc_cycle(
     # Prepare data.
     else:
 
+        # Load dataset.
+        ds = fu.open_dataset(p_data)
+        ds = wf_utils.standardize_dataset(ds, vi_name=var_name)
+
         # Extract data.
         # Exit if there is not at leat one year of data for the current period.
         if i_trial == 1:
@@ -1784,46 +1871,46 @@ def calc_cycle(
                 ds = wf_utils.remove_feb29(ds)
 
         # Convert units.
-        units = ds[varidx.name].attrs[c.ATTRS_UNITS]
-        if (varidx.name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]) and \
-           (ds[varidx.name].attrs[c.ATTRS_UNITS] == c.UNIT_K):
+        units = ds[var_name].attrs[c.ATTRS_UNITS]
+        if (var_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]) and \
+           (ds[var_name].attrs[c.ATTRS_UNITS] == c.UNIT_K):
             ds = ds - c.d_KC
-        elif varidx.is_summable and (ds[varidx.name].attrs[c.ATTRS_UNITS] == c.UNIT_kg_m2s1):
+        elif var.is_volumetric and (ds[var_name].attrs[c.ATTRS_UNITS] == c.UNIT_kg_m2s1):
             ds = ds * c.SPD
-        ds[varidx.name].attrs[c.ATTRS_UNITS] = units
+        ds[var_name].attrs[c.ATTRS_UNITS] = units
 
         # Calculate statistics.
-        ds_l = calc_by_freq(ds, varidx, per, freq)
+        ds_l = calc_by_freq(ds, var, per, freq)
 
         n = 12 if freq == c.FREQ_MS else 365
 
         # Remove February 29th.
-        if (freq == c.FREQ_D) and (len(ds_l[0][varidx.name]) > 365):
+        if (freq == c.FREQ_D) and (len(ds_l[0][var_name]) > 365):
             for i in range(3):
                 ds_l[i] = ds_l[i].rename_dims({"dayofyear": c.DIM_TIME})
-                ds_l[i] = ds_l[i][varidx.name][ds_l[i][c.DIM_TIME] != 59].to_dataset()
+                ds_l[i] = ds_l[i][var_name][ds_l[i][c.DIM_TIME] != 59].to_dataset()
                 ds_l[i][c.DIM_TIME] = wf_utils.reset_calendar(ds_l[i], cntx.per_ref[0], cntx.per_ref[0], c.FREQ_D)
-                ds_l[i][varidx.name].attrs[c.ATTRS_UNITS] = ds[varidx.name].attrs[c.ATTRS_UNITS]
+                ds_l[i][var_name].attrs[c.ATTRS_UNITS] = ds[var_name].attrs[c.ATTRS_UNITS]
 
         # Create dataframe.
         if freq == c.FREQ_D:
             dict_pd = {
                 ("month" if freq == c.FREQ_MS else "day"): range(1, n + 1),
-                "mean": list(ds_l[0][varidx.name].values),
-                "min": list(ds_l[1][varidx.name].values),
-                "max": list(ds_l[2][varidx.name].values), "var": [varidx.name] * n
+                "mean": list(ds_l[0][var_name].values),
+                "min": list(ds_l[1][var_name].values),
+                "max": list(ds_l[2][var_name].values), "var": [var_name] * n
             }
             df = pd.DataFrame(dict_pd)
         else:
             year_l = list(range(per[0], per[1] + 1))
             dict_pd = {
                 "year": year_l,
-                "1": ds_l[varidx.name].values[0], "2": ds_l[varidx.name].values[1],
-                "3": ds_l[varidx.name].values[2], "4": ds_l[varidx.name].values[3],
-                "5": ds_l[varidx.name].values[4], "6": ds_l[varidx.name].values[5],
-                "7": ds_l[varidx.name].values[6], "8": ds_l[varidx.name].values[7],
-                "9": ds_l[varidx.name].values[8], "10": ds_l[varidx.name].values[9],
-                "11": ds_l[varidx.name].values[10], "12": ds_l[varidx.name].values[11]
+                "1": ds_l[var_name].values[0], "2": ds_l[var_name].values[1],
+                "3": ds_l[var_name].values[2], "4": ds_l[var_name].values[3],
+                "5": ds_l[var_name].values[4], "6": ds_l[var_name].values[5],
+                "7": ds_l[var_name].values[6], "8": ds_l[var_name].values[7],
+                "9": ds_l[var_name].values[8], "10": ds_l[var_name].values[9],
+                "11": ds_l[var_name].values[10], "12": ds_l[var_name].values[11]
             }
             df = pd.DataFrame(dict_pd)
 
@@ -1859,7 +1946,7 @@ def calc_cycle(
 
         # Attempt the same analysis again.
         if i_trial < 3:
-            calc_cycle(ds, stn, varidx, per, freq, title, i_trial + 1)
+            calc_cycle(cat, stn, var, sim_code, per, freq, title, i_trial + 1)
 
 
 def calc_clusters():
@@ -1880,8 +1967,8 @@ def calc_clusters():
     cntx.varidxs = cntx.cluster_vars
     cntx.rcp     = RCP(c.RCPXX)
     cntx.stats   = Stats()
-    cntx.stats.add(Stat(c.STAT_CENTILE, cntx.opt_cluster_centiles[0]))
-    cntx.stats.add(Stat(c.STAT_CENTILE, cntx.opt_cluster_centiles[1]))
+    for centile in cntx.opt_cluster_centiles:
+        cntx.stats.add(Stat(c.STAT_CENTILE, centile))
 
     # Assemble a string representing the combination of (sorted) variable codes.
     vars_str = ""
@@ -1893,7 +1980,7 @@ def calc_clusters():
         vars_str += var_code_l[i]
 
     # Loop through stations.
-    stns = (cntx.stns if not cntx.opt_ra else [cntx.obs_src])
+    stns = (cntx.ens_ref_stns if cntx.ens_ref_grid == "" else [cntx.ens_ref_grid])
     for stn in stns:
 
         fu.log("Processing: " + stn, True)
@@ -1901,7 +1988,7 @@ def calc_clusters():
         # Determine the maximum number of clusters.
         p_csv_ts_l = []
         for var in cntx.varidxs.items:
-            p_i = cntx.d_fig(c.VIEW_TS, var.code + "_" + c.F_CSV) + var.code + "_sim" + c.F_EXT_CSV
+            p_i = cntx.p_fig(c.VIEW_TS, var.code, var.code, c.F_CSV, suffix="_"+dash_plot.MODE_SIM)
             p_csv_ts_l.append(p_i)
         n_cluster_max = len(dash_utils.get_shared_sims(p_csv_ts_l))
 
@@ -1909,9 +1996,9 @@ def calc_clusters():
         for n_cluster in range(1, n_cluster_max):
 
             # Paths.
-            p_csv = cntx.d_fig(c.VIEW_CLUSTER) + vars_str + "_" + c.F_CSV + cntx.sep +\
-                vars_str + "_" + str(n_cluster) + c.F_EXT_CSV
-            p_fig = p_csv.replace("_" + c.F_CSV, "").replace(c.F_EXT_CSV, c.F_EXT_PNG)
+            suffix = "_" + str(n_cluster)
+            p_csv = cntx.p_fig(c.VIEW_CLUSTER, vars_str, vars_str, c.F_CSV, suffix=suffix)
+            p_fig = cntx.p_fig(c.VIEW_CLUSTER, vars_str, vars_str, c.F_PNG, suffix=suffix)
 
             # Determine if the analysis is required.
             analysis_enabled = cntx.opt_cluster
@@ -1948,11 +2035,8 @@ def calc_clusters():
 
 
 def calc_postprocess(
-    p_ref: str,
-    p_sim: str,
-    p_sim_adj: str,
-    varidx: VarIdx,
-    p_fig: str,
+    var: VarIdx,
+    sim_code: str,
     title: str
 ):
 
@@ -1962,26 +2046,25 @@ def calc_postprocess(
 
     Parameters
     ----------
-    p_ref : str
-        Path of NetCDF file containing reference data.
-    p_sim : str
-        Path of NetCDF file containing simulation data.
-    p_sim_adj : str
-        Path of NetCDF file containing adjusted simulation data.
-    varidx : VarIdx
-        Variable or index.
-    p_fig : str
-        Path of output figure.
-    title : str
+    var: VarIdx
+        Climate variable.
+    sim_code: str
+        Simulation code.
+    title: str
         Title of figure.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    vi_name = varidx.name
+    # Information on climate variable.
+    var_code = var.code
+    var_name = var.name
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.F_CSV + cntx.sep). \
-        replace(c.F_EXT_PNG, c.F_EXT_CSV)
+    p_ref        = cntx.p_scen(c.CAT_OBS, var_name, c.REF)
+    p_regrid_fut = cntx.p_scen(c.CAT_REGRID_FUT, var_name, sim_code)
+    p_qqmap      = cntx.p_scen(c.CAT_QQMAP, var_name, sim_code)
+    p_fig        = cntx.p_fig(c.VIEW_POSTPROCESS, var_code, var_name, c.F_PNG, sim_code=sim_code)
+    p_csv        = cntx.p_fig(c.VIEW_POSTPROCESS, var_code, var_name, c.F_CSV, sim_code=sim_code)
 
     # Determine if the analysis is required.
     save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.F_PNG in cntx.opt_diagnostic_format)))
@@ -1997,63 +2080,59 @@ def calc_postprocess(
     else:
 
         # Load datasets.
-        da_ref = fu.open_netcdf(p_ref)[vi_name]
+        da_ref = fu.open_dataset(p_ref)[var_name]
         if c.DIM_LONGITUDE in da_ref.dims:
             da_ref = da_ref.rename({c.DIM_LONGITUDE: c.DIM_RLON, c.DIM_LATITUDE: c.DIM_RLAT})
-        da_sim = fu.open_netcdf(p_sim)[vi_name]
-        da_sim_adj = fu.open_netcdf(p_sim_adj)[vi_name]
+        da_regrid_fut = fu.open_dataset(p_regrid_fut)[var_name]
+        da_qqmap = fu.open_dataset(p_qqmap)[var_name]
 
-        # Select control point.
-        if cntx.opt_ra:
-            subset_ctrl_pt = False
-            if c.DIM_RLON in da_ref.dims:
-                subset_ctrl_pt = (len(da_ref.rlon) > 1) or (len(da_ref.rlat) > 1)
-            elif c.DIM_LON in da_ref.dims:
-                subset_ctrl_pt = (len(da_ref.lon) > 1) or (len(da_ref.lat) > 1)
-            elif c.DIM_LONGITUDE in da_ref.dims:
-                subset_ctrl_pt = (len(da_ref.longitude) > 1) or (len(da_ref.latitude) > 1)
-            if subset_ctrl_pt:
-                if cntx.p_bounds == "":
-                    da_ref = wf_utils.subset_ctrl_pt(da_ref)
-                    da_sim = wf_utils.subset_ctrl_pt(da_sim)
-                    da_sim_adj = wf_utils.subset_ctrl_pt(da_sim_adj)
-                else:
-                    da_ref = wf_utils.squeeze_lon_lat(da_ref)
-                    da_sim = wf_utils.squeeze_lon_lat(da_sim)
-                    da_sim_adj = wf_utils.squeeze_lon_lat(da_sim_adj)
+        # Subset by location (within a polygon or at a point).
+        if cntx.ens_ref_grid != "":
+            if cntx.opt_stat_clip and (cntx.p_bounds != ""):
+                da_ref        = wf_utils.subset_shape(da_ref)
+                da_regrid_fut = wf_utils.subset_shape(da_regrid_fut)
+                da_qqmap      = wf_utils.subset_shape(da_qqmap)
+            elif cntx.ctrl_pt is not None:
+                da_ref        = wf_utils.subset_ctrl_pt(da_ref)
+                da_regrid_fut = wf_utils.subset_ctrl_pt(da_regrid_fut)
+                da_qqmap      = wf_utils.subset_ctrl_pt(da_qqmap)
+            else:
+                da_ref        = wf_utils.squeeze_lon_lat(da_ref)
+                da_regrid_fut = wf_utils.squeeze_lon_lat(da_regrid_fut)
+                da_qqmap      = wf_utils.squeeze_lon_lat(da_qqmap)
 
         # Conversion coefficient.
         coef = 1
         delta_ref, delta_sim, delta_sim_adj = 0, 0, 0
-        if varidx.is_summable:
+        if var.is_summable:
             coef = c.SPD * 365
-        elif vi_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]:
+        elif var_name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]:
             if da_ref.units == c.UNIT_K:
                 delta_ref = -c.d_KC
-            if da_sim.units == c.UNIT_K:
+            if da_regrid_fut.units == c.UNIT_K:
                 delta_sim = -c.d_KC
-            if da_sim_adj.units == c.UNIT_K:
+            if da_qqmap.units == c.UNIT_K:
                 delta_sim_adj = -c.d_KC
 
         # Calculate annual mean values.
-        da_sim_adj_mean = None
-        if da_sim_adj is not None:
-            da_sim_adj_mean = (da_sim_adj * coef + delta_sim_adj).groupby(da_sim_adj.time.dt.year).mean()
-        da_sim_mean = (da_sim * coef + delta_sim).groupby(da_sim.time.dt.year).mean()
+        da_qqmap_mean = None
+        if da_qqmap is not None:
+            da_qqmap_mean = (da_qqmap * coef + delta_sim_adj).groupby(da_qqmap.time.dt.year).mean()
+        da_regrid_fut_mean = (da_regrid_fut * coef + delta_sim).groupby(da_regrid_fut.time.dt.year).mean()
         da_ref_mean = (da_ref * coef + delta_ref).groupby(da_ref.time.dt.year).mean()
 
         # Create dataframe.
         n_ref = len(list(da_ref_mean.values))
-        n_sim_adj = len(list(da_sim_adj_mean.values))
+        n_sim_adj = len(list(da_qqmap_mean.values))
         dict_pd = {"year": list(range(1, n_sim_adj + 1)),
                    c.CAT_OBS: list(da_ref_mean.values) + [np.nan] * (n_sim_adj - n_ref),
-                   c.CAT_SIM_ADJ: list(da_sim_adj_mean.values),
-                   c.CAT_SIM: list(da_sim_mean.values)}
+                   c.CAT_SIM_ADJ: list(da_qqmap_mean.values),
+                   c.CAT_SIM: list(da_regrid_fut_mean.values)}
         df = pd.DataFrame(dict_pd)
 
     # Generate and save plot.
     if save_fig:
-        fig = wf_plot.plot_postprocess(df, varidx, title)
+        fig = wf_plot.plot_postprocess(df, var, title)
         fu.save_plot(fig, p_fig)
 
     # Save CSV file.
@@ -2062,10 +2141,8 @@ def calc_postprocess(
 
 
 def calc_workflow(
-    varidx: VarIdx,
-    p_ref: str,
-    p_sim: str,
-    p_fig: str,
+    var: VarIdx,
+    sim_code: str,
     title: str
 ):
 
@@ -2075,24 +2152,24 @@ def calc_workflow(
 
     Parameters
     ----------
-    varidx : VarIdx
-        Variable or index.
-    p_ref : str
-        Path of the NetCDF file containing reference data.
-    p_sim : str
-        Path of the NetCDF file containing simulation data.
-    p_fig : str
-        Path of output figure.
-    title : str
+    var: VarIdx
+        Climate variable.
+    sim_code: str
+        Simulation code.
+    title: str
         Title of figure.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    vi_name = varidx.name
+    # Information on climate variable.
+    var_code = var.code
+    var_name = var.name
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.F_CSV + cntx.sep). \
-        replace(c.F_EXT_PNG, c.F_EXT_CSV)
+    p_regrid_ref = cntx.p_scen(c.CAT_REGRID_REF, var_name, sim_code=sim_code)
+    p_regrid_fut = cntx.p_scen(c.CAT_REGRID_FUT, var_name, sim_code=sim_code)
+    p_fig        = cntx.p_fig(c.VIEW_WORKFLOW, var_code, var_name, c.F_PNG, sim_code=sim_code)
+    p_csv        = cntx.p_fig(c.VIEW_WORKFLOW, var_code, var_name, c.F_CSV, sim_code=sim_code)
 
     # Determine if the analysis is required.
     save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.F_PNG in cntx.opt_diagnostic_format)))
@@ -2109,47 +2186,39 @@ def calc_workflow(
     else:
 
         # Load datasets.
-        da_ref = fu.open_netcdf(p_ref)[vi_name]
-        da_sim = fu.open_netcdf(p_sim)[vi_name]
+        da_regrid_ref = fu.open_dataset(p_regrid_ref)[var_name]
+        da_regrid_fut = fu.open_dataset(p_regrid_fut)[var_name]
 
         # Select control point.
-        if cntx.opt_ra:
-            subset_ctrl_pt = False
-            if c.DIM_RLON in da_ref.dims:
-                subset_ctrl_pt = (len(da_ref.rlon) > 1) or (len(da_ref.rlat) > 1)
-            elif c.DIM_LON in da_ref.dims:
-                subset_ctrl_pt = (len(da_ref.lon) > 1) or (len(da_ref.lat) > 1)
-            elif c.DIM_LONGITUDE in da_ref.dims:
-                subset_ctrl_pt = (len(da_ref.longitude) > 1) or (len(da_ref.latitude) > 1)
-            if subset_ctrl_pt:
-                if cntx.p_bounds == "":
-                    da_ref = wf_utils.subset_ctrl_pt(da_ref)
-                    da_sim = wf_utils.subset_ctrl_pt(da_sim)
-                else:
-                    da_ref = wf_utils.squeeze_lon_lat(da_ref)
-                    da_sim = wf_utils.squeeze_lon_lat(da_sim)
+        if cntx.ens_ref_grid != "":
+            if cntx.opt_stat_clip and (cntx.p_bounds != ""):
+                da_regrid_ref = wf_utils.subset_shape(da_regrid_ref)
+                da_regrid_fut = wf_utils.subset_shape(da_regrid_fut)
+            elif cntx.ctrl_pt is not None:
+                da_regrid_ref = wf_utils.subset_ctrl_pt(da_regrid_ref)
+                da_regrid_fut = wf_utils.subset_ctrl_pt(da_regrid_fut)
             else:
-                da_ref = da_ref.squeeze()
-                da_sim = da_sim.squeeze()
+                da_regrid_ref = wf_utils.squeeze_lon_lat(da_regrid_ref)
+                da_regrid_fut = wf_utils.squeeze_lon_lat(da_regrid_fut)
 
         # Convert date format if the need is.
-        if da_ref.time.dtype == c.DTYPE_OBJ:
-            da_ref[c.DIM_TIME] = wf_utils.reset_calendar(da_ref)
+        if da_regrid_ref.time.dtype == c.DTYPE_OBJ:
+            da_regrid_ref[c.DIM_TIME] = wf_utils.reset_calendar(da_regrid_ref)
 
         # Units.
-        units = [da_ref.units, da_sim.units]
+        units = [da_regrid_ref.units, da_regrid_fut.units]
 
         # Create dataframe.
-        n_ref = len(list(da_ref.values))
-        n_sim = len(list(da_sim.values))
+        n_ref = len(list(da_regrid_ref.values))
+        n_sim = len(list(da_regrid_fut.values))
         dict_pd = {"year": list(range(1, n_sim + 1)),
-                   c.CAT_OBS: list(da_ref.squeeze().values) + [np.nan] * (n_sim - n_ref),
-                   c.CAT_SIM: list(da_sim.values)}
+                   c.CAT_OBS: list(da_regrid_ref.squeeze().values) + [np.nan] * (n_sim - n_ref),
+                   c.CAT_SIM: list(da_regrid_fut.values)}
         df = pd.DataFrame(dict_pd)
 
     # Generate and save plot.
     if save_fig:
-        fig = wf_plot.plot_workflow(df, varidx, units, title)
+        fig = wf_plot.plot_workflow(df, var, units, title)
         fu.save_plot(fig, p_fig)
 
     # Save CSV file.

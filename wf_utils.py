@@ -31,7 +31,7 @@ from cl_context import cntx
 
 
 def natural_sort(
-    values: Union[float, int]
+    values_l: Union[float, int]
 ):
 
     """
@@ -40,7 +40,8 @@ def natural_sort(
 
     Parameters
     ----------
-    values : List of values that require numerical sorting.
+    values_l: Union[float, int]
+        List of values that require numerical sorting.
     --------------------------------------------------------------------------------------------------------------------
     """
 
@@ -48,9 +49,11 @@ def natural_sort(
         return int(text) if text.isdigit() else text.lower()
 
     def alphanum_key(key):
-        return [convert(c) for c in re.split("([0-9]+)", key)]
+        return [convert(c_i) for c_i in re.split("([0-9]+)", key)]
 
-    return sorted(values, key=alphanum_key)
+    values_sorted_l = sorted(values_l, key=alphanum_key)
+
+    return values_sorted_l
 
 
 def uas_vas_2_sfc(
@@ -281,7 +284,7 @@ def extract_date_field(
             month = time_l[i].month
             day   = time_l[i].day
             doy   = time_l[i].dayofyear
-        except AttributeError as e:
+        except AttributeError:
             year  = int(str(time_l[i])[0:4])
             month = int(str(time_l[i])[5:7])
             day   = int(str(time_l[i])[8:10])
@@ -747,9 +750,9 @@ def grid_properties(
 def subset_lon_lat_time(
     ds_da: Union[xr.Dataset, xr.DataArray],
     vi_name: str,
-    lon: List[float] = [],
-    lat: List[float] = [],
-    t: List[int] = [],
+    lon: List[float] = None,
+    lat: List[float] = None,
+    t: List[int] = None,
     force_2x2_grid: Optional[bool] = True
 ) -> Union[xr.Dataset, xr.DataArray]:
 
@@ -818,6 +821,13 @@ def subset_lon_lat_time(
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    if lon is None:
+        lon = []
+    if lat is None:
+        lat = []
+    if t is None:
+        t = []
+
     lon_buffer, lat_buffer = 0.0, 0.0
 
     # Calculate resolution.
@@ -836,11 +846,11 @@ def subset_lon_lat_time(
 
             # List values.
             if c.DIM_LONGITUDE in ds_da_sub.dims:
-                lon_vals = ds_da_sub.longitude
+                lon_vals = ds_da_sub.longitude.values
             elif c.DIM_LON in ds_da_sub.dims:
-                lon_vals = ds_da_sub.lon
+                lon_vals = ds_da_sub.lon.values
             else:
-                lon_vals = ds_da_sub.rlon
+                lon_vals = ds_da_sub.rlon.values
 
             # Determine minimum an maximum values.
             lon_min_data = float(lon_vals[0])
@@ -868,11 +878,11 @@ def subset_lon_lat_time(
 
             # List values.
             if c.DIM_LATITUDE in ds_da_sub.dims:
-                lat_vals = ds_da_sub.latitude
+                lat_vals = ds_da_sub.latitude.values
             elif c.DIM_LAT in ds_da_sub.dims:
-                lat_vals = ds_da_sub.lat
+                lat_vals = ds_da_sub.lat.values
             else:
-                lat_vals = ds_da_sub.rlat
+                lat_vals = ds_da_sub.rlat.values
 
             # Determine minimum an maximum values.
             lat_min_data = float(lat_vals[0])
@@ -1102,6 +1112,13 @@ def subset_shape(
     """
     --------------------------------------------------------------------------------------------------------------------
     Subset based on a shape.
+
+    If the following error is obtained:
+        pyproj.exceptions.CRSError: Invalid projection: epsg:4326
+    we need to update the following packages :
+        pip install geopandas -U
+        pip install pyproj -U
+    The error is caused by an older version of the package 'pyproj'.
 
     Parameters
     ----------
@@ -1378,7 +1395,7 @@ def doy_to_doy_str(
     return doy_str
 
 
-def standardize_netcdf(
+def standardize_dataset(
     ds_da: Union[xr.Dataset, xr.DataArray],
     vi_name: Optional[str] = "",
     template: Optional[Union[xr.Dataset, xr.DataArray, List[str]]] = None,
@@ -1685,3 +1702,71 @@ def set_units(
             ds_da.attrs[c.ATTRS_UNITS] = units_new
 
     return ds_da
+
+
+def coord_in_bnds(
+    coord: float,
+    bnds_l: List[float]
+) -> bool:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Determine whether an angle is located between two angles.
+
+    Parameters
+    ----------
+    coord: float
+        Longitude or latitude.
+    bnds_l: List[float]
+        Boundaries (minimum and maximum angles).
+
+    Returns
+    -------
+    bool
+        True if 'coord' is located between bnds_l[0] and bnds_l[1].
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Make the angle from bnds[0] to bnds[1] to be <= 180 degrees.
+    r_angle = ((bnds_l[1] - bnds_l[0]) % 360 + 360) % 360
+    if r_angle >= 180:
+        bnds_l = [bnds_l[1], bnds_l[0]]
+
+    # Check if it passes through zero.
+    if bnds_l[0] <= bnds_l[1]:
+        return (coord >= bnds_l[0]) and (coord <= bnds_l[1])
+    else:
+        return (coord >= bnds_l[0]) and (coord <= bnds_l[1])
+
+
+def has_rotated_coords(
+    ds_da: Union[xr.Dataset, xr.DataArray],
+    vi_name: Optional[str]
+) -> bool:
+
+    """
+    ----------------------------------------
+    Determine if a data has rotated coordinates.
+
+    Parameters
+    ----------
+    ds_da: Union[xr.Dataset, xr.DataArray]
+        Dataset or DataArray.
+    vi_name: Optional[str]
+        Variable or index name.
+
+    Returns
+    -------
+    str
+        True if the data has rotated coordinates.
+    ----------------------------------------
+    """
+
+    # Extract DataArray.
+    if isinstance(ds_da, xr.Dataset):
+        da = ds_da[vi_name]
+    else:
+        da = ds_da
+
+    return ((c.ATTRS_GMAP in da.attrs) and (da.attrs[c.ATTRS_GMAP] == c.ATTRS_ROT_LAT_LON)) or \
+           ((c.DIM_LON in list(da.coords.variables)) and (len(da[c.DIM_LON].shape) > 1))

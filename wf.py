@@ -26,10 +26,10 @@ from cl_constant import const as c
 from cl_context import cntx
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard import cl_project
-from dashboard.cl_rcp import RCPs
-from dashboard.cl_varidx import VarIdx, VarIdxs
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard import cl_project
+from scen_workflow_afr_dashboard.cl_rcp import RCPs
+from scen_workflow_afr_dashboard.cl_varidx import VarIdx, VarIdxs
 
 
 def main():
@@ -47,36 +47,37 @@ def main():
 
     # Project.
     cntx.code = c.PLATFORM_SCRIPT
-    cntx.project = cl_project.Project(str(cntx.project))
+    cntx.project = cl_project.Project()
     cntx.project.p_bounds = cntx.p_bounds
 
     # Emission scenarios.
     cntx.rcps = RCPs(cntx.emission_scenarios)
 
     # CORDEX variables.
+    cntx.vars = VarIdxs()
     if len(cntx.variables) > 0:
 
         # Remove variables that are not compatible with the reanalysis ensemble.
-        if (c.V_SFTLF in cntx.variables) and (cntx.obs_src != c.ENS_ERA5):
+        if (c.V_SFTLF in cntx.variables) and (cntx.ens_ref_grid != c.ENS_ERA5):
             cntx.variables.remove(c.V_SFTLF)
 
         # Convert list of variables to instances.
         cntx.vars = VarIdxs(cntx.variables)
 
         # Reanalysis variables.
-        if cntx.obs_src in [c.ENS_ERA5, c.ENS_ERA5_LAND, c.ENS_ENACTS, c.ENS_CHIRPS]:
+        if cntx.ens_ref_grid in [c.ENS_ERA5, c.ENS_ERA5_LAND, c.ENS_ENACTS, c.ENS_CHIRPS]:
             variables_ra = []
             for var in cntx.vars.items:
-                variables_ra.append(var.convert_name(cntx.obs_src))
-            cntx.vars_ra = VarIdxs(variables_ra)
+                variables_ra.append(var.convert_name(cntx.ens_ref_grid))
+            cntx.vars_ra = VarIdxs(variables_ra, cntx.ens_ref_grid)
 
     # CORDEX variables used for clustering.
     if len(cntx.opt_cluster_variables) > 0:
         cntx.cluster_vars = VarIdxs(cntx.opt_cluster_variables)
 
     # Indices.
+    cntx.idxs = VarIdxs()
     if len(cntx.idx_codes):
-        cntx.idxs = VarIdxs()
         for i in range(len(cntx.idx_codes)):
             idx = VarIdx(cntx.idx_codes[i])
             idx.params = cntx.idx_params[i]
@@ -99,16 +100,17 @@ def main():
             params_i =\
                 str(cntx.idxs.items[i].params).replace("'", "").replace("(", "[").replace(")", "]").replace("\\n", "")
             fu.log("Climate index #" + ("0" if i < 9 else "") + str(i + 1) + "      : " + params_i)
-    if cntx.opt_ra:
-        fu.log("Reanalysis set         : " + cntx.obs_src)
+    if cntx.ens_ref_grid != "":
+        fu.log("Ensemble (gridded)     : " + cntx.ens_ref_grid)
         fu.log("Variables (reanalysis) : " + str(cntx.vars_ra.code_l).replace("'", ""))
-    else:
-        fu.log("Stations               : " + str(cntx.stns))
+    if cntx.ens_ref_stns != "":
+        fu.log("Ensemble (stations)    : " + cntx.ens_ref_stn)
+        fu.log("Stations               : " + str(cntx.ens_ref_stns))
     fu.log("Emission scenarios     : " + str(cntx.rcps.code_l).replace("'", ""))
     fu.log("Reference period       : " + str(cntx.per_ref))
     fu.log("Future period          : " + str(cntx.per_fut))
     fu.log("Horizons               : " + str(cntx.per_hors).replace("'", ""))
-    if (cntx.region != "") and cntx.opt_ra:
+    if (cntx.region != "") and (cntx.ens_ref_grid != ""):
         fu.log("Region                 : " + cntx.region)
 
     # Step #2: Download and aggregation --------------------------------------------------------------------------------
@@ -125,7 +127,7 @@ def main():
     # Aggregate reanalysis data to daily frequency.
     fu.log("=")
     msg = "Step #2b  Aggregating hourly data"
-    if cntx.opt_aggregate and cntx.opt_ra:
+    if cntx.opt_aggregate and (cntx.ens_ref_grid != ""):
         fu.log(msg)
         wf_aggregate.run()
     else:
@@ -133,14 +135,14 @@ def main():
 
     # Steps #3-5: Data extraction, scenarios, bias adjustment and statistical downscaling ------------------------------
 
-    # Clean NetCDF files.
+    # Clean data files.
     if cntx.opt_scen:
         for var in cntx.vars.items:
-            fu.clean_netcdf(cntx.d_stn(var.name))
-            fu.clean_netcdf(cntx.d_scen("*", var.name))
+            fu.clean_dataset(cntx.d_ref(var.name))
+            fu.clean_dataset(cntx.d_scen("*", var.name))
     if cntx.opt_idx:
         for idx in cntx.idxs.items:
-            fu.clean_netcdf(cntx.d_idx(idx.code))
+            fu.clean_dataset(cntx.d_idx(idx.code))
 
     # Initialization.
     wf_scenarios.init_bias_params()

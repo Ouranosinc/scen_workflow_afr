@@ -15,7 +15,6 @@ import glob
 import os
 import xarray as xr
 import warnings
-from typing import Optional
 
 # Workflow libraries.
 import wf_file_utils as fu
@@ -25,8 +24,8 @@ from cl_context import cntx
 
 # Dashboard libraries.
 import sys
-sys.path.append("dashboard")
-from dashboard.cl_varidx import VarIdx
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard.cl_varidx import VarIdx
 
 
 def aggregate(
@@ -83,7 +82,7 @@ def aggregate(
 
             # Hourly data.
             if ds_hour is None:
-                ds_hour = fu.open_netcdf(p_hour)[var.name]
+                ds_hour = fu.open_dataset(p_hour)[var.name]
 
             # Aggregation.
             ds_day = None
@@ -111,7 +110,7 @@ def aggregate(
                     save = True
             elif stat == c.STAT_SUM:
                 if var.name in [c.V_ECMWF_TP, c.V_ECMWF_E, c.V_ECMWF_PEV, c.V_ECMWF_SSRD]:
-                    if cntx.obs_src == c.ENS_ERA5:
+                    if cntx.ens_ref_grid == c.ENS_ERA5:
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=Warning)
                             ds_day = ds_hour.resample(time=c.FREQ_D).sum()
@@ -121,14 +120,14 @@ def aggregate(
                             ds_day = ds_hour.sel(time=datetime.time(23)).resample(time=c.FREQ_D).sum()
                     save = True
 
-            # Save NetCDF file.
+            # Save dataset.
             if save:
-                fu.save_netcdf(ds_day, p_day_stat)
+                fu.save_dataset(ds_day, p_day_stat)
 
         # Numerical test and plot for a given day of year.
         if opt_debug and os.path.exists(p_day_stat):
 
-            ds_day = fu.open_netcdf(p_day_stat)[var.name]
+            ds_day = fu.open_dataset(p_day_stat)[var.name]
 
             # Plot #1: Time-series.
             # Hourly data.
@@ -226,8 +225,8 @@ def gen_dataset_sh(
     """
 
     # Load datasets.
-    da_d2m = fu.open_netcdf(p_d2m, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_D2M]
-    da_sp  = fu.open_netcdf(p_sp, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_SP]
+    da_d2m = fu.open_dataset(p_d2m, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_D2M]
+    da_sp  = fu.open_dataset(p_sp, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_SP]
 
     # Calculate specific humidity values.
     da_sh = xr.DataArray(calc_spec_humidity(da_d2m - c.d_KC, da_sp / 100.0))
@@ -239,8 +238,8 @@ def gen_dataset_sh(
     da_sh.attrs[c.ATTRS_LNAME] = "specific humidity"
     da_sh.attrs[c.ATTRS_UNITS] = c.UNIT_1
 
-    # Save NetCDF file.
-    fu.save_netcdf(da_sh, p_sh)
+    # Save dataset.
+    fu.save_dataset(da_sh, p_sh)
 
 
 def gen_dataset_uv10(
@@ -268,8 +267,8 @@ def gen_dataset_uv10(
     """
 
     # Load datasets.
-    da_u10 = fu.open_netcdf(p_u10, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_U10]
-    da_v10  = fu.open_netcdf(p_v10, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_V10]
+    da_u10 = fu.open_dataset(p_u10, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_U10]
+    da_v10  = fu.open_dataset(p_v10, chunks={c.DIM_TIME: n_years})[c.V_ECMWF_V10]
 
     # Calculate specific humidity values.
     da_uv10 = ((da_u10 ** 2) + (da_v10 ** 2)) ** 0.5
@@ -281,37 +280,8 @@ def gen_dataset_uv10(
     da_uv10.attrs[c.ATTRS_LNAME] = "wind"
     da_uv10.attrs[c.ATTRS_UNITS] = c.UNIT_m_s
 
-    # Save NetCDF file.
-    fu.save_netcdf(da_uv10, p_uv10)
-
-
-def p_ra(
-    var_name: str,
-    freq: str,
-    year: int,
-    stat_name: Optional[str] = ""
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Get the path of ECMWF reanalysis data file.
-
-    Parameters
-    ----------
-    var_name: str
-        Variable name.
-    freq: str
-        Frequency = {"c.FREQ_H", "c.FREQ_D"}
-    year: int
-        Year.
-    stat_name: Optional[str]
-        Statistics name = {c.STAT_MEAN, c.STAT_MIN, c.STAT_MAX, c.STAT_SUM}
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    return (cntx.d_ra_raw if freq == c.FREQ_H else cntx.d_ra_day) + var_name + stat_name + cntx.sep + \
-        var_name + stat_name + "_" + cntx.obs_src + "_" + ("day" if freq == c.FREQ_D else "hour") + "_" +\
-        str(year) + c.F_EXT_NC
+    # Save dataset.
+    fu.save_dataset(da_uv10, p_uv10)
 
 
 def run():
@@ -335,20 +305,22 @@ def run():
             var_name_l.append(c.V_ECMWF_U10)
             var_name_l.append(c.V_ECMWF_V10)
         else:
-            var_ra_name = VarIdx(var.name).convert_name(c.ENS_ERA5)
-            if var_ra_name is not None:
-                var_name_l.append(var_ra_name)
+            var_ref_name = VarIdx(var.name).convert_name(c.ENS_ERA5)
+            if var_ref_name is not None:
+                var_name_l.append(var_ref_name)
     var_name_l.sort()
 
     # Loop through variables.
     for var_name in var_name_l:
 
         # Skip if variable does not exist in the current dataset.
-        if (cntx.obs_src == c.ENS_ERA5_LAND) and (var_name == c.V_ECMWF_LSM):
+        if (cntx.ens_ref_grid == c.ENS_ERA5_LAND) and (var_name == c.V_ECMWF_LSM):
             continue
 
         # Loop through files.
-        p_raw_lst = glob.glob(cntx.d_ra_raw + var_name + cntx.sep + "*" + c.F_EXT_NC)
+        p_raw_lst =\
+            list(glob.glob(cntx.d_ref_raw(c.FREQ_H, var_name) + "*" + c.F_EXT_NC)) +\
+            list(glob.glob(cntx.d_ref_raw(c.FREQ_H, var_name) + "*" + c.F_EXT_ZARR))
         p_raw_lst.sort()
         n_years = len(p_raw_lst)
         for i_raw in range(len(p_raw_lst)):
@@ -357,55 +329,55 @@ def run():
             p_raw = p_raw_lst[i_raw]
 
             # Extract year.
-            tokens = p_raw.replace(c.F_EXT_NC, "").split("_")
+            tokens = p_raw.replace(c.F_EXT_NC, "").replace(c.F_EXT_ZARR, "").split("_")
             year = int(tokens[len(tokens) - 1])
 
             # Path of daily data.
-            p_day = p_ra(var_name, c.FREQ_D, year)
+            p_day = cntx.p_ref_raw(var_name, c.FREQ_D, year)
 
             fu.log("Processing: " + p_raw, True)
 
             # Perform aggregation (if not all files exist).
-            f_exist = os.path.exists(p_ra(var_name, c.FREQ_D, year))
+            f_exist = os.path.exists(cntx.p_ref_raw(var_name, c.FREQ_D, year))
             if var_name == c.V_ECMWF_T2M:
-                p_day_t2mmin = p_ra(c.V_ECMWF_T2MMIN, c.FREQ_D, year)
-                p_day_t2mmax = p_ra(c.V_ECMWF_T2MMAX, c.FREQ_D, year)
+                p_day_t2mmin = cntx.p_ref_raw(c.V_ECMWF_T2MMIN, c.FREQ_D, year)
+                p_day_t2mmax = cntx.p_ref_raw(c.V_ECMWF_T2MMAX, c.FREQ_D, year)
                 f_exist = f_exist and os.path.exists(p_day_t2mmin) and os.path.exists(p_day_t2mmax)
             elif var_name == c.V_ECMWF_U10:
-                p_day_u10max = p_ra(c.V_ECMWF_U10MAX, c.FREQ_D, year)
+                p_day_u10max = cntx.p_ref_raw(c.V_ECMWF_U10MAX, c.FREQ_D, year)
                 f_exist = f_exist and os.path.exists(p_day_u10max)
             elif var_name == c.V_ECMWF_V10:
-                p_day_v10max = p_ra(c.V_ECMWF_V10MAX, c.FREQ_D, year)
+                p_day_v10max = cntx.p_ref_raw(c.V_ECMWF_V10MAX, c.FREQ_D, year)
                 f_exist = f_exist and os.path.exists(p_day_v10max)
             if (not f_exist) or cntx.opt_force_overwrite:
-                aggregate(p_raw, p_day, cntx.obs_src, VarIdx(var_name))
+                aggregate(p_raw, p_day, cntx.ens_ref_grid, VarIdx(var_name))
 
             # Calculate specific humidity.
             if var_name in [c.V_ECMWF_D2M, c.V_ECMWF_SP]:
-                p_raw_d2m = p_ra(c.V_ECMWF_D2M, c.FREQ_H, year)
-                p_raw_sp  = p_ra(c.V_ECMWF_SP, c.FREQ_H, year)
-                p_raw_sh  = p_ra(c.V_ECMWF_SH, c.FREQ_H, year)
-                p_day_sh  = p_ra(c.V_ECMWF_SH, c.FREQ_D, year)
+                p_raw_d2m = cntx.p_ref_raw(c.V_ECMWF_D2M, c.FREQ_H, year)
+                p_raw_sp  = cntx.p_ref_raw(c.V_ECMWF_SP, c.FREQ_H, year)
+                p_raw_sh  = cntx.p_ref_raw(c.V_ECMWF_SH, c.FREQ_H, year)
+                p_day_sh  = cntx.p_ref_raw(c.V_ECMWF_SH, c.FREQ_D, year)
                 if os.path.exists(p_raw_d2m) and os.path.exists(p_raw_sp) and\
                    ((not os.path.exists(p_raw_sh)) or cntx.opt_force_overwrite):
                     gen_dataset_sh(p_raw_d2m, p_raw_sp, p_raw_sh, n_years)
                 if os.path.exists(p_raw_sh) and (not os.path.exists(p_day_sh) or cntx.opt_force_overwrite):
-                    aggregate(p_raw_sh, p_day_sh, cntx.obs_src, VarIdx(c.V_ECMWF_SH))
+                    aggregate(p_raw_sh, p_day_sh, cntx.ens_ref_grid, VarIdx(c.V_ECMWF_SH))
 
             # Calculate wind speed.
             if var_name in [c.V_ECMWF_U10, c.V_ECMWF_V10]:
-                p_raw_u10  = p_ra(c.V_ECMWF_U10, c.FREQ_H, year)
-                p_raw_v10  = p_ra(c.V_ECMWF_V10, c.FREQ_H, year)
-                p_raw_uv10 = p_ra(c.V_ECMWF_UV10, c.FREQ_H, year)
-                p_day_uv10 = p_ra(c.V_ECMWF_UV10, c.FREQ_D, year)
-                p_day_uv10max = p_ra(c.V_ECMWF_UV10MAX, c.FREQ_D, year)
+                p_raw_u10  = cntx.p_ref_raw(c.V_ECMWF_U10, c.FREQ_H, year)
+                p_raw_v10  = cntx.p_ref_raw(c.V_ECMWF_V10, c.FREQ_H, year)
+                p_raw_uv10 = cntx.p_ref_raw(c.V_ECMWF_UV10, c.FREQ_H, year)
+                p_day_uv10 = cntx.p_ref_raw(c.V_ECMWF_UV10, c.FREQ_D, year)
+                p_day_uv10max = cntx.p_ref_raw(c.V_ECMWF_UV10MAX, c.FREQ_D, year)
                 if os.path.exists(p_raw_u10) and os.path.exists(p_raw_v10) and\
                    ((not os.path.exists(p_raw_uv10)) or cntx.opt_force_overwrite):
                     gen_dataset_uv10(p_raw_u10, p_raw_v10, p_raw_uv10, n_years)
                 if (os.path.exists(p_raw_uv10) and
                     ((not os.path.exists(p_day_uv10) or (not os.path.exists(p_day_uv10max))) or
                      cntx.opt_force_overwrite)):
-                    aggregate(p_raw_uv10, p_day_uv10, cntx.obs_src, VarIdx(c.V_ECMWF_UV10))
+                    aggregate(p_raw_uv10, p_day_uv10, cntx.ens_ref_grid, VarIdx(c.V_ECMWF_UV10))
 
 
 if __name__ == "__main__":

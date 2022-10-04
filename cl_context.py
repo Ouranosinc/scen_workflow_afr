@@ -11,18 +11,20 @@
 import ast
 import configparser
 import datetime
+import glob
 import os
 import os.path
 import pandas as pd
 import sys
-from typing import Optional
+from itertools import compress
+from typing import List, Optional, Tuple
 
 # Workflow libraries.
 from cl_constant import const as c
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard import cl_context
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard import cl_context
 
 """
 ------------------------------------------------------------------------------------------------------------------------
@@ -122,7 +124,7 @@ class Context(cl_context.Context):
         self.country = ""
 
         # Projet name.
-        self.project = ""
+        self._project = ""
 
         # Region name or acronym.
         self.region = ""
@@ -147,18 +149,18 @@ class Context(cl_context.Context):
         # Control point: [longitude, latitude] (required for statistics).
         self.ctrl_pt = None
 
-        # Station names.
-        self.stns = []
+        # Ensemble used in bias adjustment (gridded data has priority).
+        self.ens_ref = ""
 
-        # Provider of observations or reanalysis data.
-        self.obs_src = ""
+        # Ensemble used for at-a-station reference data, along with station names.
+        self.ens_ref_stn = ""
+        self.ens_ref_stns = []
+        self.ens_ref_col_sep = ","
 
-        # Credentials to access ERA5* data.
-        self.obs_src_username = ""
-        self.obs_src_password = ""
-
-        # Tells wether the analysis is based on reanalysis data.
-        self.opt_ra = False
+        # Ensemble used for gridded reference data, along with username and password.
+        self.ens_ref_grid = ""
+        self.ens_ref_grid_usr = ""
+        self.ens_ref_grid_pwd = ""
 
         # Variables (based on CORDEX names).
         self.variables = []
@@ -176,27 +178,17 @@ class Context(cl_context.Context):
         # Directory of projections.
         self.d_proj = ""
 
-        # Directory of reanalysis set (default frequency, usually hourly).
-        self.d_ra_raw = ""
-
-        # Directory of reference data (observations or reanalysis) are located in:
-        # /exec/<user_name>/<country>/<project>/stn/<obs_src>/<var>/*.csv
-        self._d_stn = ""
-
-        # Directory of results.
-        self.d_res = ""
+        # Directory of reference data at hourly frequency.
+        self.d_ref_hour = ""
 
         # Base directory.
         self.d_exec = ""
 
-        # Directory of reanalysis data at aggregated frequency (i.e. daily).
-        self.d_ra_day = ""
+        # Directory of reference data at daily frequency.
+        self.d_ref_day = ""
 
         # Directory separator (default corresponds to Linux/Unix).
         self.sep = "/"
-
-        # Columns separator (only in CSV files containing observations).
-        self.f_sep = ","
 
         # Tells whether files will be overwritten/recalculated.
         self.opt_force_overwrite = False
@@ -245,6 +237,9 @@ class Context(cl_context.Context):
 
         # Enable/disable the production of climate scenarios.
         self.opt_scen = True
+
+        # Domains.
+        self.domains = ["AFR-44"]
 
         # Search radius (around any given location).
         self.radius = 0.5
@@ -654,9 +649,6 @@ class Context(cl_context.Context):
         # Enable/diasble generation of Taylor diagrams for [scenarios, indices].
         self.opt_taylor = [True] * 2
 
-        # Enable/disable clipping according to 'p_bounds'.
-        self.opt_taylor_clip = False
-
         # Format of Taylor diagrams.
         self.opt_taylor_format = ["png", "csv"]
 
@@ -665,9 +657,6 @@ class Context(cl_context.Context):
 
         # Centiles required to generate a statistical tables.
         self.opt_tbl_centiles = [0, 1, 10, 50, 90, 99, 100]
-
-        # Enable/disable clipping according to 'p_bounds'.
-        self.opt_tbl_clip = False
 
         # Enable/diasble generation of time series for [scenarios, indices].
         self.opt_ts = [True] * 2
@@ -679,18 +668,27 @@ class Context(cl_context.Context):
         self.opt_ts_centiles = [10, 90]
 
         # Format of time series.
-        self.opt_ts_format = ["png", "csv"]
+        self.opt_ts_format = [c.F_PNG, c.F_CSV]
 
-        # Enabe/disable exporting NetCDF to CSV files for [scenarios, indices].
-        self.export_nc_to_csv = [False] * 2
+        # Enabled/disable the comparison between reference data sources (at-a-station vs gridded).
+        self.opt_valid_ref = False
+
+        # Enabe/disable exporting dataset to CSV files for [scenarios, indices].
+        self.export_data_to_csv = [False] * 2
 
         # Enable/disable exporting to dashboard.
         self.export_dashboard = False
 
-        # Performance --------------------------
+        # Enable/disable clipping according to 'p_bounds' (for everything except maps).
+        self.opt_stat_clip = False
+
+        # Environment --------------------------
 
         # Number of processes
         self.n_proc = 1
+
+        # Format of output data.
+        self.f_data_out = c.F_NC
 
     def load(
         self,
@@ -728,29 +726,34 @@ class Context(cl_context.Context):
                 if key == "country":
                     self.country = ast.literal_eval(value)
                 elif key == "project":
-                    self.project = ast.literal_eval(value)
+                    self._project = ast.literal_eval(value)
 
-                # Observations or reanalysis.
-                elif key == "obs_src":
-                    self.obs_src = ast.literal_eval(value)
+                # Reference data (at-a-station).
+                elif key == "ens_ref_stn":
+                    self.ens_ref_stn = ast.literal_eval(value)
+                    if (self.ens_ref_stn != "") and (self.ens_ref_grid == ""):
+                        self.ens_ref = self.ens_ref_stn
+                elif key == "ens_ref_stns":
+                    self.ens_ref_stns = cl_context.str_to_arr_1d(value, str)
+                elif key == "ens_ref_col_sep":
+                    self.ens_ref_col_sep = ast.literal_eval(value)
+
+                # Reference data (gridded).
+                elif key == "ens_ref_grid":
+                    self.ens_ref_grid = ast.literal_eval(value)
+                    if self.ens_ref_grid != "":
+                        self.ens_ref = self.ens_ref_grid
                     if len(self.opt_download_per) == 0:
-                        if self.obs_src == c.ENS_ERA5:
+                        if self.ens_ref_grid == c.ENS_ERA5:
                             self.opt_download_per = [1979, 2020]
-                        elif self.obs_src == c.ENS_ERA5_LAND:
+                        elif self.ens_ref_grid == c.ENS_ERA5_LAND:
                             self.opt_download_per = [1981, 2020]
-                        elif self.obs_src == c.ENS_MERRA2:
+                        elif self.ens_ref_grid == c.ENS_MERRA2:
                             self.opt_download_per = [1980, 2010]
-                    self.opt_ra = (self.obs_src == c.ENS_ERA5) or (self.obs_src == c.ENS_ERA5_LAND) or \
-                                  (self.obs_src == c.ENS_MERRA2) or (self.obs_src == c.ENS_ENACTS) or \
-                                  (self.obs_src == c.ENS_CHIRPS)
-                elif key == "obs_src_username":
-                    self.obs_src_username = ast.literal_eval(value)
-                elif key == "obs_src_password":
-                    self.obs_src_password = ast.literal_eval(value)
-                elif key == "file_sep":
-                    self.f_sep = ast.literal_eval(value)
-                elif key == "stns":
-                    self.stns = cl_context.str_to_arr_1d(value, str)
+                elif key == "ens_ref_grid_usr":
+                    self.ens_ref_grid_usr = ast.literal_eval(value)
+                elif key == "ens_ref_grid_pwd":
+                    self.ens_ref_grid_usr = ast.literal_eval(value)
 
                 # Context.
                 elif key == "emission_scenarios":
@@ -795,6 +798,8 @@ class Context(cl_context.Context):
                 # Climate scenarios.
                 elif key == "opt_scen":
                     self.opt_scen = ast.literal_eval(value)
+                elif key == "domains":
+                    self.domains = cl_context.str_to_arr_1d(value, str)
                 elif key == "radius":
                     self.radius = float(value)
                 elif key == "sim_excepts":
@@ -863,7 +868,7 @@ class Context(cl_context.Context):
                 # Results > Map:
                 elif key == "opt_map":
                     self.opt_map = [False, False]
-                    if self.opt_ra:
+                    if self.ens_ref_grid != "":
                         self.opt_map = ast.literal_eval(value)\
                             if ("," not in value) else cl_context.str_to_arr_1d(value, bool)
                 elif key == "opt_map_centiles":
@@ -911,8 +916,6 @@ class Context(cl_context.Context):
                 elif key == "opt_taylor":
                     self.opt_taylor = ast.literal_eval(value)\
                         if ("," not in value) else cl_context.str_to_arr_1d(value, bool)
-                elif key == "opt_taylor_clip":
-                    self.opt_taylor_clip = ast.literal_eval(value)
                 elif key == "opt_taylor_format":
                     self.opt_taylor_format = cl_context.str_to_arr_1d(value, str)
 
@@ -925,8 +928,6 @@ class Context(cl_context.Context):
                     if str(opt_tbl_centiles).replace("['']", "") != "":
                         self.opt_tbl_centiles = list(opt_tbl_centiles)
                         self.opt_tbl_centiles.sort()
-                elif key == "opt_tbl_clip":
-                    self.opt_tbl_clip = ast.literal_eval(value)
 
                 # Results > Time series:
                 elif key == "opt_ts":
@@ -942,9 +943,17 @@ class Context(cl_context.Context):
                 elif key == "opt_ts_format":
                     self.opt_ts_format = cl_context.str_to_arr_1d(value, str)
 
-                # Results > Export NetCDF.
-                elif key == "export_nc_to_csv":
-                    self.export_nc_to_csv = ast.literal_eval(value)\
+                # Results > Validation of reference data.
+                elif key == "opt_valid_ref":
+                    self.opt_valid_ref = ast.literal_eval(value)
+
+                # Results > General.
+                elif key == "opt_stat_clip":
+                    self.opt_stat_clip = ast.literal_eval(value)
+
+                # Results > Export data to CSV files.
+                elif key == "export_data_to_csv":
+                    self.export_data_to_csv = ast.literal_eval(value)\
                         if ("," not in value) else cl_context.str_to_arr_1d(value, bool)
 
                 # Results > Export to dashboard.
@@ -966,14 +975,16 @@ class Context(cl_context.Context):
                         self.sep = "\\"
                 elif key == "d_proj":
                     self.d_proj = ast.literal_eval(value)
-                elif key == "d_ra_raw":
-                    self.d_ra_raw = ast.literal_eval(value)
-                elif key == "d_ra_day":
-                    self.d_ra_day = ast.literal_eval(value)
+                elif key == "d_ref_hour":
+                    self.d_ref_hour = ast.literal_eval(value)
+                elif key == "d_ref_day":
+                    self.d_ref_day = ast.literal_eval(value)
                 elif key == "opt_trace":
                     self.opt_trace = ast.literal_eval(value)
                 elif key == "opt_force_overwrite":
                     self.opt_force_overwrite = ast.literal_eval(value)
+                elif key == "f_data_out":
+                    self.f_data_out = ast.literal_eval(value)
 
                 # Unit tests.
                 elif key == "opt_test":
@@ -982,16 +993,10 @@ class Context(cl_context.Context):
         # Time step.
         self.priority_timestep = ["day"] * len(self.variables)
 
-        # Directories and paths.
-        d_base = self.d_exec + self.country + self.sep + self.project + self.sep
-        obs_src_region = self.obs_src + ("_" + self.region if (self.region != "") and self.opt_ra else "")
-        self._d_stn = d_base + c.CAT_STN + self.sep + obs_src_region + self.sep
-        self.d_res = self.d_exec + "sim_climat" + self.sep + self.country + self.sep + self.project + self.sep +\
-            "stn" + cntx.sep + cntx.obs_src + ("_" + self.region if self.region != "" else "") + self.sep
-
-        # Boundaries and locations.
+        # File holding geographic boundaries.
         if self.p_bounds != "":
-            self.p_bounds = d_base + "gis" + self.sep + self.p_bounds
+            self.p_bounds = self.d_exec + self.country + self.sep + self._project + self.sep + "gis" + self.sep +\
+                            self.p_bounds
 
         # Log file.
         dt = datetime.datetime.now()
@@ -1002,19 +1007,26 @@ class Context(cl_context.Context):
         # Bias adjustment file name.
         self.opt_bias_fn = self.d_res + self.opt_bias_fn
 
-    def d_stn(
+    def d_ref(
         self,
-        var_name: Optional[str] = ""
+        var_name: Optional[str] = "",
+        ens: Optional[str] = ""
     ) -> str:
 
         """
         ----------------------------------------
-        Get directory of station data.
+        Get directory of reference data.
+
+        /exec/<user_name>/<country>/<project>/stn/<ens_ref_stn|ens_ref_grid>/<var>/*.csv
 
         Parameters
         ----------
         var_name: Optional[str]
             Variable name.
+        ens: Optional[str]
+            Ensemble.
+            If this agrument is not specified, the directory holding gridded reference data is returned.
+            If it's not available, the directory holding at-a-station reference data is returne.
 
         Returns
         -------
@@ -1023,13 +1035,22 @@ class Context(cl_context.Context):
         ----------------------------------------
         """
 
-        d = self._d_stn
+        # Region.
+        if ((ens == "") and (self.ens_ref_grid != "")) or\
+           ((ens != "") and (data_type(ens) == c.DATA_TYPE_GRID)):
+            region = self.ens_ref_grid + ("_" + self.region if self.region != "" else "")
+        else:
+            region = self.ens_ref_stn
+
+        d = self.d_exec + self.country + self.sep + self._project + self.sep + c.CAT_STN + self.sep +\
+            region + self.sep
+
         if var_name != "":
             d = d + var_name + self.sep
 
         return d
 
-    def p_stn(
+    def p_ref(
         self,
         var_name: str,
         stn: str
@@ -1037,7 +1058,7 @@ class Context(cl_context.Context):
 
         """
         ----------------------------------------
-        Get path of station data.
+        Get the path of reference data.
 
         Parameters
         ----------
@@ -1049,29 +1070,141 @@ class Context(cl_context.Context):
         Returns
         -------
         str
-            Path of station data.
+            Path of reference data.
         ----------------------------------------
         """
 
-        p = str(self.d_stn(var_name)) + var_name + "_" + stn + c.F_EXT_NC
+        p = str(self.d_ref(var_name)) + var_name + "_" + stn + "." + self.f_data_out
 
         return p
 
-    def d_scen(
+    def d_ref_raw(
         self,
-        cat: str,
-        var_name: str = ""
+        freq: Optional[str],
+        var_name: Optional[str] = ""
     ) -> str:
 
         """
         ----------------------------------------
-        Get directory of climate scenarios.
+        Get the path of the directory holding reference data (original).
+
+        Parameters
+        ----------
+        freq: Optional[str]
+            Frequency = {"c.FREQ_H", "c.FREQ_D"}
+        var_name: str
+            Climate variable name.
+
+        Returns
+        -------
+        str
+            Path of the directory holding reference data (raw).
+        ----------------------------------------
+        """
+
+        p = (self.d_ref_hour if freq == c.FREQ_H else self.d_ref_day)
+        if var_name != "":
+            p += var_name + self.sep
+
+        return p
+
+    def p_ref_raw(
+        self,
+        var_name: str,
+        freq: str,
+        year: int,
+        stat_name: Optional[str] = ""
+    ):
+
+        """
+        --------------------------------------------------------------------------------------------------------------------
+        Get the path of ECMWF reanalysis data file.
+
+        Parameters
+        ----------
+        var_name: str
+            Variable name.
+        freq: str
+            Frequency = {"c.FREQ_H", "c.FREQ_D"}
+        year: int
+            Year.
+        stat_name: Optional[str]
+            Statistics name = {c.STAT_MEAN, c.STAT_MIN, c.STAT_MAX, c.STAT_SUM}
+        --------------------------------------------------------------------------------------------------------------------
+        """
+
+        return (self.d_ref_hour if freq == c.FREQ_H else self.d_ref_day) + var_name + stat_name + cntx.sep + \
+            var_name + stat_name + "_" + self.ens_ref_grid + "_" + ("day" if freq == c.FREQ_D else "hour") + "_" + \
+            str(year) + "." + self.f_data_out
+
+    def p_proj(
+        self,
+        var_name: Optional[str] = "*",
+        domain: Optional[str] = "*",
+        freq: Optional[str] = "day",
+        rcp_code: Optional[str] = "*"
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get path of projection files (pattern).
+
+        Parameters
+        ----------
+        var_name: Optional[str]
+            Climate variable name.
+        domain: Optional[str]
+            Domain.
+        freq: Optional[str]
+            Frequency = {"day", "mon", "fx"}.
+        rcp_code: Optional[str]
+            Emission scenario.
+
+        Returns
+        -------
+        str
+            Path of projection files (pattern).
+        ----------------------------------------
+        """
+
+        return self.d_proj + "*" + self.sep + "*" + self.sep + domain + "_*" + rcp_code + self.sep +\
+            freq + self.sep + "atmos" + self.sep + "*" + self.sep + var_name + self.sep + "*"
+
+    @property
+    def d_res(
+        self
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get path of directory holding results.
+
+        Returns
+        -------
+        str
+            Path of directory holding results.
+        ----------------------------------------
+        """
+
+        return self.d_exec + "sim_climat" + self.sep + self.country + self.sep + self._project + self.sep +\
+            "stn" + cntx.sep + (self.ens_ref_grid if self.ens_ref_grid != "" else self.ens_ref_stn) +\
+            ("_" + self.region if self.region != "" else "") + self.sep
+
+    def d_scen(
+        self,
+        cat: str,
+        var_name: Optional[str] = ""
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get the path of the directory holding climate scenarios.
 
         Parameters
         ----------
         cat: str
             Category.
-        var_name: str, optional
+        var_name: Optional[str]
             Climate variable.
 
         Returns
@@ -1089,19 +1222,61 @@ class Context(cl_context.Context):
 
         return d
 
-    def d_idx(
+    def p_scen(
         self,
-        idx_name: Optional[str] = ""
+        cat: str,
+        var_name: str,
+        sim_code: Optional[str] = "*"
     ) -> str:
 
         """
         ----------------------------------------
-        Get directory of climate indices.
+        Get the path of a dataset holding climate scenarios.
 
         Parameters
         ----------
-        idx_name : Optional[str]
-            Climate index name.
+        cat: str
+            Category.
+        var_name: str
+            Climate variable name.
+        sim_code: Optional[str]
+            Simulation code.
+
+        Returns
+        -------
+        str
+            Path of climate scenarios.
+        ----------------------------------------
+        """
+
+        suffix = ""
+        if cat in [c.CAT_REGRID_REF, c.CAT_REGRID_FUT]:
+            suffix = "4" + c.CAT_QQMAP
+            if cat == c.CAT_REGRID_REF:
+                suffix = c.REF + "_" + suffix
+            cat = c.CAT_REGRID
+
+        p = str(self.d_scen(cat, var_name)) + var_name + "_" + sim_code
+
+        if suffix != "":
+            p = p + "_" + suffix
+        p = p + "." + cntx.f_data_out
+
+        return p
+
+    def d_idx(
+        self,
+        idx_code: Optional[str] = ""
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get the path of the directory holding climate indices.
+
+        Parameters
+        ----------
+        idx_code : Optional[str]
+            Climate index code.
 
         Returns
         -------
@@ -1111,25 +1286,57 @@ class Context(cl_context.Context):
         """
 
         d = self.d_res + c.CAT_IDX + self.sep
-        if idx_name != "":
-            d = d + idx_name + self.sep
+        if idx_code != "":
+            d = d + idx_code + self.sep
 
         return d
 
+    def p_idx(
+        self,
+        idx_code: str,
+        idx_name: str,
+        sim_code: Optional[str] = "*"
+    ) -> str:
+
+        """
+        ----------------------------------------
+        Get the path of a dataset holding climate indices.
+
+        Parameters
+        ----------
+        idx_code: str
+            Climate index code.
+        idx_name: str
+            Climate index name.
+        sim_code: Optional[str]
+            Simulation code.
+
+        Returns
+        -------
+        str
+            Directory of climate indices.
+        ----------------------------------------
+        """
+
+        p = self.d_res + c.CAT_IDX + self.sep + idx_code + self.sep + idx_name + "_" + sim_code + "." + cntx.f_data_out
+
+        return p
+
     def d_fig(
         self,
-        cat: Optional[str] = "",
+        view_code: Optional[str] = "",
         vi_name: Optional[str] = ""
     ) -> str:
 
         """
         ----------------------------------------
-        Get directory of figure.
+        Get the path of the directory holding figures and tables.
 
         Parameters
         ----------
-        cat: Optional[str]
-            Category of figure = {c.CAT_FIG*, c.VIEW_TS, c.VIEW_MAP, c.VIEW_CLUSTER*, c.VIEW_CYCLE, c.VIEW_TAYLOR*}
+        view_code: Optional[str]
+            View code = {c.VIEW_BIAS, c.VIEW_CLUSTER, c.VIEW_CYCLE*, c.VIEW_MAP, c.VIEW_POSTPROCESS, c.VIEW_TAYLOR,
+                         c.VIEW_TBL, c.VIEW_TS, c.VIEW_TS_BIAS}
         vi_name: Optional[str]
             Climate variable or index name.
 
@@ -1140,108 +1347,271 @@ class Context(cl_context.Context):
         ----------------------------------------
         """
 
-        d = cntx.d_res + c.CAT_FIG + self.sep
-        if cat != "":
-            d = d + cat + self.sep
+        d = self.d_res + c.CAT_FIG + self.sep
+        if view_code != "":
+            d = d + view_code + self.sep
         if vi_name != "":
             d = d + vi_name + self.sep
 
         return d
 
-    def d_tbl(
+    def p_fig(
         self,
-        vi_name: Optional[str] = ""
+        view_code: str,
+        vi_code: str,
+        vi_name: str,
+        f_type: str,
+        sim_code: Optional[str] = "",
+        per: Optional[List[str]] = None,
+        suffix: Optional[str] = ""
     ) -> str:
 
         """
         ----------------------------------------
-        Get directory of statistic.
+        Get path of a figure or table.
 
         Parameters
         ----------
-        vi_name: Optional[str]
+        view_code: str
+            View code = {c.VIEW_BIAS, c.VIEW_CLUSTER, c.VIEW_CYCLE*, c.VIEW_MAP, c.VIEW_POSTPROCESS, c.VIEW_TAYLOR,
+                         c.VIEW_TBL, c.VIEW_TS, c.VIEW_TS_BIAS}
+        vi_code: str
+            Climate variable or index code.
+        vi_name: str
             Climate variable or index name.
+        f_type: str
+            File type = {c.F_CSV, c.F_PNG, c.F_HTML, c.F_TIF}
+        sim_code: Optional[str]
+            Simulation code.
+        per: Optional[List[int]]
+            Period (ex: [1981, 2010])
+        suffix: Optional[str]
+            Suffix.
 
         Returns
         -------
         str
-            Directory of statistic.
+            Path of figure.
         ----------------------------------------
         """
 
-        d = cntx.d_res + c.VIEW_TBL + self.sep
-        if vi_name != "":
-            d = d + vi_name + self.sep
+        p = ""
 
-        return d
+        # Directory suffix (if data).
+        d_suffix = "_" + f_type if f_type != c.F_PNG else ""
 
-    def p_obs(
-        self,
-        stn_name: str,
-        var_name: str,
-        cat: str = ""
-    ) -> str:
+        # Period.
+        per_str = ""
+        if per is not None:
+            per_str = str(per[0])
+            if len(per) > 1:
+                per_str += "-" + str(per[1])
 
-        """
-        ----------------------------------------
-        Get observation path (under scenario directory).
+        # View-specific portion of the path.
+        if view_code in [c.VIEW_TAYLOR, c.VIEW_TBL, c.VIEW_TS, c.VIEW_TS_BIAS]:
+            p = self.d_fig(view_code, vi_code + d_suffix) + vi_name
+        elif view_code in [c.VIEW_BIAS, c.VIEW_POSTPROCESS, c.VIEW_WORKFLOW]:
+            p = self.d_fig(view_code, vi_code + d_suffix) + vi_name + "_"  + sim_code + "_" + view_code
+        elif view_code in [c.VIEW_CYCLE_D, c.VIEW_CYCLE_MS]:
+            p = self.d_fig(view_code, vi_code + d_suffix) +\
+                per_str + cntx.sep + vi_name + "_" + sim_code + "_" + per_str.replace("-", "_") + "_" + view_code
+        elif view_code == c.VIEW_CLUSTER:
+            p = self.d_fig(view_code, vi_code + d_suffix) + vi_name
+        elif view_code == c.VIEW_MAP:
+            p = self.d_fig(view_code, vi_code + d_suffix) +\
+                per_str + cntx.sep + vi_name + "_" + sim_code + "_" + per_str.replace("-", "_")
 
-        Parameters
-        ----------
-        stn_name: str
-            Localisation.
-        var_name: str
-            Variable name.
-        cat: str, optional
-            Category.
+        # Add suffix.
+        if suffix != "":
+            p = p + suffix
 
-        Returns
-        -------
-        str
-            Observation path.
-        ----------------------------------------
-        """
-
-        p = str(self.d_scen(c.CAT_OBS, var_name)) + var_name + "_" + stn_name
-        if cat != "":
-            p = p + "_4qqmap"
-        p = p + c.F_EXT_NC
+        # Add file extension.
+        p = p + "." + f_type
 
         return p
 
-    def rank_inst(
-        self
-    ) -> int:
+    def list_cordex(
+        self,
+        var_name: str,
+        rcp_code: Optional[str] = "*",
+        sim_code: Optional[str] = "*"
+    ) -> Tuple[List[str], List[str]]:
 
         """
-        ----------------------------------------
-        Get the token corresponding to the institute.
+        --------------------------------------------------------------------------------------------------------------------
+        List paths of directories holding simulations.
+
+        Parameters
+        ----------
+        var_name: str
+            Climate variable name.
+        rcp_code: Optional[str]
+            Emission scenario.
+        sim_code: Optional[str]
+            Climate simulation.
 
         Returns
         -------
-        int
-            Token corresponding to the institute.
-        ----------------------------------------
+        Tuple[List[str]]
+            List of paths.
+        --------------------------------------------------------------------------------------------------------------------
         """
 
-        return len(self.d_proj.split(self.sep))
+        # Frequency.
+        freq = "fx" if var_name == c.V_SFTLF else "day"
 
-    def rank_gcm(
-        self
-    ) -> int:
+        # Emission scenarios.
+        if sim_code != "*":
+            tokens = sim_code.split("_")
+            rcp_code_l = [tokens[len(tokens) - 1]]
+        elif rcp_code != "*":
+            rcp_code_l = [rcp_code]
+        else:
+            rcp_code_l = self.rcps.code_l
+
+        # List all simulations.
+        cordex = {}
+        for rcp_code in rcp_code_l:
+
+            # List simulation files.
+            p_sim_l = []
+            for domain in cntx.domains:
+                p_sim_l = p_sim_l +\
+                    list(glob.glob(self.p_proj(var_name, domain, freq, rcp_code) + c.F_EXT_NC)) +\
+                    list(glob.glob(self.p_proj(var_name, domain, freq, rcp_code) + c.F_EXT_ZARR))
+
+            # Remove timestep information.
+            for i in range(0, len(p_sim_l)):
+                tokens = p_sim_l[i].split(self.sep)
+                p_sim_l[i] = "".join([token + "/" for token in tokens[0:len(tokens) - 5]]).rstrip(cntx.sep)
+
+            # Keep only the unique simulation folders (with a * as the timestep).
+            d_l = list(set(p_sim_l))
+            d_l_valid = [True] * len(p_sim_l)
+
+            # Keep only the simulations with all the variables we need.
+            d_l = list(compress(d_l, d_l_valid))
+
+            cordex[rcp_code + "_historical"] = [w.replace(rcp_code, "historical") for w in d_l]
+            cordex[rcp_code] = d_l
+
+        p_ref_l, p_rcp_l = [], []
+
+        # Simulation specified.
+        if sim_code != "":
+            for rcp_code in rcp_code_l:
+                p_ref_l = cordex[rcp_code + "_historical"]
+                p_rcp_l = cordex[rcp_code]
+                for i_sim in range(len(p_ref_l)):
+                    if sim_code.replace("_", self.sep) in p_rcp_l[i_sim].replace("_", self.sep).replace("_", self.sep):
+                        p_ref_l = [p_ref_l[i_sim]]
+                        p_rcp_l = [p_rcp_l[i_sim]]
+                        break
+
+        # RCP specified.
+        elif (sim_code == "") and (rcp_code != ""):
+            p_ref_l = cordex[rcp_code + "_historical"]
+            p_rcp_l = cordex[rcp_code]
+
+        # Neither the simulation or RCP is specified.
+        else:
+            for rcp_code in self.emission_scenarios:
+                p_ref_l = p_ref_l + cordex[rcp_code + "_historical"]
+                p_rcp_l = p_rcp_l + cordex[rcp_code]
+
+        return p_ref_l, p_rcp_l
+
+    def exclude_simulation(
+        self,
+        var_name: str,
+        sim_code: str,
+        cat: Optional[str] = ""
+    ) -> bool:
 
         """
         ----------------------------------------
-        Get the rank of token corresponding to the GCM.
+        Tells whether a simulation needs to be excluded or not, based on:
+        - exception lists
+        - the availability of dependencies (CORDEX files).
+
+        Parameters
+        ----------
+        var_name: str
+            Climate variable name.
+        sim_code: str
+            Simulation code.
+        cat: Optional[str]
+            Category = {c.CAT_SCEN, c.CAT_IDX}
 
         Returns
         -------
-        int
-            Rank of token corresponding to the GCM.
+        bool
+            If True, a simulation needs to be considered.
         ----------------------------------------
         """
 
-        return self.rank_inst() + 1
+        # Verify if simulation is in the exception list.
+        is_sim_except = False
+        for sim_except in self.sim_excepts:
+            if sim_except in sim_code:
+                is_sim_except = True
+                break
+
+        # Verify if variable-simulation is in the exception list.
+        is_var_sim_except = False
+        for var_sim_except in self.var_sim_excepts:
+            if var_sim_except in var_name + "_" + sim_code:
+                is_var_sim_except = True
+                break
+
+        # Verify if simulation (CORDEX) files exist.
+        files_avail = True
+        if cat == c.CAT_SCEN:
+
+            # Directories containing simulations.
+            sim_ref_l, sim_fut_l = self.list_cordex(var_name, sim_code=sim_code)
+            # d_sim_ref = sim_ref_l[0] if len(sim_ref_l) > 0 else ""
+            # d_sim_fut = sim_fut_l[0] if len(sim_fut_l) > 0 else ""
+
+            # Skip iteration if the variable 'var' is not available in the current directory.
+            # p_sim_ref_base = d_sim_ref + "/*/*/*/".replace("/", cntx.sep) + var_name + cntx.sep + "*"
+            # p_sim_ref_l =\
+            #     list(glob.glob(p_sim_ref_base + c.F_EXT_NC)) +\
+            #     list(glob.glob(p_sim_ref_base + c.F_EXT_ZARR))
+            # p_sim_fut_base = d_sim_fut + "/*/*/*/".replace("/", cntx.sep) + var_name + cntx.sep + "*"
+            # p_sim_fut_l =\
+            #     list(glob.glob(p_sim_fut_base + c.F_EXT_NC)) +\
+            #     list(glob.glob(p_sim_fut_base + c.F_EXT_ZARR))
+
+            files_avail = (len(sim_ref_l) > 0) and (len(sim_fut_l) > 0)
+
+        return is_sim_except or is_var_sim_except or not files_avail
+
+
+def data_type(
+    ens: str
+) -> str:
+
+    """
+    ----------------------------------------
+    Determine the type of a data ensemble.
+
+    Parameters
+    ----------
+    ens: Optional[str]
+        Ensemble.
+
+    Returns
+    -------
+    str
+        Type of data ensemble = {c.DATA_TYPE_STN, c.DATA_TYPE_GRID}
+    ----------------------------------------
+    """
+
+    if ens in [c.ENS_ECMWF, c.ENS_ERA5, c.ENS_ERA5_LAND, c.ENS_ENACTS, c.ENS_MERRA2, c.ENS_CHIRPS]:
+        return c.REF_TYPE_GRID
+    else:
+        return c.REF_TYPE_STN
 
 
 # Configuration instance.

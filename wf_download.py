@@ -24,13 +24,13 @@ from cl_constant import const as c
 from cl_context import cntx
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard.cl_varidx import VarIdx, VarIdxs
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard.cl_varidx import VarIdx, VarIdxs
 
 
 def download_from_ecmwf(
     p_base: str,
-    obs_src: str,
+    ens_ref_grid: str,
     area: [float],
     var: VarIdx,
     year: int
@@ -44,7 +44,7 @@ def download_from_ecmwf(
     ----------
     p_base: str
         Path of directory where data is saved.
-    obs_src: str
+    ens_ref_grid: str
         Set code: {cl_varidx.ens_era5, cl_varidx.ens_era5_land}
     area: [float]
         Bounding box defining the 4 limits of the area of interest (in decimal degrees):
@@ -60,9 +60,9 @@ def download_from_ecmwf(
 
     # Basic configuration.
     set_name = ""
-    if obs_src == c.ENS_ERA5:
+    if ens_ref_grid == c.ENS_ERA5:
         set_name = "era5-single-levels"
-    elif obs_src == c.ENS_ERA5_LAND:
+    elif ens_ref_grid == c.ENS_ERA5_LAND:
         set_name = "era5-land"
 
     # Lists of months, days and times.
@@ -76,43 +76,43 @@ def download_from_ecmwf(
         times  = ["01:00"]
 
     # Variable names.
-    var_ra_name = ""
+    var_ref_name = ""
     # Equivalent to c.V_HUSS.
     if var.name == c.V_ECMWF_D2M:
-        var_ra_name = "2m_dewpoint_temperature"
+        var_ref_name = "2m_dewpoint_temperature"
     # Equivalent to c.V_EVSPSBL.
     elif var.name == c.V_ECMWF_E:
-        var_ra_name = "evaporation"
+        var_ref_name = "evaporation"
     # Equivalent to c.V_EVSPSBLPOT.
     elif var.name == c.V_ECMWF_PEV:
-        var_ra_name = "potential_evaporation"
+        var_ref_name = "potential_evaporation"
     # Equivalent to c.V_PS.
     elif var.name == c.V_ECMWF_SP:
-        var_ra_name = "surface_pressure"
+        var_ref_name = "surface_pressure"
     # Equivalent to c.V_RSDS.
     elif var.name == c.V_ECMWF_SSRD:
-        var_ra_name = "surface_solar_radiation_downwards"
+        var_ref_name = "surface_solar_radiation_downwards"
     # Equivalent to c.V_TAS.
     elif var.name == c.V_ECMWF_T2M:
-        var_ra_name = "2m_temperature"
+        var_ref_name = "2m_temperature"
     # Equivalent to c.V_PR.
     elif var.name == c.V_ECMWF_TP:
-        var_ra_name = "total_precipitation"
+        var_ref_name = "total_precipitation"
     # Equivalent to c.V_UAS.
     elif var.name == c.V_ECMWF_U10:
-        var_ra_name = "10m_u_component_of_wind"
+        var_ref_name = "10m_u_component_of_wind"
     # Equivalent to c.V_VAS.
     elif var.name == c.V_ECMWF_V10:
-        var_ra_name = "10m_v_component_of_wind"
+        var_ref_name = "10m_v_component_of_wind"
     # Equivalent to c.V_SFCWINDMAX.
     elif var.name == c.V_ECMWF_UV10:
-        var_ra_name = "10m_wind"
+        var_ref_name = "10m_wind"
     # Equivalent to c.V_SFTLF.
     elif var.name == c.V_ECMWF_LSM:
-        var_ra_name = "land_sea_mask"
+        var_ref_name = "land_sea_mask"
 
     # Form file name.
-    fn = p_base + var.name + cntx.sep + var.name + "_" + obs_src + "_hour_" + str(year) + c.F_EXT_NC
+    fn = p_base + var.name + cntx.sep + var.name + "_" + ens_ref_grid + "_hour_" + str(year) + c.F_EXT_NC
     if not os.path.exists(fn):
 
         p = os.path.dirname(fn)
@@ -124,7 +124,7 @@ def download_from_ecmwf(
         client = cdsapi.Client()
         api_request = {
             "product_type": "reanalysis",
-            "variable": var_ra_name,
+            "variable": var_ref_name,
             "year": str(year),
             "month": months,
             "day": days,
@@ -165,8 +165,8 @@ def download_merra2(
     """
 
     # Basic configuration.
-    usr = cntx.obs_src_username
-    pwd = cntx.obs_src_password
+    usr = cntx.ens_ref_grid_usr
+    pwd = cntx.ens_ref_grid_pwd
 
     # Loop through years.
     for year in range(cntx.opt_download_per[0], cntx.opt_download_per[1] + 1):
@@ -228,46 +228,46 @@ def run():
             cntx.opt_download_lat_bnds[0], cntx.opt_download_lon_bnds[1]]
 
     # Path of input data.
-    d_prefix = os.path.dirname(cntx.d_ra_raw) + cntx.sep
+    d_prefix = os.path.dirname(cntx.d_ref_hour) + cntx.sep
 
     # ERA5 or ERA5_LAND.
-    if cntx.obs_src in [c.ENS_ERA5_LAND, c.ENS_ERA5]:
+    if cntx.ens_ref_grid in [c.ENS_ERA5_LAND, c.ENS_ERA5]:
 
         # List variables to download, which involves translating variable names from CORDEX to ECMWF.
-        var_ra_name_l = []
+        var_ref_name_l = []
         for var in cntx.vars.items:
 
             # Skip if variable does not exist in the current dataset.
-            if (cntx.obs_src == c.ENS_ERA5_LAND) and (var.name == c.V_SFTLF):
+            if (cntx.ens_ref_grid == c.ENS_ERA5_LAND) and (var.name == c.V_SFTLF):
                 continue
 
             # Convert name.
-            var_ra_name = var.convert_name(cntx.obs_src)
-            if var_ra_name in [c.V_ECMWF_T2MMIN, c.V_ECMWF_T2MMAX]:
-                var_ra_name_l.append(c.V_ECMWF_T2M)
-            elif var_ra_name == c.V_ECMWF_UV10MAX:
-                var_ra_name_l.append(c.V_ECMWF_U10)
-                var_ra_name_l.append(c.V_ECMWF_V10)
+            var_ref_name = var.convert_name(cntx.ens_ref_grid)
+            if var_ref_name in [c.V_ECMWF_T2MMIN, c.V_ECMWF_T2MMAX]:
+                var_ref_name_l.append(c.V_ECMWF_T2M)
+            elif var_ref_name == c.V_ECMWF_UV10MAX:
+                var_ref_name_l.append(c.V_ECMWF_U10)
+                var_ref_name_l.append(c.V_ECMWF_V10)
             else:
-                var_ra_name_l.append(var_ra_name)
+                var_ref_name_l.append(var_ref_name)
 
         # Create list of variables into an instance.
-        var_ra_name_l = list(set(var_ra_name_l))
-        var_ra_name_l.sort()
-        vars_ra = VarIdxs(var_ra_name_l)
+        var_ref_name_l = list(set(var_ref_name_l))
+        var_ref_name_l.sort()
+        vars_ref = VarIdxs(var_ref_name_l)
 
         # Loop through variable codes.
-        for var_ra in vars_ra.items:
+        for var_ref in vars_ref.items:
 
             # Determine years.
             years = []
             year_n = cntx.opt_download_per[1]
-            if cntx.obs_src == c.ENS_ERA5_LAND:
+            if cntx.ens_ref_grid == c.ENS_ERA5_LAND:
                 year_0 = cntx.opt_download_per[0]
-                years = [year_0] if var_ra.code == c.V_ECMWF_LSM else range(year_0, year_n + 1)
-            elif cntx.obs_src == c.ENS_ERA5:
-                year_0 = cntx.opt_download_per[0] if var_ra.code != c.V_ECMWF_LSM else 1981
-                years = [year_0] if var_ra.code == c.V_ECMWF_LSM else range(year_0, year_n + 1)
+                years = [year_0] if var_ref.code == c.V_ECMWF_LSM else range(year_0, year_n + 1)
+            elif cntx.ens_ref_grid == c.ENS_ERA5:
+                year_0 = cntx.opt_download_per[0] if var_ref.code != c.V_ECMWF_LSM else 1981
+                years = [year_0] if var_ref.code == c.V_ECMWF_LSM else range(year_0, year_n + 1)
 
             # Need to loop until all files were generated.
             done = False
@@ -276,15 +276,15 @@ def run():
                 # Scalar processing mode.
                 if cntx.n_proc == 1:
                     for year in years:
-                        download_from_ecmwf(d_prefix, cntx.obs_src, area, var_ra, year)
+                        download_from_ecmwf(d_prefix, cntx.ens_ref_grid, area, var_ref, year)
 
                 # Parallel processing mode.
                 else:
                     try:
-                        fu.log("Processing: " + var_ra.name, True)
+                        fu.log("Processing: " + var_ref.name, True)
                         fu.log("Splitting work between " + str(cntx.n_proc) + " threads.", True)
                         pool = multiprocessing.Pool(processes=min(cntx.n_proc, len(years)))
-                        func = functools.partial(download_from_ecmwf, d_prefix, cntx.obs_src, area, var_ra)
+                        func = functools.partial(download_from_ecmwf, d_prefix, cntx.ens_ref_grid, area, var_ref)
                         pool.map(func, list(range(len(years))))
                         pool.close()
                         pool.join()
@@ -294,7 +294,7 @@ def run():
                         pass
 
                 # Verify if treatment is done. Files are sometimes forgotten.
-                years_processed = glob.glob(d_prefix + var_ra.name + cntx.sep + "*" + c.F_EXT_NC)
+                years_processed = glob.glob(d_prefix + var_ref.name + cntx.sep + "*" + c.F_EXT_NC)
                 years_processed.sort()
                 for i in range(len(years_processed)):
                     years_processed[i] = int(years_processed[i].replace(c.F_EXT_NC, "")[-4:])
@@ -305,7 +305,7 @@ def run():
                         break
 
     # MERRA2.
-    elif cntx.obs_src == c.ENS_MERRA2:
+    elif cntx.ens_ref_grid == c.ENS_MERRA2:
 
         # Download.
         download_merra2(d_prefix, "M2SDNXSLV.5.12.4")

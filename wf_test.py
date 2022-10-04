@@ -21,6 +21,7 @@ import copy
 import datetime
 import getpass
 import numpy as np
+import os
 import pandas as pd
 import sys
 import xarray as xr
@@ -34,14 +35,16 @@ from xclim.testing.tests import test_indices, test_precip, test_locales
 from xclim.core.units import convert_units_to, rate2amount, to_agg_units
 
 # Workflow libraries.
+import wf_eval
 import wf_file_utils as fu
 import wf_indices
+import wf_plot
 import wf_utils
 from cl_constant import const as c
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard.cl_varidx import VarIdx
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard.cl_varidx import VarIdx
 
 
 def sample_data(var: str) -> Union[xr.DataArray, None]:
@@ -727,7 +730,7 @@ def dry_spell_total_length() -> bool:
 
             # Sort dimensions.
             if len(list(da_idx.dims)) > 1:
-                da_idx = wf_utils.standardize_netcdf(da_idx, template=da_pr)
+                da_idx = wf_utils.standardize_dataset(da_idx, template=da_pr)
 
             # Extract results.
             res = np.array(da_idx.squeeze())
@@ -921,7 +924,7 @@ def rain_season_start() -> bool:
 
             # Sort dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = wf_utils.standardize_netcdf(da_start, template=da_pr)
+                da_start = wf_utils.standardize_dataset(da_start, template=da_pr)
 
             # Verify results.
             res = np.array(da_start.squeeze())
@@ -1221,7 +1224,7 @@ def rain_season_end() -> bool:
 
             # Sort dimensions.
             if len(list(da_end.dims)) > 1:
-                da_end = wf_utils.standardize_netcdf(da_end, template=da_pr)
+                da_end = wf_utils.standardize_dataset(da_end, template=da_pr)
 
             # Verify results.
             res = np.array(da_end.squeeze())
@@ -1380,9 +1383,9 @@ def rain_season_length_prcptot() -> bool:
 
             # Reorder dimensions.
             if len(list(da_length.dims)) > 1:
-                da_length = wf_utils.standardize_netcdf(da_length, template=da_pr)
+                da_length = wf_utils.standardize_dataset(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = wf_utils.standardize_netcdf(da_prcptot, template=da_pr)
+                da_prcptot = wf_utils.standardize_dataset(da_prcptot, template=da_pr)
 
             # Verify results.
             res_length = np.array(da_length.squeeze())
@@ -1564,13 +1567,13 @@ def rain_season() -> bool:
 
             # Reorder dimensions.
             if len(list(da_start.dims)) > 1:
-                da_start = wf_utils.standardize_netcdf(da_start, template=da_pr)
+                da_start = wf_utils.standardize_dataset(da_start, template=da_pr)
             if len(list(da_end.dims)) > 1:
-                da_end = wf_utils.standardize_netcdf(da_end, template=da_pr)
+                da_end = wf_utils.standardize_dataset(da_end, template=da_pr)
             if len(list(da_length.dims)) > 1:
-                da_length = wf_utils.standardize_netcdf(da_length, template=da_pr)
+                da_length = wf_utils.standardize_dataset(da_length, template=da_pr)
             if len(list(da_prcptot.dims)) > 1:
-                da_prcptot = wf_utils.standardize_netcdf(da_prcptot, template=da_pr)
+                da_prcptot = wf_utils.standardize_dataset(da_prcptot, template=da_pr)
 
             #  Verify results.
             res_start = np.array(da_start.squeeze())
@@ -1595,7 +1598,7 @@ def official_indicators():
     return registry_cp
 
 
-def crop_netcdfs(
+def crop_datasets(
     ens_l: List[str],
     country_region: str,
     media_in: str,
@@ -1605,7 +1608,7 @@ def crop_netcdfs(
 
     """
     ---------------------------------------------------------------------------------------------------------------------
-    Crop NetCDF files recursively.
+    Crop data files recursively.
 
     Parameters
     ----------
@@ -1731,7 +1734,125 @@ def crop_netcdfs(
             fu.log(str(i + 1) + "/" + str(len(p_l)) + ": " + p_out, True)
 
             # Crop.
-            fu.crop_netcdf(p_in, item[1], lon_l, lat_l, p_out)
+            fu.crop_dataset(p_in, item[1], lon_l, lat_l, p_out)
+
+
+def eval_snow_data():
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Evaluate snow data.
+
+    The evaluated datasets have the following dimensions : [station, time] or [station_id, time].
+
+    Analysis    Variables  Criteria  Analysis     Tested  Output directory
+    ------------------------------------------------------------------------------------------
+    1a. CanSWE  snw,snd    wmo       Sensitivity  yes     ~/canswe/sensitivity_analysis/wmo
+    1b. CanSWE  snw,snd    pct       Sensitivity  yes...  ~/canswe/sensitivity_analysis/pct
+    1c. CanSWE  snw,snd    wmo       Single       yes     ~/canswe/analysis/wmo
+    1d. CanSWE  snw,snd    pct       Single       yes     ~/canswe/analysis/wmo
+    ------------------------------------------------------------------------------------------
+    2a. MELCC   snd        wmo       Sensitivity  yes     ~/melcc/day/sensitivity_analysis/wmo
+    2b. MELCC   snd        pct       Sensitivity  yes...  ~/melcc/day/sensitivity_analysis/pct
+    2c. MELCC   snd        wmo       Single       yes     ~/melcc/day/analysis/wmo
+    2d. MELCC   snd        pct       Single       yes     ~/melcc/day/analysis/pct
+    ------------------------------------------------------------------------------------------
+    ...: Must finish running.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Path of directory containing the datasets to analyze.
+    p_base = "/home/yrousseau/scenario/external_data/"
+
+    # Path of GEOJSON files containing the regions to analyze.
+    p_bounds = ""
+
+    # Path of CSV containing the points of interest.
+    p_poi = "/home/yrousseau/exec/ca/pins/gis/poi.csv"
+
+    # CanSWE (input NetCDF, output CSV).
+    p_canswe_l   = [p_base + "canswe/CanSWE-CanEEN_1928-2021_v4.nc"]
+    p_canswe_csv = os.path.dirname(p_canswe_l[0]) + "/analysis/canswe.csv"
+    ds_canswe = wf_eval.load_multipart_dataset(p_canswe_l)
+
+    # MELCC (input NetCDF, output CSV).
+    p_melcc_l = [p_base + "melcc/day/MELCC_day_snd_NS000Q.nc",
+                 p_base + "melcc/day/MELCC_day_snd_NS001Q.nc"]
+    p_melcc_csv = os.path.dirname(p_melcc_l[0]) + "/analysis/melcc.csv"
+    ds_melcc = wf_eval.load_multipart_dataset(p_melcc_l)
+
+    # Option that tells whether the algorithm should overwrite existing files.
+    opt_overwrite = False
+
+    # Load the points of interest.
+    df_poi = None
+    if os.path.exists(p_poi):
+        df_poi = pd.read_csv(p_poi)
+
+    # Parameters.
+    n_years_req = 1              # Number of years required at a station.
+    month_l     = [1, 2, 3, 12]  # List of months for which data must be available.
+    per         = None           # Period to consider [year_1, year_n]
+    nm          = 11             # Number of values/month missing for a month to be rejected.
+    nc          = 5              # Number of consecutive values/month missing for a month to be rejected.
+    pct         = 0.35           # Maximum percentage of data that can be missing per period (11/30 ~ WMO rule).
+
+    # Analyses to perform.
+    analyses = ["1a", "1b", "1c", "1d", "2a", "2b", "2c", "2d"]
+
+    for analysis in analyses:
+
+        # Parameters.
+        method_id  = "wmo" if analysis in ["1a", "1c", "2a", "2c"] else "pct"
+        if "1" in analysis:
+            p_l        = p_canswe_l
+            ds         = ds_canswe
+            ens        = c.ENS_CANSWE
+            var_name_l = c.V_CANSWE
+            p_csv      = p_canswe_csv
+        else:
+            p_l        = p_melcc_l
+            ds         = ds_melcc
+            ens        = c.ENS_MELCC
+            var_name_l = c.V_MELCC
+            p_csv      = p_melcc_csv
+        p_csv_template = (os.path.dirname(p_l[0]) + "/sensitivity_analysis/" +
+                          os.path.basename(p_l[0]).replace(c.F_EXT_NC, "") + "<suffix>" + c.F_EXT_CSV)
+
+        # Sensitivity analyses.
+        if ("a" in analysis) or ("b" in analysis):
+
+            # Parameters.
+            stn_key_l = ["HQ", "total"] if "1" in analysis else None
+
+            # Evaluate dataset and generate maps.
+            wf_eval.evaluate_sensitivity_analysis(method_id=method_id, ds=ds, df_poi=df_poi, ens=ens, per=per,
+                                                  stn_key_l=stn_key_l, p_bounds=p_bounds, p_csv_template=p_csv_template,
+                                                  opt_overwrite=opt_overwrite)
+
+        # Single analyses.
+        else:
+
+            for var_name in var_name_l:
+
+                # Parameters.
+                p_csv = p_csv.replace("analysis/", "analysis/" + var_name + "_" + method_id + "/")
+                p_png = p_csv.replace(c.F_EXT_CSV, c.F_EXT_PNG)
+
+                # Evaluate dataset.
+                if (not os.path.exists(p_csv)) or opt_overwrite:
+                    df = wf_eval.evaluate_single_analysis(method_id=method_id, ds=ds, var_name=var_name,
+                                                          per=per, month_l=month_l, n_years_req=n_years_req,
+                                                          nm=nm, nc=nc, pct=pct)
+                    fu.save_csv(df, p_csv)
+                else:
+                    df = pd.read_csv(p_csv)
+
+                # Generate map.
+                if (not os.path.exists(p_png)) or opt_overwrite:
+                    wf_plot.gen_map_stations(df_stn=df, df_poi=df_poi, var_name=var_name, n_years_req=n_years_req,
+                                             param_per_l=None, per=per, month_l=month_l, method_id=method_id,
+                                             p_bounds=p_bounds, p_fig=p_png)
 
 
 def run():
@@ -1744,43 +1865,34 @@ def run():
 
     fu.log("=")
 
-    # Crop NetCDF files.
-    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "bf", "WD_BLACK", "WD_BLACK", False)
-    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF, c.ENS_CHIRPS], "ci", "WD_BLACK", "WD_BLACK", False)
-    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "ma_tt", "WD_BLACK", "WD_BLACK", False)
-    # crop_netcdfs([c.ENS_CORDEX, c.ENS_ECMWF], "sn", "WD_BLACK", "ROCKET-XTRM", False)
+    # Crop data files.
+    # crop_datasets([c.ENS_CORDEX, c.ENS_ECMWF], "bf", "WD_BLACK", "WD_BLACK", False)
+    # crop_datasets([c.ENS_CORDEX, c.ENS_ECMWF, c.ENS_CHIRPS], "ci", "WD_BLACK", "WD_BLACK", False)
+    # crop_datasets([c.ENS_CORDEX, c.ENS_ECMWF], "ma_tt", "WD_BLACK", "WD_BLACK", False)
+    # crop_datasets([c.ENS_CORDEX, c.ENS_ECMWF], "sn", "WD_BLACK", "ROCKET-XTRM", False)
     # exit()
 
-    # Explore CanSWE.
-    p            = "/home/yrousseau/scenario/external_data/canswe/CanSWE-CanEEN_1928-2021_v4.nc"
-    var_name     = "snw"
-    per          = [1971, 2015]
-    case_id      = 3
-    stn_key_l    = ["HQ", "total"]
-    d_out        = "20220803"
-    fu.evaluate_canswe(case_id, p, var_name, per, stn_key_l, d_out)
-    exit()
+    fu.log("Step #0g  Evaluating snow data")
+    eval_snow_data()
 
-    fu.log("Step #0   Testing indices")
-
-    fu.log("Step #0a  translations")
+    fu.log("Step #0b  Testing translations")
     test_locales.test_xclim_translations("fr", official_indicators())
 
-    fu.log("Step #0b  dry_spell_total_length")
+    fu.log("Step #0c  Testing dry_spell_total_length")
     dry_spell_total_length()
-    test_precip.test_dry_spell()
+    test_precip.test_dry_spell(pr_series)
     test_indices.test_dry_spell(pr_series)
 
-    fu.log("Step #0c  rain_season_start")
+    fu.log("Step #0d  Testing rain_season_start")
     rain_season_start()
 
-    fu.log("Step #0d  rain_season_end")
+    fu.log("Step #0e  Testing rain_season_end")
     rain_season_end()
 
-    fu.log("Step #0e  rain_season_length/prcptot")
+    fu.log("Step #0f  Testing rain_season_length/prcptot")
     rain_season_length_prcptot()
 
-    fu.log("Step #0f  rain_season")
+    fu.log("Step #0g  Testing rain_season")
     rain_season()
     # test_precip.test_rain_season()
     # test_indices.test_rain_season(pr_series)

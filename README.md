@@ -20,7 +20,7 @@ The latest version of the code requires the following project:
 - This project, which is essentially a plot generator, must be downloaded within the scen_workflow_afr
   directory/project. 
 
-Technical documentation can be found [here](https://ouranos-my.sharepoint.com/:f:/g/personal/yanrou1_ouranos_ca/EknV5GO46cxChVpilQwKzMQBrB3wu4e6aS3bUfoUlZ3gwg?e=R1Ju2C).
+Technical documentation can be found [here](https://github.com/Ouranosinc/scen_workflow_afr/doc).
 
 ## Releases
 
@@ -61,7 +61,7 @@ Implemented features:
 - implementation of parallel processing for computationally expensive steps;
 - clipping of scenario and index results if region boundaries are specified (in a GEOJSON file);
 - calculation of statistics based on region boundaries (GEOJSON file) if reanalysis data is provided;
-- conversion of NetCDF files to CSV files (only if the analysis is based on observations).
+- conversion of data files to CSV files (only if the analysis is based on at-a-station reference data).
 
 ### v1.1.1
 
@@ -154,7 +154,7 @@ Bugs fixed:
 - reordering dimensions after calculating climate indices (required for drought code, or 'dc');
 - the function utils.coord_names was returning a set (rather than an array), and the fact that the order was not
   always the same from one run to another had consequences on the subsequent analyses,
-- added options 'opt_tbl_clip' and 'opt_map_clip' to clip according to a polygon (default is False) when calculating 
+- added options 'opt_stat_clip' and 'opt_map_clip' to clip according to a polygon (default is False) when calculating 
   statistics or generating a map.
 
 ### v1.3.5
@@ -170,7 +170,7 @@ Implemented features:
 - added information about the climate indices parameters in config.py;
 - now using a dayofyear string (ex: '04-14' for April 14th) instead of dayofyear (ex: 104 for April 14th) as the input
   to climate index functions (also applies to .ini files);
-- adding function 'file_utils.clean_NetCDF' to discard potentially incomplete NetCDF files from the current exec
+- adding function 'file_utils.clean_dataset' to discard potentially incomplete data files from the current exec
   directory (issue #9);
 - adjusting file separator automatically according to d_exec parameter to ensure compatibility with Windows (issue #5);
 - created a unit testing module that can be enabled using 'opt_test';
@@ -191,7 +191,7 @@ Implemented features:
 - grouping of figures under the 'fig' directory with improved/simplified access to the directory from the context;
 - data shown on plots always saved as .csv files; an attempt is made to load these files to regenerate plots;
 - improved aesthetics of visual elements (using matplotlib, hvplot, altair and plotly, depending on the context);
-- now saving NetCDF files with unique coordinate names ('longitude' and 'latitude') and eliminating unnecssary
+- now saving data files with unique coordinate names ('longitude' and 'latitude') and eliminating unnecssary
   variables to reduce the volume of files generated during the analysis;
 - removed the option to optimize the selection of quantile mapping parameters;
 - the lower and upper boundaries of RCP grops in time-series is now defined in terms of centiles (instead of min-max);
@@ -211,18 +211,27 @@ Implemented features:
   a single cell;
 - improved the color map in the bias plot (quantile mapping function diagram) so that white is centered at zero;
 - fixed a bug introduce in v1.4.0 (maps were identical for different centiles);
-- standardized the attributes of NetCDF files produced (longitude, latitude, time, units, etc.). 
+- standardized the attributes of data files produced (longitude, latitude, time, units, etc.). 
 
-### v1.4.2 (under developement)
+### v1.4.2
 
 Implemented features:
 - updated the algorithm of the 'rain_season_start' index to detect a start if an amount of precipitation above
   'thresh_wet' is received over a period between 1 to 'window_wet' days, as long as it rains on the first of these days.
-- added functions to analyze spatial (i.e. stations) and temporal coverage (i.e. number of years with sufficient
-  data) of the CanSWE dataset;
 - added functions to generate Taylor diagrams. These diagrams are useful to compare reference and simulation data;
-- modified the in which the difference between reference and bias-adjusted simulation data is calculated (monthly rather
-  than daily frequency); 
+- modified the frequency for which the difference between reference and bias-adjusted simulation data is calculated
+  (monthly rather than daily frequency);
+- now reading NetCDF or Zarr file extensions and saving in either of these formats using the keyword 'f_data_out'.
+- added a module to evaluate the amount of data available in observation datasets (compatible with CanSWE and MELCC);
+- renamed project/directory 'dashboard' to 'scen_workflow_afr_dashboard' ;
+- improved the way in which the 'sim_excepts' and 'var_sim_excepts' are considered ; the climate indices and visual 
+  elements are not calculated/produced if a simulation or variable-simulation is specified in either of these two
+  lists ;
+- improved the robustness when calculating climate indices ; the script will not crash if the configuration file asks
+  to calculate a climate index, but the required data (climate scenarios and/or climate indices) are not available, but
+  will simply skip this step of the analysis ;
+- now closing the dataset right after calling the function 'mf_open_dataset' to prevent files from staying open ; this
+  does not replace the necessity for the 'ulimit -n' parameter to be large enough (default value of 1024).
 
 ## Contributing
 

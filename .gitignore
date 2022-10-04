@@ -1,7 +1,7 @@
 .idea/
 .ipynb_checkpoints/
 __pycache__/
-dashboard/
+scen_workflow_afr_dashboard/
 doc/
 config.ini
 config_aggregate.ini

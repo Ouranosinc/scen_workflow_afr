@@ -9,6 +9,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 # External libraries.
+import holoviews as hv
 import matplotlib.cbook
 import matplotlib.cm
 import matplotlib.pyplot as plt
@@ -20,11 +21,8 @@ import pandas as pd
 import sys
 import warnings
 import xarray as xr
-import mpl_toolkits.axisartist.floating_axes as fa
-import mpl_toolkits.axisartist.grid_finder as gf
-from matplotlib.projections import PolarAxes
 from scipy import signal
-from typing import List, Tuple, Union
+from typing import List, Optional, Union
 
 # Workflow libraries.
 import wf_file_utils as fu
@@ -33,10 +31,11 @@ from cl_constant import const as c
 from cl_context import cntx
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard.cl_stat import Stat
-from dashboard.cl_varidx import VarIdx
-from dashboard.dash_plot import get_cmap, get_cmap_name, get_hex_l
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard import dash_file_utils as dfu
+from scen_workflow_afr_dashboard.cl_stat import Stat
+from scen_workflow_afr_dashboard.cl_varidx import VarIdx
+from scen_workflow_afr_dashboard.dash_plot import get_cmap, get_cmap_name, get_hex_l
 
 
 def plot_year(
@@ -281,15 +280,14 @@ def plot_workflow(
 
 
 def plot_bias(
-    da_obs: xr.DataArray,
-    da_sim_ref: xr.DataArray,
+    da_ref: xr.DataArray,
     da_sim: xr.DataArray,
+    da_sim_ref: xr.DataArray,
     da_sim_adj: xr.DataArray,
     da_sim_adj_ref: xr.DataArray,
     da_qmf: xr.DataArray,
     varidx: VarIdx,
-    sup_title: str,
-    p_fig: str
+    sim_code: str
 ):
 
     """
@@ -298,12 +296,12 @@ def plot_bias(
 
     Parameters
     ----------
-    da_obs: xr.DataArray
-        Observed data.
-    da_sim_ref: xr.DataArray
-        Simulation data for the reference period.
+    da_ref: xr.DataArray
+        Reference data.
     da_sim: xr.DataArray
         Simulation data.
+    da_sim_ref: xr.DataArray
+        Simulation data for the reference period.
     da_sim_adj: xr.DataArray
         Adjusted simulation.
     da_sim_adj_ref: xr.DataArray
@@ -312,18 +310,18 @@ def plot_bias(
         Quantile mapping function.
     varidx: VarIdx
         Variable or index.
-    sup_title: str
-        Title of figure.
-    p_fig: str
-        Path of output figure.
+    sim_code: str
+        Simulation code.
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Extract information on variable.
+    vi_code = str(varidx.code)
     vi_name = str(varidx.name)
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.F_CSV + cntx.sep).\
-        replace(c.F_EXT_PNG, c.F_EXT_CSV)
+    p_csv = cntx.p_fig(c.VIEW_BIAS, vi_code, vi_name, c.F_CSV, sim_code)
+    p_fig = cntx.p_fig(c.VIEW_BIAS, vi_code, vi_name, c.F_PNG, sim_code)
 
     # Quantile ---------------------------------------------------------------------------------------------------------
 
@@ -373,7 +371,7 @@ def plot_bias(
 
     # Plot.
     ax = fig.add_subplot(432)
-    draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, Stat(c.STAT_MEAN), p_csv)
+    draw_curves(ax, varidx, da_ref, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, Stat(c.STAT_MEAN), p_csv)
     plt.title("Moyenne", fontsize=fs_title)
     plt.legend(legend_items, fontsize=fs_legend, frameon=False)
     plt.xlim([1, 12])
@@ -397,7 +395,7 @@ def plot_bias(
         elif stat.centile == 1:
             stat = Stat(c.STAT_MAX)
 
-        draw_curves(ax, varidx, da_obs, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat, p_csv)
+        draw_curves(ax, varidx, da_ref, da_sim_ref, da_sim, da_sim_adj, da_sim_adj_ref, stat, p_csv)
 
         plt.xlim([1, 12])
         plt.xticks(np.arange(1, 13, 1))
@@ -419,13 +417,13 @@ def plot_bias(
     plt.subplot(313)
     da_sim_adj.plot.line(alpha=0.5, color=c.COL_SIM_ADJ)
     da_sim_ref.plot.line(alpha=0.5, color=c.COL_SIM_REF)
-    da_obs.plot.line(alpha=0.5, color=c.COL_OBS)
+    da_ref.plot.line(alpha=0.5, color=c.COL_OBS)
     plt.xlabel("Année", fontsize=fs_axes)
     plt.ylabel(y_label, fontsize=fs_axes)
     plt.legend(["Sim. ajustée", "Sim. (réf.)", "Référence"], fontsize=fs_legend, frameon=False)
     plt.title("")
 
-    fig.suptitle(vi_name + "_" + sup_title, fontsize=fs_sup_title)
+    fig.suptitle(vi_name + "_" + sim_code, fontsize=fs_sup_title)
     plt.tick_params(axis="x", labelsize=fs_axes)
     plt.tick_params(axis="y", labelsize=fs_axes)
 
@@ -433,7 +431,7 @@ def plot_bias(
         del da_sim_adj.attrs[c.ATTRS_BIAS]
 
     # Save plot.
-    if p_fig != "":
+    if c.F_PNG in cntx.opt_diagnostic_format:
         fu.save_plot(fig, p_fig)
 
     # Close plot.
@@ -445,8 +443,7 @@ def plot_bias_ts(
     da_sim: xr.DataArray,
     da_sim_adj: xr.DataArray,
     varidx: VarIdx,
-    title: str,
-    p_fig: str
+    sim_code: str
 ):
 
     """
@@ -463,18 +460,18 @@ def plot_bias_ts(
         Adjusted simulation data.
     varidx: VarIdx
         Variable or index.
-    title: str
-        Title of figure.
-    p_fig: str
-        Path of output figure.
+    sim_code: str
+        Simulation code.
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Extract information on variable.
+    vi_code = str(varidx.code)
     vi_name = str(varidx.name)
 
     # Paths.
-    p_csv = p_fig.replace(cntx.sep + vi_name + cntx.sep, cntx.sep + vi_name + "_" + c.F_CSV + cntx.sep). \
-        replace(c.F_EXT_PNG, c.F_EXT_CSV)
+    p_csv = cntx.p_fig(c.VIEW_BIAS, vi_code, vi_name, c.F_CSV, sim_code=sim_code, suffix="_ts")
+    p_fig = cntx.p_fig(c.VIEW_BIAS, vi_code, vi_name, c.F_PNG, sim_code=sim_code, suffix="_ts")
 
     # Determine if the analysis is required.
     save_fig = (cntx.opt_force_overwrite or ((not os.path.exists(p_fig)) and (c.F_PNG in cntx.opt_diagnostic_format)))
@@ -531,7 +528,7 @@ def plot_bias_ts(
         plt.xlabel("Année", fontsize=fs_axes)
         plt.ylabel(varidx.label, fontsize=fs_axes)
         plt.title("")
-        plt.suptitle(title, fontsize=fs_sup_title)
+        plt.suptitle(sim_code, fontsize=fs_sup_title)
         plt.tick_params(axis="x", labelsize=fs_axes)
         plt.tick_params(axis="y", labelsize=fs_axes)
 
@@ -539,7 +536,8 @@ def plot_bias_ts(
         plt.close()
 
         # Save plot.
-        fu.save_plot(fig, p_fig)
+        if c.F_PNG in cntx.opt_diagnostic_format:
+            fu.save_plot(fig, p_fig)
 
     # Save CSV file.
     if save_csv:
@@ -549,7 +547,7 @@ def plot_bias_ts(
 def draw_curves(
     ax: plt.axis,
     varidx: VarIdx,
-    da_obs: xr.DataArray,
+    da_ref: xr.DataArray,
     da_sim_ref: xr.DataArray,
     da_sim: xr.DataArray,
     da_sim_adj: xr.DataArray,
@@ -568,8 +566,8 @@ def draw_curves(
         Plot axis.
     varidx: VarIdx
         Variable or index name.
-    da_obs: xr.DataArray
-        Observed data.
+    da_ref: xr.DataArray
+        Reference data.
     da_sim_ref: xr.DataArray
         Simulation data for the reference period.
     da_sim: xr.DataArray
@@ -630,14 +628,14 @@ def draw_curves(
                 stat_actual.code = c.STAT_SUM
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=Warning)
-                da_obs         = da_obs.resample(time="1M").sum()
+                da_ref         = da_ref.resample(time="1M").sum()
                 da_sim_ref     = da_sim_ref.resample(time="1M").sum()
                 da_sim         = da_sim.resample(time="1M").sum()
                 da_sim_adj     = da_sim_adj.resample(time="1M").sum()
                 da_sim_adj_ref = da_sim_adj_ref.resample(time="1M").sum()
 
         # Calculate statistics.
-        da_obs         = da_groupby(da_obs, stat_actual)
+        da_ref         = da_groupby(da_ref, stat_actual)
         da_sim_ref     = da_groupby(da_sim_ref, stat_actual)
         da_sim         = da_groupby(da_sim, stat_actual)
         da_sim_adj     = da_groupby(da_sim_adj, stat_actual)
@@ -645,7 +643,7 @@ def draw_curves(
 
         # Create dataframe.
         dict_pd = {"month": list(range(1, 13)),
-                   c.CAT_OBS: list(da_obs.values),
+                   c.CAT_OBS: list(da_ref.values),
                    c.CAT_SIM_REF: list(da_sim_ref.values),
                    c.CAT_SIM: list(da_sim.values),
                    c.CAT_SIM_ADJ: list(da_sim_adj.values),
@@ -662,3 +660,192 @@ def draw_curves(
     # Save to CSV.
     if save_csv and (p_csv != ""):
         fu.save_csv(df, p_csv)
+
+
+def gen_map_stations(
+    df_stn: pd.DataFrame,
+    df_poi: Union[pd.DataFrame, None],
+    var_name: str,
+    n_years_req: Optional[int] = 1,
+    param_per_l: Optional[List[float]] = None,
+    per: Optional[List[int]] = None,
+    month_l: Optional[List[int]] = None,
+    method_id: Optional[str] = "wmo",
+    p_bounds: Optional[str] = "",
+    p_fig: Optional[str] = ""
+):
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Generation a map of stations.
+
+    This may require:
+        $ conda install -c pyviz geoviews
+        $ pip install geoviews
+
+    Parameters
+    ----------
+    df_stn: pd.DataFrame
+        DataFrame containing the weather stations.
+    df_poi: Union[pd.DataFrame, None]
+        DataFrame containing the points of interest.
+    var_name: str
+        Climate variable name.
+    n_years_req: Optional[int]
+        Minimum number of years required.
+    param_per_l: Optional[List[float]]
+        Parameters associated with the amount of values required in a period (based on missing or available values).
+    per: Optional[List[int]]
+        Period of interest (first and last year).
+    month_l: Optional[List[int]]
+        Months to consider.
+    method_id: Optional[str]
+        Identifier of evaluation method = {1=WMO, 2=Percentage}
+        "wmo": Number of missing values [total count, consecutive count] in a month for this month to be considered
+               as having not enough values (WMO).
+        "pct": Minimum number of values per period (year or month) in a period for this period to be considered as
+               having enough values.
+    p_bounds: Optional[str]
+        Path of a GEOJSON file containing polygons.
+    p_fig: Optional[str]
+        Path of output figure (with PNG extension).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Initialize parameters.
+    if param_per_l is None:
+        if method_id == "wmo":
+            param_per_l = [11, 5]
+        elif method_id == "pct":
+            param_per_l = [0.27]
+
+    # Generate figure.
+    if (p_fig != "") and\
+       (not os.path.exists(p_fig.replace(c.F_EXT_PNG, "")) or not os.path.exists(p_fig + c.F_EXT_PNG)):
+
+        # Clean-up the DataFrame.
+        df_stn_clean = pd.DataFrame()
+
+        # Combine station identifier and name.
+        df_stn_clean["station"] = df_stn["stn_id"] + "-" + df_stn["stn_name"]
+
+        # Combine coordinates.
+        df_stn_clean[c.DIM_LONGITUDE] = df_stn[c.DIM_LONGITUDE]
+        df_stn_clean[c.DIM_LONGITUDE].map(lambda x: '{0:.4f}'.format(x))
+        df_stn_clean[c.DIM_LATITUDE] = df_stn[c.DIM_LATITUDE]
+        df_stn_clean[c.DIM_LATITUDE].map(lambda x: '{0:.4f}'.format(x))
+        df_stn_clean["n_years_w_data"] = df_stn["n_years_w_data"]
+        df_stn_clean[c.DIM_LONGITUDE] = df_stn[c.DIM_LONGITUDE]
+        df_stn_clean[c.DIM_LATITUDE] = df_stn[c.DIM_LATITUDE]
+
+        # List years.
+        year_l = []
+        column_l = list(df_stn.columns)
+        for i in range(len(column_l)):
+            try:
+                float(column_l[i])
+                year_l.append(column_l[i])
+            except ValueError:
+                pass
+
+        # Collect years with data.
+        year_str_l = []
+        for i in range(len(df_stn)):
+            df_stn_i = pd.DataFrame(df_stn.iloc[i][year_l])
+            df_stn_i.reset_index(inplace=True)
+            df_stn_i.columns = ["year", "availability"]
+            year_i_l = list(df_stn_i[df_stn_i["availability"] > 0]["year"].astype(int).values)
+            year_str_l.append(",".join(str(i) for i in year_i_l))
+        df_stn_clean["years"] = year_str_l
+
+        # List of months.
+        months_str = ("".join(("" if i == 0 else "-") + str(month_l[i]) for i in range(len(month_l))))
+
+        # List of periods.
+        per_str = str(per[0]) + "-" + str(per[1]) if (per is not None) and (len(per) >= 2) else ""
+
+        # Title.
+        title = var_name + " - At least " + str(n_years_req) + " year(s) with "
+        if method_id == "wmo":
+            title += "fewer than " + str(param_per_l[0]) + " values/month missing (fewer than " + \
+                     str(param_per_l[1]) + " consecutive values/month)"
+        else:
+            title += "fewer than " + str(param_per_l[0] * 100.0) + "% of values/month missing"
+        title += (" during months [" + months_str.replace("-", ",") + "]" if len(month_l) > 0 else "")
+        if (per is not None) and (len(per) >= 2):
+            title += " (" + per_str + ")"
+
+        # Load the vertices of each one of the polygons comprised in the GEOJSON file.
+        # Note that orthoimages are disabled when there is at least one polygon to display. Otherwise, some of the
+        # polygons are shown/hidden after zooming in/out.
+        df_region_l = []
+        if p_bounds != "":
+            df_region_l = dfu.load_geojson(p_bounds, "pandas", first_only=False)
+            tiles = None
+        else:
+            tiles = "CartoLight"
+
+        # Determine map limits, considering stations, points of interest and regions.
+        x_lim, y_lim = None, None
+        lon_l, lat_l = [], []
+        if (df_stn is not None) and (len(df_stn) > 0):
+            lon_l = lon_l + list(df_stn[c.DIM_LONGITUDE].values)
+            lat_l = lat_l + list(df_stn[c.DIM_LATITUDE].values)
+        if (df_poi is not None) and (len(df_poi) > 0):
+            lon_l = lon_l + list(df_poi[c.DIM_LONGITUDE].values)
+            lat_l = lat_l + list(df_poi[c.DIM_LATITUDE].values)
+        if p_bounds != "":
+            for i in range(len(df_region_l)):
+                lon_l = lon_l + list(df_region_l[i][c.DIM_LONGITUDE])
+                lat_l = lat_l + list(df_region_l[i][c.DIM_LATITUDE])
+        if len(lon_l) > 0:
+            x_lim = (min(lon_l), max(lon_l))
+            y_lim = (min(lat_l), max(lat_l))
+
+        # Determine the size of visual components.
+        # The logic is that a size of 10 is suitable to map the Canada as a whole (80 degrees wide). Point size
+        # increases as the width of map (in degrees) decreases.
+        size = 10
+        if len(df_stn) > 0:
+            size = min(max(10, size * 80 / (max(x_lim) - min(x_lim))), 80)
+
+        # Figure.
+        xlabel = c.DIM_LONGITUDE.capitalize() + " (°)"
+        ylabel = c.DIM_LATITUDE.capitalize() + " (°)"
+        hv.extension("bokeh")
+        renderer = hv.renderer("bokeh")
+        plot = None
+
+        # Draw region boundaries.
+        if p_bounds != "":
+            for i in range(len(df_region_l)):
+                plot_i = df_region_l[i].hvplot.polygons(x=c.DIM_LONGITUDE, y=c.DIM_LATITUDE, geo=True,
+                                                        color="lightgrey", line_color="darkgrey", line_width=1,
+                                                        alpha=0.7)
+                plot = plot_i if plot is None else plot * plot_i
+
+        # Draw locations (weather stations).
+        if len(df_stn_clean) > 0:
+            plot_i = df_stn_clean.hvplot.points(x=c.DIM_LONGITUDE, y=c.DIM_LATITUDE, geo=True, tiles=tiles,
+                                                color="red", alpha=1.0, size=size, title=title,
+                                                hover_cols=["station", "years"], xlabel=xlabel, ylabel=ylabel)
+            plot = plot_i if plot is None else plot * plot_i
+            tiles = None
+
+        # Draw locations (points of interest).
+        if (df_poi is not None) and (len(df_poi) > 0):
+            plot_i = df_poi.hvplot.points(x=c.DIM_LONGITUDE, y=c.DIM_LATITUDE, geo=True, tiles=tiles,
+                                          color="green", alpha=1.0, size=size,
+                                          title=title, hover_cols=["name", "region"], xlabel=xlabel, ylabel=ylabel)
+            plot = plot_i if plot is None else plot * plot_i
+
+        # Plot options (setting x_lim and y_lim is not working).
+        plot = plot.options(width=1920, height=1080)
+        # if len(df_region_l) == 0:
+        #     plot = plot.options(xlim=x_lim, ylim=y_lim)
+
+        # Save figure to HTML.
+        renderer.save(plot, p_fig.replace(c.F_EXT_PNG, ""))
+
+        # Save figure to PNG.
+        renderer.save(plot, p_fig.replace(c.F_EXT_PNG, ""), fmt=c.F_PNG)

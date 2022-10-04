@@ -11,8 +11,8 @@
 import sys
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard import cl_constant as const
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard import cl_constant as const
 
 
 class Constant(const.Constant):
@@ -22,6 +22,8 @@ class Constant(const.Constant):
     CAT_OBS             = "obs"             # Observation.
     CAT_RAW             = "raw"             # Raw.
     CAT_REGRID          = "regrid"          # Reggrided.
+    CAT_REGRID_REF      = "regrid_ref"      # Regridded (reference period only): "_ref_4qqmap"
+    CAT_REGRID_FUT      = "regrid_fut"      # Regridded (all years included): "_4qqmap"
     CAT_QMF             = "qmf"             # Quantile mapping function.
     CAT_QQMAP           = "qqmap"           # Adjusted simulation.
 
@@ -31,15 +33,10 @@ class Constant(const.Constant):
     CAT_SIM_ADJ         = "sim_adj"         # Simulation (bias-adjusted).
     CAT_SIM_ADJ_REF     = "sim_adj_ref"     # Simulation (bias-adjusted, reference period).
 
-    # Scenarios vs. indices.
+    # Main directories: scenarios, indices and figures.
     CAT_SCEN            = "scen"            # Scenarios.
     CAT_IDX             = "idx"             # Indices.
-
-    # Categories of figures.
     CAT_FIG             = "fig"             # Figures.
-    CAT_FIG_BIAS        = "bias"            # Figures (bias).
-    CAT_FIG_POSTPROCESS = "postprocess"     # Figures (postprocess).
-    CAT_FIG_WORKFLOW    = "workflow"        # Figures (workflow).
 
     # Conversion coefficients.
     SPD                 = 86400             # Number of seconds per day.
@@ -80,8 +77,11 @@ class Constant(const.Constant):
     DIM_LAT             = "lat"
     DIM_RLON            = "rlon"
     DIM_RLAT            = "rlat"
+    DIM_X               = "x"
+    DIM_Y               = "y"
     DIM_TIME            = "time"
     DIM_LOCATION        = "location"
+    DIM_STATION         = "station"
     DIM_REALIZATION     = "realization"
     DIM_PERCENTILES     = "percentiles"
 
@@ -97,12 +97,15 @@ class Constant(const.Constant):
     ATTRS_STATION_NAME  = "station_name"
     ATTRS_GROUP         = "group"
     ATTRS_KIND          = "kind"
+    ATTRS_ROT_LAT_LON   = "rotated_latitude_longitude"
+    ATTRS_G_NP_LON       = "grid_north_pole_longitude"
+    ATTRS_G_NP_LAT       = "grid_north_pole_latitude"
 
     # Units (general).
     UNIT_DEG            = "°"
     UNIT_PCT            = "%"
 
-    # Units (NetCDF).
+    # Units.
     UNIT_C              = "C"
     UNIT_K              = "K"
     UNIT_kg_m2s1        = "kg m-2 s-1"

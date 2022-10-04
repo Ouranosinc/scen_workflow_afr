@@ -11,6 +11,7 @@
 import altair as alt
 import glob
 import holoviews as hv
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -18,10 +19,10 @@ import pandas as pd
 import shutil
 import xarray as xr
 import xarray.core.variable as xcv
+import xesmf as xe
 import warnings
 from distutils import dir_util
-from itertools import compress
-from typing import Union, List, Optional, Any
+from typing import Union, List, Optional
 
 # Workflow libraries.
 import wf_utils
@@ -29,69 +30,13 @@ from cl_constant import const as c
 from cl_context import cntx
 
 
-def list_cordex(
-    p_ds: str,
-    rcps: [str],
-    freq: Optional[str] = "day"
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-     Lists CORDEX simulations.
-
-    Parameters
-    ----------
-    p_ds: str
-        Path of data_source.
-    rcps: [str]
-        List of RCP scenarios.
-    freq: Optional[str]
-        Frequency = {"day", "fx"}
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    list_f = {}
-
-    # Find all the available simulations for a given RCP.
-    for r in range(len(rcps)):
-
-        d_format = p_ds + "*" + cntx.sep + "*" + cntx.sep + "AFR-*{r}".format(r=rcps[r]) + cntx.sep + "*" +\
-                   cntx.sep + "atmos" + cntx.sep + "*" + cntx.sep
-        d_l = glob.glob(d_format)
-        d_l = [i for i in d_l if freq in i]
-        d_l.sort()
-
-        # Remove timestep information.
-        for i in range(0, len(d_l)):
-            tokens = d_l[i].split(cntx.sep)
-            d_l[i] = d_l[i].replace(tokens[len(tokens) - 4], "*")
-
-        # Keep only the unique simulation folders (with a * as the timestep).
-        d_l = list(set(d_l))
-        d_l_valid = [True] * len(d_l)
-
-        # Keep only the simulations with all the variables we need.
-        d_l = list(compress(d_l, d_l_valid))
-
-        list_f[rcps[r] + "_historical"] = [w.replace(rcps[r], "historical") for w in d_l]
-        list_f[rcps[r]] = d_l
-
-    return list_f
-
-
-def info_cordex(
-    d_ds: str
-):
+def info_cordex():
 
     """
     --------------------------------------------------------------------------------------------------------------------
      Creates an array that contains information about CORDEX simulations.
-     A verification is made to ensure that there is at least one NetCDF file available for each variable.
 
-    Parameters
-    ----------
-    d_ds: str
-        Directory of data_source.
+     A verification is made to ensure that there is at least one dataset file available for each variable.
 
     Return
     ------
@@ -108,14 +53,15 @@ def info_cordex(
     # Results.
     sets = []
 
-    # List directories containing simulation sets.
-    d_format = d_ds + "*" + cntx.sep + "*" + cntx.sep + "AFR-*" + cntx.sep + "day" + cntx.sep + "atmos" + cntx.sep +\
-        "*" + cntx.sep
-    n_token = len(d_ds.split(cntx.sep)) - 2
+    # List simulation files.
+    p_sim_l = []
+    for domain in cntx.domains:
+        p_sim_l = p_sim_l + list(glob.glob(cntx.p_proj(domain=domain)))
 
-    # Loop through simulations sets.
-    for i in glob.glob(d_format):
-        tokens_i = i.split(cntx.sep)
+    # Loop through simulations.
+    for p_sim_i in p_sim_l:
+        n_token  = len(p_sim_i.split(cntx.sep)) - 2
+        tokens_i = p_sim_i.split(cntx.sep)
 
         # Extract institute, RGM, CGM and emission scenario.
         inst = tokens_i[n_token + 1]
@@ -123,12 +69,13 @@ def info_cordex(
         cgm  = tokens_i[n_token + 3].split("_")[1]
         scen = tokens_i[n_token + 3].split("_")[2]
 
-        # Extract variables and ensure that there is at least one NetCDF file available for each  one.
+        # Extract variables and ensure that there is at least one datset file available for each one.
         vars_i = []
-        for j in glob.glob(i + "*" + cntx.sep):
-            n_netcdf = len(glob.glob(j + "*" + c.F_EXT_NC))
-            if n_netcdf > 0:
-                tokens_j = j.split(cntx.sep)
+
+        for p_sim_j in list(glob.glob(p_sim_i + "*" + cntx.sep)):
+            n_files = len(glob.glob(p_sim_j + "*" + c.F_EXT_NC))
+            if n_files > 0:
+                tokens_j = p_sim_j.split(cntx.sep)
                 var      = tokens_j[len(tokens_j) - 2]
                 vars_i.append(var)
 
@@ -143,7 +90,7 @@ def list_files(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Lists files in a directory.
+    Lists data files (NetCDF or Zarr) contained in a directory.
 
     Parameters
     ----------
@@ -157,8 +104,13 @@ def list_files(
     # r=root, d=directories, f = files
     for r, d, f in os.walk(p):
         for p in f:
+            p_new = ""
             if c.F_EXT_NC in p:
-                p_l.append(os.path.join(r, p))
+                p_new = os.path.join(r, p)
+            elif c.F_EXT_ZARR in p:
+                p_new = os.path.dirname(r)
+            if (p_new != "") and (p_new not in p_l):
+                p_l.append(p_new)
 
     # Sort.
     p_l.sort()
@@ -185,7 +137,7 @@ def create_mask(
     Parameters
     ----------
     template: Optional[Union[str, xr.Dataset]]
-        Option #1: Path of NetCDF file used to build the mask.
+        Option #1: Path of datset file used to build the mask.
         Option #2: Dataset used to build the mask.
         For both options, if the minimum and maximum values are identical (considering all time stepts), we can assume
         that values in these cells should be 'nan'.
@@ -223,9 +175,9 @@ def create_mask(
     # Apply a mask based on a climate scenario or index.
     if template != "":
 
-        # Open NetCDF file.
+        # Open dataset file.
         if isinstance(template, str):
-            ds = open_netcdf(template)
+            ds = open_dataset(template)
         else:
             ds = template
 
@@ -237,19 +189,19 @@ def create_mask(
         da_mask = xr.where((da_nan == 1) | (da_min.isnull()), np.nan, 1)
 
     # Apply a mask based on ECMWF data (c.V_ECMWF_LSM or c.V_ECMWF_T2M).
-    if (cntx.obs_src in [c.ENS_ERA5, c.ENS_ERA5_LAND]) and (da_mask is None):
+    if (cntx.ens_ref_grid in [c.ENS_ERA5, c.ENS_ERA5_LAND]) and (da_mask is None):
 
         # Sometimes, the temperature variable sometimes include 'nan' values over the sea, whereas values for another
         # variable are provided and incorrect. This is why there is an attempt to consider any temperature variable.
         for var_name in [c.V_SFTLF, c.V_TAS]:
 
-            # List NetCDF files.
-            f_l = glob.glob(cntx.d_stn() + "*" + cntx.sep + var_name + "*" + c.F_EXT_NC)
+            # List data files.
+            f_l = glob.glob(cntx.d_ref() + "*" + cntx.sep + var_name + "*" + c.F_EXT_NC)
             f_l.sort()
             if len(f_l) > 0:
 
-                # Open NetCDF file.
-                ds = open_netcdf(f_l[0])
+                # Open dataset file.
+                ds = open_dataset(f_l[0])
                 var_name = list(ds.data_vars)[0]
 
                 # Create mask.
@@ -259,21 +211,21 @@ def create_mask(
                     da_mask = ds[var_name][0] * 0 + 1
                 da_mask = xr.where(da_mask == 0, np.nan, da_mask)
 
-            if (da_mask is not None) or (cntx.obs_src == c.ENS_ERA5):
+            if (da_mask is not None) or (cntx.ens_ref_grid == c.ENS_ERA5):
                 break
 
     # Apply a mask based on CORDEX data (c.V_SFTLF).
-    if ((cntx.obs_src in [c.ENS_ERA5, c.ENS_ERA5_LAND]) and (da_mask is None)) or\
-       (cntx.obs_src == c.ENS_ENACTS):
+    if ((cntx.ens_ref_grid in [c.ENS_ERA5, c.ENS_ERA5_LAND]) and (da_mask is None)) or\
+       (cntx.ens_ref_grid == c.ENS_ENACTS):
 
-        # List NetCDF files related to land area fraction.
+        # List data files related to land area fraction.
         var_name = c.V_SFTLF
-        f_l = glob.glob(cntx.d_scen(c.CAT_REGRID, var_name) + "*" + c.F_EXT_NC)
+        f_l = glob.glob(cntx.p_scen(c.CAT_REGRID, var_name, sim_code="*"))
         f_l.sort()
         if len(f_l) > 0:
 
-            # Open NetCDF file.
-            ds = open_netcdf(f_l[0])
+            # Open dataset file.
+            ds = open_dataset(f_l[0])
 
             # Create mask.
             da_mask = xr.DataArray(ds[var_name] > 0).astype(float)
@@ -282,7 +234,7 @@ def create_mask(
     return da_mask
 
 
-def open_netcdf(
+def open_dataset(
     p: Union[str, List[str]],
     drop_variables: [str] = None,
     chunks: Union[int, dict] = None,
@@ -293,7 +245,7 @@ def open_netcdf(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Open a NetCDF file.
+    Open dataset file(s) (NetCDF or ZARR).
 
     Parameters
     ----------
@@ -309,40 +261,56 @@ def open_netcdf(
         Concatenate dimension.
     desc: str
         Description.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset.
     --------------------------------------------------------------------------------------------------------------------
     """
+
+    # Determine the engine.
+    engine = None
+    if (isinstance(p, str) and (c.F_EXT_ZARR in p)) or \
+       ((type(p) == list) and (len(p) > 0) and (c.F_EXT_ZARR in p[0])):
+        engine = c.F_ZARR
 
     if desc == "":
         desc = (os.path.basename(p) if isinstance(p, str) else os.path.basename(p[0]))
 
     if cntx.opt_trace:
-        log("Opening NetCDF file: " + desc, True)
+        log("Opening dataset: " + desc, True)
 
+    # There is a single file to open.
     if isinstance(p, str):
 
         # Open file normally.
-        ds = xr.open_dataset(p, drop_variables=drop_variables).load()
+        ds = xr.open_dataset(p, drop_variables=drop_variables, engine=engine).load()
         close_netcdf(ds)
 
         # Determine the number of chunks.
-        if cntx.use_chunks and (cntx.n_proc == 1) and (chunks is None) and ("scen" in p) and (c.DIM_TIME in ds.dims):
+        if cntx.use_chunks and (cntx.n_proc == 1) and (chunks is None) and (c.CAT_SCEN in p) and\
+           (c.DIM_TIME in ds.dims):
             chunks = {c.DIM_TIME: len(ds[c.DIM_TIME])}
 
         # Reopen file using chunks.
         if chunks is not None:
-            ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks).copy(deep=True).load()
+            ds = xr.open_dataset(p, drop_variables=drop_variables, chunks=chunks, engine=engine).copy(deep=True).load()
             close_netcdf(ds)
+
+    # There are multiple files to open.
     else:
-        ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine, concat_dim=concat_dim,
-                               lock=False)
+        ds = xr.open_mfdataset(p, drop_variables=drop_variables, chunks=chunks, combine=combine,
+                               concat_dim=concat_dim, lock=False, engine=engine).load()
+        close_netcdf(ds)
 
     if cntx.opt_trace:
-        log("Opened NetCDF file", True)
+        log("Opened dataset", True)
 
     return ds
 
 
-def save_netcdf(
+def save_dataset(
     ds: Union[xr.Dataset, xr.DataArray],
     p: str,
     desc: str = ""
@@ -350,7 +318,7 @@ def save_netcdf(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Save a dataset or a data array to a NetCDF file.
+    Save a dataset or a data array to a dataset file (NetCDF or Zarr).
 
     Parameters
     ----------
@@ -363,11 +331,16 @@ def save_netcdf(
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Determine the engine.
+    engine = "netcdf4"
+    if c.F_EXT_ZARR in p:
+        engine = c.F_ZARR
+
     if desc == "":
         desc = os.path.basename(p)
 
     if cntx.opt_trace:
-        log("Saving NetCDF file: " + desc, True)
+        log("Saving dataset: " + desc, True)
 
     # Recursively create directories if the path does not exist.
     d = os.path.dirname(p)
@@ -375,23 +348,35 @@ def save_netcdf(
         os.makedirs(d)
 
     # Create a temporary file to indicate that writing is in progress.
-    p_inc = p.replace(c.F_EXT_NC, ".incomplete")
+    p_inc = p.replace(c.F_EXT_NC if engine == "netcdf4" else c.F_EXT_ZARR, ".incomplete")
     if not os.path.exists(p_inc):
         open(p_inc, "a").close()
 
     # Discard file if it already exists.
     if os.path.exists(p):
-        os.remove(p)
+        if os.path.isdir(p):
+            shutil.rmtree(p)
+        else:
+            os.remove(p)
 
-    # Save NetCDF file.
-    ds.to_netcdf(p, mode="w", engine="netcdf4")
+    # Save dataset.
+    mode = "w"
+    if engine == "netcdf4":
+        ds.to_netcdf(p, mode=mode)
+    else:
+        if c.DIM_TIME in ds.dims:
+            ds = ds.chunk({c.DIM_TIME: 365})
+        try:
+            ds.to_zarr(p, mode=mode)
+        except NotImplementedError:
+            ds.to_zarr(p, mode=mode, safe_chunks=False)
 
     # Discard the temporary file.
     if os.path.exists(p_inc):
         os.remove(p_inc)
 
     if cntx.opt_trace:
-        log("Saved NetCDF file", True)
+        log("Saved dataset", True)
 
 
 def close_netcdf(
@@ -400,7 +385,7 @@ def close_netcdf(
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Close a NetCDF file.
+    Close a dataset file (NetCDF or Zarr).
 
     Parameters
     ----------
@@ -416,15 +401,273 @@ def close_netcdf(
             pass
 
 
-def clean_netcdf(
+def grid_transform(
+    ds_da: Union[xr.Dataset, xr.DataArray],
+    vi_name: str,
+    lon_l: List[float] = None,
+    lat_l: List[float] = None
+) -> Union[xr.Dataset, xr.DataArray, None]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert from rotated to regular coordinates.
+
+    The assumption is that the following coordintes are available : rlon, rlat, lon, lat.
+
+    This is done in 2 steps:
+    - Transformation from rotated to regular coordinates.
+    - Regridding.
+
+    Parameters
+    ----------
+    ds_da: Union[xr.Dataset, xr.DataArray]
+        Dataset.
+    vi_name: str
+        Variable or index name.
+    lon_l: List[float]
+        Longitude values.
+    lat_l: List[float]
+        Latitude values.
+
+    Returns
+    -------
+    Union[xr.Dataset, xr.DataArray, None]
+        Dataset.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    maps_required = False
+
+    # Function that calculates cell size.
+    def cell_size(
+        ds: xr.Dataset
+    ) -> List[float]:
+
+        # Extract coordinates.
+        if c.DIM_RLON in ds.dims:
+            _lon_l = ds[c.DIM_RLON].values
+            _lat_l = ds[c.DIM_RLAT].values
+        else:
+            _lon_l = ds[c.DIM_LON].values.mean(axis=0)
+            _lat_l = ds[c.DIM_LAT].transpose().values.mean(axis=0)
+
+        # Calculate distance between adjacent coordinates.
+        _d_lon = [_lon_l[i + 1] - _lon_l[i] for i in range(len(_lon_l) - 1)]
+        _d_lat = [_lat_l[i + 1] - _lat_l[i] for i in range(len(_lat_l) - 1)]
+
+        return [float(np.mean(_d_lon)), float(np.mean(_d_lat))]
+
+    # Calculate cell size.
+    cs = cell_size(ds_da)
+
+    # Create a DataArray for the current grid.
+    if maps_required:
+        rot_ctr_l = [ds_da[c.ATTRS_ROT_LAT_LON].attrs[c.ATTRS_G_NP_LON],
+                     ds_da[c.ATTRS_ROT_LAT_LON].attrs[c.ATTRS_G_NP_LAT]]
+        bottom_left = list(grid_transform_pt([min(lon_l), min(lat_l)], [rot_ctr_l[0], rot_ctr_l[1]], 1))
+        top_right = list(grid_transform_pt([max(lon_l), max(lat_l)], [rot_ctr_l[0], rot_ctr_l[1]], 1))
+        bottom_right = list(grid_transform_pt([max(lon_l), min(lat_l)], [rot_ctr_l[0], rot_ctr_l[1]], 1))
+        top_left = list(grid_transform_pt([min(lon_l), max(lat_l)], [rot_ctr_l[0], rot_ctr_l[1]], 1))
+        lat_rot_l = [min(bottom_left[1], bottom_right[1]), max(top_left[1], top_right[1])]
+        lat_rot_l.sort()
+        lon_rot_l = [min(bottom_left[0], bottom_right[0]), max(top_left[0], top_right[0])]
+        lon_rot_l.sort()
+        da_rot = ds_da.sel(rlat=slice(lat_rot_l[0], lat_rot_l[1]), rlon=slice(lon_rot_l[0], lon_rot_l[1]))[vi_name]
+        da_rot[c.DIM_LONGITUDE] = da_rot[c.DIM_LON]
+        da_rot[c.DIM_LATITUDE] = da_rot[c.DIM_LAT]
+    else:
+        da_rot = None
+
+    # Generate coordinates between .
+    def gen_coord_l(
+        cs_coord: float,
+        coord_bnds_l: List[float]
+    ) -> List[float]:
+
+        # Calculate the distance between the first and last coordinates.
+        dist = coord_bnds_l[1] - coord_bnds_l[0]
+
+        # Calculate the first coordinate, and ensure that the nodes are centered relative to boundaries.
+        coord_0 = coord_bnds_l[0] - ((dist / float(cs_coord)) - (dist // float(cs_coord))) / 2
+
+        # Determine the number of coordinates.
+        n_coords = math.ceil(dist / cs_coord) + 1
+
+        # List new coordinates.
+        coord_new_l = [coord_0 + i * cs_coord for i in range(n_coords)]
+
+        return coord_new_l
+
+    # Create a DataArray for the new grid.
+    grid_lat_l = gen_coord_l(cs[1], lat_l)
+    grid_lon_l = gen_coord_l(cs[0], lon_l)
+    ds_grid = xr.Dataset({c.DIM_LAT: ([c.DIM_LAT], grid_lat_l),
+                          c.DIM_LON: ([c.DIM_LON], grid_lon_l)})
+    regridder = xe.Regridder(ds_da, ds_grid, "bilinear")
+    da_reg = regridder(ds_da[vi_name])
+    da_reg = da_reg.rename({c.DIM_LAT: c.DIM_LATITUDE, c.DIM_LON: c.DIM_LONGITUDE})
+
+    def gen_map(
+        da: xr.DataArray,
+        p: str
+    ):
+
+        # Calculate mean values over the reference period.
+        ds_map = wf_utils.sel_period(da.to_dataset(name=vi_name), cntx.per_ref)
+        da_map = ds_map[vi_name].mean(dim=c.DIM_TIME)
+        da_map.attrs = da.attrs
+
+        # Determine if the dataset as a rotated coordinate system.
+        has_rotated_coords = wf_utils.has_rotated_coords(da_map, vi_name)
+
+        # Determine the number of coordinates required.
+        if has_rotated_coords:
+            _n_lon = len(da_map[c.DIM_RLON].values)
+            _n_lat = len(da_map[c.DIM_RLAT].values)
+        else:
+            _n_lon = len(da_map[c.DIM_LONGITUDE].values)
+            _n_lat = len(da_map[c.DIM_LATITUDE].values)
+
+        # Collect coordinates and values.
+        arr_lon, arr_lat, arr_val = [], [], []
+        for m in range(_n_lon):
+            for n in range(_n_lat):
+                if has_rotated_coords:
+                    arr_lon.append(float(da_map.longitude.values[n, m]))
+                    arr_lat.append(float(da_map.latitude.values[n, m]))
+                else:
+                    arr_lon.append(float(da_map.longitude.values[m]))
+                    arr_lat.append(float(da_map.latitude.values[n]))
+                arr_val.append(float(da_map.values[n, m]))
+
+        # Generated DataFrame.
+        dict_pd = {c.DIM_LONGITUDE: arr_lon, c.DIM_LATITUDE: arr_lat, "val": arr_val}
+        df = pd.DataFrame(dict_pd)
+
+        # Calculate range.
+        z_range = [min(df["val"]), max(df["val"])]
+
+        # Generate end export map.
+        plot = dash_plot.gen_map(df, z_range)
+        save_plot(plot, p)
+
+    if maps_required:
+
+        # Update context.
+        import sys
+        sys.path.append("dashboard")
+        from dashboard import dash_plot, cl_delta, cl_hor, cl_lib, cl_rcp, cl_varidx, cl_view
+        cntx.lib = cl_lib.Lib(c.LIB_HV)
+        cntx.delta = cl_delta.Delta("False")
+        cntx.hor = cl_hor.Hor(cntx.per_ref)
+        cntx.rcp = cl_rcp.RCP(c.REF)
+        cntx.varidx = cl_varidx.VarIdx(vi_name)
+        cntx.view = cl_view.View(c.VIEW_MAP)
+
+        # Generate a pre-rotation map.
+        gen_map(da_rot, "/home/yrousseau/Downloads/grid_transform_1.png")
+
+        # Generate a post-rotation map.
+        gen_map(da_reg, "/home/yrousseau/Downloads/grid_transform_2.png")
+
+        exit()
+
+    # Copy attributes.
+    da_reg.name = vi_name
+    ds_reg = da_reg.to_dataset()
+    ds_reg.attrs = ds_da.attrs
+    ds_reg[vi_name].attrs = ds_da[vi_name].attrs
+    if c.ATTRS_UNITS in ds_da[vi_name].attrs:
+        ds_reg[vi_name].attrs[c.ATTRS_UNITS] = ds_da[vi_name].attrs[c.ATTRS_UNITS]
+
+    return ds_reg
+
+
+def grid_transform_pt(
+    coords: List[float],
+    coords_rot_ctr: List[float],
+    option: int,
+) -> List[float]:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Convert from regular to rotated coordinates, or the opposite.
+
+    Parameters
+    ----------
+    coords: List[float]
+        Longitude and latitude (original).
+    coords_rot_ctr: List[float]
+        Longitude and latitude of the rotation center.
+    option: int
+        Option: 1= regular to rotated; 2= rotated to regular.
+
+    Returns
+    -------
+    List[float]
+        Longitude and latitude (modified).
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    # Longitude and latitude.
+    lon = coords[0]
+    lat = coords[1]
+
+    # Convert degrees to radians.
+    lon = lon * math.pi / 180
+    lat = lat * math.pi / 180
+
+    # Rotation around the y-axis.
+    theta = 90 + coords_rot_ctr[1]
+
+    # Rotation around the z-axis.
+    phi = coords_rot_ctr[0]
+
+    # Convert degrees to radians.
+    phi = phi * math.pi / 180
+    theta = theta * math.pi / 180
+
+    # Convert from spherical to cartesian coordinates.
+    x = math.cos(lon) * math.cos(lat)
+    y = math.sin(lon) * math.cos(lat)
+    z = math.sin(lat)
+
+    # Regular to rotated.
+    if option == 1:
+        x_new = math.cos(theta) * math.cos(phi) * x + math.cos(theta) * math.sin(phi) * y + math.sin(theta) * z
+        y_new = -math.sin(phi) * x + math.cos(phi) * y
+        z_new = -math.sin(theta) * math.cos(phi) * x - math.sin(theta) * math.sin(phi) * y + math.cos(theta) * z
+
+    # Rotated to regular.
+    else:
+        phi = -phi
+        theta = -theta
+        x_new = math.cos(theta) * math.cos(phi) * x + math.sin(phi) * y + math.sin(theta) * math.cos(phi) * z
+        y_new = -math.cos(theta) * math.sin(phi) * x + math.cos(phi) * y - math.sin(theta) * math.sin(phi) * z
+        z_new = -math.sin(theta) * x + math.cos(theta) * z
+
+    # Convert cartesian back to spherical coordinates.
+    lon_new = math.atan2(y_new, x_new)
+    lat_new = math.asin(z_new)
+
+    # Convert radians back to degrees.
+    lon_new = (lon_new * 180) / math.pi
+    lat_new = (lat_new * 180) / math.pi
+
+    return [lon_new, lat_new]
+
+
+def clean_dataset(
     d: str
 ):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Clean NetCDF files.
-    A .nc file will be removed if there's an .incomplete file with the same name. The .incomplete file is removed as
-    well. This is done to avoid having potentially incomplete NetCDF files, which can result in a crash.
+    Remove incomplete datasets.
+
+    A .nc file or .zarr directory will be removed if there's an .incomplete file with the same name. The .incomplete
+    file is removed as well. This is done to avoid having potentially incomplete data files, which can result in a
+    crash.
 
     Parameters
     ----------
@@ -433,9 +676,9 @@ def clean_netcdf(
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    msg = "Cleaning NetCDF files: "
-    if cntx.d_stn() in d:
-        msg += "~" + cntx.sep + "stn" + cntx.sep + "..." + cntx.sep + d.replace(cntx.d_stn(), "")
+    msg = "Cleaning datasets: "
+    if cntx.d_ref() in d:
+        msg += "~" + cntx.sep + "stn" + cntx.sep + "..." + cntx.sep + d.replace(cntx.d_ref(), "")
     else:
         msg += "~" + cntx.sep + "res" + cntx.sep + "..." + cntx.sep + d.replace(cntx.d_res, "")
     msg += "*"
@@ -449,11 +692,15 @@ def clean_netcdf(
     # Loop through temporary files.
     for p_inc in p_inc_l:
 
-        # Attempt removing an associated NetCDF file.
+        # Attempt removing an associated dataset file.
         p_nc = p_inc.replace(".incomplete", c.F_EXT_NC)
+        p_zarr = p_inc.replace(".incomplete", c.F_EXT_ZARR)
         if os.path.exists(p_nc):
             log("Removing: " + p_nc)
             os.remove(p_nc)
+        if os.path.exists(p_zarr):
+            log("Removing: " + p_zarr)
+            shutil.rmtree(p_zarr)
 
         # Remove the temporary file.
         if os.path.exists(p_inc):
@@ -461,7 +708,7 @@ def clean_netcdf(
             os.remove(p_inc)
 
 
-def crop_netcdf(
+def crop_dataset(
     p_in: str,
     keyword_l: List[str],
     lon_l: List[float],
@@ -499,12 +746,12 @@ def crop_netcdf(
     if ((os.path.exists(p_out)) and not cntx.opt_force_overwrite) or not keyword_found:
         return
 
-    # Load NetCDF.
+    # Load dataset.
     # The except clause is necessary in the case there are two time dimensions (in CORDEX).
     try:
-        ds = open_netcdf(p_in).load()
+        ds = open_dataset(p_in).load()
     except xcv.MissingDimensionsError:
-        ds = open_netcdf(p_in, drop_variables=["time_bnds"]).load()
+        ds = open_dataset(p_in, drop_variables=["time_bnds"]).load()
 
     # Get variable name.
     vi_name = ""
@@ -516,325 +763,8 @@ def crop_netcdf(
     # Crop.
     ds_i_out = wf_utils.subset_lon_lat_time(ds, vi_name, lon_l, lat_l)
 
-    # Save NetCDF.
-    save_netcdf(ds_i_out, p_out)
-
-
-def evaluate_canswe(
-    case_id: int,
-    p: str,
-    var_name: str,
-    per: List[int] = None,
-    stn_key_l: List[str] = None,
-    d_out: str = ""
-):
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Explore CanSWE dataset.
-
-    Parameters
-    ----------
-    case_id: int
-        Case identifier.
-    p: str
-        Path.
-    var_name: str
-        Variable name.
-    per: List[int]
-        Period of interest (first and last year).
-    stn_key_l: List[str]
-        Stations for which statistics are required
-    d_out: str
-        Output directory.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    log("=")
-    log("Evaluating CanSWE.")
-
-    # Structure to save into.
-    content = []
-
-    # Case #1: No criterion.
-    if case_id == 1:
-        evaluate_canswe_case(p=p, var_name=var_name, d_out=d_out)
-
-    # Case #2: At least X year(s) with at least Y% of values available, between 1971-2015.
-    elif case_id == 2:
-        n_years_w_data_req_l = [1, 20]
-        pct_vals_per_req_l = [0.27, 10.0]
-        for n_years_w_data_req in n_years_w_data_req_l:
-            for pct_vals_per_req in pct_vals_per_req_l:
-                n_stn_l = evaluate_canswe_case(p=p, var_name=var_name, n_years_w_data_req=n_years_w_data_req,
-                                               pct_vals_per_req=pct_vals_per_req, pct_vals_freq=c.FREQ_YS,
-                                               per=per, stn_key_l=stn_key_l, d_out=d_out)
-                content.append([n_years_w_data_req, pct_vals_per_req, "nan", per] + list(n_stn_l))
-
-    # Case #3: At least X year(s) in which at least Y% of values available, between 1971-2015.
-    elif case_id == 3:
-        n_years_w_data_req_l = [1, 5, 10, 15, 20]
-        pct_vals_per_req_l = [1, 5, 10, 25, 50, 75]
-        month_l_l = [[1, 2], [1, 2, 12], [1, 2, 3], [1, 2, 3, 12], [1, 2, 3, 11, 12], [1, 2, 3, 4, 12],
-                     [1, 2, 3, 4, 11, 12]]
-        for n_years_w_data_req in n_years_w_data_req_l:
-            for pct_vals_per_req in pct_vals_per_req_l:
-                for month_l in month_l_l:
-                    n_stn_l = evaluate_canswe_case(p=p, var_name=var_name, n_years_w_data_req=n_years_w_data_req,
-                                                   pct_vals_per_req=pct_vals_per_req, pct_vals_freq=c.FREQ_MS,
-                                                   per=per, month_l=month_l, stn_key_l=stn_key_l, d_out=d_out)
-                    content.append([n_years_w_data_req, pct_vals_per_req, month_l, per] + list(n_stn_l))
-
-    # Export synthesis.
-    if len(content) > 0:
-
-        # Transpose array.
-        content_t = [[row[i] for row in content] for i in range(len(content[0]))]
-
-        # Create DataFrame.
-        df = pd.DataFrame()
-        df["n_years"] = content_t[0]
-        df["pct_vals"] = content_t[1]
-        df["months"] = content_t[2]
-        df["period"] = content_t[3]
-        for i_stn_key in range(len(stn_key_l)):
-            df[stn_key_l[i_stn_key]] = content_t[4 + i_stn_key]
-
-        # Path.
-        p_csv = p.replace(c.F_EXT_NC, c.F_EXT_CSV)
-        if d_out != "":
-            p_csv = os.path.dirname(p_csv) + "/" + d_out + "/" + os.path.basename(p_csv)
-
-        # Save CSV.
-        save_csv(df, p_csv)
-
-
-def evaluate_canswe_case(
-    p: str,
-    var_name: str,
-    n_years_w_data_req: int = 1,
-    pct_vals_per_req: float = 0.27,
-    pct_vals_freq: str = c.FREQ_YS,
-    per: List[int] = None,
-    month_l: List[int] = None,
-    stn_key_l: List[str] = None,
-    d_out: str = ""
-) -> List[int]:
-
-    """
-    --------------------------------------------------------------------------------------------------------------------
-    Explore CanSWE dataset (specific case).
-
-    Parameters
-    ----------
-    p: str
-        Path.
-    var_name: str
-        Variable name.
-    n_years_w_data_req: int
-        Minimum number of years required.
-    pct_vals_per_req: float
-        Minimum number of values per period (yearr or month) required.
-    pct_vals_freq: str
-        Frequency associated with 'pct_values_per_req' = {c.FREQ_YS, c.FREQ_MS}.
-    per: List[int]
-        Period of interest (first and last year).
-    month_l: List[int]
-        Months to consider.
-    stn_key_l: List[str]
-        Stations for which statistics are required.
-    d_out: str
-        Output directory.
-
-    Returns
-    -------
-    List[int]
-        Number of years with data for each station in 'stn_l'.
-    --------------------------------------------------------------------------------------------------------------------
-    """
-
-    # Load NetCDF.
-    ds = open_netcdf(p)
-
-    # Debug: Select a station.
-    # ds_test = ds.sel(station_id="BCE-1D15P")
-    # ds_test = ds_test[var_name][ds_test[c.DIM_TIME].dt.year.values == 1992]
-
-    # Select the records for the years of interest.
-    if per is not None:
-        ds = ds.sel(time=slice(str(per[0]), str(per[1])))
-
-    # List of years.
-    year_l = list(set(list(ds[c.DIM_TIME].dt.year.values)))
-    year_l.sort()
-
-    # Determine complete period.
-    if per is None:
-        per = [min(year_l), max(year_l)]
-
-    # Select all months if they were not specified.
-    if (pct_vals_freq == c.FREQ_MS) and (len(month_l) == 0):
-        month_l = list(range(1, 13))
-
-    # Paths.
-    months_str = ("".join(("" if i == 0 else "-") + str(month_l[i]) for i in range(len(month_l))))
-    per_str = str(per[0]) + "-" + str(per[1])
-    suffix = "_" + ("nan" if n_years_w_data_req < 0 else str(n_years_w_data_req)) + \
-             "_" + ("nan" if pct_vals_per_req < 0 else str(round(pct_vals_per_req, 2))) + \
-             ("_" if len(month_l) > 0 else "") + months_str + "_" + per_str
-    p_csv = p.replace(c.F_EXT_NC, suffix + c.F_EXT_CSV)
-    if d_out != "":
-        p_csv = os.path.dirname(p_csv) + "/" + d_out + "/" + os.path.basename(p_csv)
-    p_fig = p_csv.replace(c.F_EXT_CSV, "")
-
-    # Load CSV if it already exists.
-    if os.path.exists(p_csv):
-
-        log("Processing : " + suffix.lstrip("_") + " (from existing CSV)")
-        df_t = pd.read_csv(p_csv)
-        df_t = df_t.sort_values(by="stn_id")
-
-    # Generate CSV.
-    else:
-
-        log("Processing : " + suffix.lstrip("_") + " (analysis required)")
-
-        # List of stations.
-        stn_id_l = list(ds["station_id"].values)
-
-        # Initialize DataFrame.
-        dict_pd = {"year": year_l}
-        df = pd.DataFrame(dict_pd)
-        stn_name_l, lon_l, lat_l, n_years_w_data_l = [], [], [], []
-
-        # Loop through stations.
-        i = 1
-        for stn_id in stn_id_l:
-
-            # log("Processing station " + str(i) + "/" + str(len(stn_id_l)) + ": " + stn_id)
-
-            # Identify the years that are comprised in the sought range.
-            ds_stn = ds.sel(station_id=stn_id)
-
-            # Count the number of days per year with data, i.e. with a value > 0.
-            def count_days_per_year(
-                _month: int = -1
-            ) -> List[int]:
-
-                if _month > 0:
-                    _da_stn = ds_stn[var_name][ds_stn[c.DIM_TIME].dt.month.values == _month]
-                else:
-                    _da_stn = ds_stn[var_name]
-                _da_days_w_data = xr.where(_da_stn.isnull(), 0, 1)
-                _days_per_year_l = _da_days_w_data.resample(time=c.FREQ_YS).sum(c.DIM_TIME).values
-
-                return _days_per_year_l
-
-            # Calculate the number of years that meet the minimum number of values per year required.
-            days_per_year_l = []
-            if pct_vals_freq == c.FREQ_YS:
-                days_per_year_l = list(count_days_per_year())
-                n_years_w_data = sum([days_per_year_l[i] >= (pct_vals_per_req / 100 * 365) for i in days_per_year_l])
-
-            # Determine if each month has the required proportion of values.
-            else:
-                enough_vals_w_data_l = [True] * len(year_l)
-                n_years_w_data = len(year_l)
-                for month in month_l:
-
-                    # Extract data for the current month.
-                    da_stn_month = ds_stn[var_name][ds_stn[c.DIM_TIME].dt.month.values == month]
-
-                    # Extract the number of days in the current month.
-                    days_in_month_l = da_stn_month[c.DIM_TIME].dt.day.resample(time=c.FREQ_YS).max(c.DIM_TIME).values
-
-                    # Calculate the number of days with data in the current month.
-                    days_per_month_l = list(count_days_per_year(month))
-
-                    # Update the array that tells wether there are enough values, considering all months of each year.
-                    enough_vals_w_data_stn_l = [days_per_month_l[i] / days_in_month_l[i] * 100 >= pct_vals_per_req
-                                                for i in range(len(days_per_month_l))]
-                    enough_vals_w_data_stn_l = xr.where(enough_vals_w_data_stn_l, 1, 0)
-                    enough_vals_w_data_l = enough_vals_w_data_l * enough_vals_w_data_stn_l
-
-                    # Sum up the number of days.
-                    if len(days_per_year_l) == 0:
-                        days_per_year_l = days_per_month_l
-                    else:
-                        days_per_year_l = [days_per_year_l[i] + days_per_month_l[i]
-                                           for i in range(len(days_per_year_l))]
-
-                    # Determine the number of years with data.
-                    n_years_w_data = sum(enough_vals_w_data_l)
-                    if n_years_w_data < n_years_w_data_req:
-                        break
-
-            # Extract station name and coordinates.
-            stn_name = str(ds_stn["station_name"].values)
-            lon = float(ds_stn[c.DIM_LON].values)
-            lat = float(ds_stn[c.DIM_LAT].values)
-
-            # Add current result to DataFrame (only if it has enough years).
-            if n_years_w_data >= n_years_w_data_req:
-                df[stn_id] = days_per_year_l
-                stn_name_l.append(stn_name)
-                lon_l.append(lon)
-                lat_l.append(lat)
-                n_years_w_data_l.append(n_years_w_data)
-
-            i += 1
-
-        # Transpose.
-        df_t = df.set_index("year")
-        df_t = df_t.transpose().rename_axis("stn_id").reset_index()
-
-        # Add station names and coordinates.
-        df_t.insert(loc=1, column="stn_name", value=stn_name_l)
-        df_t.insert(loc=2, column=c.DIM_LONGITUDE, value=lon_l)
-        df_t.insert(loc=3, column=c.DIM_LATITUDE, value=lat_l)
-        df_t.insert(loc=4, column="n_years_w_data", value=n_years_w_data_l)
-        df_t = df_t.sort_values(by="stn_id")
-
-    # Save the information about the stations to CSV.
-    save_csv(df_t, p_csv)
-
-    # Calculate de the number of HQ stations and the total number of stations.
-    n_stn_l = []
-    for stn_key in stn_key_l:
-        n_stn = 0
-        if stn_key == "total":
-            n_stn = len(df_t)
-        else:
-            for stn_id in df_t["stn_id"]:
-                if stn_key in stn_id:
-                    n_stn += 1
-        n_stn_l.append(n_stn)
-
-    # Generate figure.
-    # This may require:
-    # $ conda install -c pyviz geoviews
-    # $ pip install geoviews
-    if not os.path.exists(p_fig + c.F_EXT_HTML) or not os.path.exists(p_fig + c.F_EXT_PNG):
-
-        title = var_name + " - At least " + str(n_years_w_data_req) + " year(s) with " + \
-            " at least " + str(pct_vals_per_req) + "% of values " + \
-            ("during months [" + months_str.replace("-", ",") + "]" if len(month_l) > 0 else "") + " between " + per_str
-        xlabel = c.DIM_LONGITUDE.capitalize() + " (°)"
-        ylabel = c.DIM_LATITUDE.capitalize() + " (°)"
-        hv.extension("bokeh")
-        renderer = hv.renderer("bokeh")
-        fig = df_t.hvplot.points(x=c.DIM_LONGITUDE, y=c.DIM_LATITUDE, geo=True, color="red", alpha=1.0, size=10,
-                                 tiles="ESRI", title=title, hover_cols=["stn_id", "stn_name", "n_years_w_data"])
-        fig = fig.options(legend_position="top_left", legend_opts={"click_policy": "hide", "orientation": "horizontal"},
-                          frame_width=1920, frame_height=1080, xlabel=xlabel, ylabel=ylabel)
-
-        # Save figure to HTML.
-        renderer.save(fig, p_fig)
-
-        # Save figure to PNG.
-        renderer.save(fig, p_fig, fmt=c.F_PNG)
-
-    return n_stn_l
+    # Save dataset.
+    save_dataset(ds_i_out, p_out)
 
 
 def save_plot(
@@ -885,13 +815,13 @@ def save_plot(
         elif isinstance(plot, alt.Chart):
             plot.save(p)
 
-        # Library: hvplot (not working).
-        # This requires:
-        # - conda install selenium
-        # - conda install -c conda-forge firefox geckodriver
-        # else:
-        #     from bokeh.io import export_png
-        #     export_png(plot, p)
+        # Library: hvplot.
+        else:
+            hv.extension("bokeh")
+            renderer = hv.renderer("bokeh")
+            if c.F_HTML in cntx.opt_map_format:
+                renderer.save(plot, p.replace(c.F_EXT_PNG, ""))
+            renderer.save(plot, p.replace(c.F_EXT_PNG, ""), fmt=c.F_PNG)
 
     if cntx.opt_trace:
         log("Saving plot", True)
@@ -992,6 +922,31 @@ def log(
         f = open(p_log, "a")
         f.writelines(ln + "\n")
         f.close()
+
+
+def gen_data(
+    p: str
+) -> bool:
+
+    """
+    --------------------------------------------------------------------------------------------------------------------
+    Function that determines whether data should be generated/regenerated.
+
+    Parameters
+    ----------
+    p: str
+        Path
+
+    Returns
+    -------
+    bool
+        True if data (a file or a directory) needs to be generated/regenerated.
+    --------------------------------------------------------------------------------------------------------------------
+    """
+
+    return (((cntx.f_data_out == c.F_NC) and not os.path.isfile(p)) or
+            ((cntx.f_data_out == c.F_ZARR) and not os.path.isdir(p)) or
+            cntx.opt_force_overwrite)
 
 
 def rename(
@@ -1198,15 +1153,12 @@ def deploy():
 
     # Base path of the dashboard project.
     p_dash = os.getcwd() + cntx.sep + "dashboard" + cntx.sep + "data" + cntx.sep + cntx.country + "-" +\
-        cntx.region + "-" + cntx.obs_src + cntx.sep
+        cntx.region + "-" + (cntx.ens_ref_grid if cntx.ens_ref_grid != "" else cntx.ens_ref_stn) + cntx.sep
 
     # Copy figures.
-    for view in [c.VIEW_CYCLE_D, c.VIEW_CYCLE_MS, c.VIEW_MAP, c.VIEW_TS, c.VIEW_TS_BIAS, c.VIEW_TAYLOR]:
-        for p_work_i in glob.glob(cntx.d_fig(view) + "*_csv"):
-            p_dash_i = p_dash + view + cntx.sep + os.path.basename(p_work_i).replace("_csv", "")
+    for view_code in [c.VIEW_CYCLE_D, c.VIEW_CYCLE_MS, c.VIEW_MAP, c.VIEW_TAYLOR, c.VIEW_TBL, c.VIEW_TS, c.VIEW_TS_BIAS]:
+        for p_work_i in glob.glob(cntx.d_fig(view_code) + "*_" + c.F_CSV):
+            p_dash_i = p_dash + view_code + cntx.sep + os.path.basename(p_work_i).replace("_" + c.F_CSV, "")
             dir_util.copy_tree(p_work_i, p_dash_i)
-        if view == c.VIEW_MAP:
-            shutil.copy(cntx.p_bounds, p_dash + view + cntx.sep + c.F_BOUNDS)
-
-    # Copy tables.
-    dir_util.copy_tree(cntx.d_tbl(), p_dash + c.VIEW_TBL)
+        if view_code == c.VIEW_MAP:
+            shutil.copy(cntx.p_bounds, p_dash + view_code + cntx.sep + c.F_BOUNDS)

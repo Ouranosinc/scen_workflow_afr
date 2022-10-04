@@ -2,6 +2,15 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Basic univariate quantile mapping post-processing algorithms.
 #
+# The implemented method is described in the following papers:
+# Mpelasoka FS, Chiew FHS (2009) Influence of Rainfall Scenario Construction Methods on Runoff Projections. Journal of
+#     Hydrometeorology 10:1168–1183.
+# Cannon AJ, Sobie SR, Murdock TO (2015) Bias correction of GCM precipitation by Quantile Mapping: How well do methods
+#     preserve changes in quantiles and extremes?
+# Gennaretti F, Sangelantoni L, Grenier P (2015) Toward daily climate scenarios for Canadian Arctic coastal zones with
+#     more realistic temperature-precipitation interdependence. Journal of Geophysical Research: Atmospheres 120:11862–
+#     11877.
+#
 # Contributors:
 # 1. rousseau.yannick@ouranos.ca
 # 2. marc-andre.bourgault@ggr.ulaval.ca (original)

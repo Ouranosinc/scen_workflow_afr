@@ -41,9 +41,10 @@ from cl_constant import const as c
 from cl_context import cntx
 
 # Dashboard libraries.
-sys.path.append("dashboard")
-from dashboard.cl_rcp import RCP, RCPs
-from dashboard.cl_varidx import VarIdx
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard.cl_rcp import RCPs
+from scen_workflow_afr_dashboard.cl_sim import Sims
+from scen_workflow_afr_dashboard.cl_varidx import VarIdx, VarIdxs
 
 
 def gen():
@@ -64,148 +65,30 @@ def gen():
 
         fu.log("Selecting variables and indices.", True)
 
-        # Select required variables.
-        vi_code_l = []
-
-        # Temperature.
-        if idx.name in [c.I_TNX, c.I_TNG, c.I_TROPICAL_NIGHTS, c.I_TNG_MONTHS_BELOW, c.I_HEAT_WAVE_MAX_LENGTH,
-                        c.I_HEAT_WAVE_TOTAL_LENGTH, c.I_TGG, c.I_ETR, c.I_TN_DAYS_BELOW]:
-            vi_code_l.append(c.V_TASMIN)
-
-        if idx.name in [c.I_TX90P, c.I_TX_DAYS_ABOVE, c.I_HOT_SPELL_FREQUENCY, c.I_HOT_SPELL_MAX_LENGTH,
-                        c.I_HOT_SPELL_TOTAL_LENGTH, c.I_TXG, c.I_TXX, c.I_WSDI, c.I_HEAT_WAVE_MAX_LENGTH,
-                        c.I_HEAT_WAVE_TOTAL_LENGTH, c.I_TGG, c.I_ETR]:
-            vi_code_l.append(c.V_TASMAX)
-
-        # Precipitation.
-        if idx.name in [c.I_RX1DAY, c.I_RX5DAY, c.I_CWD, c.I_CDD, c.I_SDII, c.I_PRCPTOT, c.I_R10MM, c.I_R20MM,
-                        c.I_WET_DAYS, c.I_DRY_DAYS, c.I_RAIN_SEASON_START, c.I_RAIN_SEASON_END,
-                        c.I_RAIN_SEASON_PRCPTOT, c.I_RAIN_SEASON_LENGTH, c.I_DRY_SPELL_TOTAL_LENGTH, c.I_RAIN_SEASON]:
-
-            if idx.name != c.I_RAIN_SEASON_LENGTH:
-                vi_code_l.append(c.V_PR)
-
-            if idx.name in [c.I_RAIN_SEASON_END, c.I_RAIN_SEASON]:
-                if c.V_EVSPSBLPOT in cntx.vars.code_l:
-                    vi_code_l.append(c.V_EVSPSBLPOT)
-                elif c.V_EVSPSBL in cntx.vars.code_l:
-                    vi_code_l.append(c.V_EVSPSBL)
-                else:
-                    vi_code_l.append("nan")
-
-            if idx.name in [c.I_RAIN_SEASON_END, c.I_RAIN_SEASON_LENGTH, c.I_RAIN_SEASON_PRCPTOT]:
-                vi_code_l.append(idx.code.replace(idx.name, c.I_RAIN_SEASON_START))
-
-            if idx.name == c.I_RAIN_SEASON:
-                vi_code_l.append("nan")
-
-            if idx.name in [c.I_RAIN_SEASON_END, c.I_RAIN_SEASON]:
-                vi_code_l.append(str(idx.params[len(idx.params) - 1]))
-
-            if idx.name in [c.I_RAIN_SEASON_LENGTH, c.I_RAIN_SEASON_PRCPTOT]:
-                vi_code_l.append(idx.code.replace(idx.name, c.I_RAIN_SEASON_END))
-
-        # Temperature-precipitation.
-        if idx.name == c.I_DROUGHT_CODE:
-            vi_code_l.append(c.V_TAS)
-            vi_code_l.append(c.V_PR)
-
-        # Wind.
-        if idx.name == c.I_WG_DAYS_ABOVE:
-            vi_code_l.append(c.V_UAS)
-            vi_code_l.append(c.V_VAS)
-
-        elif idx.name == c.I_WX_DAYS_ABOVE:
-            vi_code_l.append(c.V_SFCWINDMAX)
-
         # Loop through stations.
-        stns = cntx.stns if not cntx.opt_ra else [cntx.obs_src]
+        stns = cntx.ens_ref_stns if cntx.ens_ref_grid == "" else [cntx.ens_ref_grid]
         for stn in stns:
-
-            # Verify if this variable or index is available for the current station.
-            fu.log("Verifying data availability (based on directories).", True)
-            vi_code_l_avail = True
-            for vi_code_i in vi_code_l:
-                if vi_code_i != "nan":
-                    ens = VarIdx(vi_code_i).ens
-                    if ((ens == c.ENS_CORDEX) and not os.path.isdir(cntx.d_scen(c.CAT_QQMAP, vi_code_i))) or\
-                       ((ens != c.ENS_CORDEX) and not os.path.isdir(cntx.d_idx(vi_code_i))):
-                        vi_code_l_avail = False
-                        break
-            if not vi_code_l_avail:
-                continue
 
             # Loop through emissions scenarios.
             for rcp in rcps.items:
 
-                fu.log("Processing: " + idx.code + ", " + stn + ", " + str(rcp.desc) + "", True)
+                fu.log("Processing: " + stn + ", " + idx.code + ", " + str(rcp.desc) + "", True)
 
-                # List simulation files for the first variable. As soon as there is no file for one variable, the
-                # analysis for the current RCP needs to abort.
-                fu.log("Collecting simulation files.", True)
-                varidx_0 = VarIdx(vi_code_l[0])
-                if rcp.code == c.REF:
-                    if varidx_0.is_var:
-                        p_sim_l = cntx.d_scen(c.CAT_OBS, vi_code_l[0]) + varidx_0.name + "_" + stn + c.F_EXT_NC
-                    else:
-                        p_sim_l = cntx.d_idx(vi_code_l[0]) + varidx_0.name + "_ref" + c.F_EXT_NC
-                    if type(p_sim_l) is str:
-                        p_sim_l = [p_sim_l]
-                else:
-                    if varidx_0.is_var:
-                        d = cntx.d_scen(c.CAT_QQMAP, vi_code_l[0])
-                    else:
-                        d = cntx.d_idx(vi_code_l[0])
-                    p_sim_l = glob.glob(d + "*_" + rcp.code + c.F_EXT_NC)
-                if not p_sim_l:
-                    continue
+                fu.log("Collecting simulation files and verifying data availability.", True)
 
-                # Remove simulations that are included in the exceptions lists.
-                p_sim_filter = []
-                for p in p_sim_l:
-                    found = False
-                    # List of simulation exceptions.
-                    for e in cntx.sim_excepts:
-                        if e.replace(c.F_EXT_NC, "") in p:
-                            found = True
-                            break
-                    # List of variable-simulation exceptions.
-                    for e in cntx.var_sim_excepts:
-                        if e.replace(c.F_EXT_NC, "") in p:
-                            found = True
-                            break
-                    # Add simulation.
-                    if not found:
-                        p_sim_filter.append(p)
-                p_sim_l = p_sim_filter
-
-                # Ensure that simulations are available for other variables than the first one.
-                fu.log("Verifying data availability (based on NetCDF files).", True)
-                if len(vi_code_l) > 1:
-                    p_sim_fix_l = []
-                    for p_sim_i in p_sim_l:
-                        missing = False
-                        for vi_code_j in vi_code_l[1:]:
-                            if vi_code_j != "nan":
-                                p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_i, vi_code_j, rcp.code)
-                                if not os.path.exists(p_sim_j):
-                                    missing = True
-                                    break
-                        if not missing:
-                            p_sim_fix_l.append(p_sim_i)
-                    p_sim_l = p_sim_fix_l
+                # List simulation files for the first variable.
+                sim_code_l = idx.list_simulations(rcp.code)
+                sims = Sims(sim_code_l)
+                n_sim = sims.count
 
                 # Calculation ------------------------------------------------------------------------------------------
 
                 fu.log("Calculating climate indices", True)
 
-                n_sim = len(p_sim_l)
-                d_idx = cntx.d_idx(idx.code)
-
                 # Scalar mode.
                 if cntx.n_proc == 1:
                     for i_sim in range(n_sim):
-                        gen_single(idx, vi_code_l, p_sim_l, rcp, i_sim)
+                        gen_single(idx, sims, i_sim)
 
                 # Parallel processing mode.
                 else:
@@ -214,8 +97,8 @@ def gen():
                     while True:
 
                         # Calculate the number of processed files (before generation).
-                        # This verification is based on the index NetCDF file.
-                        n_sim_proc_before = len(list(glob.glob(d_idx + "*" + c.F_EXT_NC)))
+                        # This verification is based on the occurence of data files.
+                        n_sim_proc_before = len(list(glob.glob(cntx.p_idx(idx.code, idx.name, "*"))))
 
                         # Scalar processing mode.
                         scalar_required = False
@@ -223,7 +106,7 @@ def gen():
                             scalar_required = not str(idx.params[0]).isdigit()
                         if (cntx.n_proc == 1) or scalar_required:
                             for i_sim in range(n_sim):
-                                gen_single(idx, vi_code_l, p_sim_l, rcp, i_sim)
+                                gen_single(idx, sims, i_sim)
 
                         # Parallel processing mode.
                         else:
@@ -231,7 +114,7 @@ def gen():
                             try:
                                 fu.log("Splitting work between " + str(cntx.n_proc) + " threads.", True)
                                 pool = multiprocessing.Pool(processes=min(cntx.n_proc, n_sim))
-                                func = functools.partial(gen_single, idx, vi_code_l, p_sim_l, rcp)
+                                func = functools.partial(gen_single, idx, sims)
                                 pool.map(func, list(range(n_sim)))
                                 pool.close()
                                 pool.join()
@@ -241,7 +124,7 @@ def gen():
                                 pass
 
                         # Calculate the number of processed files (after generation).
-                        n_sim_proc_after = len(list(glob.glob(d_idx + "*" + c.F_EXT_NC)))
+                        n_sim_proc_after = len(list(glob.glob(cntx.p_idx(idx.code, idx.name, "*"))))
 
                         # If no simulation has been processed during a loop iteration, this means that the work is done.
                         if (cntx.n_proc == 1) or (n_sim_proc_before == n_sim_proc_after):
@@ -250,75 +133,72 @@ def gen():
 
 def gen_single(
     idx: VarIdx,
-    vi_code_l: [str],
-    p_sim_l: [str],
-    rcp: RCP,
+    sims: Sims,
     i_sim: int
 ):
 
     """
     --------------------------------------------------------------------------------------------------------------------
-    Converts observations to NetCDF.
+    Convert observations to data files.
 
     Parameters
     ----------
-    idx : VarIdx
+    idx: VarIdx
         Climate index.
-    vi_code_l : [str]
-        List of climate variables or indices.
-    p_sim_l : [str]
-        List of simulation files.
-    rcp : RCP
-        RCP emission scenario.
-    i_sim : int
+    sims: Sims
+        Simulations.
+    i_sim: int
         Rank of simulation in 'p_sim'.
     --------------------------------------------------------------------------------------------------------------------
     """
 
-    # Extract variable name
-    varidx_0 = VarIdx(vi_code_l[0])
-    vi_name_0 = str(varidx_0.name)
+    # Determine the required climate variables/indices (and first requirement).
+    varidx_req = VarIdxs(idx.requirements)
+    varidx_0 = varidx_req.items[0]
 
-    # Name of NetCDF file to generate.
-    if rcp.code == c.REF:
-        p_idx = cntx.d_idx(idx.code) + idx.name + "_ref" + c.F_EXT_NC
-    else:
-        p_idx = cntx.d_idx(idx.code) + os.path.basename(p_sim_l[i_sim]).replace(vi_name_0, idx.name)
+    # Simulation.
+    sim = sims.items[i_sim]
+
+    # Emission scenario.
+    rcp = sim.rcp if sim is not None else None
+    rcp_code = rcp.code if rcp is not None else ""
+
+    # Path of datset file to generate.
+    p_idx = cntx.p_idx(idx.code, idx.name, sim.code)
 
     # Exit loop if the file already exists (simulations files only; not reference file).
-    if (rcp.code != c.REF) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite):
+    if (rcp_code != c.REF) and not fu.gen_data(p_idx):
         if cntx.n_proc > 1:
             fu.log("Work done!", True)
         return
 
-    # Create mask.
-    da_mask = fu.create_mask(p_sim_l[0])
-
-    # Load datasets (one per variable or index).
+    # Load datasets (one per climate variable/index).
     ds_vi_l: List[xr.Dataset] = []
-    for i_varidx in range(0, len(vi_code_l)):
-        vi_code_i = vi_code_l[i_varidx]
-        varidx_i = VarIdx(idx.name)
-        if vi_code_i == "nan":
+    for varidx in varidx_req.items:
+
+        if varidx.code == "nan":
             continue
 
         try:
             # Open dataset.
-            p_sim_j = VarIdx(vi_code_l[0]).equi_path(p_sim_l[i_sim], vi_code_i, rcp.code)
-            ds = fu.open_netcdf(p_sim_j)
+            if varidx.is_var:
+                p_sim = cntx.p_scen(c.CAT_OBS if rcp_code == c.REF else c.CAT_QQMAP, varidx.name, sim.code)
+            else:
+                p_sim = cntx.p_idx(varidx.code, varidx.name, sim.code)
+            ds = fu.open_dataset(p_sim)
 
             # Remove February 29th and select reference period.
-            if (rcp.code == c.REF) and (varidx_i.ens == c.ENS_CORDEX):
+            if (rcp_code == c.REF) and (varidx.ens == c.ENS_CORDEX):
                 ds = wf_utils.remove_feb29(ds)
                 ds = wf_utils.sel_period(ds, cntx.per_ref)
 
             # Adjust temperature units.
-            if varidx_i.name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]:
-                if ds[vi_code_i].attrs[c.ATTRS_UNITS] == c.UNIT_K:
-                    ds[vi_code_i] = ds[vi_code_i] - c.d_KC
-                elif rcp.code == c.REF:
-                    ds[vi_code_i][c.ATTRS_UNITS] = c.UNIT_C
-                ds[vi_code_i].attrs[c.ATTRS_UNITS] = c.UNIT_C
+            if varidx.name in [c.V_TAS, c.V_TASMIN, c.V_TASMAX]:
+                if ds[varidx.name].attrs[c.ATTRS_UNITS] == c.UNIT_K:
+                    ds[varidx.name] = ds[varidx.name] - c.d_KC
+                elif rcp_code == c.REF:
+                    ds[varidx.name][c.ATTRS_UNITS] = c.UNIT_C
+                ds[varidx.name].attrs[c.ATTRS_UNITS] = c.UNIT_C
 
         except KeyError:
             ds = None
@@ -328,7 +208,7 @@ def gen_single(
 
     # Calculate the 90th percentile of tasmax for the reference period.
     da_tx90p = None
-    if (idx.name == c.I_WSDI) and (rcp.code == c.REF):
+    if (idx.name == c.I_WSDI) and (rcp_code == c.REF):
         da_tx90p = xr.DataArray(percentile_doy(ds_vi_l[0][c.V_TASMAX], per=0.9))
 
     # Merge threshold value and unit, if required. Ex: "0.0 C" for temperature.
@@ -348,7 +228,7 @@ def gen_single(
 
             if "p" in str(vi_param):
                 vi_param = float(vi_param.replace("p", ""))
-                if rcp.code == c.REF:
+                if rcp_code == c.REF:
                     # Calculate percentile.
                     if (idx.name in [c.I_TX90P, c.I_HOT_SPELL_FREQUENCY, c.I_HOT_SPELL_MAX_LENGTH,
                                      c.I_HOT_SPELL_TOTAL_LENGTH, c.I_WSDI]) or\
@@ -384,7 +264,7 @@ def gen_single(
            ((idx.name in [c.I_HEAT_WAVE_MAX_LENGTH, c.I_HEAT_WAVE_TOTAL_LENGTH]) and (i <= 1)):
             vi_ref = str(vi_param) + " " + c.UNIT_C
             vi_fut = str(vi_param + c.d_KC) + " " + c.UNIT_K
-            params_str.append(vi_ref if (rcp.code == c.REF) else vi_fut)
+            params_str.append(vi_ref if (rcp_code == c.REF) else vi_fut)
 
         elif idx.name in [c.I_CWD, c.I_CDD, c.I_R10MM, c.I_R20MM, c.I_WET_DAYS, c.I_DRY_DAYS, c.I_SDII]:
             params_str.append(str(vi_param) + " mm/day")
@@ -396,7 +276,7 @@ def gen_single(
             params_str.append(str(vi_param))
 
     # Exit loop if the file already exists (reference file only).
-    if not ((rcp.code == c.REF) and os.path.exists(p_idx) and (not cntx.opt_force_overwrite)):
+    if (rcp_code != c.REF) or fu.gen_data(p_idx):
 
         # Will hold data arrays and units.
         da_idx_l    = []
@@ -828,9 +708,14 @@ def gen_single(
                 da_idx = wf_utils.interpolate_na_fix(da_idx)
 
             # Sort dimensions to fit input data.
-            da_idx = wf_utils.standardize_netcdf(da_idx, template=ds_vi_l[0][varidx_0.name])
+            da_idx = wf_utils.standardize_dataset(da_idx, template=ds_vi_l[0][varidx_0.name])
 
             # Apply mask.
+            if varidx_0.is_var:
+                p_mask = cntx.p_scen(c.CAT_OBS if rcp_code == c.REF else c.CAT_QQMAP, varidx_0.name, sim.code)
+            else:
+                p_mask = cntx.p_idx(varidx_0.code, varidx_0.name, sim.code)
+            da_mask = fu.create_mask(p_mask)
             if da_mask is not None:
                 da_idx = wf_utils.apply_mask(da_idx, xr.DataArray(da_mask))
 
@@ -851,13 +736,13 @@ def gen_single(
         years = wf_utils.extract_date_field(ds_vi_l[0], "year")
         ds_idx[c.DIM_TIME] = wf_utils.reset_calendar(ds_idx, min(years), max(years), c.FREQ_YS)
 
-        # Save result to NetCDF file.
+        # Save dataset to file.
         desc = cntx.sep + idx.name + cntx.sep + os.path.basename(p_idx)
-        fu.save_netcdf(ds_idx, p_idx, desc=desc)
+        fu.save_dataset(ds_idx, p_idx, desc=desc)
 
     # Convert percentile threshold values for climate indices. This is sometimes required in time series.
-    if (rcp.code == c.REF) and (idx.name == c.I_PRCPTOT):
-        ds_idx = fu.open_netcdf(p_idx)
+    if (rcp_code == c.REF) and (idx.name == c.I_PRCPTOT):
+        ds_idx = fu.open_dataset(p_idx)
         da_idx = ds_idx.mean(dim=[c.DIM_LONGITUDE, c.DIM_LATITUDE])[idx.name]
         param_pr = params_str[0]
         if "p" in str(param_pr):
@@ -2201,20 +2086,23 @@ def gen_per_idx(
     --------------------------------------------------------------------------------------------------------------------
     """
 
+    # Climate indies to analyze.
+    varidxs = cntx.idxs
+
     # Number of indices to process.
-    n_idx = len(cntx.idxs.code_l)
+    n_idx = varidxs.count
 
     # Scalar mode.
     if (cntx.n_proc == 1) or (n_idx < 2):
         for i_idx in range(n_idx):
             if func_name == "stats.calc_map":
-                stats.calc_map(cntx.idxs.code_l, i_idx)
+                stats.calc_map(varidxs, i_idx)
             elif func_name == "stats.calc_ts":
-                stats.calc_ts(view_code, cntx.idxs.code_l, i_idx)
+                stats.calc_ts(view_code, varidxs, i_idx)
             elif func_name == "stats.calc_taylor":
-                stats.calc_taylor(cntx.idxs.code_l, i_idx)
+                stats.calc_taylor(varidxs, i_idx)
             else:
-                stats.calc_tbl(cntx.idxs.code_l, i_idx)
+                stats.calc_tbl(varidxs, i_idx)
 
     # Parallel processing mode.
     else:
@@ -2223,22 +2111,22 @@ def gen_per_idx(
 
             # Select indices to process in the current loop.
             i_first = i * cntx.n_proc
-            n_proc = min(cntx.n_proc, n_idx)
-            i_last = i_first + n_proc - 1
-            idx_codes = cntx.idxs.code_l[i_first:(i_last + 1)]
+            n_proc  = min(cntx.n_proc, n_idx)
+            i_last  = i_first + n_proc - 1
+            varidxs = VarIdxs(cntx.idxs.code_l[i_first:(i_last + 1)])
 
             try:
                 fu.log("Splitting work between " + str(n_proc) + " threads.", True)
                 pool = multiprocessing.Pool(processes=n_proc)
                 if func_name == "stats.calc_map":
-                    func = functools.partial(stats.calc_map, idx_codes)
+                    func = functools.partial(stats.calc_map, cntx.ens_ref_grid, varidxs)
                 elif func_name == "stats.calc_ts":
-                    func = functools.partial(stats.calc_ts, view_code, idx_codes)
+                    func = functools.partial(stats.calc_ts, view_code, varidxs)
                 elif func_name == "stats.calc_taylor":
-                    func = functools.partial(stats.calc_taylor, idx_codes)
+                    func = functools.partial(stats.calc_taylor, varidxs)
                 else:
-                    func = functools.partial(stats.calc_tbl, idx_codes)
-                pool.map(func, list(range(len(idx_codes))))
+                    func = functools.partial(stats.calc_tbl, varidxs)
+                pool.map(func, list(range(varidxs.count)))
                 pool.close()
                 pool.join()
                 fu.log("Fork ended.", True)
@@ -2270,8 +2158,8 @@ def run():
         fu.log(msg + not_req)
 
     fu.log("-")
-    msg = "Step #7   Converting NetCDF to CSV files (indices)"
-    if cntx.export_nc_to_csv[1] and not cntx.opt_ra:
+    msg = "Step #7   Exporting data to CSV files (indices)"
+    if cntx.export_data_to_csv[1] and (cntx.ens_ref_grid == ""):
         fu.log(msg)
         fu.log("-")
         stats.conv_nc_csv(c.CAT_IDX)
@@ -2300,7 +2188,7 @@ def run():
     # Generate maps.
     fu.log("-")
     msg = "Step #8e  Generating maps (indices)"
-    if cntx.opt_ra and cntx.opt_map[1] and (len(cntx.opt_map_format) > 0):
+    if (cntx.ens_ref_grid != "") and cntx.opt_map[1] and (len(cntx.opt_map_format) > 0):
         fu.log(msg)
         gen_per_idx("stats.calc_map")
     else:
