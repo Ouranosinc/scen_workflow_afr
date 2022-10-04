@@ -717,7 +717,7 @@ def gen_map_stations(
         if method_id == "wmo":
             param_per_l = [11, 5]
         elif method_id == "pct":
-            param_per_l = [0.27]
+            param_per_l = [0.35]
 
     # Generate figure.
     if (p_fig != "") and\
