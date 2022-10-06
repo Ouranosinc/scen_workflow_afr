@@ -17,6 +17,7 @@ import numpy as np
 import os
 import pandas as pd
 import shutil
+import sys
 import xarray as xr
 import xarray.core.variable as xcv
 import xesmf as xe
@@ -28,6 +29,10 @@ from typing import Union, List, Optional
 import wf_utils
 from cl_constant import const as c
 from cl_context import cntx
+
+# Dashboard libraries.
+sys.path.append("scen_workflow_afr_dashboard")
+from scen_workflow_afr_dashboard import dash_plot, cl_delta, cl_hor, cl_lib, cl_rcp, cl_varidx, cl_view
 
 
 def info_cordex():
@@ -554,9 +559,6 @@ def grid_transform(
     if maps_required:
 
         # Update context.
-        import sys
-        sys.path.append("dashboard")
-        from dashboard import dash_plot, cl_delta, cl_hor, cl_lib, cl_rcp, cl_varidx, cl_view
         cntx.lib = cl_lib.Lib(c.LIB_HV)
         cntx.delta = cl_delta.Delta("False")
         cntx.hor = cl_hor.Hor(cntx.per_ref)
